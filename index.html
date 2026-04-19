@@ -2458,12 +2458,14 @@
       </div>
 
       <!-- ── PLATFORM TAB BAR ── -->
-      <div id="platTabBar" style="display:flex;gap:0;flex-wrap:wrap;border-bottom:2px solid var(--border);margin-bottom:1.5rem;background:var(--surface);border-radius:10px 10px 0 0;overflow:hidden">
-        <button class="plat-tab-btn" onclick="openPlatTab('platTab-schools',this)" style="flex:1;min-width:90px;padding:.7rem .5rem;border:none;cursor:pointer;font-size:.82rem;font-weight:700;background:var(--primary,#4f7cff);color:#fff;border-bottom:3px solid var(--primary,#4f7cff);transition:all .15s;white-space:nowrap">🏫 Schools</button>
-        <button class="plat-tab-btn" onclick="openPlatTab('platTab-exams',this)" style="flex:1;min-width:90px;padding:.7rem .5rem;border:none;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);border-bottom:3px solid transparent;transition:all .15s;white-space:nowrap">📝 Exams &amp; Papers</button>
-        <button class="plat-tab-btn" onclick="openPlatTab('platTab-access',this)" style="flex:1;min-width:90px;padding:.7rem .5rem;border:none;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);border-bottom:3px solid transparent;transition:all .15s;white-space:nowrap">🔒 Access Control</button>
-        <button class="plat-tab-btn" onclick="openPlatTab('platTab-broadcast',this)" style="flex:1;min-width:90px;padding:.7rem .5rem;border:none;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);border-bottom:3px solid transparent;transition:all .15s;white-space:nowrap">📢 Broadcast</button>
-        <button class="plat-tab-btn" onclick="openPlatTab('platTab-system',this)" style="flex:1;min-width:90px;padding:.7rem .5rem;border:none;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);border-bottom:3px solid transparent;transition:all .15s;white-space:nowrap">⚙️ System</button>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:1.5rem;border-bottom:2px solid var(--border);border-radius:10px 10px 0 0;background:var(--surface)">
+        <div id="platTabBar" style="display:flex;gap:0;min-width:max-content">
+          <button class="plat-tab-btn" onclick="openPlatTab('platTab-schools',this)" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid var(--primary,#4f7cff);cursor:pointer;font-size:.82rem;font-weight:700;background:var(--primary,#4f7cff);color:#fff;transition:all .15s;white-space:nowrap;flex-shrink:0">🏫 Schools</button>
+          <button class="plat-tab-btn" onclick="openPlatTab('platTab-exams',this)" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0">📝 Exams &amp; Papers</button>
+          <button class="plat-tab-btn" onclick="openPlatTab('platTab-access',this)" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0">🔒 Access Control</button>
+          <button class="plat-tab-btn" onclick="openPlatTab('platTab-broadcast',this)" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0">📢 Broadcast</button>
+          <button class="plat-tab-btn" onclick="openPlatTab('platTab-system',this)" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0">⚙️ System</button>
+        </div>
       </div>
 
       <!-- ══════════════════════════════════════════════ -->

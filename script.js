@@ -1105,10 +1105,12 @@ function openPlatTab(tabId, btn) {
   const panel = document.getElementById(tabId);
   if (panel) panel.style.display = '';
   if (btn) {
-    btn.style.background = 'var(--bg)';
-    btn.style.color = 'var(--primary, #4f7cff)';
+    btn.style.background = 'var(--primary, #4f7cff)';
+    btn.style.color = '#fff';
     btn.style.borderBottom = '3px solid var(--primary, #4f7cff)';
     btn.style.fontWeight = '700';
+    // Scroll the active tab into view on mobile
+    btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }
 }
 
@@ -2679,6 +2681,10 @@ function launchApp() {
 
   // Apply teacher-specific UI restrictions
   applyRoleBasedUI();
+
+  // Guest is fully handled inside applyGuestRoleUI (called from applyRoleBasedUI).
+  // Return here so launchApp() does NOT override guest nav restrictions with go('dashboard').
+  if (currentUser && currentUser.role === 'guest') return;
 
   // Exam Builder: visible to admins, principals and teachers (all roles)
   const ebLink = document.getElementById('examBuilderNavLink');
