@@ -327,6 +327,7 @@
           <div id="dashRecentExams"></div>
         </div>
       </div>
+      <div id="dashMissingMarksPanel"></div>
     </section>
 
     <!-- ════ EXAMS ════ -->
@@ -583,6 +584,7 @@
           <div style="display:flex;gap:.75rem;margin-top:.75rem;flex-wrap:wrap">
             <button class="btn btn-outline" id="umDownloadSingle" onclick="downloadMarksTemplate()">⬇ Single-Subject Template</button>
             <button class="btn btn-outline" id="umDownloadAll" onclick="downloadAllSubjectsTemplate()">⬇ All-Subjects Template</button>
+            <button class="btn btn-outline" id="umDownloadRaw" onclick="adminDownloadRawMarks(document.getElementById('umExam').value||undefined)" style="display:none;margin-left:auto;border-color:#0d9488;color:#0d9488">⬇ Download Raw Marks</button>
           </div>
         </div>
 
@@ -593,6 +595,7 @@
             <div style="display:flex;gap:.75rem;flex-wrap:wrap">
               <button class="btn btn-outline btn-sm" onclick="saveAllMarks()">💾 Save All</button>
               <button class="btn btn-outline btn-sm" onclick="exportMarksExcel()">⬇ Excel</button>
+              <button class="btn btn-outline btn-sm" id="umManualRawDownload" onclick="adminDownloadRawMarks(document.getElementById('umExam').value||undefined)" style="display:none;border-color:#0d9488;color:#0d9488">⬇ Raw Marks</button>
             </div>
           </div>
           <p style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem">💡 Press <kbd>Enter</kbd> or <kbd>Tab</kbd> to move to next student. Marks auto-save as you type.</p>
