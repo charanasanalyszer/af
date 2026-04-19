@@ -2778,3 +2778,37 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
     grid-template-columns: 1fr;
   }
 }
+
+/* ══════════════════════════════════════════════════════════
+   FIX: Remove gap between topbar and page content
+   The .ph div is always the structural :first-child but is
+   hidden, so :first-child margin rule doesn't help the real
+   first visible element. Target it with adjacent sibling.
+   ══════════════════════════════════════════════════════════ */
+
+/* Zero out margin on the first real element after the hidden .ph */
+.sec > .ph + * {
+  margin-top: 0 !important;
+}
+
+/* Timetable has a <style> block between .ph and #es-app */
+#s-timetable > style,
+#s-timetable > #es-app {
+  margin-top: 0 !important;
+}
+
+/* Ensure all section first visible children have no top gap */
+#s-classes > .grid-2,
+#s-subjects > .card,
+#s-teachers > .card,
+#s-platform > div,
+#s-exambuilder > .tab-bar,
+#s-papers > .tab-bar,
+#s-settings > .sec-stack,
+#s-messaging > .sec-stack,
+#s-fees > div,
+#s-reports > .card,
+#s-exams > .tab-bar,
+#s-dashboard > .stat-row {
+  margin-top: 0 !important;
+}
