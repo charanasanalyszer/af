@@ -2878,6 +2878,48 @@
         </div>
       </div>
 
+      <!-- ── Theme Colors ── -->
+      <div class="card" style="border-left:4px solid var(--primary);margin-bottom:1.5rem" id="themeCard">
+        <h3>🎨 Theme Colors</h3>
+        <p style="font-size:.82rem;color:var(--muted);margin-bottom:1.4rem">Customize the color scheme across the entire platform. Changes apply instantly for all users.</p>
+
+        <!-- Accent / Primary -->
+        <div class="theme-group">
+          <div class="theme-group-label">🔵 Accent &amp; Buttons</div>
+          <div class="theme-swatches" id="tg-primary"></div>
+        </div>
+
+        <!-- Green family -->
+        <div class="theme-group">
+          <div class="theme-group-label">🟢 Green &amp; Teal</div>
+          <div class="theme-swatches" id="tg-green"></div>
+        </div>
+
+        <!-- Red family -->
+        <div class="theme-group">
+          <div class="theme-group-label">🔴 Red &amp; Danger</div>
+          <div class="theme-swatches" id="tg-red"></div>
+        </div>
+
+        <!-- Yellow family -->
+        <div class="theme-group">
+          <div class="theme-group-label">🟡 Yellow &amp; Amber</div>
+          <div class="theme-swatches" id="tg-yellow"></div>
+        </div>
+
+        <!-- Toggle / On-Off -->
+        <div class="theme-group">
+          <div class="theme-group-label">✅ On / Off Toggles</div>
+          <div class="theme-swatches" id="tg-toggle"></div>
+        </div>
+
+        <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border)">
+          <button class="btn btn-primary btn-sm" onclick="themeSave()">💾 Save Theme</button>
+          <button class="btn btn-outline btn-sm" onclick="themeReset()">↺ Reset to Default</button>
+          <span id="themeStatus" style="font-size:.82rem"></span>
+        </div>
+      </div>
+
       <!-- ── Contact Us Floating Buttons Settings ── -->
       <div class="card" style="border-left:4px solid #25d366;margin-bottom:1.5rem">
         <h3>📞 Contact Us — Floating Buttons</h3>

@@ -9444,7 +9444,7 @@ function go(sec, el) {
   if (sec === 'fees')       { initFeesSection(); }
   if (sec === 'papers')     { initPapersSection(); }
   if (sec === 'settings')   { renderTeacherPreferences(); }
-  if (sec === 'platform')   { renderPlatformDashboard(); _navCfgMode='global'; navCfgSwitchMode('global'); platRenderNavConfig(); platLoadContactInputs(); /* Activate first platform tab */ openPlatTab('platTab-schools', document.querySelector('#platTabBar .plat-tab-btn')); }
+  if (sec === 'platform')   { renderPlatformDashboard(); _navCfgMode='global'; navCfgSwitchMode('global'); platRenderNavConfig(); platLoadContactInputs(); themeRenderSwatches(); /* Activate first platform tab */ openPlatTab('platTab-schools', document.querySelector('#platTabBar .plat-tab-btn')); }
   if (sec === 'livechat')   { initLiveChatSection(); }
   if (sec === 'exambuilder') { /* handled by EB module DOMContentLoaded wrapper */ }
   if (sec === 'timetable')  {
@@ -15609,3 +15609,172 @@ function lcInitAfterLogin() {
     if (widget) widget.style.display = '';
   }
 }
+
+// ══════════════════════════════════════════════════════
+// THEME COLOR ENGINE
+// ══════════════════════════════════════════════════════
+const THEME_KEY = 'ei_theme_v1';
+
+const THEME_PALETTES = {
+  primary: [
+    { name: 'Default', id: 'p-default',   base:'#7c3aed', dk:'#5b21b6', lt:'#ede9fe', btn:'#1a6fb5' },
+    { name: 'Sky Blue',id: 'p-skyblue',   base:'#0284c7', dk:'#0369a1', lt:'#e0f2fe', btn:'#0284c7' },
+    { name: 'Indigo',  id: 'p-indigo',    base:'#4f46e5', dk:'#4338ca', lt:'#e0e7ff', btn:'#4f46e5' },
+    { name: 'Cobalt',  id: 'p-cobalt',    base:'#1d4ed8', dk:'#1e40af', lt:'#dbeafe', btn:'#1d4ed8' },
+    { name: 'Pink',    id: 'p-pink',      base:'#db2777', dk:'#be185d', lt:'#fce7f3', btn:'#db2777' },
+    { name: 'Slate',   id: 'p-slate',     base:'#475569', dk:'#334155', lt:'#f1f5f9', btn:'#475569' },
+  ],
+  green: [
+    { name: 'Emerald', id: 'g-emerald',   base:'#10b981', dk:'#059669', lt:'#d1fae5' },
+    { name: 'Forest',  id: 'g-forest',    base:'#16a34a', dk:'#15803d', lt:'#dcfce7' },
+    { name: 'Lime',    id: 'g-lime',      base:'#65a30d', dk:'#4d7c0f', lt:'#ecfccb' },
+    { name: 'Teal',    id: 'g-teal',      base:'#0d9488', dk:'#0f766e', lt:'#ccfbf1' },
+    { name: 'Cyan',    id: 'g-cyan',      base:'#0891b2', dk:'#0e7490', lt:'#cffafe' },
+    { name: 'Mint',    id: 'g-mint',      base:'#2dd4bf', dk:'#14b8a6', lt:'#f0fdfa' },
+  ],
+  red: [
+    { name: 'Crimson', id: 'r-crimson',   base:'#dc2626', dk:'#b91c1c', lt:'#fee2e2' },
+    { name: 'Rose',    id: 'r-rose',      base:'#e11d48', dk:'#be123c', lt:'#ffe4e6' },
+    { name: 'Ruby',    id: 'r-ruby',      base:'#be123c', dk:'#9f1239', lt:'#fff1f2' },
+    { name: 'Coral',   id: 'r-coral',     base:'#f43f5e', dk:'#e11d48', lt:'#fff1f2' },
+    { name: 'Tomato',  id: 'r-tomato',    base:'#ef4444', dk:'#dc2626', lt:'#fef2f2' },
+  ],
+  yellow: [
+    { name: 'Amber',   id: 'y-amber',     base:'#d97706', dk:'#b45309', lt:'#fef3c7' },
+    { name: 'Gold',    id: 'y-gold',      base:'#ca8a04', dk:'#a16207', lt:'#fefce8' },
+    { name: 'Lemon',   id: 'y-lemon',     base:'#eab308', dk:'#ca8a04', lt:'#fefce8' },
+    { name: 'Orange',  id: 'y-orange',    base:'#ea580c', dk:'#c2410c', lt:'#ffedd5' },
+    { name: 'Saffron', id: 'y-saffron',   base:'#f59e0b', dk:'#d97706', lt:'#fffbeb' },
+  ],
+  toggle: [
+    { name: 'Purple',  id: 't-purple',    base:'#7c3aed', dk:'#5b21b6', lt:'#ede9fe' },
+    { name: 'Green',   id: 't-green',     base:'#16a34a', dk:'#15803d', lt:'#dcfce7' },
+    { name: 'Blue',    id: 't-blue',      base:'#2563eb', dk:'#1d4ed8', lt:'#dbeafe' },
+    { name: 'Teal',    id: 't-teal',      base:'#0d9488', dk:'#0f766e', lt:'#ccfbf1' },
+    { name: 'Pink',    id: 't-pink',      base:'#db2777', dk:'#be185d', lt:'#fce7f3' },
+  ],
+};
+
+const THEME_DEFAULTS = { primary:'p-default', green:'g-forest', red:'r-crimson', yellow:'y-amber', toggle:'t-purple' };
+
+function themeLoad() { try { return JSON.parse(localStorage.getItem(THEME_KEY)) || {}; } catch { return {}; } }
+function themeSaveData(d) { localStorage.setItem(THEME_KEY, JSON.stringify(d)); }
+
+function themeGetPalette(group, id) {
+  return THEME_PALETTES[group].find(p => p.id === id);
+}
+
+function themeApply(cfg) {
+  cfg = cfg || themeLoad();
+  let style = document.getElementById('ei-theme-override');
+  if (!style) { style = document.createElement('style'); style.id = 'ei-theme-override'; document.head.appendChild(style); }
+
+  const sel = {
+    primary: cfg.primary || THEME_DEFAULTS.primary,
+    green:   cfg.green   || THEME_DEFAULTS.green,
+    red:     cfg.red     || THEME_DEFAULTS.red,
+    yellow:  cfg.yellow  || THEME_DEFAULTS.yellow,
+    toggle:  cfg.toggle  || THEME_DEFAULTS.toggle,
+  };
+
+  const p  = themeGetPalette('primary', sel.primary);
+  const g  = themeGetPalette('green',   sel.green);
+  const r  = themeGetPalette('red',     sel.red);
+  const y  = themeGetPalette('yellow',  sel.yellow);
+  const t  = themeGetPalette('toggle',  sel.toggle);
+
+  const isDefault = sel.primary === 'p-default' && sel.green === 'g-forest' &&
+                    sel.red === 'r-crimson' && sel.yellow === 'y-amber' && sel.toggle === 't-purple';
+
+  if (isDefault) { style.textContent = ''; return; }
+
+  style.textContent = `
+    :root {
+      --primary:      ${p.base};
+      --primary-dk:   ${p.dk};
+      --primary-lt:   ${p.lt};
+      --secondary:    ${g.base};
+      --secondary-dk: ${g.dk};
+      --secondary-lt: ${g.lt};
+      --teal:         ${g.base};
+      --teal-lt:      ${g.lt};
+      --cyan:         ${g.base};
+      --cyan-lt:      ${g.lt};
+      --success:      ${g.base};
+      --danger:       ${r.base};
+      --red:          ${r.base};
+      --red-lt:       ${r.lt};
+      --warning:      ${y.base};
+      --amber:        ${y.base};
+      --amber-lt:     ${y.lt};
+      --orange:       ${y.base};
+      --orange-lt:    ${y.lt};
+    }
+    .btn-primary { background: ${p.btn || p.base} !important; }
+    .btn-primary:hover { background: ${p.dk} !important; }
+    input[type=checkbox]:checked + .toggle-pill { background: ${t.base} !important; }
+    .toggle-pill.on { background: ${t.base} !important; }
+    .lang-btn.active { background: ${p.base}; box-shadow: 0 1px 4px ${p.base}55; }
+    .tb.active { color: ${p.base}; border-bottom-color: ${p.base}; background: ${p.lt}; }
+    .sn.active { background: ${p.btn || p.base} !important; }
+    .fc-call { background: ${p.base} !important; }
+  `;
+}
+
+function themeRenderSwatches() {
+  const cfg = themeLoad();
+  const sel = {
+    primary: cfg.primary || THEME_DEFAULTS.primary,
+    green:   cfg.green   || THEME_DEFAULTS.green,
+    red:     cfg.red     || THEME_DEFAULTS.red,
+    yellow:  cfg.yellow  || THEME_DEFAULTS.yellow,
+    toggle:  cfg.toggle  || THEME_DEFAULTS.toggle,
+  };
+
+  function render(containerId, group, cfgKey) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = THEME_PALETTES[group].map(p => `
+      <div class="theme-swatch ${sel[cfgKey]===p.id?'active':''}" onclick="themePickColor('${cfgKey}','${p.id}')" title="${p.name}">
+        <div class="theme-swatch-dot" style="background:${p.base}"></div>
+        <div class="theme-swatch-name">${p.name}</div>
+      </div>`).join('');
+  }
+
+  render('tg-primary', 'primary', 'primary');
+  render('tg-green',   'green',   'green');
+  render('tg-red',     'red',     'red');
+  render('tg-yellow',  'yellow',  'yellow');
+  render('tg-toggle',  'toggle',  'toggle');
+}
+
+function themePickColor(cfgKey, paletteId) {
+  const cfg = themeLoad();
+  cfg[cfgKey] = paletteId;
+  themeSaveData(cfg);
+  themeApply(cfg);
+  themeRenderSwatches();
+}
+
+function themeSave() {
+  const st = document.getElementById('themeStatus');
+  if (st) { st.textContent = '✅ Theme saved!'; st.style.color = '#16a34a'; setTimeout(()=>{ st.textContent=''; },2500); }
+  if (typeof showToast === 'function') showToast('Theme saved ✓','success');
+}
+
+function themeReset() {
+  localStorage.removeItem(THEME_KEY);
+  themeApply({});
+  themeRenderSwatches();
+  const st = document.getElementById('themeStatus');
+  if (st) { st.textContent = '↺ Reset to default'; st.style.color = 'var(--muted)'; setTimeout(()=>{ st.textContent=''; },2000); }
+}
+
+// Boot: apply saved theme on load
+(function() {
+  const saved = themeLoad();
+  if (Object.keys(saved).length) themeApply(saved);
+  document.addEventListener('DOMContentLoaded', function() {
+    themeApply(themeLoad());
+  });
+})();
