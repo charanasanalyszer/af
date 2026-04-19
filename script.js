@@ -6409,6 +6409,35 @@ function downloadAllReportsPDF() {
 }
 
 
+/* =====================================================
+   EDUSCHEDULE — GLOBAL STATE & CONSTANTS
+   (Declarations were missing; added here to fix
+    timetable generation and all dependent functions)
+===================================================== */
+const ES_DB_KEY = 'eduschedule_v1';
+
+const ES_DAY_NAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+let es_initialized = false;
+
+let es_state = {
+  school: {
+    name: '',
+    daysPerWeek: 5,
+    lessonsPerDay: 9,
+    lessonDuration: 40,
+    schoolStart: '07:30',
+    breaks: []
+  },
+  classes:   [],
+  subjects:  [],
+  teachers:  [],
+  rooms:     [],
+  timetable: {},
+  _streamAssignments: [],
+  _streamTeachers:    {}
+};
+
 function es_initApp() {
   if (!es_initialized) {
     es_initialized = true;
