@@ -15709,6 +15709,9 @@ function themeApply(cfg) {
       --amber-lt:     ${y.lt};
       --orange:       ${y.base};
       --orange-lt:    ${y.lt};
+      --toggle:       ${t.base};
+      --toggle-dk:    ${t.dk};
+      --toggle-lt:    ${t.lt};
     }
     .btn-primary { background: ${p.btn || p.base} !important; }
     .btn-primary:hover { background: ${p.dk} !important; }
@@ -15776,5 +15779,6 @@ function themeReset() {
   if (Object.keys(saved).length) themeApply(saved);
   document.addEventListener('DOMContentLoaded', function() {
     themeApply(themeLoad());
+    themeRenderSwatches();
   });
 })();
