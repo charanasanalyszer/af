@@ -1062,22 +1062,17 @@ function finishGuestLogin(school) {
 
 function applyGuestRoleUI() {
   if (!currentUser || currentUser.role !== 'guest') return;
-  // Hide almost everything
-  const allowed = ['exambuilder','papers'];
-  ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','messaging','settings','platform'].forEach(sec => {
+  // Guest sees ONLY Exam Builder — nothing else
+  ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','messaging','settings','platform','papers'].forEach(sec => {
     const el = document.querySelector(`[data-s="${sec}"]`); if (el) el.style.display = 'none';
   });
-  allowed.forEach(sec => {
-    const el = document.querySelector(`[data-s="${sec}"]`); if (el) el.style.display = '';
-  });
+  const ebEl = document.querySelector('[data-s="exambuilder"]');
+  if (ebEl) ebEl.style.display = '';
   // Update topbar user label
   const tbUser = document.getElementById('tbUser');
   if (tbUser) tbUser.innerHTML = '👤 Guest <span style="font-size:.72rem;background:rgba(124,58,237,.15);color:#7c3aed;border-radius:99px;padding:.1rem .5rem;font-weight:700;margin-left:.35rem">GUEST</span>';
-  // Jump to exambuilder by default
-  const ebLink = document.querySelector('[data-s="exambuilder"]');
-  go('exambuilder', ebLink);
-  // Hide upload card in papers (guest cannot upload)
-  const termlyUpload = document.getElementById('termlyUploadCard'); if (termlyUpload) termlyUpload.style.display='none';
+  // Jump to exambuilder
+  go('exambuilder', document.querySelector('[data-s="exambuilder"]'));
   // Show fee notice on export button
   updateExamDlFeeNotice();
 }
