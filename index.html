@@ -276,6 +276,11 @@
   </div>
 
   <!-- MAIN -->
+  <!-- Lite Mode Banner -->
+  <div id="liteModeBanner" style="display:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:.4rem 1.25rem;align-items:center;gap:.75rem;font-size:.8rem;font-weight:600;flex-shrink:0;position:fixed;top:var(--tb-h,52px);left:0;right:0;z-index:39;box-shadow:0 2px 8px rgba(0,0,0,.15)">
+    <span style="font-size:1rem">⚡</span>
+    <span>Congestion Lite Mode is active — some features are temporarily restricted to keep the system running smoothly.</span>
+  </div>
   <main class="main" id="mainContent">
     <!-- ══ PLATFORM BROADCAST BANNER ══ -->
     <div id="platformBroadcastBanner" style="display:none;background:linear-gradient(135deg,#1e40af,#7c3aed);color:#fff;padding:.65rem 1.25rem;border-radius:10px;margin-bottom:1rem;align-items:flex-start;gap:.75rem">
@@ -2750,6 +2755,17 @@
       <!-- TAB 5: SYSTEM                                 -->
       <!-- ══════════════════════════════════════════════ -->
       <div id="platTab-system" class="plat-tab-panel" style="display:none">
+
+        <!-- ⚡ Congestion Lite Mode -->
+        <div class="card" style="border-left:4px solid #f59e0b;margin-bottom:1.5rem" id="liteModeCard">
+          <h3>⚡ Congestion / Lite Mode</h3>
+          <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">
+            Enable this during high-traffic periods. Schools will be forced into <strong>light mode</strong> and only the modules you select will be accessible — heavy UI elements like themes, dark mode and color pickers are hidden to reduce load.
+          </p>
+          <div id="liteModeConfigRoot">
+            <p style="color:var(--muted);font-size:.83rem">Loading…</p>
+          </div>
+        </div>
 
         <!-- Change Platform Password -->
         <div class="card" style="margin-bottom:1.5rem">

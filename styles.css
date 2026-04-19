@@ -3005,3 +3005,76 @@ input[type=checkbox]:checked + .toggle-pill .toggle-knob { left: 23px; }
   letter-spacing: .05em;
   margin-bottom: .55rem;
 }
+
+/* ═══════════════════════════════════════════════════════
+   CONGESTION / LITE MODE UI
+   ═══════════════════════════════════════════════════════ */
+
+/* Lite mode active banner shift for main content */
+body.lite-mode-active .main {
+  margin-top: calc(var(--tb-h, 52px) + 34px) !important;
+  height: calc(100vh - var(--tb-h, 52px) - 34px) !important;
+}
+
+/* Toggle row header */
+.lite-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .85rem 1rem;
+  background: rgba(245,158,11,.07);
+  border: 1px solid rgba(245,158,11,.3);
+  border-radius: 10px;
+  margin-bottom: .25rem;
+}
+
+/* Active banner */
+.lite-active-badge {
+  background: rgba(245,158,11,.15);
+  border: 1.5px solid rgba(245,158,11,.5);
+  border-radius: 8px;
+  padding: .45rem .85rem;
+  font-size: .8rem;
+  font-weight: 700;
+  color: #92400e;
+  margin-top: .6rem;
+}
+.dark .lite-active-badge { color: #fcd34d; }
+
+/* Module selection grid */
+.lite-mod-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: .5rem;
+}
+
+.lite-mod-row {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  padding: .55rem .75rem;
+  border: 1.5px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+  user-select: none;
+}
+.lite-mod-row:hover { background: var(--bg); }
+.lite-mod-row input[type="checkbox"] { accent-color: var(--primary); width: 15px; height: 15px; flex-shrink: 0; }
+.lite-mod-row.lite-mod-off { opacity: .45; }
+.lite-mod-icon { font-size: 1rem; flex-shrink: 0; }
+.lite-mod-label { font-size: .82rem; font-weight: 600; flex: 1; }
+.lite-mod-badge {
+  font-size: .65rem;
+  font-weight: 700;
+  padding: .1rem .4rem;
+  border-radius: 99px;
+  background: rgba(16,185,129,.12);
+  color: #065f46;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.lite-mod-row.lite-mod-off .lite-mod-badge { background: var(--border); color: var(--muted); }
+.dark .lite-mod-badge { background: rgba(16,185,129,.2); color: #6ee7b7; }

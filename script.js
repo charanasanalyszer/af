@@ -1161,6 +1161,8 @@ function guestShowTab(which) {
 // ══════════════════════════════════════════════
 // ── Platform Admin Tab Switcher ──────────────────────────
 function openPlatTab(tabId, btn) {
+  // Refresh lite mode config when system tab opens
+  if (tabId === 'platTab-system') { setTimeout(platRenderLiteModeConfig, 50); }
   document.querySelectorAll('#s-platform .plat-tab-panel').forEach(p => { p.style.display = 'none'; });
   document.querySelectorAll('#platTabBar .plat-tab-btn').forEach(b => {
     b.style.background = 'var(--surface)';
@@ -1936,6 +1938,168 @@ async function platTestApiKey() {
 
 // ══ PLATFORM NAV & TAB VISIBILITY CONFIG ══
 const K_NAV_CONFIG = 'ei_platform_nav_config';
+// ═══════════════════════════════════════════════════════
+//  CONGESTION / LITE MODE
+//  Platform Admin can force all schools into a stripped-down
+//  light mode that only shows essential modules.
+// ═══════════════════════════════════════════════════════
+const K_LITE_MODE       = 'ei_platform_lite_mode';       // { enabled: bool, modules: {section: bool, ...} }
+
+// Default modules visible in lite mode
+const LITE_MODE_DEFAULTS = {
+  dashboard:   true,
+  students:    true,
+  teachers:    true,
+  classes:     true,
+  subjects:    true,
+  timetable:   true,
+  exams:       true,
+  reports:     true,
+  fees:        true,
+  papers:      false,
+  exambuilder: false,
+  messaging:   false,
+  settings:    true,
+};
+
+function loadLiteMode() {
+  try { return JSON.parse(localStorage.getItem(K_LITE_MODE)) || { enabled: false, modules: { ...LITE_MODE_DEFAULTS } }; }
+  catch { return { enabled: false, modules: { ...LITE_MODE_DEFAULTS } }; }
+}
+function saveLiteMode(cfg) {
+  localStorage.setItem(K_LITE_MODE, JSON.stringify(cfg));
+}
+function isLiteModeActive() {
+  return loadLiteMode().enabled === true;
+}
+
+/** Called at app startup — if lite mode is on, force light theme + restrict nav */
+function clearLiteModeUI() {
+  // Remove banner + body class when lite mode is not active
+  const banner = document.getElementById('liteModeBanner');
+  if (banner) banner.style.display = 'none';
+  document.body.classList.remove('lite-mode-active');
+  const tc = document.getElementById('themeCard');
+  if (tc) tc.style.display = '';
+  const darkBtn = document.getElementById('tbDarkBtn');
+  if (darkBtn) { darkBtn.disabled = false; darkBtn.title = 'Toggle dark mode'; darkBtn.style.opacity = ''; darkBtn.style.cursor = ''; }
+  const mbnDark = document.getElementById('mbnDarkBtn');
+  if (mbnDark) { mbnDark.disabled = false; mbnDark.style.opacity = ''; }
+}
+
+function applyLiteModeIfActive() {
+  const cfg = loadLiteMode();
+  if (!cfg.enabled) { clearLiteModeUI(); return; }
+
+  // 1. Force light mode — remove dark, disable toggle
+  applyDark(false);
+  const darkBtn = document.getElementById('tbDarkBtn');
+  if (darkBtn) { darkBtn.disabled = true; darkBtn.title = 'Dark mode disabled during congestion'; darkBtn.style.opacity = '.35'; darkBtn.style.cursor = 'not-allowed'; }
+  const mbnDark = document.getElementById('mbnDarkBtn');
+  if (mbnDark) { mbnDark.disabled = true; mbnDark.style.opacity = '.35'; }
+
+  // 2. Hide theme card in settings
+  const tc = document.getElementById('themeCard');
+  if (tc) tc.style.display = 'none';
+
+  // 3. Apply module restrictions from lite config
+  const allowed = cfg.modules || { ...LITE_MODE_DEFAULTS };
+  NAV_CONFIG_SCHEMA.forEach(sec => {
+    if (sec.section === 'dashboard') return; // always visible
+    const show = allowed[sec.section] !== false;
+    document.querySelectorAll('[data-s="' + sec.section + '"]').forEach(el => {
+      if (!show) el.style.display = 'none';
+    });
+  });
+
+  // 4. Show a banner so users know why features are limited
+  const banner = document.getElementById('liteModeBanner');
+  if (banner) banner.style.display = 'flex';
+
+  // 5. Push main content down to account for banner height
+  document.body.classList.add('lite-mode-active');
+}
+
+/** Render the lite mode config UI inside Platform Admin → System tab */
+function platRenderLiteModeConfig() {
+  const root = document.getElementById('liteModeConfigRoot');
+  if (!root) return;
+  const cfg = loadLiteMode();
+  const enabled = cfg.enabled;
+  const mods = cfg.modules || { ...LITE_MODE_DEFAULTS };
+
+  const rows = NAV_CONFIG_SCHEMA.map(sec => {
+    const checked = mods[sec.section] !== false ? 'checked' : '';
+    const recommended = LITE_MODE_DEFAULTS[sec.section] ? '✅' : '';
+    return `<label class="lite-mod-row${mods[sec.section] === false ? ' lite-mod-off' : ''}">
+      <input type="checkbox" class="lite-mod-cb" data-sec="${sec.section}" ${checked}
+        onchange="(function(cb){cb.closest('.lite-mod-row').classList.toggle('lite-mod-off',!cb.checked);})(this)"/>
+      <span class="lite-mod-icon">${sec.label.split(' ')[0]}</span>
+      <span class="lite-mod-label">${sec.label.replace(/^[^ ]+ /,'')}</span>
+      <span class="lite-mod-badge">${recommended ? 'Recommended' : 'Optional'}</span>
+    </label>`;
+  }).join('');
+
+  root.innerHTML = `
+    <div class="lite-toggle-row">
+      <div>
+        <div style="font-weight:700;font-size:.92rem">⚡ Congestion Lite Mode</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:.2rem">
+          When enabled, all schools are forced into <strong>light mode</strong> and only the modules you select below are accessible. Heavy features (dark mode, themes, color pickers) are hidden.
+        </div>
+      </div>
+      <div class="toggle-wrap">
+        <input type="checkbox" id="liteModeEnabledToggle" ${enabled ? 'checked' : ''} style="display:none" onchange="platToggleLiteMode(this.checked)">
+        <div class="toggle-pill${enabled ? ' on' : ''}" id="liteModePill" onclick="document.getElementById('liteModeEnabledToggle').click()">
+          <div class="toggle-knob"></div>
+        </div>
+      </div>
+    </div>
+    ${enabled ? '<div class="lite-active-badge">🟡 CONGESTION LITE MODE IS ACTIVE — All schools are in restricted mode</div>' : ''}
+    <div id="liteModuleGrid" style="margin-top:1rem">
+      <div style="font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:.6rem;text-transform:uppercase;letter-spacing:.04em">Modules available in lite mode</div>
+      <div class="lite-mod-list">${rows}</div>
+    </div>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.1rem;padding-top:1rem;border-top:1px solid var(--border)">
+      <button class="btn btn-primary btn-sm" onclick="platSaveLiteMode()">💾 Save Lite Mode Settings</button>
+      <button class="btn btn-outline btn-sm" onclick="platResetLiteMode()">↺ Reset to Defaults</button>
+      <span id="liteModeStatus" style="font-size:.82rem;color:var(--muted)"></span>
+    </div>`;
+}
+
+function platToggleLiteMode(enabled) {
+  const pill = document.getElementById('liteModePill');
+  if (pill) pill.classList.toggle('on', enabled);
+  platRenderLiteModeConfig(); // re-render to show/hide active badge
+}
+
+function platSaveLiteMode() {
+  const toggle = document.getElementById('liteModeEnabledToggle');
+  const enabled = toggle ? toggle.checked : false;
+  const mods = {};
+  document.querySelectorAll('.lite-mod-cb').forEach(cb => {
+    mods[cb.dataset.sec] = cb.checked;
+  });
+  mods.dashboard = true; // dashboard always on
+  const cfg = { enabled, modules: mods };
+  saveLiteMode(cfg);
+  const st = document.getElementById('liteModeStatus');
+  if (st) {
+    st.textContent = enabled
+      ? '✅ Lite mode ACTIVE — schools are now in restricted mode'
+      : '✅ Saved — lite mode is off';
+    st.style.color = enabled ? '#f59e0b' : '#10b981';
+    setTimeout(() => { if (st) st.textContent = ''; }, 4000);
+  }
+  showToast(enabled ? '⚡ Congestion Lite Mode enabled for all schools' : 'Lite mode disabled', enabled ? 'warning' : 'success');
+}
+
+function platResetLiteMode() {
+  saveLiteMode({ enabled: false, modules: { ...LITE_MODE_DEFAULTS } });
+  platRenderLiteModeConfig();
+  showToast('Lite mode reset to defaults', 'info');
+}
+
 
 const NAV_CONFIG_SCHEMA = [
   { section:'dashboard',   label:'🏠 Dashboard',         tabs:[] },
@@ -2175,6 +2339,8 @@ function applyPlatformNavConfig() {
       }
     });
   });
+  // Apply Lite Mode last so it always wins over nav config
+  applyLiteModeIfActive();
 }
 
 
@@ -9444,7 +9610,7 @@ function go(sec, el) {
   if (sec === 'fees')       { initFeesSection(); }
   if (sec === 'papers')     { initPapersSection(); }
   if (sec === 'settings')   { renderTeacherPreferences(); }
-  if (sec === 'platform')   { renderPlatformDashboard(); _navCfgMode='global'; navCfgSwitchMode('global'); platRenderNavConfig(); platLoadContactInputs(); themeRenderSwatches(); /* Activate first platform tab */ openPlatTab('platTab-schools', document.querySelector('#platTabBar .plat-tab-btn')); }
+  if (sec === 'platform')   { renderPlatformDashboard(); _navCfgMode='global'; navCfgSwitchMode('global'); platRenderNavConfig(); platRenderLiteModeConfig(); platLoadContactInputs(); themeRenderSwatches(); /* Activate first platform tab */ openPlatTab('platTab-schools', document.querySelector('#platTabBar .plat-tab-btn')); }
   if (sec === 'livechat')   { initLiveChatSection(); }
   if (sec === 'exambuilder') { /* handled by EB module DOMContentLoaded wrapper */ }
   if (sec === 'timetable')  {
