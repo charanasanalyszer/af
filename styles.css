@@ -2694,3 +2694,87 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
   display: block !important;
   visibility: visible !important;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   UPLOAD MARKS — SUBJECT STATUS PANEL CARDS
+   ═══════════════════════════════════════════════════════════ */
+.um-sub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: .5rem;
+}
+
+.um-sub-card {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .55rem .75rem;
+  border-radius: 8px;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: transform .12s, box-shadow .12s, border-color .12s;
+  user-select: none;
+}
+.um-sub-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.1);
+}
+.um-sub-missing {
+  background: #fffbeb;
+  border-color: #fcd34d;
+}
+.um-sub-missing:hover {
+  border-color: #f59e0b;
+  background: #fef3c7;
+}
+.um-sub-done {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+.um-sub-done:hover {
+  border-color: #16a34a;
+}
+.um-sub-partial {
+  background: #fff7ed;
+  border-color: #fdba74;
+}
+.um-sub-partial:hover {
+  border-color: #f97316;
+}
+.um-sub-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.um-sub-info {
+  flex: 1;
+  min-width: 0;
+}
+.um-sub-name {
+  font-size: .84rem;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.um-sub-meta {
+  font-size: .72rem;
+  color: var(--muted);
+  margin-top: .1rem;
+}
+.um-sub-action {
+  font-size: .75rem;
+  font-weight: 700;
+  color: #d97706;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.um-sub-done .um-sub-action {
+  color: #15803d;
+}
+
+@media (max-width: 600px) {
+  .um-sub-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -3812,6 +3812,8 @@ function saveAllMarks() {
   });
   showToast('All marks saved ✓','success');
   renderDashboard();
+  // Refresh subject status panel
+  setTimeout(renderUmSubjectStatusPanel, 100);
 }
 
 // ═══════════════ MARKS EXCEL UPLOAD ═══════════════
@@ -3858,6 +3860,7 @@ function handleMarksUpload(input) {
         });
         showToast(`${count} marks uploaded${skipped?' ('+skipped+' skipped)':''} ✓`, 'success');
         loadUmStudents();
+        setTimeout(renderUmSubjectStatusPanel, 100);
 
       } else {
         // ── MODE B: all subjects in one file ──
@@ -3899,6 +3902,7 @@ function handleMarksUpload(input) {
         showToast(`All-subjects upload: ${count} students processed${skipped?' ('+skipped+' not found)':''} ✓`, 'success');
         loadUmStudents();
         renderDashboard();
+        setTimeout(renderUmSubjectStatusPanel, 100);
       }
     } catch(err) { showToast('Error reading file: ' + err.message, 'error'); console.error(err); }
   };
@@ -11206,6 +11210,325 @@ function loadUmSubjects() {
     // Auto-select if only one subject
     if (allowedSubIds.length === 1) { subSel.value = allowedSubIds[0]; loadUmStudents(); }
   }
+  // Show subject status panel for admin / class teacher
+  renderUmSubjectStatusPanel();
+}
+
+// ═══════════════ UPLOAD MARKS — SUBJECT STATUS PANEL ═══════════════
+// Shows subjects with/without marks for chosen exam+stream, with quick-select and download when complete
+function renderUmSubjectStatusPanel() {
+  const panel   = document.getElementById('umSubjectStatusPanel');
+  if (!panel) return;
+
+  const examId   = document.getElementById('umExam')?.value;
+  const streamId = document.getElementById('umStream')?.value;
+  const classId  = document.getElementById('umClass')?.value;
+
+  if (!examId || !streamId) { panel.style.display = 'none'; return; }
+
+  const exam   = exams.find(e => e.id === examId);
+  if (!exam)  { panel.style.display = 'none'; return; }
+
+  const isTeacher    = currentUser && currentUser.role === 'teacher';
+  const isAdmin      = currentUser && (currentUser.role === 'superadmin' || currentUser.role === 'admin' || currentUser.role === 'principal');
+  const isClassTch   = currentUserIsClassTeacher();
+
+  // Only show panel for admin, principal, or class teacher of this stream
+  const myClassTchStreamIds = isClassTch ? getMyClassTeacherStreams().map(s => s.id) : [];
+  const canSeePanel = isAdmin || (isClassTch && myClassTchStreamIds.includes(streamId));
+  if (!canSeePanel) { panel.style.display = 'none'; return; }
+
+  // Determine allowed subjects for this exam
+  let subIds = exam.subjectIds || [];
+
+  const str = streams.find(s => s.id === streamId);
+  const cls = classes.find(c => c.id === classId);
+  const stuInStream = students.filter(s => s.streamId === streamId);
+
+  // Evaluate mark status for each subject
+  const subStatus = subIds.map(sid => {
+    const sub = subjects.find(s => s.id === sid); if (!sub) return null;
+    const subMarks = marks.filter(m => m.examId === examId && m.subjectId === sid && stuInStream.some(s => s.id === m.studentId));
+    const uploaded  = subMarks.length;
+    const expected  = stuInStream.length;
+    const mean      = uploaded ? (subMarks.reduce((a,m) => a + m.score, 0) / uploaded).toFixed(1) : null;
+    return { sub, uploaded, expected, mean, complete: uploaded >= expected && expected > 0 };
+  }).filter(Boolean);
+
+  const withMarks    = subStatus.filter(s => s.uploaded > 0);
+  const withoutMarks = subStatus.filter(s => s.uploaded === 0);
+  const allComplete  = subStatus.length > 0 && subStatus.every(s => s.complete);
+
+  const selectSub = (subId) => {
+    const subSel = document.getElementById('umSubject');
+    if (subSel) {
+      // Ensure the option exists — teachers may have limited list
+      let opt = [...subSel.options].find(o => o.value === subId);
+      if (!opt) {
+        const sub = subjects.find(s => s.id === subId);
+        if (sub) {
+          opt = new Option(sub.name, sub.id);
+          subSel.appendChild(opt);
+        }
+      }
+      subSel.value = subId;
+      loadUmStudents();
+      // Scroll to entry card
+      const card = document.getElementById('umManualCard');
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // Build subject cards
+  const missingCards = withoutMarks.map(s => `
+    <div class="um-sub-card um-sub-missing" onclick="(function(){
+      var sel=document.getElementById('umSubject');
+      var opt=[...sel.options].find(o=>o.value==='${s.sub.id}');
+      if(!opt){var o=document.createElement('option');o.value='${s.sub.id}';o.textContent='${s.sub.name.replace(/'/g,"\\'")}';sel.appendChild(o);}
+      sel.value='${s.sub.id}';loadUmStudents();
+      var c=document.getElementById('umManualCard');if(c)c.scrollIntoView({behavior:'smooth',block:'start'});
+    })()" title="Click to upload marks">
+      <div class="um-sub-icon">⚠️</div>
+      <div class="um-sub-info">
+        <div class="um-sub-name">${s.sub.name}</div>
+        <div class="um-sub-meta">${s.sub.code} · ${s.expected} students · no marks</div>
+      </div>
+      <div class="um-sub-action">⬆ Upload</div>
+    </div>`).join('');
+
+  const uploadedCards = withMarks.map(s => `
+    <div class="um-sub-card um-sub-done ${s.complete ? '' : 'um-sub-partial'}" onclick="(function(){
+      var sel=document.getElementById('umSubject');
+      var opt=[...sel.options].find(o=>o.value==='${s.sub.id}');
+      if(!opt){var o=document.createElement('option');o.value='${s.sub.id}';o.textContent='${s.sub.name.replace(/'/g,"\\'")}';sel.appendChild(o);}
+      sel.value='${s.sub.id}';loadUmStudents();
+      var c=document.getElementById('umManualCard');if(c)c.scrollIntoView({behavior:'smooth',block:'start'});
+    })()" title="Click to review/edit marks">
+      <div class="um-sub-icon">${s.complete ? '✅' : '🔶'}</div>
+      <div class="um-sub-info">
+        <div class="um-sub-name">${s.sub.name}</div>
+        <div class="um-sub-meta">${s.sub.code} · ${s.uploaded}/${s.expected} · mean ${s.mean}%</div>
+      </div>
+      <div class="um-sub-action" style="color:var(--muted);font-size:.72rem">${s.complete ? '✓ Done' : '✏ Edit'}</div>
+    </div>`).join('');
+
+  // All-complete download panel
+  const downloadPanel = allComplete ? `
+    <div style="margin-top:1rem;padding:1rem 1.25rem;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #16a34a;border-radius:10px">
+      <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+        <span style="font-size:1.2rem">🎉</span>
+        <strong style="color:#14532d;font-size:.9rem">All ${subStatus.length} subjects have marks uploaded for ${cls?.name||''} — ${str?.name||''}!</strong>
+        <div style="display:flex;gap:.6rem;margin-left:auto;flex-wrap:wrap">
+          <button class="btn btn-sm" style="background:#16a34a;color:#fff;border:none;font-size:.78rem;padding:.35rem .85rem;border-radius:6px;cursor:pointer"
+            onclick="downloadStreamRawMarksExcel('${examId}','${streamId}')">⬇ Excel — Raw Marks</button>
+          <button class="btn btn-sm" style="background:#0d9488;color:#fff;border:none;font-size:.78rem;padding:.35rem .85rem;border-radius:6px;cursor:pointer"
+            onclick="downloadStreamRawMarksPDF('${examId}','${streamId}')">⬇ PDF — Raw Marks</button>
+        </div>
+      </div>
+    </div>` : '';
+
+  panel.style.display = '';
+  panel.innerHTML = `
+    <div class="card" style="padding:1rem 1.25rem">
+      <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.85rem;flex-wrap:wrap">
+        <h3 style="margin:0">📋 Subject Marks Status</h3>
+        <span style="font-size:.78rem;color:var(--muted)">${cls?.name||''} — ${str?.name||''}</span>
+        <span class="badge ${withoutMarks.length ? 'b-amber' : 'b-green'}" style="font-size:.72rem">${withoutMarks.length} pending · ${withMarks.length} uploaded</span>
+      </div>
+      ${withoutMarks.length ? `
+        <div style="margin-bottom:.75rem">
+          <div style="font-size:.78rem;font-weight:700;color:#92400e;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.04em">⚠ Pending Upload</div>
+          <div class="um-sub-grid">${missingCards}</div>
+        </div>` : ''}
+      ${withMarks.length ? `
+        <div>
+          <div style="font-size:.78rem;font-weight:700;color:#15803d;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.04em">✅ Marks Uploaded</div>
+          <div class="um-sub-grid">${uploadedCards}</div>
+        </div>` : ''}
+      ${downloadPanel}
+    </div>`;
+}
+
+// Download raw marks for one stream as Excel
+function downloadStreamRawMarksExcel(examId, streamId) {
+  const exam = exams.find(e => e.id === examId); if (!exam) return;
+  const str  = streams.find(s => s.id === streamId);
+  const cls  = classes.find(c => c.id === str?.classId);
+  const stuInStream = students.filter(s => s.streamId === streamId).sort((a,b)=>a.name.localeCompare(b.name));
+  const subIds = exam.subjectIds || [];
+  const data = stuInStream.map(stu => {
+    const row = { AdmNo: stu.adm, Name: stu.name, Gender: stu.gender };
+    subIds.forEach(sid => {
+      const sub = subjects.find(s=>s.id===sid);
+      const mk  = marks.find(m=>m.examId===examId&&m.studentId===stu.id&&m.subjectId===sid);
+      if (sub) row[sub.code] = mk ? mk.score : '';
+    });
+    return row;
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Marks');
+  XLSX.writeFile(wb, `raw_marks_${exam.name}_${cls?.name||''}_${str?.name||''}.xlsx`.replace(/\s+/g,'_'));
+  showToast('✅ Raw marks downloaded as Excel', 'success');
+}
+
+// Download raw marks for one stream as PDF
+function downloadStreamRawMarksPDF(examId, streamId) {
+  const exam = exams.find(e => e.id === examId); if (!exam) return;
+  const str  = streams.find(s => s.id === streamId);
+  const cls  = classes.find(c => c.id === str?.classId);
+  const stuInStream = students.filter(s => s.streamId === streamId).sort((a,b)=>a.name.localeCompare(b.name));
+  const subIds = exam.subjectIds || [];
+  const subs   = subIds.map(sid => subjects.find(s=>s.id===sid)).filter(Boolean);
+
+  const tableRows = stuInStream.map((stu,i) => {
+    const cells = subs.map(sub => {
+      const mk = marks.find(m=>m.examId===examId&&m.studentId===stu.id&&m.subjectId===sub.id);
+      return `<td style="text-align:center;padding:4px 6px;border:1px solid #ddd">${mk ? mk.score : '—'}</td>`;
+    }).join('');
+    return `<tr style="background:${i%2?'#f9fafb':'#fff'}">
+      <td style="padding:4px 6px;border:1px solid #ddd;font-size:11px">${i+1}</td>
+      <td style="padding:4px 6px;border:1px solid #ddd;font-size:11px;font-family:monospace">${stu.adm}</td>
+      <td style="padding:4px 6px;border:1px solid #ddd;font-size:11px;font-weight:600">${stu.name}</td>
+      <td style="padding:4px 6px;border:1px solid #ddd;font-size:11px;text-align:center">${stu.gender}</td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Raw Marks</title>
+  <style>body{font-family:Arial,sans-serif;padding:20px;color:#111} h2{margin-bottom:4px} .meta{font-size:12px;color:#555;margin-bottom:16px}
+  table{border-collapse:collapse;width:100%;font-size:11px} th{background:#1a6fb5;color:#fff;padding:5px 6px;border:1px solid #1a6fb5;text-align:center}
+  @media print{body{padding:8px}}</style></head><body>
+  <h2>Raw Marks — ${exam.name}</h2>
+  <div class="meta">${cls?.name||''} — ${str?.name||''} &nbsp;|&nbsp; ${exam.term} ${exam.year} &nbsp;|&nbsp; ${stuInStream.length} students &nbsp;|&nbsp; Printed: ${new Date().toLocaleDateString()}</div>
+  <table>
+    <thead><tr>
+      <th>#</th><th>Adm No</th><th>Name</th><th>G</th>
+      ${subs.map(s=>`<th>${s.code}</th>`).join('')}
+    </tr></thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+  <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); }
+  else showToast('Allow pop-ups to download PDF', 'warning');
+}
+
+// ═══════════════ ANALYSIS — SUBJECT REVIEW PANEL ═══════════════
+// Shows subjects with marks, means, and edit links before running analysis
+function renderAnSubjectReviewPanel(examId) {
+  const panel = document.getElementById('anSubjectReviewPanel');
+  if (!panel) return;
+
+  if (!examId) { panel.style.display = 'none'; return; }
+  const exam = exams.find(e => e.id === examId);
+  if (!exam)  { panel.style.display = 'none'; return; }
+
+  const isTeacher    = currentUser && currentUser.role === 'teacher';
+  const isSuperAdmin = currentUser && (currentUser.role === 'superadmin' || currentUser.role === 'admin');
+  const isClassTch   = currentUserIsClassTeacher();
+  const isConsolidated = exam.category === 'consolidated';
+
+  // Only show for admin, principal, class teacher (not plain teachers)
+  if (isTeacher && !isClassTch && !isSuperAdmin) { panel.style.display = 'none'; return; }
+
+  const subIds = exam.subjectIds || [];
+  let scopedStudents = students;
+  if (exam.classId) scopedStudents = scopedStudents.filter(s => s.classId === exam.classId);
+  if (isTeacher && isClassTch && !isSuperAdmin) {
+    const myStreamIds = getMyClassTeacherStreams().map(s => s.id);
+    scopedStudents = scopedStudents.filter(s => myStreamIds.includes(s.streamId));
+  }
+
+  const subRows = subIds.map(sid => {
+    const sub = subjects.find(s => s.id === sid); if (!sub) return null;
+    let subMarks;
+    if (isConsolidated) {
+      const srcExams = (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean);
+      subMarks = scopedStudents.map(stu => {
+        const vals = srcExams.map(src => marks.find(m=>m.examId===src.id&&m.studentId===stu.id&&m.subjectId===sid)?.score).filter(v=>v!=null);
+        return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+      }).filter(v=>v!=null);
+    } else {
+      subMarks = marks.filter(m=>m.examId===examId&&m.subjectId===sid&&scopedStudents.some(s=>s.id===m.studentId)).map(m=>m.score);
+    }
+    const count = subMarks.length;
+    const mean  = count ? (subMarks.reduce((a,b)=>a+b,0)/count).toFixed(1) : null;
+    const max_  = count ? Math.max(...subMarks) : null;
+    const min_  = count ? Math.min(...subMarks) : null;
+    return { sub, count, mean, max: max_, min: min_, hasMarks: count > 0 };
+  }).filter(Boolean);
+
+  const withMarks    = subRows.filter(r => r.hasMarks);
+  const withoutMarks = subRows.filter(r => !r.hasMarks);
+
+  const editSub = (sid, examId) => {
+    // jump to upload marks tab for this subject
+    const selExam  = document.getElementById('umExam');
+    if (selExam) { selExam.value = examId; loadUmClasses(); }
+    openExamTab('tabUploadMarks', document.querySelector('[onclick*="tabUploadMarks"]'));
+    setTimeout(() => {
+      const subSel = document.getElementById('umSubject');
+      if (subSel) {
+        let opt = [...subSel.options].find(o=>o.value===sid);
+        if (!opt) { const s=subjects.find(x=>x.id===sid); if(s){opt=new Option(s.name,s.id);subSel.appendChild(opt);} }
+        if (opt) { subSel.value = sid; loadUmStudents(); }
+      }
+    }, 400);
+  };
+  // expose globally for inline onclick
+  window._anEditSub = (sid) => editSub(sid, examId);
+
+  panel.style.display = '';
+  panel.innerHTML = `
+    <div class="card" style="border-left:4px solid var(--primary)">
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.9rem;flex-wrap:wrap">
+        <h3 style="margin:0">📊 Subject Marks Review</h3>
+        <span class="badge b-blue" style="font-size:.72rem">${withMarks.length} with marks</span>
+        ${withoutMarks.length ? `<span class="badge b-amber" style="font-size:.72rem">${withoutMarks.length} missing</span>` : ''}
+        <span style="font-size:.75rem;color:var(--muted);margin-left:auto">Review and edit before running analysis</span>
+      </div>
+
+      ${withMarks.length ? `
+      <div class="tbl-wrap" style="margin-bottom:${withoutMarks.length?'.9rem':'0'}">
+        <table style="width:100%;font-size:.82rem;border-collapse:collapse">
+          <thead><tr style="background:var(--surface-alt)">
+            <th style="padding:.45rem .7rem;text-align:left;border-bottom:1px solid var(--border)">Subject</th>
+            <th style="padding:.45rem .7rem;text-align:center;border-bottom:1px solid var(--border)">Entries</th>
+            <th style="padding:.45rem .7rem;text-align:center;border-bottom:1px solid var(--border)">Mean</th>
+            <th style="padding:.45rem .7rem;text-align:center;border-bottom:1px solid var(--border)">High</th>
+            <th style="padding:.45rem .7rem;text-align:center;border-bottom:1px solid var(--border)">Low</th>
+            <th style="padding:.45rem .7rem;text-align:center;border-bottom:1px solid var(--border)">Action</th>
+          </tr></thead>
+          <tbody>
+            ${withMarks.map(r=>`
+            <tr style="border-bottom:1px solid var(--border-lt)">
+              <td style="padding:.4rem .7rem;font-weight:600">${r.sub.name} <span style="font-size:.72rem;color:var(--muted);font-weight:400">${r.sub.code}</span></td>
+              <td style="padding:.4rem .7rem;text-align:center">${r.count}</td>
+              <td style="padding:.4rem .7rem;text-align:center"><span style="font-weight:700;color:${parseFloat(r.mean)>=50?'#15803d':'#dc2626'}">${r.mean}%</span></td>
+              <td style="padding:.4rem .7rem;text-align:center;color:#15803d;font-weight:600">${r.max}</td>
+              <td style="padding:.4rem .7rem;text-align:center;color:#dc2626;font-weight:600">${r.min}</td>
+              <td style="padding:.4rem .7rem;text-align:center">
+                ${!isConsolidated ? `<button class="btn btn-sm" style="font-size:.72rem;padding:.2rem .6rem;background:var(--surface);border:1px solid var(--border);border-radius:5px;cursor:pointer"
+                  onclick="window._anEditSub('${r.sub.id}')">✏ Edit</button>` : '<span style="color:var(--muted);font-size:.72rem">Consolidated</span>'}
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>` : '<p style="color:var(--muted);font-size:.84rem">No marks uploaded for this exam yet.</p>'}
+
+      ${withoutMarks.length ? `
+      <div style="padding:.65rem .85rem;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px">
+        <div style="font-size:.78rem;font-weight:700;color:#92400e;margin-bottom:.35rem">⚠ Subjects with no marks (will be excluded from analysis):</div>
+        <div style="display:flex;flex-wrap:wrap;gap:.35rem">
+          ${withoutMarks.map(r=>`
+            <span style="background:#fef3c7;color:#78350f;font-size:.75rem;padding:.2rem .55rem;border-radius:5px;font-weight:600">
+              ${r.sub.name} <span style="opacity:.65">${r.sub.code}</span>
+            </span>`).join('')}
+        </div>
+      </div>` : ''}
+    </div>`;
 }
 
 // ── Analysis: restrict class teachers to their class ──
@@ -11277,6 +11600,8 @@ function runAnalysis() {
   const res    = document.getElementById('analyseResults');
   const selGs  = document.getElementById('anGradingSystem')?.value;
   if (selGs) setActiveGradingSystem(selGs);
+  // Show subject review panel (admin/class teacher can edit before running)
+  renderAnSubjectReviewPanel(examId);
   if (!examId) { if(res) res.innerHTML='<p style="color:var(--muted)">Select an exam to begin.</p>'; return; }
 
   const exam = exams.find(e=>e.id===examId);
