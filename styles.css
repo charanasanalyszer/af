@@ -205,7 +205,7 @@ body.login-active { overflow: hidden !important; height: 100vh !important; }
 }
 
 /* MAIN */
-.main { margin-left:var(--sb-w);margin-top:var(--tb-h);padding:.5rem 1.25rem 1.5rem;height:calc(100vh - var(--tb-h));width:calc(100% - var(--sb-w));max-width:calc(100% - var(--sb-w));box-sizing:border-box;overflow-x:hidden;overflow-y:auto;transition:margin-left .3s ease,width .3s ease,max-width .3s ease;position:relative; }
+.main { margin-left:var(--sb-w);margin-top:var(--tb-h);padding:.25rem 1.25rem 5rem;height:calc(100vh - var(--tb-h));width:calc(100% - var(--sb-w));max-width:calc(100% - var(--sb-w));box-sizing:border-box;overflow-x:hidden;overflow-y:auto;transition:margin-left .3s ease,width .3s ease,max-width .3s ease;position:relative; }
 
 /* SECTIONS */
 .sec { display:none;animation:fadeUp .3s ease;width:100%;box-sizing:border-box;overflow:visible;margin-top:0;padding-top:0; }
@@ -215,9 +215,11 @@ body.login-active { overflow: hidden !important; height: 100vh !important; }
 /* ══════════════ SHARED COMPONENTS ══════════════ */
 
 /* Page Header */
-.ph { margin-bottom:.65rem;margin-top:.25rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap; }
+.ph { margin-bottom:.4rem;margin-top:0;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap; }
 /* h2 title is already shown in topbar — hide the in-section duplicate */
 .sec .ph h2 { display:none; }
+/* Entire .ph block is redundant in main app (topbar shows the title) — hide it */
+.sec .ph { display:none !important; }
 .ph p { margin:0;font-size:.82rem;color:var(--muted); }
 
 /* Cards */
@@ -556,12 +558,12 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
   .sidebar.open { transform:translateX(0); }
   .sb-close { display:flex!important; }
   .topbar { left:0; }
-  .main { margin-left:0;width:100%;max-width:100%;padding:1.25rem;box-sizing:border-box;height:calc(100vh - var(--tb-h)); }
+  .main { margin-left:0;width:100%;max-width:100%;padding:.25rem 1rem 5rem;box-sizing:border-box;height:calc(100vh - var(--tb-h)); }
   .menu-btn { display:flex; }
   .lang-btn { padding:.2rem .5rem;font-size:.7rem; }
 }
 @media (max-width:640px) {
-  .main { padding:1rem; }
+  .main { padding:.2rem .75rem 5rem; }
   .frow.c2,.frow.c3,.frow.c4 { grid-template-columns:1fr; }
   .grid-2 { grid-template-columns:1fr; }
   .dash-charts { grid-template-columns:1fr; }
@@ -1439,7 +1441,7 @@ th[onclick]:hover { background: var(--blue-lt, #eff6ff); color: var(--primary); 
 }
 
 @media (max-width: 760px) {
-  .main { padding: 1rem; }
+  .main { padding:.2rem .75rem 5rem; }
   .stat-row { grid-template-columns: repeat(2, 1fr); gap: .65rem; }
   .quick-cards { grid-template-columns: repeat(2, 1fr); gap: .65rem; }
 }
@@ -1917,7 +1919,7 @@ th[onclick]:hover { background: var(--blue-lt, #eff6ff); color: var(--primary); 
     margin-left: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
-    padding: 1rem !important;
+    padding: .25rem 1rem 5rem !important;
   }
   .topbar {
     left: 0 !important;
@@ -2592,20 +2594,11 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
    GLOBAL SPACING — Fix excess top spacing across all sections
    ═══════════════════════════════════════════════════════════ */
 
-/* Section headers — eliminate redundant top margin */
-.ph {
-  margin-top: 0 !important;
-  padding-top: 0 !important;
-}
-
-/* When h2 is hidden in .ph, collapse the container entirely */
-.sec .ph:not(:has(h2:not([style*="display:none"]))) {
-  margin-bottom: 0 !important;
-}
-
-/* Reduce top padding in .main content area */
-.main {
-  padding-top: .35rem !important;
+/* Section headers — fully hidden (topbar shows title) */
+.sec .ph {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 /* Tab bar — reduce bottom gap globally */
@@ -2618,34 +2611,25 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
   padding-top: 0 !important;
 }
 
-/* Cards — tighter vertical spacing between them */
-.sec-stack > .card + .card,
-.tab-panel > .card + .card {
-  margin-top: .75rem;
-}
-
-/* Section first child — no top margin */
+/* First child of section/panel — no top margin */
 .sec > *:first-child,
 .tab-panel > *:first-child {
   margin-top: 0 !important;
 }
 
-/* Stat row — no top gap when first element */
-.sec > .stat-row:first-child,
-.tab-panel > .stat-row:first-child {
-  margin-top: 0 !important;
-}
+/* Stat row — no top gap */
+.stat-row { margin-top: 0 !important; }
 
-/* ctbar (content bar with heading + buttons) — tighter */
-.ctbar {
-  margin-bottom: .75rem !important;
-}
+/* ctbar — tighter */
+.ctbar { margin-bottom: .75rem !important; }
 
-/* frow (form row grid) — tighter top */
+/* frow first child — no top */
 .sec > .frow:first-child,
-.card > .frow:first-child {
-  margin-top: 0 !important;
-}
+.card > .frow:first-child { margin-top: 0 !important; }
+
+/* ── Bottom breathing room in main ── */
+/* Already set in .main padding-bottom:5rem, ensure sections don't clip */
+.sec.active { padding-bottom: 0; }
 
 
 /* ═══════════════════════════════════════════════════════════
@@ -2655,7 +2639,7 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
 @media (max-width: 640px) {
   /* Guest portal content — smaller padding on phones */
   #guestPortal > div:last-child {
-    padding: .5rem .5rem 4rem !important;
+    padding: .5rem .5rem 4.5rem !important;
   }
 
   #guestEBMount .card,
@@ -2672,10 +2656,6 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
     margin-bottom: .6rem !important;
   }
 
-  .main {
-    padding: .5rem .75rem 1rem !important;
-  }
-
   /* Cards in main app — more compact on small screens */
   .card {
     padding: 1rem !important;
@@ -2688,7 +2668,7 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
 
 @media (max-width: 400px) {
   #guestPortal > div:last-child {
-    padding: .4rem .4rem 4rem !important;
+    padding: .4rem .4rem 4.5rem !important;
   }
   #guestEBMount .card,
   #guestPapersMount .card {
