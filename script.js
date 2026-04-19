@@ -9431,9 +9431,14 @@ function es_loadSampleData() {
 function go(sec, el) {
   document.querySelectorAll('.sec').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.sn').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.tbn-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.mbn-item').forEach(n => n.classList.remove('active'));
   const s = document.getElementById('s-'+sec);
   if (s) s.classList.add('active');
   if (el) el.classList.add('active');
+  // Also highlight matching topbar tab and mobile bottom nav
+  document.querySelectorAll('.tbn-item[data-s="'+sec+'"]').forEach(n => n.classList.add('active'));
+  document.querySelectorAll('.mbn-item[data-s="'+sec+'"]').forEach(n => n.classList.add('active'));
   // Set topbar title from nav item label, with dashboard greeting
   const navSpan = el ? el.querySelector('span') : null;
   const navLabel = navSpan ? navSpan.textContent.trim() : sec;

@@ -221,37 +221,18 @@
       <!-- 1. Dashboard -->
       <a class="sn active" data-s="dashboard" onclick="go('dashboard',this)"><i>🏠</i><span>Dashboard</span></a>
 
-      <div class="sb-section-lbl">Setup</div>
-      <!-- 2. Subjects — must exist before classes or exams -->
-      <a class="sn" data-s="subjects"    onclick="go('subjects',this)"><i>📚</i><span>Subjects</span></a>
-      <!-- 3. Classes & Streams — needed before students/exams -->
-      <a class="sn" data-s="classes"     onclick="go('classes',this)"><i>🏫</i><span>Classes &amp; Streams</span></a>
-      <!-- 4. Teachers — set up before assigning -->
+      <div class="sb-section-lbl">People</div>
       <a class="sn" data-s="teachers"    onclick="go('teachers',this)"><i>👨‍🏫</i><span>Teachers</span></a>
-      <!-- 5. Students — enrol after classes exist -->
       <a class="sn" data-s="students"    onclick="go('students',this)"><i>🎓</i><span>Students</span></a>
 
       <div class="sb-section-lbl">Academics</div>
-      <!-- 6. Timetables — schedule before exams -->
-      <a class="sn" data-s="timetable"   onclick="go('timetable',this)"><i>🕐</i><span>Timetables</span></a>
-      <!-- 7. Exam Builder — build paper before running exam -->
       <a class="sn" data-s="exambuilder" onclick="go('exambuilder',this)" id="examBuilderNavLink"><i>✏️</i><span>Exam Builder</span></a>
-      <!-- 8. Exams — run & enter marks -->
       <a class="sn" data-s="exams"       onclick="go('exams',this)"><i>📝</i><span>Exams</span></a>
-      <!-- 9. Report Forms — generate after marks entered -->
-      <a class="sn" data-s="reports"     onclick="go('reports',this)"><i>📄</i><span>Report Forms</span></a>
-      <!-- 10. Papers & Resources -->
       <a class="sn" data-s="papers"      onclick="go('papers',this)" id="papersNavLink"><i>📂</i><span>Papers &amp; Resources</span></a>
 
-      <div class="sb-section-lbl">Administration</div>
-      <!-- 11. Fees -->
-      <a class="sn" data-s="fees"        onclick="go('fees',this)" id="feesNavLink"><i>💰</i><span>Fees</span></a>
-      <!-- 12. Messaging -->
+      <div class="sb-section-lbl">Admin</div>
       <a class="sn" data-s="messaging"   onclick="go('messaging',this)"><i>💬</i><span>Messaging</span></a>
-      <!-- 12b. Platform Admin (hidden for school users) -->
       <a class="sn" data-s="platform" id="platNavLink" onclick="go('platform',this)" style="display:none"><i>⚙️</i><span>Platform Admin</span></a>
-      <!-- 13. Settings -->
-      <a class="sn" data-s="settings"    onclick="go('settings',this)"><i>🛠️</i><span>Settings</span></a>
     </nav>
     <div class="sb-foot">
       <button class="sn" onclick="doLogout()"><i>🚪</i><span>Logout</span></button>
@@ -260,16 +241,28 @@
 
   <!-- TOPBAR -->
   <div class="topbar" id="topbar" style="display:none">
-    <button class="menu-btn" id="sidebarToggleBtn" onclick="toggleSidebar()" title="Toggle sidebar">☰</button>
-    <div class="tb-title" id="tbTitle">Dashboard</div>
-    <div class="tb-right">
-      <div class="lang-selector">
-        <button class="lang-btn active" id="langEN" onclick="setLang('en')" title="English">🇬🇧 EN</button>
-        <button class="lang-btn" id="langSW" onclick="setLang('sw')" title="Kiswahili">🇰🇪 SW</button>
+    <!-- Row 1: branding + controls -->
+    <div class="tb-row1">
+      <button class="menu-btn" id="sidebarToggleBtn" onclick="toggleSidebar()" title="Toggle sidebar">☰</button>
+      <div class="tb-title" id="tbTitle">Dashboard</div>
+      <div class="tb-right">
+        <div class="lang-selector">
+          <button class="lang-btn active" id="langEN" onclick="setLang('en')" title="English">🇬🇧 EN</button>
+          <button class="lang-btn" id="langSW" onclick="setLang('sw')" title="Kiswahili">🇰🇪 SW</button>
+        </div>
+        <button class="tb tb-dark-toggle" onclick="toggleDark()" title="Toggle dark mode" id="tbDarkBtn"><i id="tbDmIco">🌙</i></button>
+        <div class="tb-user" id="tbUser">👤 Super Admin</div>
+        <button class="tb tb-logout-btn" onclick="doLogout()" title="Logout" id="tbLogoutBtn">🚪 Logout</button>
       </div>
-      <button class="tb tb-dark-toggle" onclick="toggleDark()" title="Toggle dark mode" id="tbDarkBtn"><i id="tbDmIco">🌙</i></button>
-      <div class="tb-user" id="tbUser">👤 Super Admin</div>
-      <button class="tb tb-logout-btn" onclick="doLogout()" title="Logout" id="tbLogoutBtn">🚪 Logout</button>
+    </div>
+    <!-- Row 2: quick-access page tabs -->
+    <div class="tb-pagenav" id="tbPageNav">
+      <a class="tbn-item" data-s="classes"   onclick="go('classes',this)"><span class="tbn-ico">🏫</span><span class="tbn-lbl">Classes</span></a>
+      <a class="tbn-item" data-s="subjects"  onclick="go('subjects',this)"><span class="tbn-ico">📚</span><span class="tbn-lbl">Subjects</span></a>
+      <a class="tbn-item" data-s="timetable" onclick="go('timetable',this)"><span class="tbn-ico">🕐</span><span class="tbn-lbl">Timetable</span></a>
+      <a class="tbn-item" data-s="reports"   onclick="go('reports',this)"><span class="tbn-ico">📄</span><span class="tbn-lbl">Reports</span></a>
+      <a class="tbn-item" data-s="fees"      onclick="go('fees',this)" id="feesTopNavLink"><span class="tbn-ico">💰</span><span class="tbn-lbl">Fees</span></a>
+      <a class="tbn-item" data-s="settings"  onclick="go('settings',this)"><span class="tbn-ico">🛠️</span><span class="tbn-lbl">Settings</span></a>
     </div>
   </div>
 

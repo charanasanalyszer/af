@@ -2816,3 +2816,137 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
     padding: .2rem .65rem 5rem !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════
+   TOPBAR TWO-ROW LAYOUT + PAGE NAV TABS
+   Row 1: branding + controls  (~52px)
+   Row 2: page tabs             (~40px)
+   Total --tb-h updated to 92px desktop / 88px mobile
+   ═══════════════════════════════════════════════════════ */
+
+:root {
+  --tb-h: 92px;
+  --tb-row1-h: 52px;
+  --tb-row2-h: 40px;
+}
+@media (max-width: 960px) {
+  :root { --tb-h: 88px; --tb-row1-h: 48px; --tb-row2-h: 40px; }
+}
+
+/* Make topbar a flex column */
+.topbar {
+  flex-direction: column !important;
+  height: var(--tb-h) !important;
+  padding: 0 !important;
+  align-items: stretch !important;
+}
+
+/* Row 1 */
+.tb-row1 {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0 1.25rem;
+  height: var(--tb-row1-h);
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-lt);
+}
+
+/* Row 2 — scrollable tab bar */
+.tb-pagenav {
+  display: flex;
+  align-items: stretch;
+  height: var(--tb-row2-h);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  flex-shrink: 0;
+  padding: 0 .5rem;
+  gap: 2px;
+}
+.tb-pagenav::-webkit-scrollbar { display: none; }
+
+/* Individual tab */
+.tbn-item {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: 0 .9rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font);
+  font-size: .8rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s, background .15s;
+  border-radius: 6px 6px 0 0;
+  position: relative;
+}
+.tbn-item:hover {
+  color: var(--text);
+  background: var(--border-lt);
+}
+.tbn-item.active {
+  color: var(--primary);
+  font-weight: 700;
+  border-bottom-color: var(--primary);
+  background: transparent;
+}
+.tbn-ico { font-size: .95rem; }
+.tbn-lbl { font-size: .8rem; }
+
+/* ═══ GAP FIX — one single source of truth ═══ */
+/* Desktop */
+@media (min-width: 961px) {
+  .main {
+    margin-top: var(--tb-h) !important;
+    margin-left: var(--sb-w) !important;
+    width: calc(100% - var(--sb-w)) !important;
+    max-width: calc(100% - var(--sb-w)) !important;
+    height: calc(100vh - var(--tb-h)) !important;
+    padding: .5rem 1.1rem 1.5rem !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+  .sidebar-collapsed .main {
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  /* Topbar shifts right of sidebar */
+  .topbar { left: var(--sb-w) !important; }
+  .sidebar-collapsed .topbar { left: 0 !important; }
+}
+
+/* Mobile */
+@media (max-width: 960px) {
+  .topbar { left: 0 !important; right: 0 !important; }
+  .main {
+    margin-top: var(--tb-h) !important;
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: calc(100vh - var(--tb-h)) !important;
+    padding: .3rem .75rem 5rem !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+  /* Slightly smaller tab labels on small screens */
+  .tbn-lbl { font-size: .75rem; }
+  .tbn-item { padding: 0 .65rem; }
+}
+
+@media (max-width: 640px) {
+  .main { padding: .2rem .5rem 5rem !important; }
+  .tb-row1 { padding: 0 .75rem; }
+}
+
+/* Ensure first child of sections has no surprise top margin */
+.sec > *:first-child { margin-top: 0 !important; }
