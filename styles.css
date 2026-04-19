@@ -1886,10 +1886,10 @@ th[onclick]:hover { background: var(--blue-lt, #eff6ff); color: var(--primary); 
   font-size: .67rem !important;
 }
 
-/* ── MAIN CONTENT: sticky below topbar — pages never shift, clicks always work ── */
+/* ── MAIN CONTENT: sits directly below topbar — no gap ── */
 .main {
   margin-left: var(--sb-w) !important;
-  margin-top: 0 !important;
+  margin-top: var(--tb-h) !important;
   width: calc(100% - var(--sb-w)) !important;
   max-width: calc(100% - var(--sb-w)) !important;
   box-sizing: border-box !important;
@@ -1897,8 +1897,8 @@ th[onclick]:hover { background: var(--blue-lt, #eff6ff); color: var(--primary); 
   overflow-x: hidden !important;
   overflow-y: auto !important;
   height: calc(100vh - var(--tb-h)) !important;
-  position: sticky !important;
-  top: var(--tb-h) !important;
+  position: relative !important;
+  top: 0 !important;
 }
 
 /* Topbar also always offset on desktop */
