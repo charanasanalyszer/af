@@ -1354,6 +1354,8 @@ function loadBroadcastBanner() {
 function initPlatformCollapse() {
   const platform = document.getElementById('s-platform');
   if (!platform) return;
+
+  // 1. Init collapsible cards
   platform.querySelectorAll('.card').forEach(card => {
     // Skip if already initialized
     if (card.querySelector('.plat-card-header')) return;
@@ -1369,7 +1371,7 @@ function initPlatformCollapse() {
 
     const btn = document.createElement('button');
     btn.className = 'plat-collapse-btn';
-    btn.title = 'Collapse / Expand';
+    btn.title = 'Collapse / Expand section';
     btn.textContent = '▾';
     btn.type = 'button';
 
@@ -1399,6 +1401,56 @@ function initPlatformCollapse() {
       localStorage.setItem(keySlug, nowCollapsed ? '1' : '0');
     };
     header.addEventListener('click', toggle);
+  });
+
+  // 2. Add "Collapse All / Expand All" toolbar to each visible tab panel
+  platform.querySelectorAll('.plat-tab-panel').forEach(panel => {
+    if (panel.querySelector('.plat-collapse-toolbar')) return; // already added
+    const cards = panel.querySelectorAll('.card');
+    if (cards.length < 2) return; // toolbar only useful when 2+ cards
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'plat-collapse-toolbar';
+
+    const collapseAllBtn = document.createElement('button');
+    collapseAllBtn.className = 'plat-collapse-all-btn';
+    collapseAllBtn.type = 'button';
+    collapseAllBtn.innerHTML = '⊖ Collapse All';
+    collapseAllBtn.title = 'Collapse all sections in this tab';
+    collapseAllBtn.addEventListener('click', () => {
+      panel.querySelectorAll('.plat-card-body').forEach(body => {
+        body.classList.add('collapsed');
+        const btn = body.closest('.card').querySelector('.plat-collapse-btn');
+        if (btn) btn.classList.add('collapsed');
+        const h3 = body.closest('.card').querySelector('.plat-card-header h3');
+        if (h3) {
+          const keySlug = 'plat_collapse_' + h3.textContent.trim().replace(/[^a-z0-9]/gi,'_').slice(0,40);
+          localStorage.setItem(keySlug, '1');
+        }
+      });
+    });
+
+    const expandAllBtn = document.createElement('button');
+    expandAllBtn.className = 'plat-collapse-all-btn';
+    expandAllBtn.type = 'button';
+    expandAllBtn.innerHTML = '⊕ Expand All';
+    expandAllBtn.title = 'Expand all sections in this tab';
+    expandAllBtn.addEventListener('click', () => {
+      panel.querySelectorAll('.plat-card-body').forEach(body => {
+        body.classList.remove('collapsed');
+        const btn = body.closest('.card').querySelector('.plat-collapse-btn');
+        if (btn) btn.classList.remove('collapsed');
+        const h3 = body.closest('.card').querySelector('.plat-card-header h3');
+        if (h3) {
+          const keySlug = 'plat_collapse_' + h3.textContent.trim().replace(/[^a-z0-9]/gi,'_').slice(0,40);
+          localStorage.setItem(keySlug, '0');
+        }
+      });
+    });
+
+    toolbar.appendChild(collapseAllBtn);
+    toolbar.appendChild(expandAllBtn);
+    panel.insertBefore(toolbar, panel.firstChild);
   });
 }
 
