@@ -262,17 +262,6 @@
   <div class="topbar" id="topbar" style="display:none">
     <button class="menu-btn" id="sidebarToggleBtn" onclick="toggleSidebar()" title="Toggle sidebar">☰</button>
     <div class="tb-title" id="tbTitle">Dashboard</div>
-
-    <!-- Page nav links — inline in topbar -->
-    <nav class="tb-pagenav" id="tbPageNav">
-      <a class="tb-pnav-link" data-s="classes"   onclick="go('classes',this)">🏫 Classes</a>
-      <a class="tb-pnav-link" data-s="subjects"  onclick="go('subjects',this)">📚 Subjects</a>
-      <a class="tb-pnav-link" data-s="timetable" onclick="go('timetable',this)">🕐 Timetable</a>
-      <a class="tb-pnav-link" data-s="reports"   onclick="go('reports',this)">📄 Reports</a>
-      <a class="tb-pnav-link" data-s="fees"       onclick="go('fees',this)">💰 Fees</a>
-      <a class="tb-pnav-link" data-s="settings"  onclick="go('settings',this)">🛠️ Settings</a>
-    </nav>
-
     <div class="tb-right">
       <div class="lang-selector">
         <button class="lang-btn active" id="langEN" onclick="setLang('en')" title="English">🇬🇧 EN</button>
@@ -297,6 +286,10 @@
 
     <!-- ════ DASHBOARD ════ -->
     <section id="s-dashboard" class="sec active">
+      <div class="ph">
+        <h2>Good morning! 👋</h2>
+        <p>Here's your school's academic overview.</p>
+      </div>
       <div class="stat-row" id="dashStats"></div>
       <div class="quick-cards">
         <div class="qcard blue" onclick="go('exams',document.querySelector('[data-s=exams]'));openExamTab('tabCreateExam')">
@@ -339,6 +332,10 @@
 
     <!-- ════ EXAMS ════ -->
     <section id="s-exams" class="sec">
+      <div class="ph">
+        <h2>📝 Exams</h2>
+        <p>Create, manage, upload marks, and analyse examinations.</p>
+      </div>
       <div class="tab-bar" id="examTabBar">
         <button class="tb active" onclick="openExamTab('tabCreateExam',this)">Create Exam</button>
         <button class="tb" onclick="openExamTab('tabExamList',this)">Exam List</button>
@@ -750,6 +747,8 @@
 
     <!-- ════ STUDENTS ════ -->
     <section id="s-students" class="sec">
+      <div class="ph"><h2>🎓 Students</h2><p>Manage student records and enrolments.</p></div>
+
       <div class="card" id="stuAddCard" style="margin-bottom:1.25rem">
         <h3 id="stuFormTitle">➕ Add Student</h3>
         <input type="hidden" id="editStuId"/>
@@ -839,6 +838,8 @@
 
     <!-- ════ TEACHERS ════ -->
     <section id="s-teachers" class="sec">
+      <div class="ph"><h2>👨‍🏫 Teachers</h2><p>Manage teachers, subjects, and system access.</p></div>
+
       <!-- Teacher Excel Upload Card -->
       <div class="card" id="tchUploadCard" style="display:none;margin-bottom:1.25rem">
         <h3>⬆ Import Teachers from Excel</h3>
@@ -901,6 +902,7 @@
 
     <!-- ════ SUBJECTS ════ -->
     <section id="s-subjects" class="sec">
+      <div class="ph"><h2>📚 Subjects</h2><p>Manage subjects, assign teachers and enrol students.</p></div>
       <div class="card" style="margin-bottom:1.25rem">
         <h3 id="subFormTitle">➕ Add Subject</h3>
         <input type="hidden" id="editSubId"/>
@@ -937,6 +939,7 @@
 
     <!-- ════ CLASSES ════ -->
     <section id="s-classes" class="sec">
+      <div class="ph"><h2>🏫 Classes & Streams</h2><p>Manage class and stream assignments.</p></div>
       <div class="grid-2" style="margin-bottom:1.25rem">
         <div class="card">
           <h3 id="clsFormTitle">➕ Add Class</h3>
@@ -984,6 +987,7 @@
 
     <!-- ════ REPORTS ════ -->
     <section id="s-reports" class="sec">
+      <div class="ph"><h2>📄 Report Forms</h2><p>Generate downloadable PDF report forms for students.</p></div>
       <div class="card" style="margin-bottom:1.25rem">
         <h3>⚙ Report Settings</h3>
         <div class="frow c3">
@@ -1060,6 +1064,11 @@
 
     <!-- ════ TIMETABLE ════ -->
     <section id="s-timetable" class="sec">
+      <div class="ph">
+        <h2>🕐 Timetable Generator</h2>
+        <p>Full CBC smart timetable — setup, auto-schedule, drag-and-drop editing, PDF &amp; Excel export.</p>
+      </div>
+
       <!-- ── EduSchedule Timetable Sub-App ─────────────────────── -->
       <style>
 
@@ -2151,6 +2160,7 @@
 
     <!-- ════ MESSAGING ════ -->
     <section id="s-messaging" class="sec">
+      <div class="ph"><h2>💬 Messaging (SMS)</h2><p>Send messages to parents and teachers.</p></div>
       <div class="sec-stack">
         <div class="card">
           <h3>📩 Compose Message</h3>
@@ -2200,6 +2210,11 @@
 
     <!-- ════ FEES MANAGEMENT ════ -->
     <section id="s-fees" class="sec">
+      <div class="ph">
+        <h2>💰 Fees Management</h2>
+        <p id="feesSubtitle">Track, record and manage school fee payments.</p>
+      </div>
+
       <!-- Super Admin Overview Cards -->
       <div id="feesAdminStats" class="stat-row" style="display:none"></div>
 
@@ -2496,6 +2511,11 @@
     <!-- ════ SETTINGS ════ -->
     <!-- ════ PLATFORM ADMIN DASHBOARD ════ -->
     <section id="s-platform" class="sec">
+      <div class="ph" style="margin-bottom:0">
+        <h2>⚙️ Platform Administration</h2>
+        <p>Manage schools, exams, papers, access and system settings.</p>
+      </div>
+
       <!-- ── PLATFORM TAB BAR ── -->
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:1.5rem;border-bottom:2px solid var(--border);border-radius:10px 10px 0 0;background:var(--surface)">
         <div id="platTabBar" style="display:flex;gap:0;min-width:max-content">
@@ -2859,6 +2879,9 @@
     </section>
 
     <section id="s-settings" class="sec">
+      <div class="ph"><h2>⚙ Settings</h2><p>Configure your school system.</p></div>
+
+
       <div class="sec-stack">
         <div class="card">
           <h3>🏫 School Information</h3>
@@ -3068,6 +3091,8 @@
     <!--  PAPERS & RESOURCES SECTION                                 -->
     <!-- ═══════════════════════════════════════════════════════════ -->
     <section id="s-papers" class="sec">
+      <div class="ph" style="display:none"></div>
+
       <div class="tab-bar" id="papersTabBar">
         <button class="tb active" onclick="openPapersTab('tabTermlyExams',this)" id="tbTermlyExams">📝 Termly Exams</button>
         <button class="tb" onclick="openPapersTab('tabRevision',this);initRevisionTab();" id="tbRevision">📖 Revision</button>
@@ -3285,6 +3310,8 @@
 
     <!-- ════ EXAM BUILDER ════ -->
     <section id="s-exambuilder" class="sec">
+      <div class="ph" style="display:none"></div>
+
       <!-- Exam Builder Tab Bar -->
       <div class="tab-bar" id="ebTabBar">
         <button class="tb active" onclick="openEBTab('tabEBCreate',this)">✏️ Create Exam</button>
