@@ -1286,6 +1286,7 @@ function enterPlatformDashboard() {
   renderPlatformDashboard();
   platRenderNavConfig();
   go('platform', document.getElementById('platNavLink'));
+  try { setTimeout(lcInitAfterLogin, 400); } catch(e) {}
 }
 
 // ══ PLATFORM DASHBOARD FUNCTIONS ══
@@ -2662,6 +2663,7 @@ function finishLogin(school) {
   document.getElementById('loginScreen').style.display = 'none';
   saveSession();
   launchApp();
+  try { setTimeout(lcInitAfterLogin, 400); } catch(e) {}
 }
 
 document.addEventListener('keydown', e => {
@@ -15151,7 +15153,7 @@ initFloatingContact = function() {
       yt = document.createElement('a');
       yt.id = 'fcYoutube'; yt.target = '_blank'; yt.rel = 'noopener';
       yt.className = 'fc-btn fc-youtube'; yt.title = 'YouTube';
-      yt.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>';
+      yt.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>';
       wrap.insertBefore(yt, wrap.querySelector('.fc-btn'));
     }
     yt.href = cfg.youtube; yt.style.display = 'flex';
@@ -15164,7 +15166,7 @@ initFloatingContact = function() {
       tt = document.createElement('a');
       tt.id = 'fcTiktok'; tt.target = '_blank'; tt.rel = 'noopener';
       tt.className = 'fc-btn fc-tiktok'; tt.title = 'TikTok';
-      tt.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.3 6.3 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.87a8.18 8.18 0 004.78 1.52V7.01a4.85 4.85 0 01-1.01-.32z"/></svg>';
+      tt.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.3 6.3 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.87a8.18 8.18 0 004.78 1.52V7.01a4.85 4.85 0 01-1.01-.32z"/></svg>';
       wrap.insertBefore(tt, wrap.querySelector('.fc-btn'));
     }
     tt.href = cfg.tiktok; tt.style.display = 'flex';
@@ -15243,47 +15245,36 @@ function lcUpdateToggleUI(checkboxId) {
   pill.style.background = cb.checked ? 'var(--primary,#7c3aed)' : 'var(--border,#cbd5e1)';
 }
 
-function lcUpdateNavVisibility() {
-  const cfg = lcGetSettings();
-  const link = document.getElementById('livechatNavLink');
-  if (!link) return;
-  const isPlatAdmin = document.getElementById('platNavLink')?.style.display !== 'none';
-  const isSchool = !isPlatAdmin;
-  // Show nav link if: platform admin (always when chat enabled), school user (if live support enabled)
-  const shouldShow = isPlatAdmin ? (cfg.liveEnabled || cfg.communityEnabled) : (cfg.liveEnabled || cfg.communityEnabled);
-  link.style.display = shouldShow ? '' : 'none';
-}
 
-// Get current user info
-function lcCurrentUser() {
-  const isPlatAdmin = document.getElementById('platNavLink')?.style.display !== 'none';
-  if (isPlatAdmin) return { role: 'platform', name: 'Platform Admin', id: '__platform__' };
-  // Try to get school info from current session
-  const tbUser = document.getElementById('tbUser')?.textContent || 'School Admin';
-  // Get school id from platform schools
+// ── Role helper ──
+function lcIsPlatAdmin() { return typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'platform_admin'; }
+function lcGetSchoolIdFromCurrentUser() {
+  if (typeof currentUser !== 'undefined' && currentUser && currentUser.id) return 'school_' + currentUser.id;
+  if (typeof currentUser !== 'undefined' && currentUser && currentUser.username) return 'school_' + currentUser.username;
   try {
-    const schools = JSON.parse(localStorage.getItem('ei_platform_schools') || '[]');
-    const creds = JSON.parse(localStorage.getItem('ei_current_school') || 'null') ||
-                  JSON.parse(localStorage.getItem('ei_active_school') || 'null');
-    if (creds) return { role: 'school', name: creds.name || tbUser, id: creds.id || creds.username };
-  } catch {}
-  return { role: 'school', name: tbUser, id: 'school_' + btoa(tbUser).slice(0,8) };
-}
-
-function lcGetCurrentSchoolId() {
-  try {
-    // Look for active school session
-    const keys = Object.keys(localStorage);
-    for (const k of keys) {
-      if (k.endsWith('_ei_school_id')) return localStorage.getItem(k);
-      if (k === 'ei_active_school_id') return localStorage.getItem(k);
-    }
-    // Fallback: derive from login info
     const saved = JSON.parse(localStorage.getItem('ei_saved_login') || 'null');
     if (saved?.username) return 'school_' + saved.username;
   } catch {}
   return 'school_default';
 }
+
+function lcUpdateNavVisibility() {
+  const cfg = lcGetSettings();
+  const link = document.getElementById('livechatNavLink');
+  if (!link) return;
+  const shouldShow = cfg.liveEnabled || cfg.communityEnabled;
+  link.style.display = shouldShow ? '' : 'none';
+}
+
+// Get current user info
+function lcCurrentUser() {
+  if (lcIsPlatAdmin()) return { role: 'platform', name: 'Platform Admin', id: '__platform__' };
+  const name = (typeof currentUser !== 'undefined' && currentUser?.name) || document.getElementById('tbUser')?.textContent || 'School';
+  const id = lcGetSchoolIdFromCurrentUser();
+  return { role: 'school', name, id };
+}
+
+function lcGetCurrentSchoolId() { return lcGetSchoolIdFromCurrentUser(); }
 
 function lcGetSchoolName(schoolId) {
   try {
@@ -15326,11 +15317,9 @@ function lcFormatTime(ts) {
 // ── INIT LIVE CHAT SECTION ──
 function initLiveChatSection() {
   const cfg = lcGetSettings();
-  const isPlatAdmin = document.getElementById('platNavLink')?.style.display !== 'none';
   lcSwitchTab(_lcTab);
   lcUpdateNavVisibility();
-
-  if (isPlatAdmin) {
+  if (lcIsPlatAdmin()) {
     lcRenderAdminView(cfg);
   } else {
     lcRenderSchoolView(cfg);
@@ -15574,11 +15563,9 @@ function lcCommunitySend() {
 function lcStartPolling() {
   if (_lcPollTimer) clearInterval(_lcPollTimer);
   _lcPollTimer = setInterval(() => {
-    const isPlatAdmin = document.getElementById('platNavLink')?.style.display !== 'none';
     const sec = document.getElementById('s-livechat');
     const secVisible = sec && sec.style.display !== 'none';
-
-    if (isPlatAdmin) {
+    if (lcIsPlatAdmin()) {
       if (secVisible && _lcActiveSchool) lcRenderAdminMessages(_lcActiveSchool);
       if (secVisible) lcRenderSchoolList();
     } else {
@@ -15610,13 +15597,15 @@ document.addEventListener('DOMContentLoaded', function() {
   // Init floating contact
   initFloatingContact();
   lcUpdateNavVisibility();
-  // Init floating chat widget visibility for school users
-  setTimeout(() => {
-    const cfg = lcGetSettings();
-    const isPlatAdmin = document.getElementById('platNavLink')?.style.display !== 'none';
-    if (!isPlatAdmin && cfg.liveEnabled) {
-      const widget = document.getElementById('fchatWidget');
-      if (widget) widget.style.display = '';
-    }
-  }, 800);
+  // Re-init after login settles
+  setTimeout(lcInitAfterLogin, 1200);
 });
+
+function lcInitAfterLogin() {
+  lcUpdateNavVisibility();
+  const cfg = lcGetSettings();
+  if (!lcIsPlatAdmin() && cfg.liveEnabled) {
+    const widget = document.getElementById('fchatWidget');
+    if (widget) widget.style.display = '';
+  }
+}

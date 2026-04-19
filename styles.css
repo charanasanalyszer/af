@@ -2843,42 +2843,44 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
 /* ── Floating Contact Buttons ── */
 .floating-contact {
   position: fixed;
-  bottom: 1.5rem;
-  right: 1.5rem;
+  bottom: 1.25rem;
+  right: 1rem;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: .65rem;
+  gap: .45rem;
   z-index: 9999;
 }
 
 .fc-label {
-  font-size: .72rem;
+  font-size: .65rem;
   font-weight: 700;
   letter-spacing: .04em;
   color: var(--muted, #64748b);
   text-transform: uppercase;
-  margin-bottom: -.15rem;
-  padding-right: .25rem;
+  margin-bottom: -.1rem;
+  padding-right: .2rem;
 }
 
 .fc-btn {
-  width: 50px;
-  height: 50px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   text-decoration: none;
-  box-shadow: 0 4px 14px rgba(0,0,0,.22);
+  box-shadow: 0 3px 10px rgba(0,0,0,.2);
   transition: transform .18s, box-shadow .18s;
 }
 
 .fc-btn:hover {
   transform: scale(1.12) translateY(-2px);
-  box-shadow: 0 8px 22px rgba(0,0,0,.3);
+  box-shadow: 0 6px 16px rgba(0,0,0,.28);
 }
+
+.fc-btn svg { width: 18px; height: 18px; }
 
 .fc-whatsapp  { background: #25d366; }
 .fc-facebook  { background: #1877f2; }
@@ -2886,10 +2888,11 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
 
 @media (max-width: 640px) {
   .floating-contact {
-    bottom: 5.5rem; /* clear mobile nav bar */
-    right: 1rem;
+    bottom: 5.2rem;
+    right: .75rem;
   }
-  .fc-btn { width: 44px; height: 44px; }
+  .fc-btn { width: 34px; height: 34px; }
+  .fc-btn svg { width: 16px; height: 16px; }
 }
 
 /* ── Live Chat ── */
