@@ -3078,3 +3078,43 @@ body.lite-mode-active .main {
 }
 .lite-mod-row.lite-mod-off .lite-mod-badge { background: var(--border); color: var(--muted); }
 .dark .lite-mod-badge { background: rgba(16,185,129,.2); color: #6ee7b7; }
+
+/* ══ Platform Admin Collapsible Cards ══ */
+.plat-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  cursor: pointer;
+  user-select: none;
+}
+.plat-card-header h3 {
+  margin: 0;
+  flex: 1;
+}
+.plat-collapse-btn {
+  flex-shrink: 0;
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: .85rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, transform .2s, color .15s;
+  font-family: inherit;
+  line-height: 1;
+}
+.plat-collapse-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+.plat-collapse-btn.collapsed { transform: rotate(-90deg); }
+.plat-card-body {
+  overflow: hidden;
+  transition: max-height .3s ease, opacity .25s ease;
+  max-height: 4000px;
+  opacity: 1;
+}
+.plat-card-body.collapsed {
+  max-height: 0 !important;
+  opacity: 0;
+}

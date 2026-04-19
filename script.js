@@ -1181,6 +1181,8 @@ function openPlatTab(tabId, btn) {
     btn.style.fontWeight = '700';
     btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }
+  // Init collapse buttons for newly visible tab
+  setTimeout(initPlatformCollapse, 80);
 }
 
 function platRenderExamDlFeeUI() {
@@ -1347,6 +1349,59 @@ function loadBroadcastBanner() {
   if (msg) { banner.style.display='flex'; if(bannerTxt) bannerTxt.textContent=msg; }
   else { banner.style.display='none'; }
 }
+
+// ══ Platform Admin — collapsible cards ══
+function initPlatformCollapse() {
+  const platform = document.getElementById('s-platform');
+  if (!platform) return;
+  platform.querySelectorAll('.card').forEach(card => {
+    // Skip if already initialized
+    if (card.querySelector('.plat-card-header')) return;
+    const h3 = card.querySelector(':scope > h3, :scope > .card-header h3');
+    if (!h3) return;
+
+    // Determine a storage key from h3 text
+    const keySlug = 'plat_collapse_' + h3.textContent.trim().replace(/[^a-z0-9]/gi,'_').slice(0,40);
+
+    // Wrap h3 + create header row
+    const header = document.createElement('div');
+    header.className = 'plat-card-header';
+
+    const btn = document.createElement('button');
+    btn.className = 'plat-collapse-btn';
+    btn.title = 'Collapse / Expand';
+    btn.textContent = '▾';
+    btn.type = 'button';
+
+    h3.parentNode.insertBefore(header, h3);
+    header.appendChild(h3);
+    header.appendChild(btn);
+
+    // Wrap remaining card content in a body div
+    const body = document.createElement('div');
+    body.className = 'plat-card-body';
+    while (card.children.length > 1) {
+      body.appendChild(card.children[1]);
+    }
+    card.appendChild(body);
+
+    // Restore saved state
+    const isCollapsed = localStorage.getItem(keySlug) === '1';
+    if (isCollapsed) {
+      body.classList.add('collapsed');
+      btn.classList.add('collapsed');
+    }
+
+    // Toggle handler
+    const toggle = () => {
+      const nowCollapsed = body.classList.toggle('collapsed');
+      btn.classList.toggle('collapsed', nowCollapsed);
+      localStorage.setItem(keySlug, nowCollapsed ? '1' : '0');
+    };
+    header.addEventListener('click', toggle);
+  });
+}
+
 function renderPlatformDashboard() {
   // Exam download fee UI
   try { platRenderExamDlFeeUI(); } catch(e) {}
@@ -1368,6 +1423,8 @@ function renderPlatformDashboard() {
   if (apiInp) { const k = ebGetApiKey(); if (k) apiInp.value = k; }
   // Highlight default destination radio
   platPaperDestChange();
+  // Init collapsible cards (deferred so DOM is rendered)
+  setTimeout(initPlatformCollapse, 80);
 }
 function renderPlatformSchoolMgmtList() {
   const el = document.getElementById('platformSchoolMgmtList'); if(!el) return;
