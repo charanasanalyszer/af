@@ -1293,6 +1293,28 @@ function enterPlatformDashboard() {
   try { setTimeout(lcInitAfterLogin, 400); } catch(e) {}
 }
 
+// ── Platform admin: enter any school without password ──
+function enterSchoolAsPlatformAdmin(schoolId) {
+  loadPlatform();
+  const school = platformSchools.find(s => s.id === schoolId);
+  if (!school) return;
+  // Save platform admin session so we can return
+  _platformAdminSession = { user: { ...currentUser } };
+  currentSchoolId = school.id;
+  loadSchoolContext(school);
+  currentUser = {
+    username: school.username,
+    role: 'admin',
+    name: school.name,
+    canAnalyse: true, canReport: true, canMerit: true,
+    _impersonatedByPlatformAdmin: true
+  };
+  // Show back-to-platform banner
+  const btp = document.getElementById('backToPlatformBar');
+  if (btp) btp.style.display = 'flex';
+  finishLogin(school);
+}
+
 // ══ PLATFORM DASHBOARD FUNCTIONS ══
 const K_BROADCAST_MSG = () => localStorage.getItem(K_BROADCAST) || '';
 function saveBroadcastMessage() {
@@ -1371,6 +1393,10 @@ function renderPlatformSchoolMgmtList() {
         ${!isActive && s.deactivationMessage ? `<div style="font-size:.74rem;color:#f87171;margin-top:.3rem;font-style:italic;line-height:1.4">📢 "${s.deactivationMessage.substring(0,80)}${s.deactivationMessage.length>80?'…':''}"</div>` : ''}
       </div>
       <div style="display:flex;flex-direction:column;gap:.35rem;flex-shrink:0">
+        <button onclick="enterSchoolAsPlatformAdmin('${s.id}')"
+          style="font-size:.72rem;font-weight:700;padding:.3rem .7rem;border-radius:7px;cursor:pointer;font-family:inherit;border:1px solid rgba(26,111,181,.4);background:rgba(26,111,181,.10);color:#1a6fb5">
+          🔓 Enter School
+        </button>
         <button onclick="toggleSchoolActive('${s.id}');setTimeout(renderPlatformSchoolMgmtList,80)" 
           style="font-size:.72rem;font-weight:700;padding:.3rem .7rem;border-radius:7px;cursor:pointer;font-family:inherit;border:1px solid ${isActive?'rgba(239,68,68,.4)':'rgba(16,185,129,.4)'};background:${isActive?'rgba(239,68,68,.08)':'rgba(16,185,129,.08)'};color:${isActive?'#ef4444':'#10b981'}">
           ${isActive ? '⏸ Suspend' : '▶ Activate'}
@@ -2562,12 +2588,8 @@ function backToPlatformPortal() {
   // Hide the back bar
   const btp = document.getElementById('backToPlatformBar');
   if (btp) btp.style.display = 'none';
-  // Hide app, show school selector in platform admin mode
-  document.getElementById('app').style.display = 'none';
-  const sb = document.getElementById('sidebar'); if (sb) sb.style.display = 'none';
-  const tb = document.getElementById('topbar');  if (tb) tb.style.display = 'none';
-  const mbn = document.getElementById('mobileBottomNav'); if (mbn) mbn.style.display = 'none';
-  showSchoolSelector(true);
+  // Return to platform dashboard
+  enterPlatformDashboard();
 }
 
 function backToSchoolSelector() {
