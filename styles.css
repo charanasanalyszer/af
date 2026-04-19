@@ -217,9 +217,6 @@ body.login-active { overflow: hidden !important; height: 100vh !important; }
 /* Page Header */
 .ph { margin-bottom:.4rem;margin-top:0;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap; }
 /* h2 title is already shown in topbar — hide the in-section duplicate */
-.sec .ph h2 { display:none; }
-/* Entire .ph block is redundant in main app (topbar shows the title) — hide it */
-.sec .ph { display:none !important; }
 .ph p { margin:0;font-size:.82rem;color:var(--muted); }
 
 /* Cards */
@@ -1886,12 +1883,7 @@ th[onclick]:hover { background: var(--blue-lt, #eff6ff); color: var(--primary); 
   font-size: .67rem !important;
 }
 
-/* ── MAIN CONTENT: compact top padding, flush below topbar ── */
-.main {
-  padding-top: .3rem !important;
-  padding-left: 1.1rem !important;
-  padding-right: 1.1rem !important;
-}
+
 
 /* Topbar also always offset on desktop */
 @media (min-width: 961px) {
@@ -1910,15 +1902,8 @@ th[onclick]:hover { background: var(--blue-lt, #eff6ff); color: var(--primary); 
   max-width: 100% !important;
 }
 
-/* Mobile: sidebar overlays content, main fills full width */
+/* Mobile topbar full-width fix */
 @media (max-width: 960px) {
-  .main {
-    margin-left: 0 !important;
-    margin-top: var(--tb-h) !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    padding: .3rem 1rem 5rem !important;
-  }
   .topbar {
     left: 0 !important;
     right: 0 !important;
@@ -2592,8 +2577,7 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
    GLOBAL SPACING — Fix excess top spacing across all sections
    ═══════════════════════════════════════════════════════════ */
 
-/* Section headers — fully hidden (topbar shows title) — handled at line 222 */
-/* (Duplicate rule removed to prevent layout conflicts) */
+
 
 /* Tab bar — reduce bottom gap globally */
 .tab-bar {
@@ -2771,7 +2755,7 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
 /* ══════════════════════════════════════════════════════════════
    DEFINITIVE GAP FIX — content sits flush below topbar
    
-   Problem: .ph is always structural :first-child but display:none.
+   First-child margin-top is now zeroed to prevent top gap.
    Some sections have additional hidden elements (display:none divs,
    <style> blocks) before the first real visible content. This means
    the real first visible child can be 2nd, 3rd or 4th structural child.
@@ -2781,16 +2765,9 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
    (not margin-top) and gap on grid/flex containers.
    ══════════════════════════════════════════════════════════════ */
 
-/* Ensure first visible child in sections has no extra top margin */
-.sec > *:first-child {
-  margin-top: 0 !important;
-}
-.sec > .ph + * {
-  margin-top: 0 !important;
-}
-/* Fees and timetable specific fixes */
+/* First card/element in any section — no extra top gap */
+.sec > *:first-child { margin-top: 0 !important; }
 #feesTabBar { margin-top: 0 !important; }
-#s-timetable > style + #es-app { margin-top: 0 !important; }
 
 
 /* ═══════════════════════════════════════════════════════════

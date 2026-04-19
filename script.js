@@ -2744,6 +2744,10 @@ function launchApp() {
   if (mbnRestore) mbnRestore.style.display = '';
 
   document.getElementById('tbUser').textContent = '👤 ' + currentUser.name;
+  // Set initial topbar title to greeting
+  const _hr = new Date().getHours();
+  const _greet = _hr < 12 ? 'Good morning' : _hr < 17 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('tbTitle').textContent = _greet + ' 👋';
 
   // Show Platform Marks and Platform Results tabs for school users
   const tbPlatMarks = document.getElementById('tbPlatformMarks');
@@ -9430,7 +9434,16 @@ function go(sec, el) {
   const s = document.getElementById('s-'+sec);
   if (s) s.classList.add('active');
   if (el) el.classList.add('active');
-  document.getElementById('tbTitle').textContent = el ? el.querySelector('span').textContent : sec;
+  // Set topbar title from nav item label, with dashboard greeting
+  const navSpan = el ? el.querySelector('span') : null;
+  const navLabel = navSpan ? navSpan.textContent.trim() : sec;
+  if (sec === 'dashboard') {
+    const hr = new Date().getHours();
+    const greet = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
+    document.getElementById('tbTitle').textContent = greet + ' 👋';
+  } else {
+    document.getElementById('tbTitle').textContent = navLabel;
+  }
   // Scroll main content area back to top on every navigation
   const mainEl = document.querySelector('.main');
   if (mainEl) mainEl.scrollTop = 0;
