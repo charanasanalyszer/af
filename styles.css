@@ -2503,3 +2503,195 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
   #ebExamPreview .ebep-sa-matrix { grid-template-columns: 1fr 1fr; }
   .ebep-footer { position: fixed; bottom: 0; width: 100%; }
 }
+
+
+/* ═══════════════════════════════════════════════════════════
+   GUEST PORTAL — Complete Formatting & Spacing Fixes
+   ═══════════════════════════════════════════════════════════ */
+
+/* Guest portal uses flex column layout — no sticky needed inside */
+#guestPortal {
+  display: none;
+  flex-direction: column;
+}
+#guestPortal.active-portal,
+#guestPortal[style*="display: flex"],
+#guestPortal[style*="display:flex"] {
+  display: flex !important;
+}
+
+/* Topbar — compact, no overflow */
+#guestTopbar {
+  min-height: 46px;
+  max-height: 56px;
+}
+
+/* Broadcast banner — flex when shown, hidden by default */
+#guestBroadcastBanner {
+  flex-shrink: 0;
+}
+
+/* Tab bar — flush, no extra margin */
+#guestTabBar {
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+#guestTabBar::-webkit-scrollbar { display: none; }
+
+/* Content scroll area — starts immediately below tabs */
+#guestPortal > div:last-child {
+  padding-top: .65rem !important;
+}
+
+/* Sections inside guest portal — remove top margin/padding */
+#guestEBMount .sec,
+#guestPapersMount .sec,
+#guestEBMount > .sec,
+#guestPapersMount > .sec {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* Hide the .ph headers inside guest portal (section titles already in tab bar) */
+#guestEBMount .ph,
+#guestPapersMount .ph {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Tab bar inside sections — tighter when in guest context */
+#guestEBMount .tab-bar,
+#guestPapersMount .tab-bar {
+  margin-top: 0 !important;
+  margin-bottom: .75rem !important;
+  border-radius: 0;
+}
+
+/* Cards inside guest — slightly less padding on mobile */
+#guestEBMount .card,
+#guestPapersMount .card {
+  margin-bottom: .75rem;
+}
+
+/* Exam builder wizard steps — no excess top gap */
+#guestEBMount .eb-wizard-steps {
+  margin-top: 0 !important;
+  margin-bottom: .85rem !important;
+}
+
+/* Wizard step content — no top gap */
+#guestEBMount .eb-wizard-content.active {
+  padding-top: 0 !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   GLOBAL SPACING — Fix excess top spacing across all sections
+   ═══════════════════════════════════════════════════════════ */
+
+/* Section headers — eliminate redundant top margin */
+.ph {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* When h2 is hidden in .ph, collapse the container entirely */
+.sec .ph:not(:has(h2:not([style*="display:none"]))) {
+  margin-bottom: 0 !important;
+}
+
+/* Reduce top padding in .main content area */
+.main {
+  padding-top: .35rem !important;
+}
+
+/* Tab bar — reduce bottom gap globally */
+.tab-bar {
+  margin-bottom: .9rem !important;
+}
+
+/* Tab panel — no top padding */
+.tab-panel.active {
+  padding-top: 0 !important;
+}
+
+/* Cards — tighter vertical spacing between them */
+.sec-stack > .card + .card,
+.tab-panel > .card + .card {
+  margin-top: .75rem;
+}
+
+/* Section first child — no top margin */
+.sec > *:first-child,
+.tab-panel > *:first-child {
+  margin-top: 0 !important;
+}
+
+/* Stat row — no top gap when first element */
+.sec > .stat-row:first-child,
+.tab-panel > .stat-row:first-child {
+  margin-top: 0 !important;
+}
+
+/* ctbar (content bar with heading + buttons) — tighter */
+.ctbar {
+  margin-bottom: .75rem !important;
+}
+
+/* frow (form row grid) — tighter top */
+.sec > .frow:first-child,
+.card > .frow:first-child {
+  margin-top: 0 !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE — Tighter on small screens
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+  /* Guest portal content — smaller padding on phones */
+  #guestPortal > div:last-child {
+    padding: .5rem .5rem 4rem !important;
+  }
+
+  #guestEBMount .card,
+  #guestPapersMount .card {
+    padding: 1rem !important;
+    border-radius: 10px !important;
+  }
+
+  #guestEBMount .eb-wizard-steps {
+    padding: .65rem .75rem !important;
+  }
+
+  .tab-bar {
+    margin-bottom: .6rem !important;
+  }
+
+  .main {
+    padding: .5rem .75rem 1rem !important;
+  }
+
+  /* Cards in main app — more compact on small screens */
+  .card {
+    padding: 1rem !important;
+  }
+
+  .stat-row {
+    margin-bottom: 1rem !important;
+  }
+}
+
+@media (max-width: 400px) {
+  #guestPortal > div:last-child {
+    padding: .4rem .4rem 4rem !important;
+  }
+  #guestEBMount .card,
+  #guestPapersMount .card {
+    padding: .75rem !important;
+  }
+}

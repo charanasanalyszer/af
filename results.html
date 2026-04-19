@@ -52,7 +52,7 @@
     /* ── Hero header ── */
     .hero {
       text-align: center;
-      padding: 3rem 1.5rem 2rem;
+      padding: 1.5rem 1.25rem 1.25rem;
     }
     .hero-badge {
       display: inline-flex;
@@ -67,32 +67,32 @@
       text-transform: uppercase;
       padding: .35rem .9rem;
       border-radius: 99px;
-      margin-bottom: 1.2rem;
+      margin-bottom: .65rem;
     }
     .hero-badge::before { content: '●'; color: #3b82f6; font-size: .55rem; animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
 
     .hero h1 {
-      font-size: clamp(1.8rem, 5vw, 3rem);
+      font-size: clamp(1.5rem, 4vw, 2.2rem);
       font-weight: 800;
       letter-spacing: -.02em;
-      line-height: 1.1;
+      line-height: 1.15;
       background: linear-gradient(135deg, #f1f5f9 0%, #93c5fd 50%, #6ee7b7 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      margin-bottom: .6rem;
+      margin-bottom: .4rem;
     }
     .hero p {
       color: var(--muted);
-      font-size: .95rem;
+      font-size: .88rem;
       font-weight: 300;
     }
 
     /* ── Search card ── */
     .search-card {
       max-width: 520px;
-      margin: 0 auto 2.5rem;
+      margin: 0 auto 1.25rem;
       padding: 0 1.25rem;
     }
     .search-box {
@@ -494,14 +494,14 @@
       border-top-color: var(--accent);
       border-radius: 50%;
       animation: spin .8s linear infinite;
-      margin: 2rem auto;
+      margin: 1.25rem auto;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* Footer */
     footer {
       text-align: center;
-      padding: 2rem;
+      padding: 1.25rem;
       color: var(--muted);
       font-size: .75rem;
       border-top: 1px solid var(--border);
