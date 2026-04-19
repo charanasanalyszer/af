@@ -4511,161 +4511,195 @@ function exportMeritExcel() {
 // ─── PDF EXPORT FOR MERIT LIST ───────────────────────────────
 function exportMeritPDF() {
   const examId = document.getElementById('mlExam').value;
-  if (!examId) { showToast('Select an exam first','error'); return; }
-  try {
-    const { jsPDF } = window.jspdf;
-    const exam      = exams.find(e=>e.id===examId);
-    const isConsolidated = exam?.category === 'consolidated';
-    const sourceExamObjs = isConsolidated ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
-    const mlType     = document.getElementById('mlType')?.value || 'class_overall_and_stream';
-    const classFilter2 = document.getElementById('mlClass')?.value || null;
-    const filterStr  = mlType === 'class_stream' ? (document.getElementById('mlStream')?.value||null) : null;
-    const scored     = buildMeritData(examId, filterStr||null, classFilter2);
-    const examSubs  = (exam?.subjectIds||[]).map(sid=>subjects.find(s=>s.id===sid)).filter(Boolean);
-    const examMarks = isConsolidated ? [] : marks.filter(m=>m.examId===examId);
-    // Helper: get a student's averaged score for a subject (handles both regular & consolidated)
-    const getStuSubScore = (stuId, subId) => {
-      if (isConsolidated && sourceExamObjs.length > 0) {
-        const scores = sourceExamObjs.map(src=>{const mk=marks.find(m=>m.examId===src.id&&m.studentId===stuId&&m.subjectId===subId);return mk?mk.score:null;}).filter(sc=>sc!==null);
-        return scores.length ? parseFloat((scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1)) : null;
-      }
-      return examMarks.find(m=>m.studentId===stuId&&m.subjectId===subId)?.score??null;
-    };
-    const gs        = getActiveGradingSystem();
-    const gradeKeys = gs.bands.map(b=>b.grade);
-    const sch       = settings;
+  if (!examId) { showToast('Select an exam first', 'error'); return; }
 
-    // Landscape for wide tables
-    const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
-    const PW  = doc.internal.pageSize.getWidth();
+  const exam           = exams.find(e => e.id === examId); if (!exam) return;
+  const isConsolidated = exam.category === 'consolidated';
+  const sourceExamObjs = isConsolidated ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
+  const mlType         = document.getElementById('mlType')?.value || 'class_overall_and_stream';
+  const classFilter    = document.getElementById('mlClass')?.value || null;
+  const filterStr      = mlType === 'class_stream' ? (document.getElementById('mlStream')?.value||null) : null;
+  const scored         = buildMeritData(examId, filterStr||null, classFilter);
+  const examSubs       = (exam.subjectIds||[]).map(sid=>subjects.find(s=>s.id===sid)).filter(Boolean);
+  const examMarks      = isConsolidated ? [] : marks.filter(m=>m.examId===examId);
+  const gs             = getActiveGradingSystem();
+  const gradeKeys      = gs.bands.map(b=>b.grade);
+  const sch            = settings;
 
-    const addPageHeader = (title, subtitle='') => {
-      doc.setFillColor(26,111,181);
-      doc.rect(0,0,PW,16,'F');
-      doc.setFontSize(12); doc.setTextColor(255,255,255); doc.setFont(undefined,'bold');
-      doc.text(sch.schoolName||'School', 14, 10);
-      doc.setFontSize(9); doc.setFont(undefined,'normal');
-      doc.text(`${exam?.name||''} | ${exam?.term||''} ${exam?.year||''}`, PW-14, 10, {align:'right'});
-      doc.setFontSize(11); doc.setFont(undefined,'bold'); doc.setTextColor(26,111,181);
-      doc.text(title, 14, 24);
-      if (subtitle) { doc.setFontSize(9); doc.setFont(undefined,'normal'); doc.setTextColor(100,116,139); doc.text(subtitle, 14, 30); }
-      doc.setTextColor(0,0,0);
-    };
-
-    // ── PAGE 1: Overall merit list ──
-    addPageHeader('OVERALL MERIT LIST', `${sch.address||''} | Printed: ${new Date().toLocaleDateString()}`);
-    const meritHead = [['#','Adm No','Name','G','Stream','Str.P', ...examSubs.map(s=>s.code), 'Total','Avg','Mean','Grade','Pts','PtsGrade']];
-    const meritBody = scored.map(s => {
-      const stream = streams.find(x=>x.id===s.streamId);
-      const subScores = examSubs.map(sub=>{
-        const sc = getStuSubScore(s.id, sub.id);
-        return sc !== null ? String(sc) : '—';
-      });
-      const avg = examSubs.length ? (s.total/examSubs.length).toFixed(1) : '—';
-      const ptGrade = getPointsGrade(s.points).grade;
-      return [s.overallRank, s.adm, s.name, s.gender, stream?.name||'—', '#'+s.streamRank,
-              ...subScores, s.total, avg, s.mean.toFixed(2), s.grade?.grade||'—', s.points, ptGrade];
-    });
-    doc.autoTable({
-      startY: 34, head: meritHead, body: meritBody,
-      theme:'striped', styles:{fontSize:7, cellPadding:1.5},
-      headStyles:{fillColor:[26,111,181], textColor:255, fontStyle:'bold', fontSize:7},
-      alternateRowStyles:{fillColor:[240,247,255]},
-      columnStyles:{ 0:{cellWidth:8}, 1:{cellWidth:22, font:'courier'}, 2:{cellWidth:30}, 3:{cellWidth:7} },
-    });
-
-    // ── PAGE 2+: Subject analysis ──
-    doc.addPage();
-    addPageHeader('SUBJECT ANALYSIS — Grade Distribution & Gender Performance');
-    const subHead  = [['Subject','Count','Mean','High','Low', ...gradeKeys, 'Grade','♂ Mean','♀ Mean']];
-    const subBody  = (exam?.subjectIds||[]).map(sid=>{
-      const sub      = subjects.find(s=>s.id===sid); if(!sub) return null;
-      const vals     = scored.map(s=>getStuSubScore(s.id,sid)).filter(v=>v!==null);
-      if (!vals.length) return null;
-      const mn       = vals.reduce((a,b)=>a+b,0)/vals.length;
-      const dist     = {}; gradeKeys.forEach(g=>dist[g]=0);
-      vals.forEach(v=>{const g=getGrade(v,sub.max);if(dist[g.grade]!==undefined)dist[g.grade]++;});
-      const mV = scored.filter(s=>s.gender==='M').map(s=>getStuSubScore(s.id,sid)).filter(v=>v!==null);
-      const fV = scored.filter(s=>s.gender==='F').map(s=>getStuSubScore(s.id,sid)).filter(v=>v!==null);
-      const mMn = mV.length ? (mV.reduce((a,b)=>a+b,0)/mV.length).toFixed(1) : '—';
-      const fMn = fV.length ? (fV.reduce((a,b)=>a+b,0)/fV.length).toFixed(1) : '—';
-      const grd = getGrade(mn, sub.max);
-      return [sub.name, vals.length, mn.toFixed(1), Math.max(...vals), Math.min(...vals),
-              ...gradeKeys.map(g=>dist[g]||''), grd.grade, mMn, fMn];
-    }).filter(Boolean);
-    doc.autoTable({
-      startY:34, head:subHead, body:subBody,
-      theme:'striped', styles:{fontSize:8, cellPadding:2},
-      headStyles:{fillColor:[22,163,74], textColor:255, fontStyle:'bold'},
-      alternateRowStyles:{fillColor:[240,255,244]},
-    });
-
-    // ── Per-stream pages ──
-    const examStreams = [...new Set(scored.map(s=>s.streamId))].map(sid=>streams.find(x=>x.id===sid)).filter(Boolean);
-    examStreams.forEach(str => {
-      doc.addPage();
-      const strScored = buildMeritData(examId, str.id);
-      addPageHeader(`STREAM MERIT LIST — ${str.name}`, `${strScored.length} students`);
-      const sHead = [['#','Adm No','Name','G', ...examSubs.map(s=>s.code), 'Total','Mean','Grade','Pts']];
-      const sBody = strScored.map(s=>{
-        const subScores = examSubs.map(sub=>{
-          const sc = getStuSubScore(s.id, sub.id);
-          return sc !== null ? String(sc) : '—';
-        });
-        return [s.overallRank, s.adm, s.name, s.gender, ...subScores, s.total, s.mean.toFixed(2), s.grade?.grade||'—', s.points];
-      });
-      doc.autoTable({
-        startY:34, head:sHead, body:sBody,
-        theme:'striped', styles:{fontSize:7, cellPadding:1.5},
-        headStyles:{fillColor:[13,148,136], textColor:255, fontStyle:'bold', fontSize:7},
-        alternateRowStyles:{fillColor:[240,253,250]},
-      });
-
-      // Stream subject analysis
-      const strStudentIds = strScored.map(s=>s.id);
-      const strSubBody = (exam?.subjectIds||[]).map(sid=>{
-        const sub = subjects.find(s=>s.id===sid); if(!sub) return null;
-        const vals = strScored.map(s=>getStuSubScore(s.id,sid)).filter(v=>v!==null);
-        if (!vals.length) return null;
-        const mn   = vals.reduce((a,b)=>a+b,0)/vals.length;
-        const dist = {}; gradeKeys.forEach(g=>dist[g]=0);
-        vals.forEach(v=>{const g=getGrade(v,sub.max);if(dist[g.grade]!==undefined)dist[g.grade]++;});
-        const mV = strScored.filter(s=>s.gender==='M').map(s=>getStuSubScore(s.id,sid)).filter(v=>v!==null);
-        const fV = strScored.filter(s=>s.gender==='F').map(s=>getStuSubScore(s.id,sid)).filter(v=>v!==null);
-        return [sub.name, vals.length, mn.toFixed(1), Math.max(...vals), Math.min(...vals),
-                ...gradeKeys.map(g=>dist[g]||''), getGrade(mn,sub.max).grade,
-                mV.length?(mV.reduce((a,b)=>a+b,0)/mV.length).toFixed(1):'—',
-                fV.length?(fV.reduce((a,b)=>a+b,0)/fV.length).toFixed(1):'—'];
-      }).filter(Boolean);
-      const lastY = (doc.lastAutoTable?.finalY||34)+8;
-      doc.setFontSize(9); doc.setFont(undefined,'bold'); doc.setTextColor(13,148,136);
-      doc.text(`Subject Analysis — ${str.name}`, 14, lastY);
-      doc.setTextColor(0,0,0);
-      doc.autoTable({
-        startY:lastY+4, head:[['Subject','Count','Mean','High','Low', ...gradeKeys, 'Grade','♂','♀']],
-        body: strSubBody,
-        theme:'striped', styles:{fontSize:7.5, cellPadding:2},
-        headStyles:{fillColor:[13,148,136], textColor:255, fontStyle:'bold', fontSize:7},
-        alternateRowStyles:{fillColor:[240,253,250]},
-      });
-    });
-
-    // Page numbers
-    const total = doc.internal.getNumberOfPages();
-    for (let i=1; i<=total; i++) {
-      doc.setPage(i);
-      doc.setFontSize(7); doc.setTextColor(150,150,150);
-      doc.text(`Page ${i} of ${total}`, PW-10, doc.internal.pageSize.getHeight()-5, {align:'right'});
-      doc.text('Generated by Charanas Analyzer', 14, doc.internal.pageSize.getHeight()-5);
+  const getStuSubScore = (stuId, subId) => {
+    if (isConsolidated && sourceExamObjs.length > 0) {
+      const scores = sourceExamObjs.map(src=>{const mk=marks.find(m=>m.examId===src.id&&m.studentId===stuId&&m.subjectId===subId);return mk?mk.score:null;}).filter(sc=>sc!==null);
+      return scores.length ? parseFloat((scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1)) : null;
     }
+    return examMarks.find(m=>m.studentId===stuId&&m.subjectId===subId)?.score??null;
+  };
 
-    doc.save(`merit_list_${exam?.name||'exam'}.pdf`);
-    showToast('Merit list PDF exported ✓','success');
-  } catch(err) {
-    showToast('PDF export failed: ' + err.message, 'error');
-    console.error(err);
-  }
+  // ── Build overall merit table rows ──
+  const overallRows = scored.map((s, i) => {
+    const stream   = streams.find(x=>x.id===s.streamId);
+    const cls      = classes.find(c=>c.id===s.classId);
+    const subCells = examSubs.map(sub => {
+      const sc = getStuSubScore(s.id, sub.id);
+      return `<td style="text-align:center;padding:3px 5px;border:1px solid #ddd">${sc !== null ? sc : '—'}</td>`;
+    }).join('');
+    const avg = examSubs.length ? (s.total/examSubs.length).toFixed(1) : '—';
+    const ptGrade = getPointsGrade(s.points).grade;
+    return `<tr style="background:${i%2?'#f9fafb':'#fff'}">
+      <td style="padding:3px 5px;border:1px solid #ddd;text-align:center">${s.overallRank}</td>
+      <td style="padding:3px 5px;border:1px solid #ddd;font-family:monospace;font-size:10px">${s.adm}</td>
+      <td style="padding:3px 5px;border:1px solid #ddd;font-weight:600">${s.name}</td>
+      <td style="padding:3px 5px;border:1px solid #ddd;text-align:center">${s.gender}</td>
+      <td style="padding:3px 5px;border:1px solid #ddd">${cls?.name||'—'}</td>
+      <td style="padding:3px 5px;border:1px solid #ddd">${stream?.name||'—'}</td>
+      <td style="padding:3px 5px;border:1px solid #ddd;text-align:center">#${s.streamRank}</td>
+      ${subCells}
+      <td style="padding:3px 5px;border:1px solid #ddd;text-align:center;font-weight:700">${s.total}</td>
+      <td style="padding:3px 5px;border:1px solid #ddd;text-align:center">${avg}</td>
+      <td style="padding:3px 5px;border:1px solid #ddd;text-align:center;font-weight:700;color:#1a6fb5">${s.mean.toFixed(2)}</td>
+      <td style="padding:3px 5px;border:1px solid #ddd;text-align:center;font-weight:700;color:#16a34a">${s.grade?.grade||'—'}</td>
+      <td style="padding:3px 5px;border:1px solid #ddd;text-align:center">${s.points}</td>
+      <td style="padding:3px 5px;border:1px solid #ddd;text-align:center">${ptGrade}</td>
+    </tr>`;
+  }).join('');
+
+  // ── Build subject analysis table ──
+  const subAnalysisRows = (exam.subjectIds||[]).map(sid => {
+    const sub  = subjects.find(s=>s.id===sid); if (!sub) return '';
+    const vals = scored.map(s=>getStuSubScore(s.id,sid)).filter(v=>v!==null);
+    if (!vals.length) return '';
+    const mn  = vals.reduce((a,b)=>a+b,0)/vals.length;
+    const dist = {}; gradeKeys.forEach(g=>dist[g]=0);
+    vals.forEach(v=>{const g=getGrade(v,sub.max);if(dist[g.grade]!==undefined)dist[g.grade]++;});
+    const mV  = scored.filter(s=>s.gender==='M').map(s=>getStuSubScore(s.id,sid)).filter(v=>v!==null);
+    const fV  = scored.filter(s=>s.gender==='F').map(s=>getStuSubScore(s.id,sid)).filter(v=>v!==null);
+    const mMn = mV.length ? (mV.reduce((a,b)=>a+b,0)/mV.length).toFixed(1) : '—';
+    const fMn = fV.length ? (fV.reduce((a,b)=>a+b,0)/fV.length).toFixed(1) : '—';
+    const grd = getGrade(mn, sub.max);
+    return `<tr>
+      <td style="padding:4px 6px;border:1px solid #ddd;font-weight:600">${sub.name} <span style="color:#888;font-weight:400;font-size:10px">${sub.code}</span></td>
+      <td style="padding:4px 6px;border:1px solid #ddd;text-align:center">${vals.length}</td>
+      <td style="padding:4px 6px;border:1px solid #ddd;text-align:center;font-weight:700;color:${mn>=50?'#16a34a':'#dc2626'}">${mn.toFixed(1)}</td>
+      <td style="padding:4px 6px;border:1px solid #ddd;text-align:center;color:#16a34a;font-weight:600">${Math.max(...vals)}</td>
+      <td style="padding:4px 6px;border:1px solid #ddd;text-align:center;color:#dc2626;font-weight:600">${Math.min(...vals)}</td>
+      ${gradeKeys.map(g=>`<td style="padding:4px 6px;border:1px solid #ddd;text-align:center">${dist[g]||''}</td>`).join('')}
+      <td style="padding:4px 6px;border:1px solid #ddd;text-align:center;font-weight:700;color:#16a34a">${grd.grade}</td>
+      <td style="padding:4px 6px;border:1px solid #ddd;text-align:center">${mMn}</td>
+      <td style="padding:4px 6px;border:1px solid #ddd;text-align:center">${fMn}</td>
+    </tr>`;
+  }).join('');
+
+  // ── Build per-stream sections ──
+  const examStreamIds = [...new Set(scored.map(s=>s.streamId))];
+  const streamSections = examStreamIds.map(sid => {
+    const str       = streams.find(x=>x.id===sid); if (!str) return '';
+    const strCls    = classes.find(c=>c.id===str.classId);
+    const strScored = buildMeritData(examId, str.id);
+    if (!strScored.length) return '';
+    const rows = strScored.map((s,i) => {
+      const subCells = examSubs.map(sub => {
+        const sc = getStuSubScore(s.id, sub.id);
+        return `<td style="text-align:center;padding:3px 5px;border:1px solid #ddd">${sc !== null ? sc : '—'}</td>`;
+      }).join('');
+      return `<tr style="background:${i%2?'#f9fafb':'#fff'}">
+        <td style="padding:3px 5px;border:1px solid #ddd;text-align:center">${s.overallRank}</td>
+        <td style="padding:3px 5px;border:1px solid #ddd;font-family:monospace;font-size:10px">${s.adm}</td>
+        <td style="padding:3px 5px;border:1px solid #ddd;font-weight:600">${s.name}</td>
+        <td style="padding:3px 5px;border:1px solid #ddd;text-align:center">${s.gender}</td>
+        ${subCells}
+        <td style="padding:3px 5px;border:1px solid #ddd;text-align:center;font-weight:700">${s.total}</td>
+        <td style="padding:3px 5px;border:1px solid #ddd;text-align:center;font-weight:700;color:#1a6fb5">${s.mean.toFixed(2)}</td>
+        <td style="padding:3px 5px;border:1px solid #ddd;text-align:center;font-weight:700;color:#16a34a">${s.grade?.grade||'—'}</td>
+        <td style="padding:3px 5px;border:1px solid #ddd;text-align:center">${s.points}</td>
+      </tr>`;
+    }).join('');
+    return `
+      <div style="page-break-before:always">
+        <h2 style="margin-bottom:4px;color:#0d9488">🌊 ${strCls?.name||''} › ${str.name} — Stream Merit List</h2>
+        <div class="meta">${exam.name} &nbsp;|&nbsp; ${exam.term} ${exam.year} &nbsp;|&nbsp; ${strScored.length} students &nbsp;|&nbsp; Printed: ${new Date().toLocaleDateString()}</div>
+        <table>
+          <thead><tr>
+            <th>#</th><th>Adm No</th><th>Name</th><th>G</th>
+            ${examSubs.map(s=>`<th>${s.code}</th>`).join('')}
+            <th>Total</th><th>Mean</th><th>Grade</th><th>Pts</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Merit List — ${exam.name}</title>
+  <style>
+    *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;box-sizing:border-box}
+    @page{size:A4 landscape;margin:10mm}
+    body{font-family:Arial,sans-serif;padding:16px;color:#111;font-size:11px}
+    h2{margin:0 0 4px;font-size:14px}
+    h3{margin:1.5rem 0 4px;font-size:12px;color:#1a6fb5}
+    .meta{font-size:11px;color:#555;margin-bottom:12px}
+    table{border-collapse:collapse;width:100%;font-size:10px;margin-bottom:1rem}
+    th{background:#1a6fb5;color:#fff;padding:5px 6px;border:1px solid #1a6fb5;text-align:center;font-size:10px}
+    th.green{background:#16a34a;border-color:#16a34a}
+    th.teal{background:#0d9488;border-color:#0d9488}
+    .footer{font-size:9px;color:#999;margin-top:1rem;border-top:1px solid #eee;padding-top:.5rem;display:flex;justify-content:space-between}
+    @media print{.no-print{display:none!important}}
+  </style>
+  </head><body>
+
+  <!-- Header -->
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;border-bottom:3px solid #1a6fb5;padding-bottom:8px;margin-bottom:12px">
+    <div>
+      <div style="font-size:16px;font-weight:900;color:#1a6fb5">${sch.schoolName||'School'}</div>
+      <div style="font-size:11px;color:#555">${sch.address||''} ${sch.phone?'| Tel: '+sch.phone:''}</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-weight:700;font-size:12px">${exam.name} — Merit List</div>
+      <div style="font-size:11px;color:#555">${exam.term} ${exam.year} &nbsp;|&nbsp; Printed: ${new Date().toLocaleDateString()}</div>
+    </div>
+  </div>
+
+  <!-- Overall merit list -->
+  <h2>🏆 Overall Merit List</h2>
+  <div class="meta">${scored.length} students</div>
+  <table>
+    <thead><tr>
+      <th>#</th><th>Adm No</th><th>Name</th><th>G</th><th>Class</th><th>Stream</th><th>Str.P</th>
+      ${examSubs.map(s=>`<th>${s.code}</th>`).join('')}
+      <th>Total</th><th>Avg</th><th>Mean</th><th>Grade</th><th>Pts</th><th>PG</th>
+    </tr></thead>
+    <tbody>${overallRows}</tbody>
+  </table>
+
+  <!-- Subject analysis -->
+  <div style="page-break-before:always">
+    <h2 style="color:#16a34a">📊 Subject Analysis — Grade Distribution &amp; Gender Performance</h2>
+    <div class="meta">${exam.name} &nbsp;|&nbsp; ${exam.term} ${exam.year}</div>
+    <table>
+      <thead><tr>
+        <th style="text-align:left">Subject</th>
+        <th>Count</th><th>Mean</th><th>High</th><th>Low</th>
+        ${gradeKeys.map(g=>`<th class="green">${g}</th>`).join('')}
+        <th>Grade</th><th>♂ Mean</th><th>♀ Mean</th>
+      </tr></thead>
+      <tbody>${subAnalysisRows}</tbody>
+    </table>
+  </div>
+
+  <!-- Per-stream pages -->
+  ${streamSections}
+
+  <div class="footer no-print">
+    <span>Generated by Charanas Analyzer</span>
+    <button onclick="window.print()" style="padding:.3rem 1rem;background:#1a6fb5;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px">🖨 Print / Save PDF</button>
+  </div>
+
+  <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); }
+  else { showToast('Allow pop-ups to export PDF', 'warning'); }
 }
+
 
 // ─── SUMMARY ANALYTICS TAB ────────────────────────────────────
 
