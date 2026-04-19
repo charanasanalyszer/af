@@ -2463,6 +2463,7 @@ function showSchoolSelector(isPlatformAdmin) {
   sel.dataset.isPlatformAdmin = isPlatformAdmin ? '1' : '0';
 
   const grid = document.getElementById('schoolGrid');
+  grid.style.display = '';
   if (!platformSchools.length) {
     grid.innerHTML = isPlatformAdmin
       ? '<div style="color:var(--muted);text-align:center;padding:2rem;grid-column:1/-1">No school accounts yet. Create one below.</div>'
