@@ -1380,7 +1380,7 @@ function renderPlatformSchoolMgmtList() {
       ? `<span style="display:inline-flex;align-items:center;gap:.3rem;font-size:.7rem;font-weight:700;background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3);border-radius:99px;padding:.15rem .6rem">● Active</span>`
       : `<span style="display:inline-flex;align-items:center;gap:.3rem;font-size:.7rem;font-weight:700;background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:99px;padding:.15rem .6rem">● Suspended</span>`;
     return `
-    <div style="display:flex;align-items:flex-start;gap:.85rem;padding:.75rem 1rem;border-radius:10px;border:1.5px solid ${isActive?'var(--border)':'rgba(239,68,68,.3)'};margin-bottom:.6rem;background:var(--surface);${isActive?'':'opacity:.92'}">
+    <div onclick="enterSchoolAsPlatformAdmin('${s.id}')" style="display:flex;align-items:flex-start;gap:.85rem;padding:.75rem 1rem;border-radius:10px;border:1.5px solid ${isActive?'var(--primary,#1a6fb5)':'rgba(239,68,68,.3)'};margin-bottom:.6rem;background:var(--surface);${isActive?'':'opacity:.92'};cursor:pointer;transition:box-shadow .15s,border-color .15s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(26,111,181,.18)'" onmouseout="this.style.boxShadow=''">
       <div style="width:2.4rem;height:2.4rem;border-radius:50%;background:${isActive?'linear-gradient(135deg,#1a6fb5,#7c3aed)':'linear-gradient(135deg,#ef4444,#b91c1c)'};color:#fff;font-weight:800;font-size:1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0">
         ${s.name.charAt(0).toUpperCase()}
       </div>
@@ -1393,16 +1393,16 @@ function renderPlatformSchoolMgmtList() {
         ${!isActive && s.deactivationMessage ? `<div style="font-size:.74rem;color:#f87171;margin-top:.3rem;font-style:italic;line-height:1.4">📢 "${s.deactivationMessage.substring(0,80)}${s.deactivationMessage.length>80?'…':''}"</div>` : ''}
       </div>
       <div style="display:flex;flex-direction:column;gap:.35rem;flex-shrink:0">
-        <button onclick="enterSchoolAsPlatformAdmin('${s.id}')"
+        <button onclick="event.stopPropagation();enterSchoolAsPlatformAdmin('${s.id}')"
           style="font-size:.72rem;font-weight:700;padding:.3rem .7rem;border-radius:7px;cursor:pointer;font-family:inherit;border:1px solid rgba(26,111,181,.4);background:rgba(26,111,181,.10);color:#1a6fb5">
           🔓 Enter School
         </button>
-        <button onclick="toggleSchoolActive('${s.id}');setTimeout(renderPlatformSchoolMgmtList,80)" 
+        <button onclick="event.stopPropagation();toggleSchoolActive('${s.id}');setTimeout(renderPlatformSchoolMgmtList,80)" 
           style="font-size:.72rem;font-weight:700;padding:.3rem .7rem;border-radius:7px;cursor:pointer;font-family:inherit;border:1px solid ${isActive?'rgba(239,68,68,.4)':'rgba(16,185,129,.4)'};background:${isActive?'rgba(239,68,68,.08)':'rgba(16,185,129,.08)'};color:${isActive?'#ef4444':'#10b981'}">
           ${isActive ? '⏸ Suspend' : '▶ Activate'}
         </button>
         ${!isActive ? `<button onclick="editDeactivationMessage('${s.id}');setTimeout(renderPlatformSchoolMgmtList,300)" style="font-size:.72rem;font-weight:700;padding:.3rem .7rem;border-radius:7px;cursor:pointer;font-family:inherit;border:1px solid rgba(245,158,11,.4);background:rgba(245,158,11,.08);color:#f59e0b">✏️ Edit Msg</button>` : ''}
-        <button onclick="platDeleteSchool('${s.id}')" 
+        <button onclick="event.stopPropagation();platDeleteSchool('${s.id}')" 
           style="font-size:.72rem;font-weight:700;padding:.3rem .7rem;border-radius:7px;cursor:pointer;font-family:inherit;border:1px solid rgba(239,68,68,.25);background:rgba(239,68,68,.06);color:#ef4444">
           🗑 Delete
         </button>
