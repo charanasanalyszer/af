@@ -2512,6 +2512,30 @@ function enterSchool(schoolId) {
   loadPlatform();
   const school = platformSchools.find(s => s.id === schoolId);
   if (!school) return;
+
+  // ── Platform admin bypass: enter any school without password ──
+  if (currentUser && currentUser.role === 'platform_admin') {
+    // Save the platform admin session so we can return later
+    _platformAdminSession = { user: { ...currentUser }, schoolId: null };
+    currentSchoolId = school.id;
+    loadSchoolContext(school);
+    currentUser = {
+      username: school.username,
+      role: 'admin',
+      name: school.name,
+      canAnalyse: true,
+      canReport: true,
+      canMerit: true,
+      _impersonatedByPlatformAdmin: true
+    };
+    document.getElementById('schoolSelector').style.display = 'none';
+    finishLogin(school);
+    // Show the "Back to Platform" banner
+    const btp = document.getElementById('backToPlatformBar');
+    if (btp) btp.style.display = 'flex';
+    return;
+  }
+
   // Just set the school context — do NOT render the full app yet.
   // Full rendering happens in finishLogin() after credentials are verified.
   currentSchoolId = school.id;
@@ -2521,6 +2545,26 @@ function enterSchool(schoolId) {
   document.getElementById('lUser').value = '';
   document.getElementById('lPass').value = '';
   document.getElementById('loginErr').style.display = 'none';
+}
+
+// Storage for platform admin session during school impersonation
+let _platformAdminSession = null;
+
+function backToPlatformPortal() {
+  if (!_platformAdminSession) { doLogout(); return; }
+  // Restore platform admin session
+  currentUser     = _platformAdminSession.user;
+  currentSchoolId = null;
+  _platformAdminSession = null;
+  // Hide the back bar
+  const btp = document.getElementById('backToPlatformBar');
+  if (btp) btp.style.display = 'none';
+  // Hide app, show school selector in platform admin mode
+  document.getElementById('app').style.display = 'none';
+  const sb = document.getElementById('sidebar'); if (sb) sb.style.display = 'none';
+  const tb = document.getElementById('topbar');  if (tb) tb.style.display = 'none';
+  const mbn = document.getElementById('mobileBottomNav'); if (mbn) mbn.style.display = 'none';
+  showSchoolSelector(true);
 }
 
 function backToSchoolSelector() {
