@@ -2682,3 +2682,17 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
     padding: .75rem !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   PLATFORM ADMIN TABS — Explicit show/hide rules
+   ═══════════════════════════════════════════════════════════ */
+.plat-tab-panel {
+  display: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+.plat-tab-panel[style*="display: block"],
+.plat-tab-panel[style*="display:block"] {
+  display: block !important;
+  visibility: visible !important;
+}

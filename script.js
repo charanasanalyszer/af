@@ -1161,7 +1161,7 @@ function guestShowTab(which) {
 // ══════════════════════════════════════════════
 // ── Platform Admin Tab Switcher ──────────────────────────
 function openPlatTab(tabId, btn) {
-  document.querySelectorAll('#s-platform .plat-tab-panel').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('#s-platform .plat-tab-panel').forEach(p => { p.style.display = 'none'; });
   document.querySelectorAll('#platTabBar .plat-tab-btn').forEach(b => {
     b.style.background = 'var(--surface)';
     b.style.color = 'var(--text)';
@@ -1169,13 +1169,12 @@ function openPlatTab(tabId, btn) {
     b.style.fontWeight = '500';
   });
   const panel = document.getElementById(tabId);
-  if (panel) panel.style.display = '';
+  if (panel) { panel.style.display = 'block'; panel.style.visibility = 'visible'; }
   if (btn) {
     btn.style.background = 'var(--primary, #4f7cff)';
     btn.style.color = '#fff';
     btn.style.borderBottom = '3px solid var(--primary, #4f7cff)';
     btn.style.fontWeight = '700';
-    // Scroll the active tab into view on mobile
     btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }
 }
