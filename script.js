@@ -1062,32 +1062,98 @@ function finishGuestLogin(school) {
 
 function applyGuestRoleUI() {
   if (!currentUser || currentUser.role !== 'guest') return;
-  // Guest sees: Exam Builder + Papers (Revision & Termly Exams) only
-  ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','messaging','settings','platform'].forEach(sec => {
-    const el = document.querySelector(`[data-s="${sec}"]`); if (el) el.style.display = 'none';
-  });
-  // Show Exam Builder and Papers nav items
-  const ebEl = document.querySelector('[data-s="exambuilder"]');
-  if (ebEl) ebEl.style.display = '';
-  const papersEl = document.querySelector('[data-s="papers"]');
-  if (papersEl) papersEl.style.display = '';
-  // Hide upload/admin cards so guest is read-only
+
+  // ── Hide the entire school admin app shell ──
+  const appEl = document.getElementById('app');
+  if (appEl) appEl.style.display = 'none';
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) sidebar.style.display = 'none';
+  const topbar = document.getElementById('topbar');
+  if (topbar) topbar.style.display = 'none';
+  const mbn = document.getElementById('mobileBottomNav');
+  if (mbn) mbn.style.display = 'none';
+  const mbnRestore = document.getElementById('mbnRestoreTab');
+  if (mbnRestore) mbnRestore.style.display = 'none';
+
+  // ── Show the dedicated guest portal ──
+  const portal = document.getElementById('guestPortal');
+  if (portal) portal.style.display = 'flex';
+
+  // ── Set school name in guest topbar ──
+  const gsn = document.getElementById('guestSchoolName');
+  if (gsn) gsn.textContent = (currentSchoolId && platformSchools
+    ? (platformSchools.find(s => s.id === currentSchoolId) || {}).name || 'Guest Portal'
+    : 'Guest Portal');
+
+  // ── Move s-exambuilder and s-papers into guest portal mounts ──
+  const ebSection    = document.getElementById('s-exambuilder');
+  const papSection   = document.getElementById('s-papers');
+  const ebMount      = document.getElementById('guestEBMount');
+  const papersMount  = document.getElementById('guestPapersMount');
+
+  if (ebSection && ebMount && !ebMount.contains(ebSection)) {
+    ebSection.classList.add('active');
+    ebSection.style.display = '';
+    ebMount.appendChild(ebSection);
+  }
+  if (papSection && papersMount && !papersMount.contains(papSection)) {
+    papSection.classList.add('active');
+    papSection.style.display = '';
+    papersMount.appendChild(papSection);
+  }
+
+  // ── Hide upload/admin cards (guest is read-only) ──
   const termlyUpload = document.getElementById('termlyUploadCard');
   if (termlyUpload) termlyUpload.style.display = 'none';
-  // Also hide admin-only upload card in platform papers if present
-  const platPapUpload = document.getElementById('platPaperUploadCard');
-  if (platPapUpload) platPapUpload.style.display = 'none';
-  // Hide mobile bottom nav items guest shouldn't access
-  ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','messaging','settings'].forEach(sec => {
-    const mbn = document.querySelector(`.mbn-item[data-s="${sec}"]`); if (mbn) mbn.style.display = 'none';
-  });
-  // Update topbar user label
-  const tbUser = document.getElementById('tbUser');
-  if (tbUser) tbUser.innerHTML = '👤 Guest <span style="font-size:.72rem;background:rgba(124,58,237,.15);color:#7c3aed;border-radius:99px;padding:.1rem .5rem;font-weight:700;margin-left:.35rem">GUEST</span>';
-  // Jump to exambuilder
-  go('exambuilder', document.querySelector('[data-s="exambuilder"]'));
-  // Show fee notice on export button
-  updateExamDlFeeNotice();
+
+  // ── Load broadcast banner into guest banner ──
+  try {
+    const raw = localStorage.getItem('ei_broadcast_msg') || '';
+    const gb = document.getElementById('guestBroadcastBanner');
+    const gt = document.getElementById('guestBroadcastText');
+    if (gb && gt) {
+      if (raw.trim()) { gt.textContent = raw; gb.style.display = 'flex'; }
+      else { gb.style.display = 'none'; }
+    }
+  } catch(e) {}
+
+  // ── Dark mode sync ──
+  if (localStorage.getItem('ei_dark') === '1') applyDark(true);
+
+  // ── Show Exam Builder tab first ──
+  guestShowTab('exambuilder');
+
+  // ── Fee notice ──
+  try { updateExamDlFeeNotice(); } catch(e) {}
+
+  // ── Init exam builder module if needed ──
+  try { if (typeof ebInit === 'function') ebInit(); } catch(e) {}
+  try { if (typeof initExamBuilder === 'function') initExamBuilder(); } catch(e) {}
+}
+
+// ── Guest tab switcher ──────────────────────────────────
+function guestShowTab(which) {
+  const panelEB     = document.getElementById('guestPanelEB');
+  const panelPapers = document.getElementById('guestPanelPapers');
+  const btnEB       = document.getElementById('guestTabBtnEB');
+  const btnPapers   = document.getElementById('guestTabBtnPapers');
+  const accent = 'var(--primary,#4f7cff)';
+  const muted  = 'var(--text,#334155)';
+
+  if (which === 'exambuilder') {
+    if (panelEB)     panelEB.style.display     = 'block';
+    if (panelPapers) panelPapers.style.display = 'none';
+    if (btnEB)     { btnEB.style.color = accent;  btnEB.style.borderBottom = '3px solid ' + accent; btnEB.style.fontWeight = '700'; }
+    if (btnPapers) { btnPapers.style.color = muted; btnPapers.style.borderBottom = '3px solid transparent'; btnPapers.style.fontWeight = '500'; }
+    // Trigger exambuilder init
+    try { if (typeof openEBTab === 'function') openEBTab('tabEBCreate', document.querySelector('#ebTabBar .tb')); } catch(e) {}
+  } else {
+    if (panelEB)     panelEB.style.display     = 'none';
+    if (panelPapers) panelPapers.style.display = 'block';
+    if (btnPapers) { btnPapers.style.color = accent;  btnPapers.style.borderBottom = '3px solid ' + accent; btnPapers.style.fontWeight = '700'; }
+    if (btnEB)     { btnEB.style.color = muted;   btnEB.style.borderBottom = '3px solid transparent'; btnEB.style.fontWeight = '500'; }
+    try { if (typeof initPapersSection === 'function') initPapersSection(); } catch(e) {}
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -2610,6 +2676,18 @@ function doLogout() {
   // Hide student portal overlay if open
   const sp = document.getElementById('studentPortalOverlay');
   if (sp) sp.style.display = 'none';
+  // Hide guest portal if open
+  const gp = document.getElementById('guestPortal');
+  if (gp) gp.style.display = 'none';
+  // Return s-exambuilder and s-papers to mainContent if they were moved to guest portal
+  const mainContent = document.getElementById('mainContent');
+  ['s-exambuilder','s-papers'].forEach(id => {
+    const sec = document.getElementById(id);
+    if (sec && mainContent && !mainContent.contains(sec)) {
+      sec.classList.remove('active');
+      mainContent.appendChild(sec);
+    }
+  });
   // Hide app and all fixed-position elements
   document.getElementById('app').style.display = 'none';
   const sb = document.getElementById('sidebar'); if (sb) sb.style.display = 'none';
