@@ -348,6 +348,7 @@ function addGSBandRow() {
 
 // ═══════════════ PORTAL NAVIGATION ═══════════════
 function showUnifiedLogin() {
+  document.body.classList.add('login-active');
   ['app'].forEach(id => { const el=document.getElementById(id); if(el) el.style.display='none'; });
   // Hide fixed-position elements that escape parent display:none
   const sb = document.getElementById('sidebar'); if (sb) sb.style.display = 'none';
@@ -1063,6 +1064,7 @@ function finishGuestLogin(school) {
 function applyGuestRoleUI() {
   if (!currentUser || currentUser.role !== 'guest') return;
 
+  document.body.classList.remove('login-active');
   // ── Hide the entire school admin app shell ──
   const appEl = document.getElementById('app');
   if (appEl) appEl.style.display = 'none';
@@ -1074,6 +1076,9 @@ function applyGuestRoleUI() {
   if (mbn) mbn.style.display = 'none';
   const mbnRestore = document.getElementById('mbnRestoreTab');
   if (mbnRestore) mbnRestore.style.display = 'none';
+  // ── Lock body scroll — guest portal manages its own scroll ──
+  document.body.style.overflow = 'hidden';
+  document.body.style.height = '100vh';
 
   // ── Show the dedicated guest portal ──
   const portal = document.getElementById('guestPortal');
@@ -1257,6 +1262,7 @@ function platRemoveUnlockById(schoolId) {
 }
 
 function enterPlatformDashboard() {
+  document.body.classList.remove('login-active');
   currentUser = { username: getPlatformCreds().username, role:'platform_admin', name:'Platform Admin', canAnalyse:true, canReport:true, canMerit:true };
   currentSchoolId = null;
   saveSession();
@@ -1266,9 +1272,11 @@ function enterPlatformDashboard() {
   const tb = document.getElementById('topbar'); if (tb) tb.style.display = '';
   const sb = document.getElementById('sidebar'); if (sb) sb.style.display = '';
   document.getElementById('tbUser').textContent = '⚙️ Platform Admin';
-  // Show mobile bottom nav
+  // Platform portal: no mobile bottom nav
   const mbn = document.getElementById('mobileBottomNav');
-  if (mbn) mbn.style.display = '';
+  if (mbn) mbn.style.display = 'none';
+  const mbnRestore = document.getElementById('mbnRestoreTab');
+  if (mbnRestore) mbnRestore.style.display = 'none';
   // Platform portal: hide school-specific nav, only show Platform Admin link
   ['subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','messaging','settings'].forEach(s=>{
     const el=document.querySelector('[data-s="'+s+'"]'); if(el) el.style.display='none';
@@ -2673,6 +2681,9 @@ function doLogout() {
   currentUser = null;
   currentSchoolId = null;
   clearSession();
+  // Restore body scroll (may have been locked for guest/login)
+  document.body.style.overflow = '';
+  document.body.style.height = '';
   // Hide student portal overlay if open
   const sp = document.getElementById('studentPortalOverlay');
   if (sp) sp.style.display = 'none';
@@ -2727,6 +2738,7 @@ function togglePw() {
   f.type = f.type === 'password' ? 'text' : 'password';
 }
 function launchApp() {
+  document.body.classList.remove('login-active');
   try { document.getElementById('loginScreen').style.display = 'none'; } catch(e) {}
   try { document.getElementById('app').style.display = 'flex'; } catch(e) {}
   try { const sb = document.getElementById('sidebar'); if (sb) sb.style.display = ''; } catch(e) {}

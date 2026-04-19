@@ -86,13 +86,16 @@ body.dark .btn-outline:hover {
 }
 
 body { font-family: var(--font); background: var(--bg); color: var(--text); transition: background .3s, color .3s; line-height: 1.6; }
+/* Lock scrolling on body when login or guest portal is active */
+body.login-active { overflow: hidden !important; height: 100vh !important; }
 
 /* ══════════════ LOGIN ══════════════ */
 .login-screen {
-  min-height: 100vh;
+  position: fixed; inset: 0;
   display: flex; align-items: center; justify-content: center;
   background: linear-gradient(135deg, #0f2744 0%, #1a6fb5 55%, #16a34a 100%);
-  position: relative; overflow-x: hidden; overflow-y: auto; padding: 1rem;
+  overflow-x: hidden; overflow-y: auto; padding: 1rem;
+  z-index: 9999;
 }
 .login-shapes { position: absolute; inset: 0; pointer-events: none; }
 .ls { position: absolute; border-radius: 50%; opacity: .1; animation: lsFloat 10s ease-in-out infinite; }
@@ -114,7 +117,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); tran
 
 /* Mobile portrait: prevent login card from being clipped */
 @media (max-width: 480px) {
-  .login-screen { align-items: flex-start; padding: 1.25rem .75rem 2rem; }
+  .login-screen { align-items: flex-start; padding: 1.25rem .75rem 2rem; overflow-y: auto; }
   .login-card { padding: 1.75rem 1.25rem; border-radius: 16px; }
 }
 
