@@ -2702,9 +2702,9 @@ function doLogout() {
   const mbnRestore = document.getElementById('mbnRestoreTab');
   if (mbnRestore) { mbnRestore.classList.remove('visible'); mbnRestore.style.display = 'none'; }
   document.body.classList.remove('mbn-hidden');
-  // Restore all sidebar nav links for next login
-  ['subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','messaging','settings'].forEach(s=>{
-    const el=document.querySelector('[data-s="'+s+'"]'); if(el) el.style.display='';
+  // Restore ALL nav links in both sidebar AND mobile bottom nav for next login
+  ['dashboard','subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','messaging','settings'].forEach(s=>{
+    document.querySelectorAll('[data-s="'+s+'"]').forEach(el => el.style.display='');
   });
   // Also restore topbar user display
   const tbU = document.getElementById('tbUser'); if (tbU) tbU.innerHTML = '👤 ';
@@ -2760,8 +2760,7 @@ function launchApp() {
   }
 
   // Settings: visible to all (admins see full settings; teachers see only their prefs)
-  const settingsLink = document.querySelector('[data-s="settings"]');
-  if (settingsLink) settingsLink.style.display = '';
+  document.querySelectorAll('[data-s="settings"]').forEach(el => el.style.display = '');
 
   // Apply teacher-specific UI restrictions
   applyRoleBasedUI();
@@ -2784,16 +2783,17 @@ function launchApp() {
   const platLink = document.getElementById('platNavLink');
   if (platLink) platLink.style.display = 'none';
 
-  // ── Teacher role: Dashboard + Exam Builder + Papers ──
+  // ── Teacher role: Dashboard + Exam Builder + Papers only ──
   if (currentUser && currentUser.role === 'teacher') {
-    const teacherAllowed = ['dashboard','exambuilder','papers'];
-    ['subjects','classes','teachers','students','timetable','exams','reports','fees','messaging','settings'].forEach(sec => {
-      const el = document.querySelector(`[data-s="${sec}"]`);
-      if (el) el.style.display = teacherAllowed.includes(sec) ? '' : 'none';
+    const teacherAllowed = new Set(['dashboard','exambuilder','papers']);
+    const allSecs = ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','messaging','settings','exambuilder','papers'];
+    // Apply show/hide to BOTH sidebar AND mobile bottom nav via querySelectorAll
+    allSecs.forEach(sec => {
+      const show = teacherAllowed.has(sec);
+      document.querySelectorAll(`[data-s="${sec}"]`).forEach(el => {
+        el.style.display = show ? '' : 'none';
+      });
     });
-    // Make sure dashboard link is visible
-    const dashLink = document.querySelector('[data-s="dashboard"]');
-    if (dashLink) dashLink.style.display = '';
     // Hide papers upload card for teachers
     const termlyUpload = document.getElementById('termlyUploadCard'); if (termlyUpload) termlyUpload.style.display='none';
     // Show badge in topbar
@@ -11055,25 +11055,38 @@ function applyRoleBasedUI() {
   // Global restrictions from settings
   const globalRestrictAnalytics = isTeacher && !!settings.restrictTeacherAnalytics;
 
-  // ── Sidebar: sections hidden for teachers ──
-  ['students','subjects','classes'].forEach(sec => {
-    const link = document.querySelector(`[data-s="${sec}"]`);
-    if (link) link.style.display = isTeacher ? 'none' : '';
+  // ── Sidebar + mobile nav: sections hidden for teachers ──
+  // Use querySelectorAll so BOTH sidebar links AND mobile bottom nav items are hidden
+  ['students','subjects','classes','teachers'].forEach(sec => {
+    document.querySelectorAll(`[data-s="${sec}"]`).forEach(el => {
+      el.style.display = isTeacher ? 'none' : '';
+    });
   });
 
-  // Teachers section: always hidden from teacher-role users
-  const teachersLink = document.querySelector('[data-s="teachers"]');
-  if (teachersLink) teachersLink.style.display = isTeacher ? 'none' : '';
+  // Extra sections teachers should never see — hide in sidebar AND mobile nav
+  if (isTeacher) {
+    ['timetable','reports','messaging'].forEach(sec => {
+      document.querySelectorAll(`[data-s="${sec}"]`).forEach(el => {
+        el.style.display = 'none';
+      });
+    });
+  } else {
+    ['timetable','reports','messaging'].forEach(sec => {
+      document.querySelectorAll(`[data-s="${sec}"]`).forEach(el => {
+        el.style.display = '';
+      });
+    });
+  }
 
-  // ── Fees sidebar link ──
+  // ── Fees sidebar + mobile nav link ──
   // Regular teacher (not class teacher) → no fees at all
   // Class teacher → show fees (restricted to own classes inside fees module)
   // principal / bursar / admin → always show
-  const feesLink = document.querySelector('[data-s="fees"]');
-  if (feesLink) {
-    if (isTeacher && !isClassTch) feesLink.style.display = 'none';
-    else feesLink.style.display = '';
-  }
+  // Hide fees link in both sidebar + mobile nav for non-class teachers
+  document.querySelectorAll('[data-s="fees"]').forEach(el => {
+    if (isTeacher && !isClassTch) el.style.display = 'none';
+    else el.style.display = '';
+  });
 
   // ── Exams: hide Create Exam tab for teachers ──
   const createExamBtn = document.querySelector('[onclick*="tabCreateExam"]');

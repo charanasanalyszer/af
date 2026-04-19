@@ -1886,19 +1886,11 @@ th[onclick]:hover { background: var(--blue-lt, #eff6ff); color: var(--primary); 
   font-size: .67rem !important;
 }
 
-/* ── MAIN CONTENT: sits directly below topbar — no gap ── */
+/* ── MAIN CONTENT: compact top padding, flush below topbar ── */
 .main {
-  margin-left: var(--sb-w) !important;
-  margin-top: var(--tb-h) !important;
-  width: calc(100% - var(--sb-w)) !important;
-  max-width: calc(100% - var(--sb-w)) !important;
-  box-sizing: border-box !important;
-  padding: .75rem 1.1rem 1.5rem !important;
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
-  height: calc(100vh - var(--tb-h)) !important;
-  position: relative !important;
-  top: 0 !important;
+  padding-top: .3rem !important;
+  padding-left: 1.1rem !important;
+  padding-right: 1.1rem !important;
 }
 
 /* Topbar also always offset on desktop */
@@ -1922,9 +1914,10 @@ th[onclick]:hover { background: var(--blue-lt, #eff6ff); color: var(--primary); 
 @media (max-width: 960px) {
   .main {
     margin-left: 0 !important;
+    margin-top: var(--tb-h) !important;
     width: 100% !important;
     max-width: 100% !important;
-    padding: .25rem 1rem 5rem !important;
+    padding: .3rem 1rem 5rem !important;
   }
   .topbar {
     left: 0 !important;
@@ -2599,12 +2592,8 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
    GLOBAL SPACING — Fix excess top spacing across all sections
    ═══════════════════════════════════════════════════════════ */
 
-/* Section headers — fully hidden (topbar shows title) */
-.sec .ph {
-  display: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
+/* Section headers — fully hidden (topbar shows title) — handled at line 222 */
+/* (Duplicate rule removed to prevent layout conflicts) */
 
 /* Tab bar — reduce bottom gap globally */
 .tab-bar {
@@ -2792,16 +2781,61 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
    (not margin-top) and gap on grid/flex containers.
    ══════════════════════════════════════════════════════════════ */
 
-.sec > *:nth-child(-n+4) {
+/* Ensure first visible child in sections has no extra top margin */
+.sec > *:first-child {
   margin-top: 0 !important;
 }
-
-/* Fees: feesAdminStats (hidden stat-row) is 2nd child, tab-bar is 3rd */
-#feesTabBar {
+.sec > .ph + * {
   margin-top: 0 !important;
 }
+/* Fees and timetable specific fixes */
+#feesTabBar { margin-top: 0 !important; }
+#s-timetable > style + #es-app { margin-top: 0 !important; }
 
-/* Timetable: <style> is 2nd child, #es-app is 3rd — both need zeroing */
-#s-timetable > style + #es-app {
-  margin-top: 0 !important;
+
+/* ═══════════════════════════════════════════════════════════
+   DEFINITIVE LAYOUT FIX v2 — Single source of truth
+   Replaces all previous duplicate .main overrides.
+   Topbar is fixed at --tb-h. Main starts immediately below it.
+   ═══════════════════════════════════════════════════════════ */
+
+/* Desktop: sidebar visible, main offset by sidebar width */
+@media (min-width: 961px) {
+  .main {
+    margin-top: var(--tb-h) !important;
+    margin-left: var(--sb-w) !important;
+    width: calc(100% - var(--sb-w)) !important;
+    max-width: calc(100% - var(--sb-w)) !important;
+    height: calc(100vh - var(--tb-h)) !important;
+    padding: .4rem 1.1rem 1.5rem !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+  .sidebar-collapsed .main {
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* Mobile: sidebar hidden (overlay), main fills full width */
+@media (max-width: 960px) {
+  .main {
+    margin-top: var(--tb-h) !important;
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: calc(100vh - var(--tb-h)) !important;
+    padding: .3rem .9rem 5rem !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .main {
+    padding: .2rem .65rem 5rem !important;
+  }
 }
