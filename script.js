@@ -15,6 +15,19 @@ const K_PLATFORM_RESULTS    = 'ei_platform_results';    // {examId: {analysed:bo
 let   platformSchools       = [];
 let   currentSchoolId       = null;
 
+// ═══════════════ EXAM DOWNLOAD FEE (Platform Admin Setting) ═══════════════
+const K_EXAM_DL_FEE        = 'ei_exam_dl_fee';        // number — KES fee for teacher/guest to print/download
+const K_EXAM_DL_UNLOCKED   = 'ei_exam_dl_unlocked';   // JSON array of schoolIds that have paid/been unlocked
+
+function getExamDlFee() { try { const v=localStorage.getItem(K_EXAM_DL_FEE); return v!==null?Number(v):0; } catch { return 0; } }
+function getExamDlUnlocked() { try { return JSON.parse(localStorage.getItem(K_EXAM_DL_UNLOCKED)||'[]'); } catch { return []; } }
+function isSchoolExamDlUnlocked(schoolId) {
+  const fee = getExamDlFee();
+  if (!fee || fee <= 0) return true; // free
+  return getExamDlUnlocked().includes(schoolId);
+}
+
+
 function loadPlatform()  { try { platformSchools = JSON.parse(localStorage.getItem(PLATFORM_SCHOOLS_KEY)) || []; } catch { platformSchools = []; } }
 function savePlatform()  { localStorage.setItem(PLATFORM_SCHOOLS_KEY, JSON.stringify(platformSchools)); }
 
@@ -774,12 +787,378 @@ function doUnifiedLogin() {
     if (admin) { currentUser={...admin,canAnalyse:true,canReport:true,canMerit:true}; re(); maybeSaveCreds(); finishLogin(school); return; }
     const teacher = teachers.find(t=>t.username===u&&t.password===p);
     if (teacher) { currentUser={username:teacher.username,role:'teacher',name:teacher.name,teacherId:teacher.id,canAnalyse:teacher.canAnalyse,canReport:teacher.canReport,canMerit:teacher.canMerit}; re(); maybeSaveCreds(); finishLogin(school); return; }
+
+    // ── Student login: adm-number@schoolname (any password) ──
+    // Username format: admNo@schoolUsername  e.g. 2024001@sunrise
+    const atIdx = u.indexOf('@');
+    if (atIdx > 0) {
+      const admPart = u.slice(0, atIdx).trim();
+      const schoolPart = u.slice(atIdx+1).trim().toLowerCase();
+      if (school.username.toLowerCase() === schoolPart) {
+        // check if this adm number exists
+        const stuMatch = students.find(s => s.adm.toLowerCase() === admPart.toLowerCase());
+        if (stuMatch) {
+          // Students use their adm number as password, or any password if no stuPassword set
+          const stuPwd = stuMatch.password || stuMatch.adm;
+          if (p === stuPwd || !stuMatch.password) {
+            currentUser = { username: u, role:'student', name: stuMatch.name, studentId: stuMatch.id, adm: stuMatch.adm, canAnalyse:false, canReport:false, canMerit:false };
+            re(); maybeSaveCreds(); finishStudentPortal(school); return;
+          } else {
+            re(); err.innerHTML='❌ Incorrect password for student account.'; err.style.display='block'; return;
+          }
+        }
+      }
+    }
+
+    // ── Guest login: username=guest password=guest (works in any school) ──
+    if (u.toLowerCase() === 'guest' && p === 'guest') {
+      currentUser = { username:'guest', role:'guest', name:'Guest', canAnalyse:false, canReport:false, canMerit:false };
+      re();
+      finishGuestLogin(school);
+      return;
+    }
+
     currentSchoolId = null;
+  }
+
+  // Guest login fallback (no school loop needed if no schools)
+  if (u.toLowerCase() === 'guest' && p === 'guest') {
+    re(); err.innerHTML='❌ No schools found. Platform admin must add a school first.'; err.style.display='block'; return;
   }
 
   re();
   err.innerHTML='❌ Invalid credentials. Check your username and password (case-sensitive).';
   err.style.display='block';
+}
+
+// ══════════════════════════════════════════════
+//   STUDENT PORTAL
+// ══════════════════════════════════════════════
+function finishStudentPortal(school) {
+  saveSession();
+  const ul = document.getElementById('unifiedLogin'); if (ul) ul.style.display = 'none';
+  const app = document.getElementById('app'); if (app) app.style.display = 'none';
+  const sp = document.getElementById('studentPortalOverlay');
+  if (!sp) { finishLogin(school); return; } // fallback
+  sp.style.display = 'block';
+  // Populate header
+  document.getElementById('spStudentName').textContent = currentUser.name;
+  document.getElementById('spStudentAdm').textContent  = 'Adm: ' + currentUser.adm;
+  document.getElementById('spSchoolBadge').textContent = school.name;
+  if (localStorage.getItem('ei_dark')==='1') applyDark(true);
+  spLoadExamFilter();
+  spRenderResults();
+  spRenderFees();
+  spRenderPapers();
+}
+
+function spOpenTab(tabId, btn) {
+  ['spResults','spFees','spPapers'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.style.display = (id === tabId) ? '' : 'none'; el.classList.toggle('active', id === tabId); }
+  });
+  document.querySelectorAll('#studentPortalOverlay .tb').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (tabId === 'spResults') spRenderResults();
+  if (tabId === 'spFees')    spRenderFees();
+  if (tabId === 'spPapers')  spRenderPapers();
+}
+
+function spLoadExamFilter() {
+  const sel = document.getElementById('spExamFilter'); if (!sel) return;
+  const myExams = exams.filter(e => {
+    const mks = marks.filter(m => m.examId === e.id && m.studentId === currentUser.studentId);
+    return mks.length > 0;
+  });
+  sel.innerHTML = '<option value="">All Exams</option>' +
+    myExams.map(e => `<option value="${e.id}">${e.title} — ${e.term} ${e.year||''}</option>`).join('');
+}
+
+function spRenderResults() {
+  const body = document.getElementById('spResultsBody'); if (!body) return;
+  const examFilter = document.getElementById('spExamFilter')?.value || '';
+  const termFilter = document.getElementById('spTermFilter')?.value || '';
+  const stuId = currentUser.studentId;
+  let myMarks = marks.filter(m => m.studentId === stuId);
+  if (examFilter) myMarks = myMarks.filter(m => m.examId === examFilter);
+  if (termFilter) {
+    myMarks = myMarks.filter(m => {
+      const ex = exams.find(e => e.id === m.examId);
+      return ex && ex.term === termFilter;
+    });
+  }
+  if (!myMarks.length) {
+    body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">📭 No results found yet. Check back after exams are marked.</div>';
+    return;
+  }
+  // Group by exam
+  const byExam = {};
+  myMarks.forEach(m => {
+    if (!byExam[m.examId]) byExam[m.examId] = [];
+    byExam[m.examId].push(m);
+  });
+  let html = '';
+  Object.entries(byExam).forEach(([examId, mks]) => {
+    const ex = exams.find(e => e.id === examId);
+    const title = ex ? `${ex.title} — ${ex.term||''} ${ex.year||''}` : examId;
+    const total = mks.reduce((s,m) => s + (Number(m.score)||0), 0);
+    const maxTotal = mks.length * (ex?.maxScore || 100);
+    const pct = maxTotal > 0 ? Math.round(total/maxTotal*100) : 0;
+    const gradingSystem = ex?.gradingSystemId ? gradingSystems?.find(g=>g.id===ex.gradingSystemId) : null;
+    html += `<div style="border:1.5px solid var(--border);border-radius:12px;margin-bottom:1rem;overflow:hidden">
+      <div style="background:linear-gradient(135deg,#1e40af15,#7c3aed15);padding:.75rem 1rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
+        <div style="font-weight:700;font-size:.92rem">${title}</div>
+        <div style="font-size:.82rem;color:var(--muted)">Total: <strong style="color:var(--text)">${total}</strong> / ${maxTotal} (${pct}%)</div>
+      </div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.83rem">
+        <thead><tr style="background:var(--bg)">
+          <th style="padding:.4rem .75rem;text-align:left">Subject</th>
+          <th style="padding:.4rem .75rem;text-align:center">Score</th>
+          <th style="padding:.4rem .75rem;text-align:center">Max</th>
+          <th style="padding:.4rem .75rem;text-align:center">%</th>
+          <th style="padding:.4rem .75rem;text-align:center">Grade</th>
+          <th style="padding:.4rem .75rem;text-align:center">Remarks</th>
+        </tr></thead><tbody>`;
+    mks.forEach(m => {
+      const sub = subjects.find(s => s.id === m.subjectId);
+      const subName = sub ? sub.name : (m.subject||'—');
+      const score = Number(m.score)||0;
+      const maxS  = Number(ex?.maxScore||100);
+      const sp2   = maxS > 0 ? Math.round(score/maxS*100) : 0;
+      let gradeInfo = getGrade ? getGrade(score, maxS, gradingSystem) : {grade:'—',remark:'—'};
+      if (typeof gradeInfo === 'string') gradeInfo = {grade:gradeInfo, remark:''};
+      const grade  = gradeInfo.grade || '—';
+      const remark = gradeInfo.remark || gradeInfo.remarks || '';
+      const color  = sp2>=70?'#10b981':sp2>=50?'#f59e0b':'#ef4444';
+      html += `<tr style="border-top:1px solid var(--border)">
+        <td style="padding:.4rem .75rem">${subName}</td>
+        <td style="padding:.4rem .75rem;text-align:center;font-weight:700;color:${color}">${score}</td>
+        <td style="padding:.4rem .75rem;text-align:center;color:var(--muted)">${maxS}</td>
+        <td style="padding:.4rem .75rem;text-align:center">${sp2}%</td>
+        <td style="padding:.4rem .75rem;text-align:center"><span style="background:${color}18;color:${color};border-radius:6px;padding:.1rem .45rem;font-weight:700;font-size:.8rem">${grade}</span></td>
+        <td style="padding:.4rem .75rem;font-size:.78rem;color:var(--muted)">${remark}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div></div>';
+  });
+  body.innerHTML = html;
+}
+
+function spRenderFees() {
+  const body = document.getElementById('spFeesBody'); if (!body) return;
+  const stuId = currentUser.studentId;
+  const stu   = students.find(s => s.id === stuId);
+  if (!stu) { body.innerHTML = '<p>Student not found.</p>'; return; }
+  // Load fee data
+  loadFees();
+  const curTerm = settings?.currentTerm || 'Term 1';
+  const curYear = String(settings?.currentYear || new Date().getFullYear());
+  // Find all fee records for this student
+  const stuRecords = feeRecords.filter(r => r.studentId === stuId);
+  if (!stuRecords.length) {
+    body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">💰 No fee records found for your account. Contact the school bursar.</div>';
+    return;
+  }
+  // Group by term/year
+  const grouped = {};
+  stuRecords.forEach(r => {
+    const key = `${r.term}|${r.year}`;
+    if (!grouped[key]) grouped[key] = { term:r.term, year:r.year, payments:[], balance:0 };
+    grouped[key].payments.push(r);
+  });
+  // Find fee structures
+  const allStructures = feeStructures.filter(fs => {
+    const sc = stu.classId;
+    return !fs.classId || fs.classId === sc;
+  });
+  let html = '';
+  // Current term summary at top
+  const curKey = `${curTerm}|${curYear}`;
+  const curRecs = feeRecords.filter(r => r.studentId === stuId && r.term === curTerm && String(r.year) === curYear);
+  const curPaid = curRecs.reduce((s,r) => s+(Number(r.amount)||0), 0);
+  const curStruct = feeStructures.find(fs => fs.term === curTerm && String(fs.year||'') === curYear && (!fs.classId || fs.classId === stu.classId));
+  const curTotal  = curStruct ? (Number(curStruct.amount)||0) : 0;
+  const curBalance = curTotal - curPaid;
+  const balColor = curBalance > 0 ? '#ef4444' : '#10b981';
+  html += `<div style="background:linear-gradient(135deg,${balColor}12,${balColor}06);border:2px solid ${balColor}40;border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.25rem">
+    <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.4rem">Current Term — ${curTerm} ${curYear}</div>
+    <div style="display:flex;gap:1.5rem;flex-wrap:wrap">
+      <div><div style="font-size:.75rem;color:var(--muted)">Required</div><div style="font-weight:800;font-size:1.1rem">KES ${curTotal.toLocaleString()}</div></div>
+      <div><div style="font-size:.75rem;color:var(--muted)">Paid</div><div style="font-weight:800;font-size:1.1rem;color:#10b981">KES ${curPaid.toLocaleString()}</div></div>
+      <div><div style="font-size:.75rem;color:var(--muted)">Balance</div><div style="font-weight:800;font-size:1.1rem;color:${balColor}">KES ${Math.abs(curBalance).toLocaleString()} ${curBalance<=0?'✅ CLEARED':'⚠️ OWING'}</div></div>
+    </div>
+  </div>`;
+  // Payment history
+  html += `<div style="font-weight:700;font-size:.85rem;margin-bottom:.65rem;color:var(--muted)">Payment History</div>`;
+  if (!stuRecords.length) {
+    html += '<div style="color:var(--muted);font-size:.85rem">No payments recorded.</div>';
+  } else {
+    html += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">
+      <thead><tr style="background:var(--bg)">
+        <th style="padding:.4rem .75rem;text-align:left">Date</th>
+        <th style="padding:.4rem .75rem;text-align:left">Term / Year</th>
+        <th style="padding:.4rem .75rem;text-align:right">Amount (KES)</th>
+        <th style="padding:.4rem .75rem;text-align:left">Mode</th>
+        <th style="padding:.4rem .75rem;text-align:left">Ref</th>
+      </tr></thead><tbody>`;
+    [...stuRecords].sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(r => {
+      html += `<tr style="border-top:1px solid var(--border)">
+        <td style="padding:.4rem .75rem">${r.date||'—'}</td>
+        <td style="padding:.4rem .75rem">${r.term||'—'} ${r.year||''}</td>
+        <td style="padding:.4rem .75rem;text-align:right;font-weight:700;color:#10b981">+${(Number(r.amount)||0).toLocaleString()}</td>
+        <td style="padding:.4rem .75rem">${r.mode||'—'}</td>
+        <td style="padding:.4rem .75rem;font-size:.76rem;color:var(--muted)">${r.ref||r.receiptNo||'—'}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+  body.innerHTML = html;
+}
+
+function spRenderPapers() {
+  const body = document.getElementById('spPapersBody'); if (!body) return;
+  loadTermlyPapers();
+  const termFilter = document.getElementById('spPapersTermFilter')?.value || '';
+  // Combine local + platform revision papers
+  const platPapers = loadPlatformPapers ? loadPlatformPapers().filter(p => !p.section || p.section === 'revision') : [];
+  let papers = [...termlyPapers.filter(p => p.section === 'revision' || !p.section), ...platPapers.map(p => ({...p, _isPlatform:true}))];
+  if (termFilter) papers = papers.filter(p => p.term === termFilter);
+  if (!papers.length) {
+    body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">📚 No revision materials available yet.</div>';
+    return;
+  }
+  let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.85rem">';
+  papers.forEach(p => {
+    const subj = subjects.find(s=>s.id===p.subjectId);
+    const subjName = subj ? subj.name : (p.subject || p.subjectId || '');
+    const price = Number(p.price)||0;
+    const dlFn = p._isPlatform ? `downloadPlatformPaper('${p.id}')` : `downloadTermlyPaper('${p.id}')`;
+    html += `<div style="border:1.5px solid var(--border);border-radius:11px;padding:1rem;background:var(--surface);display:flex;flex-direction:column;gap:.5rem">
+      <div style="font-size:1.8rem;text-align:center">${getFileIcon ? getFileIcon(p.fileType,p.fileName) : '📄'}</div>
+      <div style="font-weight:700;font-size:.88rem;text-align:center">${p.title}</div>
+      <div style="font-size:.75rem;color:var(--muted);text-align:center">${subjName}${p.term?' · '+p.term:''} ${p.year||''}</div>
+      ${price>0?`<div style="text-align:center;font-weight:800;color:#7c3aed;font-size:.95rem">KES ${price.toLocaleString()}</div>`:
+        `<div style="text-align:center;font-size:.75rem;color:#10b981;font-weight:700">Free</div>`}
+      <button onclick="${dlFn}" class="btn btn-primary btn-sm" style="width:100%;font-size:.8rem">${price>0?'💳 Buy & Download':'⬇️ Download'}</button>
+    </div>`;
+  });
+  html += '</div>';
+  body.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════
+//   GUEST LOGIN
+// ══════════════════════════════════════════════
+function finishGuestLogin(school) {
+  loadSchoolContext(school);
+  // Guest sees only: Exam Builder (create exam) + Papers (revision+termly view only)
+  // No download/print until unlocked
+  const ul = document.getElementById('unifiedLogin'); if (ul) ul.style.display = 'none';
+  saveSession();
+  finishLogin(school);
+  // After finishLogin, restrict guest navigation
+  applyGuestRoleUI();
+}
+
+function applyGuestRoleUI() {
+  if (!currentUser || currentUser.role !== 'guest') return;
+  // Hide almost everything
+  const allowed = ['exambuilder','papers'];
+  ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','messaging','settings','platform'].forEach(sec => {
+    const el = document.querySelector(`[data-s="${sec}"]`); if (el) el.style.display = 'none';
+  });
+  allowed.forEach(sec => {
+    const el = document.querySelector(`[data-s="${sec}"]`); if (el) el.style.display = '';
+  });
+  // Update topbar user label
+  const tbUser = document.getElementById('tbUser');
+  if (tbUser) tbUser.innerHTML = '👤 Guest <span style="font-size:.72rem;background:rgba(124,58,237,.15);color:#7c3aed;border-radius:99px;padding:.1rem .5rem;font-weight:700;margin-left:.35rem">GUEST</span>';
+  // Jump to exambuilder by default
+  const ebLink = document.querySelector('[data-s="exambuilder"]');
+  go('exambuilder', ebLink);
+  // Hide upload card in papers (guest cannot upload)
+  const termlyUpload = document.getElementById('termlyUploadCard'); if (termlyUpload) termlyUpload.style.display='none';
+  // Show fee notice on export button
+  updateExamDlFeeNotice();
+}
+
+// ══════════════════════════════════════════════
+//   PLATFORM ADMIN — EXAM DOWNLOAD FEE CONTROLS
+// ══════════════════════════════════════════════
+function platRenderExamDlFeeUI() {
+  const inp = document.getElementById('platExamDlFeeInput');
+  const statusEl = document.getElementById('platExamDlFeeStatus');
+  if (!inp) return;
+  const fee = getExamDlFee();
+  inp.value = fee;
+  if (statusEl) {
+    if (!fee || fee <= 0) {
+      statusEl.style.background = 'rgba(16,185,129,.1)'; statusEl.style.color='#065f46'; statusEl.style.borderColor='rgba(16,185,129,.3)';
+      statusEl.textContent = '🔓 Free — All teachers & guests can print/download';
+    } else {
+      statusEl.style.background = 'rgba(245,158,11,.1)'; statusEl.style.color='#b45309'; statusEl.style.borderColor='rgba(245,158,11,.3)';
+      statusEl.textContent = `🔒 Locked — KES ${fee.toLocaleString()} fee required. Unlock per school after payment.`;
+    }
+  }
+  // Populate school unlock dropdown
+  const sel = document.getElementById('platExamDlUnlockSchool');
+  if (sel) {
+    loadPlatform();
+    sel.innerHTML = '<option value="">— Select School —</option>' +
+      platformSchools.map(s=>`<option value="${s.id}">${s.name} (@${s.username})</option>`).join('');
+  }
+  platRenderExamDlUnlockList();
+}
+
+function platSaveExamDlFee() {
+  const inp = document.getElementById('platExamDlFeeInput');
+  const msg = document.getElementById('platExamDlFeeSaveMsg');
+  const fee = Math.max(0, Number(inp?.value||0));
+  localStorage.setItem(K_EXAM_DL_FEE, String(fee));
+  if (msg) { msg.style.color='#10b981'; msg.textContent='✅ Saved!'; setTimeout(()=>{msg.textContent=''},2500); }
+  platRenderExamDlFeeUI();
+  showToast(fee>0 ? `Exam download fee set to KES ${fee.toLocaleString()} 🔒` : 'Exam download/print is now free 🔓', 'success');
+}
+
+function platUnlockSchoolExamDl() {
+  const sel = document.getElementById('platExamDlUnlockSchool');
+  const schoolId = sel?.value; if (!schoolId) { showToast('Select a school first','error'); return; }
+  const unlocked = getExamDlUnlocked();
+  if (!unlocked.includes(schoolId)) { unlocked.push(schoolId); localStorage.setItem(K_EXAM_DL_UNLOCKED, JSON.stringify(unlocked)); }
+  const school = platformSchools.find(s=>s.id===schoolId);
+  showToast(`✅ ${school?.name||schoolId} unlocked for exam download/print`, 'success');
+  platRenderExamDlFeeUI();
+}
+
+function platLockSchoolExamDl() {
+  const sel = document.getElementById('platExamDlUnlockSchool');
+  const schoolId = sel?.value; if (!schoolId) { showToast('Select a school first','error'); return; }
+  const unlocked = getExamDlUnlocked().filter(id=>id!==schoolId);
+  localStorage.setItem(K_EXAM_DL_UNLOCKED, JSON.stringify(unlocked));
+  const school = platformSchools.find(s=>s.id===schoolId);
+  showToast(`🔒 ${school?.name||schoolId} re-locked for exam download/print`, 'info');
+  platRenderExamDlFeeUI();
+}
+
+function platRenderExamDlUnlockList() {
+  const el = document.getElementById('platExamDlUnlockList'); if (!el) return;
+  const unlocked = getExamDlUnlocked();
+  loadPlatform();
+  if (!unlocked.length) { el.innerHTML='<div style="font-size:.78rem;color:var(--muted)">No schools currently unlocked.</div>'; return; }
+  el.innerHTML = '<div style="font-size:.78rem;font-weight:700;color:var(--muted);margin-bottom:.35rem">Currently unlocked schools:</div>' +
+    unlocked.map(id => {
+      const s = platformSchools.find(x=>x.id===id);
+      return `<span style="display:inline-flex;align-items:center;gap:.3rem;background:rgba(16,185,129,.1);color:#065f46;border:1px solid rgba(16,185,129,.3);border-radius:99px;padding:.2rem .7rem;font-size:.76rem;font-weight:700;margin:.2rem .2rem 0 0">
+        ✅ ${s?s.name:id}
+        <button onclick="platRemoveUnlockById('${id}')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.9rem;padding:0 .1rem;line-height:1">×</button>
+      </span>`;
+    }).join('');
+}
+
+function platRemoveUnlockById(schoolId) {
+  const unlocked = getExamDlUnlocked().filter(id=>id!==schoolId);
+  localStorage.setItem(K_EXAM_DL_UNLOCKED, JSON.stringify(unlocked));
+  platRenderExamDlFeeUI();
 }
 
 function enterPlatformDashboard() {
@@ -845,6 +1224,8 @@ function loadBroadcastBanner() {
   else { banner.style.display='none'; }
 }
 function renderPlatformDashboard() {
+  // Exam download fee UI
+  try { platRenderExamDlFeeUI(); } catch(e) {}
   // Broadcast
   const inp = document.getElementById('broadcastMsgInput');
   if (inp) inp.value = localStorage.getItem(K_BROADCAST)||'';
@@ -2197,6 +2578,9 @@ function doLogout() {
   currentUser = null;
   currentSchoolId = null;
   clearSession();
+  // Hide student portal overlay if open
+  const sp = document.getElementById('studentPortalOverlay');
+  if (sp) sp.style.display = 'none';
   // Hide app and all fixed-position elements
   document.getElementById('app').style.display = 'none';
   const sb = document.getElementById('sidebar'); if (sb) sb.style.display = 'none';
@@ -2210,6 +2594,10 @@ function doLogout() {
   ['subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','messaging','settings'].forEach(s=>{
     const el=document.querySelector('[data-s="'+s+'"]'); if(el) el.style.display='';
   });
+  // Also restore topbar user display
+  const tbU = document.getElementById('tbUser'); if (tbU) tbU.innerHTML = '👤 ';
+  // Also restore papers upload card visibility
+  const termlyUpload = document.getElementById('termlyUploadCard'); if (termlyUpload) termlyUpload.style.display='';
   const platLink=document.getElementById('platNavLink'); if(platLink) platLink.style.display='none';
   // Hide all login screens, then show the main unified login
   ['loginScreen','platformLogin','dualPortal','schoolSelector'].forEach(id => {
@@ -2279,6 +2667,26 @@ function launchApp() {
   const platLink = document.getElementById('platNavLink');
   if (platLink) platLink.style.display = 'none';
 
+  // ── Teacher role: restrict to Exam Builder + Papers only ──
+  if (currentUser && currentUser.role === 'teacher') {
+    const teacherAllowed = ['exambuilder','papers'];
+    ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','messaging','settings'].forEach(sec => {
+      const el = document.querySelector(`[data-s="${sec}"]`);
+      if (el) el.style.display = teacherAllowed.includes(sec) ? '' : 'none';
+    });
+    // Hide papers upload card for teachers
+    const termlyUpload = document.getElementById('termlyUploadCard'); if (termlyUpload) termlyUpload.style.display='none';
+    // Show badge in topbar
+    const tbU = document.getElementById('tbUser');
+    if (tbU) tbU.innerHTML = '👤 ' + currentUser.name + ' <span style="font-size:.72rem;background:rgba(26,111,181,.15);color:#1a6fb5;border-radius:99px;padding:.1rem .5rem;font-weight:700;margin-left:.35rem">TEACHER</span>';
+    // Show fee notice on export button
+    updateExamDlFeeNotice();
+    // Apply platform nav config last
+    applyPlatformNavConfig();
+    go('exambuilder', document.getElementById('examBuilderNavLink'));
+    return;
+  }
+
   // Apply platform nav visibility config to school portal
   applyPlatformNavConfig();
 
@@ -2301,6 +2709,24 @@ function initApp() {
       loadPlatform();
       enterPlatformDashboard();
       return;
+    }
+
+    // Student portal restore
+    if (savedUser.role === 'student' && savedSchoolId) {
+      currentUser = savedUser;
+      currentSchoolId = savedSchoolId;
+      loadPlatform();
+      const school = platformSchools.find(s => s.id === savedSchoolId);
+      if (school) { loadSchoolContext(school); finishStudentPortal(school); return; }
+    }
+
+    // Guest restore
+    if (savedUser.role === 'guest' && savedSchoolId) {
+      currentUser = savedUser;
+      currentSchoolId = savedSchoolId;
+      loadPlatform();
+      const school = platformSchools.find(s => s.id === savedSchoolId);
+      if (school) { loadSchoolContext(school); finishGuestLogin(school); return; }
     }
 
     // School user
@@ -10079,6 +10505,8 @@ function getMyClassTeacherStreams() {
 // ── Apply all role-based UI changes after login ──
 function applyRoleBasedUI() {
   const role      = currentUser.role;
+  // Guest role: handled separately
+  if (role === 'guest') { applyGuestRoleUI(); return; }
   const isAdmin   = role === 'superadmin' || role === 'admin';
   const isPrincipal = role === 'principal';
   const isBursar  = role === 'bursar';
@@ -10936,6 +11364,9 @@ function populateTermlyYearFilter() {
 
 // ── Upload a paper ──
 function uploadTermlyPaper() {
+  if (currentUser && (currentUser.role === 'teacher' || currentUser.role === 'guest' || currentUser.role === 'student')) {
+    showToast('You do not have permission to upload papers.', 'error'); return;
+  }
   const subjectId = document.getElementById('tpSubject').value.trim();
   const term      = document.getElementById('tpTerm').value;
   const year      = parseInt(document.getElementById('tpYear').value);
@@ -11219,6 +11650,9 @@ function confirmPaperDownload(paperId) {
 
 // ── Delete a paper (admin only) ──
 function deleteTermlyPaper(paperId) {
+  if (currentUser && (currentUser.role === 'teacher' || currentUser.role === 'guest' || currentUser.role === 'student')) {
+    showToast('You do not have permission to delete papers.', 'error'); return;
+  }
   if (!confirm('Delete this paper? This action cannot be undone.')) return;
   loadTermlyPapers();
   termlyPapers = termlyPapers.filter(p => p.id !== paperId);
@@ -12279,7 +12713,61 @@ function ebLoadExamForEdit(id) {
 }
 
 // ─── Export PDF ───────────────────────────────────────────────────────────────
+
+// ══ EXAM DOWNLOAD/PRINT FEE GUARD (for teacher & guest roles) ══
+function updateExamDlFeeNotice() {
+  const notice = document.getElementById('ebDlFeeNotice');
+  if (!notice) return;
+  const role = currentUser && currentUser.role;
+  if (role === 'teacher' || role === 'guest') {
+    const fee = getExamDlFee();
+    if (fee > 0 && !isSchoolExamDlUnlocked(currentSchoolId)) {
+      notice.style.display = '';
+      notice.textContent = `🔒 KES ${fee.toLocaleString()} fee required to download/print`;
+    } else {
+      notice.style.display = 'none';
+    }
+  } else {
+    notice.style.display = 'none';
+  }
+}
+
+function checkExamDlAllowed() {
+  if (!currentUser) return false;
+  const role = currentUser.role;
+  // Admin/superadmin/platform_admin/student always allowed (student can't reach exam builder)
+  if (role === 'admin' || role === 'superadmin' || role === 'platform_admin') return true;
+  // Teacher or guest: check fee
+  if (role === 'teacher' || role === 'guest') {
+    const fee = getExamDlFee();
+    if (!fee || fee <= 0) return true; // free
+    // Check if current school is unlocked
+    if (currentSchoolId && isSchoolExamDlUnlocked(currentSchoolId)) return true;
+    // Blocked — show paywall message
+    showModal(
+      '🔒 Download/Print Locked',
+      `<div style="text-align:center;padding:1rem 0">
+        <div style="font-size:2.5rem;margin-bottom:.75rem">🔒</div>
+        <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">Payment Required</div>
+        <div style="color:var(--muted);font-size:.85rem;margin-bottom:1.25rem;line-height:1.6">
+          Printing and downloading exam papers requires a platform fee of<br>
+          <strong style="color:#7c3aed;font-size:1.1rem">KES ${fee.toLocaleString()}</strong><br>
+          per school term. Please pay via M-Pesa or school cashier and ask<br>
+          your Platform Administrator to unlock your school.
+        </div>
+        <div style="background:rgba(124,58,237,.07);border-radius:9px;padding:.75rem 1rem;font-size:.8rem;color:#475569">
+          📞 Contact your Platform Admin to confirm payment and unlock access.
+        </div>
+      </div>`,
+      []
+    );
+    return false;
+  }
+  return true;
+}
+
 function ebExportPDF() {
+  if (!checkExamDlAllowed()) return;
   ebSyncDOM();
   const header = ebGetHeader();
   const instructions = ebGetInstructions();
@@ -12287,6 +12775,7 @@ function ebExportPDF() {
   ebClientSidePDF({ header, instructions, sections: EB.sections, totalMarks });
 }
 function ebExportExamPDF(id) {
+  if (!checkExamDlAllowed()) return;
   const exam = ebLoad().find(e => e.id === id);
   if (exam) ebClientSidePDF(exam);
 }
@@ -12716,6 +13205,7 @@ async function ebGenerateMarkingScheme() {
   finally { ebHideLoading(); }
 }
 function ebExportMsPDF() {
+  if (!checkExamDlAllowed()) return;
   const content = document.getElementById('ebMsContent')?.innerHTML || '';
   if (!window.jspdf) return;
   const { jsPDF } = window.jspdf;
@@ -13302,6 +13792,7 @@ function etClear() { et_schedule=[]; et_overrides={}; etRender(); }
    PDF EXPORT — beautiful landscape A4, one section per class group
 ════════════════════════════════════════════════════════════════════ */
 function etExportPDF() {
+  if (!checkExamDlAllowed()) return;
   if (!et_schedule.length) { showToast('Generate a timetable first.','warning'); return; }
   const {jsPDF} = window.jspdf||{};
   if (!jsPDF) { showToast('PDF library not loaded.','warning'); return; }
@@ -13492,6 +13983,7 @@ function etExportExcel() {
    PRINT — opens a styled print window per class group
 ════════════════════════════════════════════════════════════════════ */
 function etPrint() {
+  if (!checkExamDlAllowed()) return;
   if (!et_schedule.length) { showToast('Generate a timetable first.','warning'); return; }
   const exam=exams.find(e=>e.id===document.getElementById('etExamSelect').value);
   const classGroups=etGetClassGroups();

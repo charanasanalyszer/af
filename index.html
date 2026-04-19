@@ -54,6 +54,18 @@
     <button type="submit" class="btn btn-primary btn-full" id="uniBtn">Sign In →</button>
     </form>
     <div id="uniErr" class="login-err" style="display:none"></div>
+    <!-- Guest / Login type hints -->
+    <div id="loginHints" style="margin-top:.85rem;border:1.5px dashed #e2e8f0;border-radius:10px;padding:.7rem .9rem;background:rgba(124,58,237,.03)">
+      <div style="font-size:.72rem;font-weight:700;color:#7c3aed;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.45rem">🔑 Login Guide</div>
+      <div style="font-size:.75rem;color:#475569;line-height:1.7">
+        <div>🏫 <strong>School Admin:</strong> <span style="font-family:monospace;background:#f1f5f9;padding:.05rem .3rem;border-radius:4px">username@schoolname</span></div>
+        <div>👨‍🏫 <strong>Teacher:</strong> <span style="font-family:monospace;background:#f1f5f9;padding:.05rem .3rem;border-radius:4px">teachername@schoolname</span></div>
+        <div>🎓 <strong>Student:</strong> <span style="font-family:monospace;background:#f1f5f9;padding:.05rem .3rem;border-radius:4px">adm-number@schoolname</span></div>
+        <div style="margin-top:.35rem;padding:.4rem .6rem;background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(5,150,105,.05));border-radius:7px;border:1px solid rgba(16,185,129,.2)">
+          👤 <strong>Guest access:</strong> Use username <span style="font-family:monospace;background:#f0fdf4;padding:.05rem .3rem;border-radius:4px;color:#059669">guest</span> — password is always <span style="font-family:monospace;background:#f0fdf4;padding:.05rem .3rem;border-radius:4px;color:#059669;font-weight:700">guest</span>
+        </div>
+      </div>
+    </div>
     <div style="margin-top:.75rem;text-align:center">
       <button type="button" style="background:none;border:none;color:#7c3aed;font-size:.82rem;cursor:pointer;text-decoration:underline;padding:.25rem" onclick="showForgotPassword()">🔑 Forgot Password?</button>
     </div>
@@ -2687,6 +2699,45 @@
         </div>
       </div>
 
+      <!-- Exam Download Fee / Teacher & Guest Access Control -->
+      <div class="card" style="border-left:4px solid #f59e0b;margin-bottom:1.5rem">
+        <h3>🔒 Exam Print/Download Access Control</h3>
+        <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">Control whether teachers and guest users can print or download exams they create in the Exam Builder. Set a fee (KES) that must be paid — or set to 0 to allow free access.</p>
+        <div class="frow c2" style="gap:1rem;margin-bottom:.75rem">
+          <div class="fg">
+            <label>Exam Download/Print Fee (KES)</label>
+            <input type="number" id="platExamDlFeeInput" placeholder="e.g. 200" min="0" step="1" style="font-size:.95rem"/>
+            <div style="font-size:.75rem;color:var(--muted);margin-top:.3rem">Set to <strong>0</strong> to allow free printing/downloading. Any amount &gt; 0 will block print and download for teachers/guests until admin unlocks.</div>
+          </div>
+          <div class="fg">
+            <label>Access Status</label>
+            <div id="platExamDlFeeStatus" style="padding:.55rem .75rem;border-radius:8px;font-size:.83rem;font-weight:600;background:rgba(245,158,11,.1);color:#b45309;border:1px solid rgba(245,158,11,.3)">Loading…</div>
+            <div style="font-size:.75rem;color:var(--muted);margin-top:.4rem">After a school pays, use <em>Unlock per School</em> below.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem">
+          <button class="btn btn-primary btn-sm" onclick="platSaveExamDlFee()">💾 Save Fee Setting</button>
+          <span id="platExamDlFeeSaveMsg" style="font-size:.82rem"></span>
+        </div>
+        <!-- Per-school unlock -->
+        <div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:.25rem">
+          <div style="font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:.65rem">🏫 Per-School Unlock (after payment confirmed)</div>
+          <div class="frow c2" style="gap:.75rem;align-items:flex-end">
+            <div class="fg">
+              <label>School</label>
+              <select id="platExamDlUnlockSchool" style="width:100%;height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem">
+                <option value="">— Select School —</option>
+              </select>
+            </div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+              <button class="btn btn-sm" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none" onclick="platUnlockSchoolExamDl()">✅ Unlock School</button>
+              <button class="btn btn-sm btn-outline" onclick="platLockSchoolExamDl()">🔒 Re-Lock School</button>
+            </div>
+          </div>
+          <div id="platExamDlUnlockList" style="margin-top:.75rem"></div>
+        </div>
+      </div>
+
       <!-- Change Platform Password -->
       <div class="card">
         <h3>🔑 Change Platform Password</h3>
@@ -3316,8 +3367,9 @@
           <div class="card">
             <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;border-bottom:1px solid var(--border-lt);flex-wrap:wrap;gap:.5rem">
               <h3 style="font-size:1rem">👁 Exam Preview</h3>
-              <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+              <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
                 <button class="btn btn-danger btn-sm" onclick="ebExportPDF()">⬇ PDF</button>
+                <span id="ebDlFeeNotice" style="display:none;font-size:.72rem;color:#b45309;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:99px;padding:.15rem .6rem;font-weight:700">🔒 Fee required to download</span>
                 <button class="btn btn-success btn-sm" onclick="ebSaveExam()">💾 Save Exam</button>
               </div>
             </div>
@@ -3528,6 +3580,77 @@
     </div>
 
   </main>
+</div>
+
+<!-- ════ STUDENT PORTAL OVERLAY ════ -->
+<div id="studentPortalOverlay" style="display:none;position:fixed;inset:0;z-index:8500;background:var(--bg,#f8fafc);overflow-y:auto">
+  <div style="max-width:900px;margin:0 auto;padding:1.5rem 1rem 3rem">
+    <!-- Top bar -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;gap:1rem">
+      <div style="display:flex;align-items:center;gap:.75rem">
+        <div style="width:2.6rem;height:2.6rem;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#1a6fb5);color:#fff;font-size:1.1rem;display:flex;align-items:center;justify-content:center">🎓</div>
+        <div>
+          <div style="font-weight:800;font-size:1rem" id="spStudentName">Student</div>
+          <div style="font-size:.75rem;color:var(--muted)" id="spStudentAdm">Adm: —</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:.5rem;align-items:center">
+        <div id="spSchoolBadge" style="font-size:.75rem;font-weight:700;background:rgba(124,58,237,.1);color:#7c3aed;padding:.25rem .7rem;border-radius:99px"></div>
+        <button onclick="doLogout()" class="btn btn-outline btn-sm">🚪 Logout</button>
+      </div>
+    </div>
+    <!-- Tab bar -->
+    <div class="tab-bar" style="margin-bottom:1.25rem">
+      <button class="tb active" id="spTabResults" onclick="spOpenTab('spResults',this)">📊 My Results</button>
+      <button class="tb" id="spTabFees" onclick="spOpenTab('spFees',this)">💰 Fee Balance</button>
+      <button class="tb" id="spTabPapers" onclick="spOpenTab('spPapers',this)">📖 Revision Materials</button>
+    </div>
+    <!-- Results tab -->
+    <div id="spResults" class="tab-panel active">
+      <div class="card" style="margin-bottom:1.25rem">
+        <h3 style="margin-bottom:.75rem">📊 My Exam Results</h3>
+        <div class="frow c2" style="gap:.75rem;margin-bottom:.75rem">
+          <div class="fg">
+            <label>Filter by Exam</label>
+            <select id="spExamFilter" onchange="spRenderResults()" style="width:100%;height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem">
+              <option value="">All Exams</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Filter by Term</label>
+            <select id="spTermFilter" onchange="spRenderResults()" style="width:100%;height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem">
+              <option value="">All Terms</option>
+              <option>Term 1</option><option>Term 2</option><option>Term 3</option>
+            </select>
+          </div>
+        </div>
+        <div id="spResultsBody"></div>
+      </div>
+    </div>
+    <!-- Fees tab -->
+    <div id="spFees" class="tab-panel" style="display:none">
+      <div class="card">
+        <h3 style="margin-bottom:.75rem">💰 Fee Balance</h3>
+        <div id="spFeesBody" style="font-size:.9rem"></div>
+      </div>
+    </div>
+    <!-- Revision papers tab -->
+    <div id="spPapers" class="tab-panel" style="display:none">
+      <div class="card">
+        <h3 style="margin-bottom:.75rem">📖 Revision Materials</h3>
+        <div class="frow c2" style="gap:.75rem;margin-bottom:.75rem">
+          <div class="fg">
+            <label>Filter by Term</label>
+            <select id="spPapersTermFilter" onchange="spRenderPapers()" style="width:100%;height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem">
+              <option value="">All Terms</option>
+              <option>Term 1</option><option>Term 2</option><option>Term 3</option>
+            </select>
+          </div>
+        </div>
+        <div id="spPapersBody"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ═══ MODAL ═══ -->
