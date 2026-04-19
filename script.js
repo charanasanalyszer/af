@@ -1062,12 +1062,25 @@ function finishGuestLogin(school) {
 
 function applyGuestRoleUI() {
   if (!currentUser || currentUser.role !== 'guest') return;
-  // Guest sees ONLY Exam Builder — nothing else
-  ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','messaging','settings','platform','papers'].forEach(sec => {
+  // Guest sees: Exam Builder + Papers (Revision & Termly Exams) only
+  ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','messaging','settings','platform'].forEach(sec => {
     const el = document.querySelector(`[data-s="${sec}"]`); if (el) el.style.display = 'none';
   });
+  // Show Exam Builder and Papers nav items
   const ebEl = document.querySelector('[data-s="exambuilder"]');
   if (ebEl) ebEl.style.display = '';
+  const papersEl = document.querySelector('[data-s="papers"]');
+  if (papersEl) papersEl.style.display = '';
+  // Hide upload/admin cards so guest is read-only
+  const termlyUpload = document.getElementById('termlyUploadCard');
+  if (termlyUpload) termlyUpload.style.display = 'none';
+  // Also hide admin-only upload card in platform papers if present
+  const platPapUpload = document.getElementById('platPaperUploadCard');
+  if (platPapUpload) platPapUpload.style.display = 'none';
+  // Hide mobile bottom nav items guest shouldn't access
+  ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','messaging','settings'].forEach(sec => {
+    const mbn = document.querySelector(`.mbn-item[data-s="${sec}"]`); if (mbn) mbn.style.display = 'none';
+  });
   // Update topbar user label
   const tbUser = document.getElementById('tbUser');
   if (tbUser) tbUser.innerHTML = '👤 Guest <span style="font-size:.72rem;background:rgba(124,58,237,.15);color:#7c3aed;border-radius:99px;padding:.1rem .5rem;font-weight:700;margin-left:.35rem">GUEST</span>';
@@ -1080,6 +1093,25 @@ function applyGuestRoleUI() {
 // ══════════════════════════════════════════════
 //   PLATFORM ADMIN — EXAM DOWNLOAD FEE CONTROLS
 // ══════════════════════════════════════════════
+// ── Platform Admin Tab Switcher ──────────────────────────
+function openPlatTab(tabId, btn) {
+  document.querySelectorAll('#s-platform .plat-tab-panel').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('#platTabBar .plat-tab-btn').forEach(b => {
+    b.style.background = 'var(--surface)';
+    b.style.color = 'var(--text)';
+    b.style.borderBottom = '3px solid transparent';
+    b.style.fontWeight = '500';
+  });
+  const panel = document.getElementById(tabId);
+  if (panel) panel.style.display = '';
+  if (btn) {
+    btn.style.background = 'var(--bg)';
+    btn.style.color = 'var(--primary, #4f7cff)';
+    btn.style.borderBottom = '3px solid var(--primary, #4f7cff)';
+    btn.style.fontWeight = '700';
+  }
+}
+
 function platRenderExamDlFeeUI() {
   const inp = document.getElementById('platExamDlFeeInput');
   const statusEl = document.getElementById('platExamDlFeeStatus');
@@ -8899,7 +8931,7 @@ function go(sec, el) {
   if (sec === 'fees')       { initFeesSection(); }
   if (sec === 'papers')     { initPapersSection(); }
   if (sec === 'settings')   { renderTeacherPreferences(); }
-  if (sec === 'platform')   { renderPlatformDashboard(); _navCfgMode='global'; navCfgSwitchMode('global'); platRenderNavConfig(); }
+  if (sec === 'platform')   { renderPlatformDashboard(); _navCfgMode='global'; navCfgSwitchMode('global'); platRenderNavConfig(); /* Activate first platform tab */ openPlatTab('platTab-schools', document.querySelector('#platTabBar .plat-tab-btn')); }
   if (sec === 'exambuilder') { /* handled by EB module DOMContentLoaded wrapper */ }
   if (sec === 'timetable')  {
     // Initialize EduSchedule timetable sub-app
