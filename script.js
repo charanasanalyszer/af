@@ -9443,6 +9443,7 @@ function go(sec, el) {
   if (sec === 'papers')     { initPapersSection(); }
   if (sec === 'settings')   { renderTeacherPreferences(); }
   if (sec === 'platform')   { renderPlatformDashboard(); _navCfgMode='global'; navCfgSwitchMode('global'); platRenderNavConfig(); platLoadContactInputs(); /* Activate first platform tab */ openPlatTab('platTab-schools', document.querySelector('#platTabBar .plat-tab-btn')); }
+  if (sec === 'livechat')   { initLiveChatSection(); }
   if (sec === 'exambuilder') { /* handled by EB module DOMContentLoaded wrapper */ }
   if (sec === 'timetable')  {
     // Initialize EduSchedule timetable sub-app
@@ -15130,3 +15131,492 @@ function initFloatingContact() {
     }
   });
 })();
+
+// ══════════════════════════════════════════════════════
+// YOUTUBE & TIKTOK — extend contact settings
+// ══════════════════════════════════════════════════════
+// Patch initFloatingContact & platLoadContactInputs to handle new fields
+
+const _origInitFC = initFloatingContact;
+initFloatingContact = function() {
+  _origInitFC();
+  const cfg = loadContactSettings();
+  const wrap = document.getElementById('floatingContact');
+  if (!wrap) return;
+
+  // YouTube
+  let yt = document.getElementById('fcYoutube');
+  if (cfg.youtube) {
+    if (!yt) {
+      yt = document.createElement('a');
+      yt.id = 'fcYoutube'; yt.target = '_blank'; yt.rel = 'noopener';
+      yt.className = 'fc-btn fc-youtube'; yt.title = 'YouTube';
+      yt.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>';
+      wrap.insertBefore(yt, wrap.querySelector('.fc-btn'));
+    }
+    yt.href = cfg.youtube; yt.style.display = 'flex';
+  } else if (yt) { yt.style.display = 'none'; }
+
+  // TikTok
+  let tt = document.getElementById('fcTiktok');
+  if (cfg.tiktok) {
+    if (!tt) {
+      tt = document.createElement('a');
+      tt.id = 'fcTiktok'; tt.target = '_blank'; tt.rel = 'noopener';
+      tt.className = 'fc-btn fc-tiktok'; tt.title = 'TikTok';
+      tt.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.3 6.3 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.87a8.18 8.18 0 004.78 1.52V7.01a4.85 4.85 0 01-1.01-.32z"/></svg>';
+      wrap.insertBefore(tt, wrap.querySelector('.fc-btn'));
+    }
+    tt.href = cfg.tiktok; tt.style.display = 'flex';
+  } else if (tt) { tt.style.display = 'none'; }
+
+  // Re-check hasAny
+  const hasAny = cfg.whatsapp || cfg.facebook || cfg.call || cfg.youtube || cfg.tiktok;
+  wrap.style.display = hasAny ? 'flex' : 'none';
+};
+
+const _origPlatLoad = platLoadContactInputs;
+platLoadContactInputs = function() {
+  _origPlatLoad();
+  const cfg = loadContactSettings();
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+  set('contactYoutubeUrl', cfg.youtube);
+  set('contactTiktokUrl',  cfg.tiktok);
+  // Load chat toggles
+  const chatCfg = lcGetSettings();
+  const live = document.getElementById('chatLiveEnabled');
+  const comm = document.getElementById('chatCommunityEnabled');
+  if (live) live.checked = !!chatCfg.liveEnabled;
+  if (comm) comm.checked = !!chatCfg.communityEnabled;
+  lcUpdateToggleUI('chatLiveEnabled');
+  lcUpdateToggleUI('chatCommunityEnabled');
+};
+
+const _origPlatSave = platSaveContactSettings;
+platSaveContactSettings = function() {
+  const whatsapp = (document.getElementById('contactWhatsappNum')||{}).value?.trim()||'';
+  const facebook = (document.getElementById('contactFacebookUrl')||{}).value?.trim()||'';
+  const call     = (document.getElementById('contactCallNum')||{}).value?.trim()||'';
+  const youtube  = (document.getElementById('contactYoutubeUrl')||{}).value?.trim()||'';
+  const tiktok   = (document.getElementById('contactTiktokUrl')||{}).value?.trim()||'';
+  saveContactSettingsData({ whatsapp, facebook, call, youtube, tiktok });
+  initFloatingContact();
+  const st = document.getElementById('platContactStatus');
+  if (st) { st.textContent = '✅ Saved!'; st.style.color = '#16a34a'; setTimeout(()=>{ st.textContent=''; },2500); }
+};
+
+// ══════════════════════════════════════════════════════
+// LIVE CHAT ENGINE
+// ══════════════════════════════════════════════════════
+const LC_SETTINGS_KEY  = 'ei_chat_settings';
+const LC_MSG_KEY       = id => 'ei_chat_msgs_' + id;  // school support msgs
+const LC_COMMUNITY_KEY = 'ei_community_msgs';
+const LC_UNREAD_KEY    = id => 'ei_chat_unread_' + id;
+
+let _lcActiveSchool = null;
+let _lcTab = 'support';
+let _lcPollTimer = null;
+let _fchatOpen = false;
+
+function lcGetSettings() {
+  try { return JSON.parse(localStorage.getItem(LC_SETTINGS_KEY)) || {}; } catch { return {}; }
+}
+function lcSaveSettings(cfg) { localStorage.setItem(LC_SETTINGS_KEY, JSON.stringify(cfg)); }
+
+function platSaveChatSettings() {
+  const live = !!(document.getElementById('chatLiveEnabled')||{}).checked;
+  const community = !!(document.getElementById('chatCommunityEnabled')||{}).checked;
+  lcSaveSettings({ liveEnabled: live, communityEnabled: community });
+  lcUpdateToggleUI('chatLiveEnabled');
+  lcUpdateToggleUI('chatCommunityEnabled');
+  lcUpdateNavVisibility();
+  if (typeof showToast === 'function') showToast('Chat settings saved ✓', 'success');
+}
+
+function lcUpdateToggleUI(checkboxId) {
+  const cb = document.getElementById(checkboxId);
+  if (!cb) return;
+  const pill = cb.nextElementSibling;
+  if (!pill) return;
+  const knob = pill.querySelector('.toggle-knob');
+  if (knob) knob.style.left = cb.checked ? '23px' : '3px';
+  pill.style.background = cb.checked ? 'var(--primary,#7c3aed)' : 'var(--border,#cbd5e1)';
+}
+
+function lcUpdateNavVisibility() {
+  const cfg = lcGetSettings();
+  const link = document.getElementById('livechatNavLink');
+  if (!link) return;
+  const isPlatAdmin = document.getElementById('platNavLink')?.style.display !== 'none';
+  const isSchool = !isPlatAdmin;
+  // Show nav link if: platform admin (always when chat enabled), school user (if live support enabled)
+  const shouldShow = isPlatAdmin ? (cfg.liveEnabled || cfg.communityEnabled) : (cfg.liveEnabled || cfg.communityEnabled);
+  link.style.display = shouldShow ? '' : 'none';
+}
+
+// Get current user info
+function lcCurrentUser() {
+  const isPlatAdmin = document.getElementById('platNavLink')?.style.display !== 'none';
+  if (isPlatAdmin) return { role: 'platform', name: 'Platform Admin', id: '__platform__' };
+  // Try to get school info from current session
+  const tbUser = document.getElementById('tbUser')?.textContent || 'School Admin';
+  // Get school id from platform schools
+  try {
+    const schools = JSON.parse(localStorage.getItem('ei_platform_schools') || '[]');
+    const creds = JSON.parse(localStorage.getItem('ei_current_school') || 'null') ||
+                  JSON.parse(localStorage.getItem('ei_active_school') || 'null');
+    if (creds) return { role: 'school', name: creds.name || tbUser, id: creds.id || creds.username };
+  } catch {}
+  return { role: 'school', name: tbUser, id: 'school_' + btoa(tbUser).slice(0,8) };
+}
+
+function lcGetCurrentSchoolId() {
+  try {
+    // Look for active school session
+    const keys = Object.keys(localStorage);
+    for (const k of keys) {
+      if (k.endsWith('_ei_school_id')) return localStorage.getItem(k);
+      if (k === 'ei_active_school_id') return localStorage.getItem(k);
+    }
+    // Fallback: derive from login info
+    const saved = JSON.parse(localStorage.getItem('ei_saved_login') || 'null');
+    if (saved?.username) return 'school_' + saved.username;
+  } catch {}
+  return 'school_default';
+}
+
+function lcGetSchoolName(schoolId) {
+  try {
+    const schools = JSON.parse(localStorage.getItem('ei_platform_schools') || '[]');
+    const found = schools.find(s => s.id === schoolId || ('school_'+s.username) === schoolId);
+    if (found) return found.name || found.username || schoolId;
+  } catch {}
+  return schoolId.replace('school_', '');
+}
+
+// Message storage
+function lcGetMsgs(schoolId) { try { return JSON.parse(localStorage.getItem(LC_MSG_KEY(schoolId)) || '[]'); } catch { return []; } }
+function lcSaveMsgs(schoolId, msgs) { localStorage.setItem(LC_MSG_KEY(schoolId), JSON.stringify(msgs.slice(-500))); }
+function lcGetCommunity() { try { return JSON.parse(localStorage.getItem(LC_COMMUNITY_KEY) || '[]'); } catch { return []; } }
+function lcSaveCommunity(msgs) { localStorage.setItem(LC_COMMUNITY_KEY, JSON.stringify(msgs.slice(-1000))); }
+
+function lcAddMsg(schoolId, role, text) {
+  const msgs = lcGetMsgs(schoolId);
+  msgs.push({ role, text, ts: Date.now() });
+  lcSaveMsgs(schoolId, msgs);
+  // Mark unread for the other side
+  const unreadKey = LC_UNREAD_KEY(schoolId + '_' + (role === 'admin' ? 'school' : 'admin'));
+  const cnt = parseInt(localStorage.getItem(unreadKey) || '0') + 1;
+  localStorage.setItem(unreadKey, String(cnt));
+}
+
+function lcClearUnread(schoolId, side) {
+  localStorage.removeItem(LC_UNREAD_KEY(schoolId + '_' + side));
+}
+
+function lcGetUnread(schoolId, side) {
+  return parseInt(localStorage.getItem(LC_UNREAD_KEY(schoolId + '_' + side)) || '0');
+}
+
+function lcFormatTime(ts) {
+  const d = new Date(ts);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+// ── INIT LIVE CHAT SECTION ──
+function initLiveChatSection() {
+  const cfg = lcGetSettings();
+  const isPlatAdmin = document.getElementById('platNavLink')?.style.display !== 'none';
+  lcSwitchTab(_lcTab);
+  lcUpdateNavVisibility();
+
+  if (isPlatAdmin) {
+    lcRenderAdminView(cfg);
+  } else {
+    lcRenderSchoolView(cfg);
+  }
+  lcStartPolling();
+}
+
+function lcSwitchTab(tab) {
+  _lcTab = tab;
+  document.querySelectorAll('.lct-tab').forEach(b => {
+    b.classList.toggle('btn-primary', b.id === 'lct-' + tab);
+    b.classList.toggle('btn-outline', b.id !== 'lct-' + tab);
+  });
+  document.getElementById('lcPanel-support').style.display = tab === 'support' ? '' : 'none';
+  document.getElementById('lcPanel-community').style.display = tab === 'community' ? '' : 'none';
+  if (tab === 'community') lcRenderCommunityPanel();
+}
+
+// ── ADMIN VIEW ──
+function lcRenderAdminView(cfg) {
+  cfg = cfg || lcGetSettings();
+  const show = document.getElementById('lcAdminView');
+  const dis  = document.getElementById('lcSupportDisabled');
+  if (!cfg.liveEnabled) { if (show) show.style.display='none'; if (dis) dis.style.display=''; return; }
+  if (show) show.style.display = '';
+  if (dis) dis.style.display = 'none';
+  lcRenderSchoolList();
+}
+
+function lcRenderSchoolList() {
+  const list = document.getElementById('lcSchoolList');
+  if (!list) return;
+  let schools = [];
+  try { schools = JSON.parse(localStorage.getItem('ei_platform_schools') || '[]'); } catch {}
+
+  // Also collect schools from any existing message threads
+  const extraIds = Object.keys(localStorage)
+    .filter(k => k.startsWith('ei_chat_msgs_'))
+    .map(k => k.replace('ei_chat_msgs_', ''))
+    .filter(id => !schools.find(s => s.id === id || ('school_'+s.username) === id));
+
+  const allIds = [
+    ...schools.map(s => ({ id: s.id || ('school_'+s.username), name: s.name || s.username })),
+    ...extraIds.map(id => ({ id, name: lcGetSchoolName(id) }))
+  ];
+
+  if (!allIds.length) {
+    list.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:.82rem">No schools yet</div>';
+    return;
+  }
+
+  list.innerHTML = allIds.map(({ id, name }) => {
+    const msgs = lcGetMsgs(id);
+    const last = msgs[msgs.length - 1];
+    const unread = lcGetUnread(id, 'admin');
+    const preview = last ? last.text.slice(0, 35) + (last.text.length > 35 ? '…' : '') : 'No messages yet';
+    const initials = name.slice(0,2).toUpperCase();
+    return `<div class="lc-school-item ${_lcActiveSchool===id?'active':''}" onclick="lcSelectSchool('${id}','${name.replace(/'/g,"\\'")}')">
+      <div class="lc-school-avatar">${initials}</div>
+      <div class="lc-school-info">
+        <div class="lc-school-name">${name}</div>
+        <div class="lc-school-preview">${preview}</div>
+      </div>
+      ${unread ? `<div class="lc-unread-dot"></div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function lcSelectSchool(schoolId, schoolName) {
+  _lcActiveSchool = schoolId;
+  lcClearUnread(schoolId, 'admin');
+  lcRenderSchoolList();
+
+  const header = document.getElementById('lcAdminChatHeader');
+  if (header) header.textContent = '🏫 ' + schoolName;
+
+  const inputWrap = document.getElementById('lcAdminInput');
+  if (inputWrap) inputWrap.style.display = 'flex';
+
+  lcRenderAdminMessages(schoolId);
+}
+
+function lcRenderAdminMessages(schoolId) {
+  const container = document.getElementById('lcAdminMessages');
+  if (!container) return;
+  const msgs = lcGetMsgs(schoolId || _lcActiveSchool);
+  if (!msgs.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:.83rem;margin:auto">No messages yet. Say hello! 👋</div>';
+    return;
+  }
+  container.innerHTML = msgs.map(m => `
+    <div style="display:flex;flex-direction:column;align-items:${m.role==='admin'?'flex-end':'flex-start'}">
+      <div class="lc-bubble ${m.role==='admin'?'lc-me':'lc-admin'}">${lcEscape(m.text)}</div>
+      <div class="lc-ts">${lcFormatTime(m.ts)}</div>
+    </div>`).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+function lcAdminSend() {
+  const inp = document.getElementById('lcAdminMsgInput');
+  if (!inp || !inp.value.trim() || !_lcActiveSchool) return;
+  lcAddMsg(_lcActiveSchool, 'admin', inp.value.trim());
+  inp.value = '';
+  lcRenderAdminMessages(_lcActiveSchool);
+  lcRenderSchoolList();
+}
+
+// ── SCHOOL VIEW ──
+function lcRenderSchoolView(cfg) {
+  cfg = cfg || lcGetSettings();
+  const adminView = document.getElementById('lcAdminView');
+  if (adminView) adminView.style.display = 'none';
+  const show = document.getElementById('lcSchoolView');
+  const dis  = document.getElementById('lcSupportDisabled');
+  const widget = document.getElementById('fchatWidget');
+
+  if (!cfg.liveEnabled) {
+    if (show) show.style.display = 'none';
+    if (dis) dis.style.display = '';
+    if (widget) widget.style.display = 'none';
+    return;
+  }
+  if (show) show.style.display = '';
+  if (dis) dis.style.display = 'none';
+  if (widget) widget.style.display = '';
+
+  const schoolId = lcGetCurrentSchoolId();
+  lcRenderSchoolMessages(schoolId, 'lcSchoolMessages');
+}
+
+function lcRenderSchoolMessages(schoolId, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const msgs = lcGetMsgs(schoolId);
+  const base = '<div class="lc-bubble lc-admin" style="max-width:75%;font-size:.83rem">👋 Hello! How can we help you today?</div>';
+  if (!msgs.length) { container.innerHTML = base; return; }
+  container.innerHTML = base + msgs.map(m => `
+    <div style="display:flex;flex-direction:column;align-items:${m.role==='school'?'flex-end':'flex-start'}">
+      <div class="lc-bubble ${m.role==='school'?'lc-me':'lc-admin'}" style="font-size:.83rem">${lcEscape(m.text)}</div>
+      <div class="lc-ts">${lcFormatTime(m.ts)}</div>
+    </div>`).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+function lcSchoolSend() {
+  const inp = document.getElementById('lcSchoolMsgInput');
+  if (!inp || !inp.value.trim()) return;
+  const schoolId = lcGetCurrentSchoolId();
+  lcAddMsg(schoolId, 'school', inp.value.trim());
+  inp.value = '';
+  lcRenderSchoolMessages(schoolId, 'lcSchoolMessages');
+}
+
+// ── FLOATING CHAT WIDGET ──
+function fchatToggle() {
+  _fchatOpen = !_fchatOpen;
+  const win = document.getElementById('fchatWindow');
+  if (win) win.style.display = _fchatOpen ? 'flex' : 'none';
+  if (_fchatOpen) {
+    const schoolId = lcGetCurrentSchoolId();
+    lcClearUnread(schoolId, 'school');
+    lcRenderSchoolMessages(schoolId, 'fchatMessages');
+    lcUpdateFchatBadge(schoolId);
+  }
+}
+
+function fchatSend() {
+  const inp = document.getElementById('fchatInput');
+  if (!inp || !inp.value.trim()) return;
+  const schoolId = lcGetCurrentSchoolId();
+  lcAddMsg(schoolId, 'school', inp.value.trim());
+  inp.value = '';
+  lcRenderSchoolMessages(schoolId, 'fchatMessages');
+}
+
+function lcUpdateFchatBadge(schoolId) {
+  const cnt = lcGetUnread(schoolId || lcGetCurrentSchoolId(), 'school');
+  const badge = document.getElementById('fchatUnread');
+  if (!badge) return;
+  badge.textContent = cnt;
+  badge.style.display = cnt > 0 ? 'flex' : 'none';
+  // Nav badge
+  const navBadge = document.getElementById('livechatBadge');
+  if (navBadge) { navBadge.textContent = cnt; navBadge.style.display = cnt > 0 ? '' : 'none'; }
+}
+
+// ── COMMUNITY CHAT ──
+function lcRenderCommunityPanel() {
+  const cfg = lcGetSettings();
+  const en = document.getElementById('lcCommunityEnabled');
+  const dis = document.getElementById('lcCommunityDisabled');
+  if (!cfg.communityEnabled) {
+    if (en) en.style.display = 'none';
+    if (dis) dis.style.display = '';
+    return;
+  }
+  if (en) en.style.display = 'flex';
+  if (dis) dis.style.display = 'none';
+
+  const user = lcCurrentUser();
+  const sender = document.getElementById('lcCommunitySender');
+  if (sender) sender.textContent = user.name;
+
+  lcRenderCommunityMessages();
+}
+
+function lcRenderCommunityMessages() {
+  const container = document.getElementById('lcCommunityMessages');
+  if (!container) return;
+  const msgs = lcGetCommunity();
+  const user = lcCurrentUser();
+  if (!msgs.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:.83rem;margin:auto">Be the first to say something! 👋</div>';
+    return;
+  }
+  container.innerHTML = msgs.map(m => {
+    const isMe = m.senderId === user.id;
+    return `<div class="lc-community-wrap">
+      <div class="lc-community-name ${isMe?'me':''}">${lcEscape(m.senderName)}${isMe?' (You)':''}</div>
+      <div style="display:flex;flex-direction:column;align-items:${isMe?'flex-end':'flex-start'}">
+        <div class="lc-bubble ${isMe?'lc-me':'lc-admin'}">${lcEscape(m.text)}</div>
+        <div class="lc-ts">${lcFormatTime(m.ts)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+function lcCommunitySend() {
+  const inp = document.getElementById('lcCommunityInput');
+  if (!inp || !inp.value.trim()) return;
+  const user = lcCurrentUser();
+  const msgs = lcGetCommunity();
+  msgs.push({ senderId: user.id, senderName: user.name, text: inp.value.trim(), ts: Date.now() });
+  lcSaveCommunity(msgs);
+  inp.value = '';
+  lcRenderCommunityMessages();
+}
+
+// ── POLLING (auto-refresh for new messages) ──
+function lcStartPolling() {
+  if (_lcPollTimer) clearInterval(_lcPollTimer);
+  _lcPollTimer = setInterval(() => {
+    const isPlatAdmin = document.getElementById('platNavLink')?.style.display !== 'none';
+    const sec = document.getElementById('s-livechat');
+    const secVisible = sec && sec.style.display !== 'none';
+
+    if (isPlatAdmin) {
+      if (secVisible && _lcActiveSchool) lcRenderAdminMessages(_lcActiveSchool);
+      if (secVisible) lcRenderSchoolList();
+    } else {
+      const schoolId = lcGetCurrentSchoolId();
+      if (secVisible) lcRenderSchoolMessages(schoolId, 'lcSchoolMessages');
+      if (_fchatOpen) lcRenderSchoolMessages(schoolId, 'fchatMessages');
+      lcUpdateFchatBadge(schoolId);
+    }
+    if (secVisible && _lcTab === 'community') lcRenderCommunityMessages();
+  }, 3000);
+}
+
+function lcEscape(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Hook into go() navigation ──
+document.addEventListener('DOMContentLoaded', function() {
+  // Override go to catch livechat
+  const _origGo = window.go;
+  if (typeof _origGo === 'function') {
+    window.go = function(sec, el) {
+      _origGo(sec, el);
+      if (sec === 'livechat') {
+        setTimeout(initLiveChatSection, 50);
+      }
+    };
+  }
+  // Init floating contact
+  initFloatingContact();
+  lcUpdateNavVisibility();
+  // Init floating chat widget visibility for school users
+  setTimeout(() => {
+    const cfg = lcGetSettings();
+    const isPlatAdmin = document.getElementById('platNavLink')?.style.display !== 'none';
+    if (!isPlatAdmin && cfg.liveEnabled) {
+      const widget = document.getElementById('fchatWidget');
+      if (widget) widget.style.display = '';
+    }
+  }, 800);
+});
