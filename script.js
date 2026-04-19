@@ -687,12 +687,14 @@ function doPlatformLogin() {
     setPlatformCreds(u, p);
     re();
     showToast('Platform account created ✓', 'success');
+    currentUser = { username: u, role: 'platform_admin', name: 'Platform Admin', canAnalyse: true, canReport: true, canMerit: true };
     showSchoolSelector(true);
     return;
   }
 
   if (u === creds.username && p === creds.password) {
     re();
+    currentUser = { username: u, role: 'platform_admin', name: 'Platform Admin', canAnalyse: true, canReport: true, canMerit: true };
     showSchoolSelector(true);
   } else {
     re();
