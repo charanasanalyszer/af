@@ -950,49 +950,44 @@ function spRenderFees() {
   const stuId = currentUser.studentId;
   const stu   = students.find(s => s.id === stuId);
   if (!stu) { body.innerHTML = '<p>Student not found.</p>'; return; }
-  // Load fee data
   loadFees();
   const curTerm = settings?.currentTerm || 'Term 1';
   const curYear = String(settings?.currentYear || new Date().getFullYear());
-  // Find all fee records for this student
+
+  // Each record = one term/year entry; payments are inside rec.payments[]
   const stuRecords = feeRecords.filter(r => r.studentId === stuId);
   if (!stuRecords.length) {
     body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">💰 No fee records found for your account. Contact the school bursar.</div>';
     return;
   }
-  // Group by term/year
-  const grouped = {};
-  stuRecords.forEach(r => {
-    const key = `${r.term}|${r.year}`;
-    if (!grouped[key]) grouped[key] = { term:r.term, year:r.year, payments:[], balance:0 };
-    grouped[key].payments.push(r);
-  });
-  // Find fee structures
-  const allStructures = feeStructures.filter(fs => {
-    const sc = stu.classId;
-    return !fs.classId || fs.classId === sc;
-  });
-  let html = '';
-  // Current term summary at top
-  const curKey = `${curTerm}|${curYear}`;
-  const curRecs = feeRecords.filter(r => r.studentId === stuId && r.term === curTerm && String(r.year) === curYear);
-  const curPaid = curRecs.reduce((s,r) => s+(Number(r.amount)||0), 0);
-  const curStruct = feeStructures.find(fs => fs.term === curTerm && String(fs.year||'') === curYear && (!fs.classId || fs.classId === stu.classId));
-  const curTotal  = curStruct ? (Number(curStruct.amount)||0) : 0;
+
+  // Current term record
+  const curRec    = stuRecords.find(r => r.term === curTerm && String(r.year) === curYear);
+  const curTotal  = curRec ? parseFloat(curRec.totalFee || 0) : 0;
+  const curPaid   = curRec ? (curRec.payments || []).reduce((s, p) => s + parseFloat(p.amount || 0), 0) : 0;
   const curBalance = curTotal - curPaid;
-  const balColor = curBalance > 0 ? '#ef4444' : '#10b981';
-  html += `<div style="background:linear-gradient(135deg,${balColor}12,${balColor}06);border:2px solid ${balColor}40;border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.25rem">
+  const balColor  = curBalance > 0 ? '#ef4444' : '#10b981';
+
+  let html = `<div style="background:linear-gradient(135deg,${balColor}12,${balColor}06);border:2px solid ${balColor}40;border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.25rem">
     <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.4rem">Current Term — ${curTerm} ${curYear}</div>
     <div style="display:flex;gap:1.5rem;flex-wrap:wrap">
       <div><div style="font-size:.75rem;color:var(--muted)">Required</div><div style="font-weight:800;font-size:1.1rem">KES ${curTotal.toLocaleString()}</div></div>
       <div><div style="font-size:.75rem;color:var(--muted)">Paid</div><div style="font-weight:800;font-size:1.1rem;color:#10b981">KES ${curPaid.toLocaleString()}</div></div>
-      <div><div style="font-size:.75rem;color:var(--muted)">Balance</div><div style="font-weight:800;font-size:1.1rem;color:${balColor}">KES ${Math.abs(curBalance).toLocaleString()} ${curBalance<=0?'✅ CLEARED':'⚠️ OWING'}</div></div>
+      <div><div style="font-size:.75rem;color:var(--muted)">Balance</div><div style="font-weight:800;font-size:1.1rem;color:${balColor}">KES ${Math.abs(curBalance).toLocaleString()} ${curBalance <= 0 ? '✅ CLEARED' : '⚠️ OWING'}</div></div>
     </div>
   </div>`;
-  // Payment history
+
+  // Flatten all payments across all term records for payment history
+  const allPayments = [];
+  stuRecords.forEach(rec => {
+    (rec.payments || []).forEach(p => {
+      allPayments.push({ ...p, term: rec.term, year: rec.year });
+    });
+  });
+
   html += `<div style="font-weight:700;font-size:.85rem;margin-bottom:.65rem;color:var(--muted)">Payment History</div>`;
-  if (!stuRecords.length) {
-    html += '<div style="color:var(--muted);font-size:.85rem">No payments recorded.</div>';
+  if (!allPayments.length) {
+    html += '<div style="color:var(--muted);font-size:.85rem">No payments recorded yet.</div>';
   } else {
     html += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">
       <thead><tr style="background:var(--bg)">
@@ -1002,13 +997,13 @@ function spRenderFees() {
         <th style="padding:.4rem .75rem;text-align:left">Mode</th>
         <th style="padding:.4rem .75rem;text-align:left">Ref</th>
       </tr></thead><tbody>`;
-    [...stuRecords].sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(r => {
+    [...allPayments].sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(p => {
       html += `<tr style="border-top:1px solid var(--border)">
-        <td style="padding:.4rem .75rem">${r.date||'—'}</td>
-        <td style="padding:.4rem .75rem">${r.term||'—'} ${r.year||''}</td>
-        <td style="padding:.4rem .75rem;text-align:right;font-weight:700;color:#10b981">+${(Number(r.amount)||0).toLocaleString()}</td>
-        <td style="padding:.4rem .75rem">${r.mode||'—'}</td>
-        <td style="padding:.4rem .75rem;font-size:.76rem;color:var(--muted)">${r.ref||r.receiptNo||'—'}</td>
+        <td style="padding:.4rem .75rem">${p.date || '—'}</td>
+        <td style="padding:.4rem .75rem">${p.term || '—'} ${p.year || ''}</td>
+        <td style="padding:.4rem .75rem;text-align:right;font-weight:700;color:#10b981">+${(parseFloat(p.amount) || 0).toLocaleString()}</td>
+        <td style="padding:.4rem .75rem">${p.mode || '—'}</td>
+        <td style="padding:.4rem .75rem;font-size:.76rem;color:var(--muted)">${p.receiptNo || p.ref || '—'}</td>
       </tr>`;
     });
     html += '</tbody></table></div>';
