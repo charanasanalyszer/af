@@ -15614,6 +15614,33 @@ function lcInitAfterLogin() {
 // THEME COLOR ENGINE
 // ══════════════════════════════════════════════════════
 const THEME_KEY = 'ei_theme_v1';
+const THEME_ENABLED_KEY = 'ei_theme_enabled'; // platform admin on/off
+
+/* ── Shade generator: hex → 10-stop scale (50,100,...,900) ── */
+function hexToRgb(hex) {
+  const h = hex.replace('#','');
+  return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+}
+function rgbToHex(r,g,b) {
+  return '#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+}
+function generateShades(hex) {
+  const [r,g,b] = hexToRgb(hex);
+  const stops = [50,100,200,300,400,500,600,700,800,900];
+  const shades = {};
+  stops.forEach(stop => {
+    let nr,ng,nb;
+    if (stop <= 500) {
+      const t = 1 - stop/500;
+      nr = r + t*(255-r); ng = g + t*(255-g); nb = b + t*(255-b);
+    } else {
+      const t = (stop-500)/400;
+      nr = r*(1-t*0.85); ng = g*(1-t*0.85); nb = b*(1-t*0.85);
+    }
+    shades[stop] = rgbToHex(nr,ng,nb);
+  });
+  return shades;
+}
 
 const THEME_PALETTES = {
   primary: [
@@ -15664,8 +15691,22 @@ function themeGetPalette(group, id) {
   return THEME_PALETTES[group].find(p => p.id === id);
 }
 
+function themeIsEnabled() {
+  // Platform admin can disable theme customisation for schools
+  try { return localStorage.getItem(THEME_ENABLED_KEY) !== '0'; } catch { return true; }
+}
+
 function themeApply(cfg) {
   cfg = cfg || themeLoad();
+
+  // If platform has disabled theme customisation and current user is not platform admin, bail
+  const isPlatAdmin = currentUser && (currentUser.role === 'platform_admin' || currentUser.role === 'superadmin');
+  if (!themeIsEnabled() && !isPlatAdmin) {
+    const style = document.getElementById('ei-theme-override');
+    if (style) style.textContent = '';
+    return;
+  }
+
   let style = document.getElementById('ei-theme-override');
   if (!style) { style = document.createElement('style'); style.id = 'ei-theme-override'; document.head.appendChild(style); }
 
@@ -15687,6 +15728,18 @@ function themeApply(cfg) {
                     sel.red === 'r-crimson' && sel.yellow === 'y-amber' && sel.toggle === 't-purple';
 
   if (isDefault) { style.textContent = ''; return; }
+
+  // Generate full shade scales for each group
+  const pS = generateShades(p.base);
+  const gS = generateShades(g.base);
+  const rS = generateShades(r.base);
+  const yS = generateShades(y.base);
+  const tS = generateShades(t.base);
+
+  function shadeVars(prefix, shades) {
+    return [50,100,200,300,400,500,600,700,800,900]
+      .map(s => `      --${prefix}-${s}: ${shades[s]};`).join('\n');
+  }
 
   style.textContent = `
     :root {
@@ -15712,6 +15765,19 @@ function themeApply(cfg) {
       --toggle:       ${t.base};
       --toggle-dk:    ${t.dk};
       --toggle-lt:    ${t.lt};
+      /* Primary shades */
+${shadeVars('primary', pS)}
+      /* Green/Secondary shades */
+${shadeVars('green', gS)}
+${shadeVars('secondary', gS)}
+      /* Red/Danger shades */
+${shadeVars('red', rS)}
+${shadeVars('danger', rS)}
+      /* Yellow/Amber shades */
+${shadeVars('yellow', yS)}
+${shadeVars('amber', yS)}
+      /* Toggle shades */
+${shadeVars('toggle', tS)}
     }
     .btn-primary { background: ${p.btn || p.base} !important; }
     .btn-primary:hover { background: ${p.dk} !important; }
@@ -15726,6 +15792,7 @@ function themeApply(cfg) {
 
 function themeRenderSwatches() {
   const cfg = themeLoad();
+  const enabled = themeIsEnabled();
   const sel = {
     primary: cfg.primary || THEME_DEFAULTS.primary,
     green:   cfg.green   || THEME_DEFAULTS.green,
@@ -15734,14 +15801,32 @@ function themeRenderSwatches() {
     toggle:  cfg.toggle  || THEME_DEFAULTS.toggle,
   };
 
+  // Update platform enable toggle UI
+  const enableToggle = document.getElementById('themeEnabledToggle');
+  if (enableToggle) enableToggle.checked = enabled;
+  const enableStatus = document.getElementById('themeEnabledStatus');
+  if (enableStatus) {
+    enableStatus.textContent = enabled ? '✅ Theme customisation is ON for all schools' : '🔒 Theme customisation is OFF (locked to current theme)';
+    enableStatus.style.color = enabled ? '#16a34a' : '#dc2626';
+  }
+
+  function renderShadeStrip(palette) {
+    const shades = generateShades(palette.base);
+    return [50,100,200,300,400,500,600,700,800,900].map(s =>
+      `<div title="${palette.name} ${s}" style="width:20px;height:20px;background:${shades[s]};border-radius:3px;flex-shrink:0"></div>`
+    ).join('');
+  }
+
   function render(containerId, group, cfgKey) {
     const el = document.getElementById(containerId);
     if (!el) return;
-    el.innerHTML = THEME_PALETTES[group].map(p => `
-      <div class="theme-swatch ${sel[cfgKey]===p.id?'active':''}" onclick="themePickColor('${cfgKey}','${p.id}')" title="${p.name}">
-        <div class="theme-swatch-dot" style="background:${p.base}"></div>
-        <div class="theme-swatch-name">${p.name}</div>
-      </div>`).join('');
+    el.innerHTML = THEME_PALETTES[group].map(p => {
+      const isActive = sel[cfgKey] === p.id;
+      return `<div style="display:flex;flex-direction:column;align-items:center;gap:.35rem;cursor:pointer;padding:.4rem .3rem;border-radius:8px;border:2px solid ${isActive?'var(--text)':'transparent'};transition:border-color .15s" onclick="themePickColor('${cfgKey}','${p.id}')" title="${p.name}">
+        <div style="display:flex;gap:2px">${renderShadeStrip(p)}</div>
+        <div style="font-size:.62rem;color:var(--muted);font-weight:${isActive?'700':'500'};text-align:center;max-width:200px">${p.name}</div>
+      </div>`;
+    }).join('');
   }
 
   render('tg-primary', 'primary', 'primary');
@@ -15749,6 +15834,14 @@ function themeRenderSwatches() {
   render('tg-red',     'red',     'red');
   render('tg-yellow',  'yellow',  'yellow');
   render('tg-toggle',  'toggle',  'toggle');
+}
+
+function themeToggleEnabled(val) {
+  localStorage.setItem(THEME_ENABLED_KEY, val ? '1' : '0');
+  themeRenderSwatches();
+  if (!val) themeApply({});  // clear overrides for non-platform users instantly
+  const st = document.getElementById('themeStatus');
+  if (st) { st.textContent = val ? '✅ Enabled for all schools' : '🔒 Disabled for schools'; st.style.color = val ? '#16a34a' : '#dc2626'; setTimeout(()=>{ st.textContent=''; },2500); }
 }
 
 function themePickColor(cfgKey, paletteId) {
