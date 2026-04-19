@@ -9442,7 +9442,7 @@ function go(sec, el) {
   if (sec === 'fees')       { initFeesSection(); }
   if (sec === 'papers')     { initPapersSection(); }
   if (sec === 'settings')   { renderTeacherPreferences(); }
-  if (sec === 'platform')   { renderPlatformDashboard(); _navCfgMode='global'; navCfgSwitchMode('global'); platRenderNavConfig(); /* Activate first platform tab */ openPlatTab('platTab-schools', document.querySelector('#platTabBar .plat-tab-btn')); }
+  if (sec === 'platform')   { renderPlatformDashboard(); _navCfgMode='global'; navCfgSwitchMode('global'); platRenderNavConfig(); platLoadContactInputs(); /* Activate first platform tab */ openPlatTab('platTab-schools', document.querySelector('#platTabBar .plat-tab-btn')); }
   if (sec === 'exambuilder') { /* handled by EB module DOMContentLoaded wrapper */ }
   if (sec === 'timetable')  {
     // Initialize EduSchedule timetable sub-app
@@ -15037,3 +15037,96 @@ window.ebAutoInstructions = async function() {
   }
 };
 
+
+// ══════════════════════════════════════════════════════
+// FLOATING CONTACT BUTTONS
+// ══════════════════════════════════════════════════════
+const K_CONTACT = 'ei_contact_settings';
+
+function loadContactSettings() {
+  try { return JSON.parse(localStorage.getItem(K_CONTACT)) || {}; } catch { return {}; }
+}
+
+function saveContactSettingsData(data) {
+  localStorage.setItem(K_CONTACT, JSON.stringify(data));
+}
+
+function platSaveContactSettings() {
+  const whatsapp = (document.getElementById('contactWhatsappNum') || {}).value?.trim() || '';
+  const facebook = (document.getElementById('contactFacebookUrl') || {}).value?.trim() || '';
+  const call     = (document.getElementById('contactCallNum')     || {}).value?.trim() || '';
+  saveContactSettingsData({ whatsapp, facebook, call });
+  initFloatingContact();
+  const st = document.getElementById('platContactStatus');
+  if (st) { st.textContent = '✅ Saved!'; st.style.color = '#16a34a'; setTimeout(() => { st.textContent = ''; }, 2500); }
+}
+
+function platLoadContactInputs() {
+  const cfg = loadContactSettings();
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+  set('contactWhatsappNum', cfg.whatsapp);
+  set('contactFacebookUrl', cfg.facebook);
+  set('contactCallNum',     cfg.call);
+}
+
+function initFloatingContact() {
+  const cfg = loadContactSettings();
+  const wrap = document.getElementById('floatingContact');
+  if (!wrap) return;
+
+  const hasAny = cfg.whatsapp || cfg.facebook || cfg.call;
+  wrap.style.display = hasAny ? 'flex' : 'none';
+
+  // WhatsApp
+  const wa = document.getElementById('fcWhatsapp');
+  if (wa) {
+    if (cfg.whatsapp) {
+      const num = cfg.whatsapp.replace(/\D/g, '');
+      wa.href = 'https://wa.me/' + num;
+      wa.style.display = 'flex';
+    } else {
+      wa.style.display = 'none';
+    }
+  }
+
+  // Facebook
+  const fb = document.getElementById('fcFacebook');
+  if (fb) {
+    if (cfg.facebook) {
+      fb.href = cfg.facebook;
+      fb.style.display = 'flex';
+    } else {
+      fb.style.display = 'none';
+    }
+  }
+
+  // Call
+  const cl = document.getElementById('fcCall');
+  if (cl) {
+    if (cfg.call) {
+      cl.href = 'tel:' + cfg.call.replace(/\s/g, '');
+      cl.style.display = 'flex';
+    } else {
+      cl.style.display = 'none';
+    }
+  }
+}
+
+// Auto-populate admin inputs when platform section is opened
+(function() {
+  const _origGo = typeof go === 'function' ? go : null;
+  // Hook into the section navigation
+  document.addEventListener('DOMContentLoaded', function() {
+    initFloatingContact();
+    // Populate inputs whenever platform section becomes visible
+    const platSection = document.getElementById('s-platform');
+    if (platSection && window.MutationObserver) {
+      const obs = new MutationObserver(() => {
+        if (platSection.style.display !== 'none' && !platSection.hidden) {
+          platLoadContactInputs();
+        }
+      });
+      obs.observe(platSection, { attributes: true, attributeFilter: ['style', 'class'] });
+    }
+  });
+})();
