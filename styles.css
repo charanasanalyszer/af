@@ -3203,3 +3203,824 @@ h2 i.fa-solid, h3 i.fa-solid {
 .tb i.fa-solid {
   font-size: .85rem;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   GLASSMORPHISM PROFESSIONAL OVERHAUL
+   Deep navy + indigo + violet mesh — frosted glass UI system
+═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. FONT UPGRADE ── */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap');
+
+/* ── 2. DESIGN TOKENS ── */
+:root {
+  --font: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+
+  /* Glass system */
+  --glass-bg:        rgba(255, 255, 255, 0.07);
+  --glass-bg-strong: rgba(255, 255, 255, 0.13);
+  --glass-bg-card:   rgba(255, 255, 255, 0.09);
+  --glass-border:    rgba(255, 255, 255, 0.18);
+  --glass-border-lt: rgba(255, 255, 255, 0.10);
+  --glass-blur:      blur(18px) saturate(180%);
+  --glass-blur-sm:   blur(10px) saturate(160%);
+  --glass-shadow:    0 8px 32px rgba(0,0,0,0.28), 0 1px 0 rgba(255,255,255,0.12) inset;
+  --glass-shadow-sm: 0 4px 16px rgba(0,0,0,0.20), 0 1px 0 rgba(255,255,255,0.10) inset;
+  --glass-shadow-lg: 0 20px 60px rgba(0,0,0,0.40), 0 1px 0 rgba(255,255,255,0.14) inset;
+
+  /* Mesh gradient palette */
+  --mesh-1: #0a0e27;
+  --mesh-2: #0d1640;
+  --mesh-3: #1a1060;
+  --mesh-4: #120835;
+  --accent:    #6d4df2;
+  --accent-2:  #2563eb;
+  --accent-3:  #0ea5e9;
+  --accent-glow: rgba(109, 77, 242, 0.35);
+
+  /* Overrides */
+  --primary:     #7c5bf5;
+  --primary-dk:  #5b3ed4;
+  --primary-lt:  rgba(124, 91, 245, 0.15);
+  --secondary:   #f59e0b;
+  --secondary-lt:rgba(245, 158, 11, 0.15);
+
+  --bg:        #080c1e;
+  --surface:   rgba(13, 20, 60, 0.75);
+  --card:      rgba(255, 255, 255, 0.07);
+  --border:    rgba(255, 255, 255, 0.15);
+  --border-lt: rgba(255, 255, 255, 0.09);
+  --text:      #f0f4ff;
+  --text-2:    #c8d3f0;
+  --muted:     #7a8ab0;
+
+  --sb-bg:     transparent;
+  --sb-text:   rgba(200, 211, 240, 0.75);
+  --sb-hover:  rgba(255, 255, 255, 0.08);
+  --sb-active: rgba(109, 77, 242, 0.25);
+
+  --radius: 14px;
+  --shadow: var(--glass-shadow-sm);
+  --shadow-lg: var(--glass-shadow-lg);
+}
+
+/* ── 3. BODY & ANIMATED MESH BACKGROUND ── */
+body {
+  font-family: var(--font);
+  background: var(--mesh-1);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%,  rgba(99, 60, 220, 0.45) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 20%,  rgba(30, 90, 200, 0.35) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 60% at 70% 80%,  rgba(6, 182, 212, 0.22) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 50% at 10% 80%,  rgba(139, 60, 255, 0.28) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 40% at 50% 50%,  rgba(20, 30, 90, 0.5)   0%, transparent 70%),
+    linear-gradient(135deg, #080c1e 0%, #0d1445 50%, #090b22 100%);
+  animation: meshShift 20s ease-in-out infinite alternate;
+}
+
+@keyframes meshShift {
+  0%   { filter: hue-rotate(0deg)   brightness(1); }
+  50%  { filter: hue-rotate(15deg)  brightness(1.05); }
+  100% { filter: hue-rotate(-10deg) brightness(0.97); }
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+
+/* ── 4. LOGIN SCREEN ── */
+.login-screen {
+  background: transparent !important;
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  overflow-x: hidden; overflow-y: auto; padding: 1rem;
+  z-index: 9999;
+}
+
+/* Floating orbs */
+.login-shapes { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.ls {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 1;
+  animation: lsFloat 12s ease-in-out infinite;
+}
+.ls1 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(99,60,220,0.5), transparent 70%); top: -150px; right: -100px; animation-delay: 0s; }
+.ls2 { width: 400px; height: 400px; background: radial-gradient(circle, rgba(6,182,212,0.35), transparent 70%); bottom: -100px; left: -80px; animation-delay: -5s; }
+.ls3 { width: 300px; height: 300px; background: radial-gradient(circle, rgba(245,158,11,0.25), transparent 70%); top: 35%; left: 25%; animation-delay: -9s; }
+
+@keyframes lsFloat {
+  0%,100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-40px) scale(1.08); }
+}
+
+.login-card {
+  background: rgba(10, 15, 50, 0.55) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  border-radius: 24px !important;
+  box-shadow:
+    0 0 0 1px rgba(109,77,242,0.2),
+    0 24px 64px rgba(0,0,0,0.5),
+    0 1px 0 rgba(255,255,255,0.12) inset !important;
+  animation: cardReveal .6s cubic-bezier(.22,1,.36,1) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(109,77,242,0.8), rgba(6,182,212,0.6), transparent);
+}
+
+@keyframes cardReveal {
+  from { opacity: 0; transform: translateY(28px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.login-brand h1 { color: #f0f4ff !important; }
+.login-brand h1 span { color: #f59e0b !important; }
+.login-brand p { color: rgba(200,211,240,0.75) !important; }
+
+.login-logo {
+  background: linear-gradient(135deg, #6d4df2, #2563eb) !important;
+  box-shadow: 0 0 20px rgba(109,77,242,0.5) !important;
+}
+
+/* Login form inputs */
+.login-card input[type=text],
+.login-card input[type=password] {
+  background: rgba(255,255,255,0.07) !important;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  color: #f0f4ff !important;
+  border-radius: 10px !important;
+  backdrop-filter: blur(6px);
+}
+.login-card input::placeholder { color: rgba(200,211,240,0.4) !important; }
+.login-card input:focus {
+  background: rgba(255,255,255,0.11) !important;
+  border-color: rgba(109,77,242,0.7) !important;
+  box-shadow: 0 0 0 3px rgba(109,77,242,0.2), 0 0 16px rgba(109,77,242,0.15) !important;
+}
+
+.login-card label { color: rgba(200,211,240,0.65) !important; }
+
+/* Login guide box */
+#loginHints {
+  background: rgba(255,255,255,0.05) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  border-radius: 12px !important;
+  backdrop-filter: blur(8px);
+}
+#loginHints > div:first-child { color: #a78bfa !important; }
+
+/* Login button */
+.login-card .btn-primary {
+  background: linear-gradient(135deg, #6d4df2 0%, #2563eb 100%) !important;
+  border: none !important;
+  box-shadow: 0 4px 20px rgba(109,77,242,0.45) !important;
+  font-size: .95rem !important;
+  font-weight: 700 !important;
+  letter-spacing: .02em;
+  transition: all .25s !important;
+}
+.login-card .btn-primary:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 28px rgba(109,77,242,0.6) !important;
+  filter: brightness(1.1) !important;
+}
+
+.login-card .btn-outline {
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  color: rgba(200,211,240,0.75) !important;
+}
+
+.pw-toggle { color: rgba(200,211,240,0.5) !important; }
+.pw-toggle:hover { color: #a78bfa !important; }
+
+.login-err {
+  background: rgba(220,38,38,0.15) !important;
+  border: 1px solid rgba(220,38,38,0.3) !important;
+  color: #fca5a5 !important;
+  backdrop-filter: blur(8px);
+}
+
+/* ── 5. SIDEBAR ── */
+.sidebar {
+  background: rgba(8, 12, 35, 0.7) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border-right: 1px solid rgba(255,255,255,0.08) !important;
+  box-shadow: 4px 0 32px rgba(0,0,0,0.35) !important;
+}
+
+.sb-head {
+  border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+  padding: 1.25rem 1rem .9rem !important;
+}
+
+.sb-logo {
+  background: linear-gradient(135deg, #6d4df2, #2563eb) !important;
+  box-shadow: 0 0 16px rgba(109,77,242,0.45) !important;
+  border-radius: 12px !important;
+}
+
+.sb-school-name {
+  color: rgba(200,211,240,0.4) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+  font-size: .7rem !important;
+  letter-spacing: .1em !important;
+}
+
+.sn {
+  color: rgba(200,211,240,0.65) !important;
+  border-radius: 10px !important;
+  transition: all .2s !important;
+  font-size: .84rem !important;
+  font-weight: 500 !important;
+}
+
+.sn:hover {
+  background: rgba(255,255,255,0.08) !important;
+  color: #f0f4ff !important;
+  transform: translateX(2px);
+}
+
+.sn.active {
+  background: linear-gradient(135deg, rgba(109,77,242,0.35), rgba(37,99,235,0.25)) !important;
+  color: #c4b5fd !important;
+  font-weight: 700 !important;
+  border: 1px solid rgba(109,77,242,0.3) !important;
+  box-shadow: 0 2px 12px rgba(109,77,242,0.2) !important;
+}
+
+.sb-section-lbl {
+  font-size: .62rem !important;
+  font-weight: 800 !important;
+  letter-spacing: .12em !important;
+  color: rgba(200,211,240,0.3) !important;
+  text-transform: uppercase !important;
+  padding: .8rem .875rem .35rem !important;
+}
+
+.sb-foot {
+  border-top: 1px solid rgba(255,255,255,0.07) !important;
+}
+
+/* ── 6. TOPBAR ── */
+.topbar {
+  background: rgba(8, 12, 35, 0.65) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.25) !important;
+}
+
+.tb-title { color: #f0f4ff !important; font-weight: 800 !important; letter-spacing: -.01em !important; }
+.menu-btn { color: rgba(200,211,240,0.7) !important; }
+.menu-btn:hover { background: rgba(255,255,255,0.08) !important; color: #f0f4ff !important; }
+
+.tb-user {
+  background: rgba(109,77,242,0.2) !important;
+  border: 1px solid rgba(109,77,242,0.35) !important;
+  color: #c4b5fd !important;
+  backdrop-filter: blur(8px);
+  font-weight: 700 !important;
+}
+
+.tb, .tb-dark-toggle, .tb-logout-btn {
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  color: rgba(200,211,240,0.8) !important;
+  font-weight: 600 !important;
+  backdrop-filter: blur(6px);
+  transition: all .2s !important;
+  border-radius: 8px !important;
+}
+.tb:hover, .tb-dark-toggle:hover, .tb-logout-btn:hover {
+  background: rgba(255,255,255,0.12) !important;
+  color: #f0f4ff !important;
+  border-color: rgba(255,255,255,0.2) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25) !important;
+}
+.tb.active {
+  background: linear-gradient(135deg, rgba(109,77,242,0.4), rgba(37,99,235,0.3)) !important;
+  border-color: rgba(109,77,242,0.5) !important;
+  color: #c4b5fd !important;
+  box-shadow: 0 0 12px rgba(109,77,242,0.25) !important;
+}
+
+/* ── 7. CARDS ── */
+.card, .chart-box, .an-card {
+  background: rgba(255,255,255,0.07) !important;
+  backdrop-filter: var(--glass-blur-sm) !important;
+  -webkit-backdrop-filter: var(--glass-blur-sm) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.08) inset !important;
+  transition: box-shadow .25s, transform .25s !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before, .chart-box::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.18) 50%, transparent 100%);
+  pointer-events: none;
+}
+
+.card:hover {
+  box-shadow: 0 12px 40px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.12) inset !important;
+}
+
+.card h3 { color: #f0f4ff !important; font-weight: 700 !important; }
+
+/* ── 8. STAT CARDS ── */
+.stat-card {
+  background: rgba(255,255,255,0.07) !important;
+  backdrop-filter: var(--glass-blur-sm) !important;
+  -webkit-backdrop-filter: var(--glass-blur-sm) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  border-radius: 16px !important;
+  box-shadow: var(--glass-shadow-sm) !important;
+  transition: transform .25s, box-shadow .25s !important;
+  overflow: hidden;
+  position: relative;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.14) inset !important;
+}
+
+.stat-card::before { border-radius: 16px 16px 0 0 !important; height: 3px !important; }
+.sc-blue::before   { background: linear-gradient(90deg, #7c5bf5, #60a5fa) !important; box-shadow: 0 0 12px rgba(124,91,245,0.6); }
+.sc-green::before  { background: linear-gradient(90deg, #10b981, #34d399) !important; box-shadow: 0 0 12px rgba(16,185,129,0.5); }
+.sc-teal::before   { background: linear-gradient(90deg, #0d9488, #2dd4bf) !important; box-shadow: 0 0 12px rgba(13,148,136,0.5); }
+.sc-amber::before  { background: linear-gradient(90deg, #f59e0b, #fcd34d) !important; box-shadow: 0 0 12px rgba(245,158,11,0.5); }
+.sc-purple::before { background: linear-gradient(90deg, #8b5cf6, #d946ef) !important; box-shadow: 0 0 12px rgba(139,92,246,0.5); }
+.sc-cyan::before   { background: linear-gradient(90deg, #06b6d4, #67e8f9) !important; box-shadow: 0 0 12px rgba(6,182,212,0.5); }
+
+.sc-num { font-family: var(--font) !important; font-weight: 900 !important; }
+.sc-lbl { color: rgba(200,211,240,0.6) !important; }
+.sc-ico { opacity: .15 !important; color: #fff !important; }
+
+/* ── 9. QUICK CARDS ── */
+.qcard {
+  background: rgba(255,255,255,0.07) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  border-radius: 14px !important;
+  transition: all .25s !important;
+  box-shadow: var(--glass-shadow-sm) !important;
+}
+.qcard:hover {
+  transform: translateY(-5px) !important;
+  background: rgba(255,255,255,0.12) !important;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.4) !important;
+  border-color: rgba(255,255,255,0.22) !important;
+}
+.qcard.blue   { background: rgba(109,77,242,0.15) !important; border-color: rgba(109,77,242,0.3) !important; color: #c4b5fd !important; }
+.qcard.green  { background: rgba(16,185,129,0.12) !important; border-color: rgba(16,185,129,0.3) !important; color: #6ee7b7 !important; }
+.qcard.teal   { background: rgba(6,182,212,0.12) !important;  border-color: rgba(6,182,212,0.3) !important;  color: #67e8f9 !important; }
+.qcard.amber  { background: rgba(245,158,11,0.12) !important; border-color: rgba(245,158,11,0.3) !important; color: #fcd34d !important; }
+.qc-icon { color: inherit !important; }
+.qc-label { color: inherit !important; font-weight: 700 !important; }
+
+/* ── 10. FORMS ── */
+input, select, textarea {
+  background: rgba(255,255,255,0.07) !important;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  color: #f0f4ff !important;
+  border-radius: 10px !important;
+  backdrop-filter: blur(6px);
+  font-family: var(--font) !important;
+}
+input::placeholder, textarea::placeholder { color: rgba(200,211,240,0.35) !important; }
+input:focus, select:focus, textarea:focus {
+  border-color: rgba(109,77,242,0.7) !important;
+  box-shadow: 0 0 0 3px rgba(109,77,242,0.2), 0 0 16px rgba(109,77,242,0.12) !important;
+  background: rgba(255,255,255,0.10) !important;
+  outline: none;
+}
+select option { background: #0d1440 !important; color: #f0f4ff !important; }
+label { color: rgba(200,211,240,0.55) !important; font-weight: 600 !important; letter-spacing: .06em !important; }
+
+/* ── 11. BUTTONS ── */
+.btn-primary {
+  background: linear-gradient(135deg, #6d4df2 0%, #2563eb 100%) !important;
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(109,77,242,0.4) !important;
+  font-weight: 700 !important;
+  letter-spacing: .01em;
+}
+.btn-primary:hover {
+  box-shadow: 0 8px 24px rgba(109,77,242,0.55) !important;
+  filter: brightness(1.1) !important;
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #059669, #10b981) !important;
+  box-shadow: 0 4px 16px rgba(16,185,129,0.35) !important;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #b91c1c, #dc2626) !important;
+  box-shadow: 0 4px 16px rgba(220,38,38,0.35) !important;
+}
+
+.btn-outline {
+  background: rgba(255,255,255,0.07) !important;
+  border: 1px solid rgba(255,255,255,0.2) !important;
+  color: rgba(200,211,240,0.85) !important;
+  backdrop-filter: blur(6px);
+}
+.btn-outline:hover {
+  background: rgba(255,255,255,0.13) !important;
+  border-color: rgba(255,255,255,0.3) !important;
+  color: #f0f4ff !important;
+}
+
+/* ── 12. TABLES ── */
+.tbl-wrap {
+  background: rgba(255,255,255,0.04) !important;
+  backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+  box-shadow: var(--glass-shadow-sm) !important;
+}
+
+table { background: transparent !important; }
+
+thead tr {
+  background: rgba(109,77,242,0.2) !important;
+  backdrop-filter: blur(8px);
+}
+thead th {
+  color: #c4b5fd !important;
+  border-bottom: 1px solid rgba(109,77,242,0.3) !important;
+  border-color: rgba(255,255,255,0.08) !important;
+  font-weight: 700 !important;
+  letter-spacing: .04em !important;
+  font-size: .75rem !important;
+  text-transform: uppercase !important;
+  padding: .75rem .875rem !important;
+}
+tbody td {
+  border-color: rgba(255,255,255,0.06) !important;
+  color: rgba(200,211,240,0.85) !important;
+  padding: .65rem .875rem !important;
+}
+tbody tr:hover {
+  background: rgba(109,77,242,0.1) !important;
+}
+tbody tr:nth-child(even) {
+  background: rgba(255,255,255,0.025) !important;
+}
+
+/* ── 13. BADGES ── */
+.badge {
+  backdrop-filter: blur(6px) !important;
+  font-weight: 700 !important;
+  border-radius: 6px !important;
+}
+.b-blue   { background: rgba(109,77,242,0.25) !important; color: #c4b5fd !important; border: 1px solid rgba(109,77,242,0.3) !important; }
+.b-green  { background: rgba(16,185,129,0.2)  !important; color: #6ee7b7 !important; border: 1px solid rgba(16,185,129,0.3) !important; }
+.b-teal   { background: rgba(6,182,212,0.2)   !important; color: #67e8f9 !important; border: 1px solid rgba(6,182,212,0.3) !important; }
+.b-amber  { background: rgba(245,158,11,0.2)  !important; color: #fcd34d !important; border: 1px solid rgba(245,158,11,0.3) !important; }
+.b-red    { background: rgba(220,38,38,0.2)   !important; color: #fca5a5 !important; border: 1px solid rgba(220,38,38,0.3) !important; }
+.b-purple { background: rgba(168,85,247,0.2)  !important; color: #d8b4fe !important; border: 1px solid rgba(168,85,247,0.3) !important; }
+.b-orange { background: rgba(234,88,12,0.2)   !important; color: #fed7aa !important; border: 1px solid rgba(234,88,12,0.3) !important; }
+.b-lblue  { background: rgba(14,165,233,0.2)  !important; color: #7dd3fc !important; border: 1px solid rgba(14,165,233,0.3) !important; }
+
+/* ── 14. MODAL ── */
+.modal-overlay {
+  background: rgba(0,0,0,0.65) !important;
+  backdrop-filter: blur(6px) !important;
+}
+.modal {
+  background: rgba(10, 15, 50, 0.82) !important;
+  backdrop-filter: blur(28px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(200%) !important;
+  border: 1px solid rgba(255,255,255,0.14) !important;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.12) inset !important;
+  border-radius: 20px !important;
+  position: relative;
+  overflow: hidden;
+}
+.modal::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(109,77,242,0.7), rgba(6,182,212,0.5), transparent);
+}
+.modal-hd { border-bottom: 1px solid rgba(255,255,255,0.08) !important; }
+.modal-hd h3 { color: #f0f4ff !important; }
+.modal-ft { border-top: 1px solid rgba(255,255,255,0.08) !important; }
+.modal-x {
+  background: rgba(255,255,255,0.07) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  color: rgba(200,211,240,0.6) !important;
+}
+.modal-x:hover { background: rgba(220,38,38,0.3) !important; border-color: rgba(220,38,38,0.5) !important; color: #fca5a5 !important; }
+
+/* ── 15. TOAST ── */
+.toast {
+  background: rgba(10, 15, 50, 0.88) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(255,255,255,0.14) !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.1) inset !important;
+  border-radius: 12px !important;
+  color: #f0f4ff !important;
+}
+.toast.success { background: rgba(5, 75, 40, 0.88) !important; border-color: rgba(16,185,129,0.4) !important; }
+.toast.error   { background: rgba(80, 10, 10, 0.88) !important; border-color: rgba(220,38,38,0.4) !important; }
+.toast.info    { background: rgba(10, 30, 90, 0.88) !important; border-color: rgba(37,99,235,0.4) !important; }
+.toast.warning { background: rgba(80, 45, 0, 0.88) !important;  border-color: rgba(245,158,11,0.4) !important; }
+
+/* ── 16. ICON BUTTONS ── */
+.icb {
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  color: rgba(200,211,240,0.6) !important;
+  transition: all .18s !important;
+}
+.icb:hover { background: rgba(255,255,255,0.12) !important; color: #f0f4ff !important; border-color: rgba(255,255,255,0.22) !important; }
+.icb.ed:hover { background: rgba(109,77,242,0.2) !important; border-color: rgba(109,77,242,0.5) !important; color: #c4b5fd !important; }
+.icb.dl:hover { background: rgba(220,38,38,0.2) !important;  border-color: rgba(220,38,38,0.5) !important;  color: #fca5a5 !important; }
+.icb.vw:hover { background: rgba(245,158,11,0.15) !important; border-color: rgba(245,158,11,0.4) !important; color: #fcd34d !important; }
+
+/* ── 17. SCORE BAR ── */
+.sbar { background: rgba(255,255,255,0.1) !important; border-radius: 4px !important; }
+.sbar-fill {
+  background: linear-gradient(90deg, #6d4df2, #2563eb, #06b6d4) !important;
+  box-shadow: 0 0 8px rgba(109,77,242,0.5) !important;
+  border-radius: 4px !important;
+}
+
+/* ── 18. UPLOAD ZONE ── */
+.upload-zone {
+  background: rgba(255,255,255,0.04) !important;
+  border: 2px dashed rgba(255,255,255,0.18) !important;
+  border-radius: 14px !important;
+  transition: all .25s !important;
+}
+.upload-zone:hover {
+  background: rgba(109,77,242,0.1) !important;
+  border-color: rgba(109,77,242,0.5) !important;
+  box-shadow: 0 0 20px rgba(109,77,242,0.2) !important;
+}
+.upload-zone h4 { color: #f0f4ff !important; }
+.upload-zone p { color: rgba(200,211,240,0.5) !important; }
+
+/* ── 19. MARKS INPUT ── */
+.marks-input {
+  background: rgba(255,255,255,0.07) !important;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  color: #f0f4ff !important;
+  border-radius: 8px !important;
+}
+.marks-input:focus { border-color: rgba(109,77,242,0.7) !important; box-shadow: 0 0 0 2px rgba(109,77,242,0.2) !important; }
+.marks-input.good { background: rgba(16,185,129,0.15) !important; border-color: rgba(16,185,129,0.5) !important; }
+.marks-input.avg  { background: rgba(245,158,11,0.12) !important; border-color: rgba(245,158,11,0.4) !important; }
+.marks-input.poor { background: rgba(220,38,38,0.12) !important; border-color: rgba(220,38,38,0.4) !important; }
+
+/* ── 20. MOBILE BOTTOM NAV ── */
+#mobileBottomNav {
+  background: rgba(8, 12, 35, 0.82) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border-top: 1px solid rgba(255,255,255,0.1) !important;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.4) !important;
+}
+
+.mbn-item {
+  color: rgba(200,211,240,0.5) !important;
+}
+.mbn-item.active {
+  color: #c4b5fd !important;
+  background: rgba(109,77,242,0.2) !important;
+}
+.mbn-item:hover {
+  color: #f0f4ff !important;
+  background: rgba(255,255,255,0.08) !important;
+}
+
+/* ── 21. TAB BAR ── */
+.tab-bar {
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+  gap: .35rem !important;
+  padding-bottom: 0 !important;
+}
+
+/* ── 22. ADMIN / SECTION ITEMS ── */
+.admin-item {
+  background: rgba(255,255,255,0.05) !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  border-radius: 10px !important;
+  backdrop-filter: blur(8px);
+}
+
+.sms-credit-box {
+  background: rgba(255,255,255,0.05) !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  backdrop-filter: blur(8px) !important;
+  border-radius: 10px !important;
+}
+
+/* ── 23. EXAM CATEGORY BUTTONS ── */
+.exam-cat-btn {
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  border-radius: 12px !important;
+  transition: all .2s !important;
+  backdrop-filter: blur(8px);
+}
+.exam-cat-btn:hover {
+  background: rgba(109,77,242,0.15) !important;
+  border-color: rgba(109,77,242,0.4) !important;
+}
+.exam-cat-btn.active {
+  background: rgba(109,77,242,0.2) !important;
+  border-color: rgba(109,77,242,0.55) !important;
+  box-shadow: 0 0 0 3px rgba(109,77,242,0.2), 0 4px 16px rgba(109,77,242,0.25) !important;
+}
+.ecat-title { color: #f0f4ff !important; }
+.ecat-desc  { color: rgba(200,211,240,0.5) !important; }
+.exam-cat-btn.active .ecat-title { color: #c4b5fd !important; }
+
+/* ── 24. GRADING SYSTEM ITEMS ── */
+.gs-item {
+  background: rgba(255,255,255,0.05) !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  border-radius: 10px !important;
+  backdrop-filter: blur(6px);
+}
+.gs-item.gs-active {
+  background: rgba(109,77,242,0.15) !important;
+  border-color: rgba(109,77,242,0.4) !important;
+}
+.gs-min,.gs-max,.gs-grade,.gs-pts,.gs-lbl {
+  background: rgba(255,255,255,0.07) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  color: #f0f4ff !important;
+  border-radius: 6px !important;
+}
+
+/* ── 25. SUB CHECKBOX LABELS ── */
+.sub-check-label {
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  color: rgba(200,211,240,0.85) !important;
+  backdrop-filter: blur(4px);
+}
+.sub-check-label:hover {
+  background: rgba(109,77,242,0.15) !important;
+  border-color: rgba(109,77,242,0.4) !important;
+}
+.sub-checkboxes-wrap {
+  background: rgba(255,255,255,0.03) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 10px !important;
+}
+
+/* ── 26. SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(109,77,242,0.35);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(109,77,242,0.6); }
+
+/* ── 27. TIMETABLE ── */
+.tt-wrap {
+  background: rgba(255,255,255,0.05) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+  box-shadow: var(--glass-shadow-sm) !important;
+}
+.tt-school-header { background: linear-gradient(135deg, rgba(109,77,242,0.6), rgba(37,99,235,0.5)) !important; backdrop-filter: blur(10px); }
+.tt-class-banner  { background: rgba(16,185,129,0.35) !important; backdrop-filter: blur(8px); }
+.tt-table th { background: rgba(109,77,242,0.2) !important; color: #c4b5fd !important; border-color: rgba(255,255,255,0.08) !important; }
+.tt-table td { border-color: rgba(255,255,255,0.07) !important; color: rgba(200,211,240,0.85) !important; }
+.tt-table .tt-day-col { background: rgba(109,77,242,0.25) !important; color: #e2e8f0 !important; }
+
+/* ── 28. FLOATING CHAT ── */
+#fchatBubble {
+  background: linear-gradient(135deg, #6d4df2, #0891b2) !important;
+  box-shadow: 0 4px 24px rgba(109,77,242,0.5), 0 0 0 1px rgba(255,255,255,0.12) !important;
+}
+#fchatWindow {
+  background: rgba(8, 12, 35, 0.88) !important;
+  backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  box-shadow: 0 16px 50px rgba(0,0,0,0.55) !important;
+}
+
+/* ── 29. BROADCAST BANNER ── */
+#broadcastBanner, #guestBroadcastBanner {
+  background: linear-gradient(135deg, rgba(109,77,242,0.4), rgba(37,99,235,0.3)) !important;
+  backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid rgba(109,77,242,0.35) !important;
+  color: #e2e8f0 !important;
+}
+
+/* ── 30. GUEST PORTAL ── */
+#guestTopbar {
+  background: linear-gradient(135deg, rgba(30,40,100,0.85), rgba(109,77,242,0.6)) !important;
+  backdrop-filter: blur(20px) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3) !important;
+}
+#guestTabBar {
+  background: rgba(8,12,35,0.75) !important;
+  backdrop-filter: blur(16px) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+}
+
+/* ── 31. LANGUAGE SELECTOR ── */
+.lang-selector {
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  backdrop-filter: blur(8px);
+}
+.lang-btn { color: rgba(200,211,240,0.6) !important; }
+.lang-btn.active {
+  background: linear-gradient(135deg, #6d4df2, #2563eb) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(109,77,242,0.4) !important;
+}
+.lang-btn:hover:not(.active) { background: rgba(255,255,255,0.09) !important; color: #f0f4ff !important; }
+
+/* ── 32. SECTION FADE ANIMATION ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.sec.active { animation: fadeUp .35s cubic-bezier(.22,1,.36,1); }
+
+/* ── 33. GLOW ACCENT ON PRIMARY INTERACTIVE ELEMENTS ── */
+.btn-primary:focus,
+input:focus,
+select:focus,
+.sn.active {
+  outline: none;
+}
+
+/* ── 34. MUTED TEXT COLORS ── */
+p, span { color: inherit; }
+.muted, [style*="color:#64748b"], [style*="color:#94a3b8"] { color: rgba(200,211,240,0.5) !important; }
+h2 { color: #f0f4ff !important; font-weight: 800 !important; }
+h3 { color: #e2e8f0 !important; }
+
+/* ── 35. FLOATING CONTACT BUTTONS ── */
+.fc-btn {
+  backdrop-filter: blur(10px) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+}
+
+/* ── 36. DARK MODE HARMONY ── */
+body.dark {
+  --bg: #040810;
+  --mesh-1: #040810;
+}
+body.dark::before {
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%,  rgba(80,40,200,0.5) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 20%,  rgba(20,70,180,0.38) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 60% at 70% 80%,  rgba(4,150,200,0.25) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 50% at 10% 80%,  rgba(110,40,230,0.3) 0%, transparent 50%),
+    linear-gradient(135deg, #040810 0%, #080d30 50%, #040810 100%);
+}
+
