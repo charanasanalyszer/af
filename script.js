@@ -16245,3 +16245,525 @@ function themeReset() {
     themeRenderSwatches();
   });
 })();
+
+// ═══════════════════════════════════════════════════════════════════
+//  ROLE-BASED ACCESS CONTROL — Platform Admin
+//  Stores per-role permission maps, applies them at login time.
+//  Keys:
+//    ei_rbac_global          → { teacher:{...}, student:{...}, guest:{...} }
+//    ei_rbac_<schoolId>      → same shape, overrides global for that school
+// ═══════════════════════════════════════════════════════════════════
+
+const K_RBAC_GLOBAL = 'ei_rbac_global';
+const K_RBAC_SCHOOL = (id) => 'ei_rbac_' + id;
+
+// ── Schema: every permission the UI exposes ──
+const RBAC_SCHEMA = {
+  teacher: {
+    label: 'Teacher',
+    icon: 'fa-chalkboard-user',
+    color: '#1a6fb5',
+    sections: [
+      { key: 'dashboard',    label: 'Dashboard',           icon: 'fa-house',           defaultOn: true },
+      { key: 'exambuilder',  label: 'Exam Builder',        icon: 'fa-pen-to-square',   defaultOn: true },
+      {
+        key: 'exams', label: 'Exams', icon: 'fa-file-pen', defaultOn: true,
+        tabs: [
+          { key: 'tabExamList',         label: 'Exam List',          defaultOn: true  },
+          { key: 'tabExamTimetable',    label: 'Exam Timetable',     defaultOn: true  },
+          { key: 'tabCreateExam',       label: 'Create Exam',        defaultOn: false },
+          { key: 'tabUploadMarks',      label: 'Upload Marks',       defaultOn: true  },
+          { key: 'tabAnalyse',          label: 'Analyse Results',    defaultOn: false },
+          { key: 'tabMeritList',        label: 'Merit List',         defaultOn: false },
+          { key: 'tabSummaryAnalytics', label: 'Summary Analytics',  defaultOn: false },
+        ]
+      },
+      { key: 'papers',       label: 'Papers & Resources',  icon: 'fa-folder-open',     defaultOn: true,
+        tabs: [
+          { key: 'tabTermlyExams', label: 'Termly Exams', defaultOn: true  },
+          { key: 'tabRevision',    label: 'Revision',     defaultOn: true  },
+        ]
+      },
+      {
+        key: 'fees', label: 'Fees (Class Teachers)', icon: 'fa-coins', defaultOn: true,
+        tabs: [
+          { key: 'tabFeeOverview',   label: 'Overview',         defaultOn: true  },
+          { key: 'tabFeeStructure',  label: 'Fee Structure',    defaultOn: false },
+          { key: 'tabFeePayments',   label: 'Record Payment',   defaultOn: true  },
+          { key: 'tabFeeStudents',   label: 'Student Balances', defaultOn: true  },
+          { key: 'tabFeeImport',     label: 'Import Fees',      defaultOn: false },
+          { key: 'tabFeeReminders',  label: 'Reminders',        defaultOn: true  },
+          { key: 'tabFeeReceipts',   label: 'Receipts',         defaultOn: true  },
+        ]
+      },
+      { key: 'messaging',    label: 'Messaging',            icon: 'fa-comments',        defaultOn: false },
+      { key: 'settings',     label: 'Settings',             icon: 'fa-sliders',         defaultOn: true  },
+    ],
+    extras: [
+      { key: 'canAnalyse',  label: 'Can run Analysis (override per-teacher)',  defaultOn: false },
+      { key: 'canReport',   label: 'Can generate Report Forms',               defaultOn: false },
+      { key: 'canMerit',    label: 'Can view Merit List',                     defaultOn: false },
+    ]
+  },
+  student: {
+    label: 'Student',
+    icon: 'fa-user-graduate',
+    color: '#059669',
+    sections: [
+      { key: 'spResults', label: 'Results / Report Cards', icon: 'fa-chart-bar',      defaultOn: true  },
+      { key: 'spFees',    label: 'Fee Balance & Receipts', icon: 'fa-coins',           defaultOn: true  },
+      { key: 'spPapers',  label: 'Papers & Resources',     icon: 'fa-folder-open',     defaultOn: true  },
+    ],
+    extras: []
+  },
+  guest: {
+    label: 'Guest',
+    icon: 'fa-user',
+    color: '#7c3aed',
+    sections: [
+      { key: 'exambuilder',    label: 'Exam Builder (view/create)',  icon: 'fa-pen-to-square', defaultOn: true  },
+      { key: 'guestPapers',    label: 'Papers & Resources',          icon: 'fa-folder-open',   defaultOn: true  },
+      { key: 'guestDownload',  label: 'Download / Print Exams',      icon: 'fa-download',      defaultOn: false },
+    ],
+    extras: []
+  }
+};
+
+// ── Build a default permissions object for a role ──
+function rbacDefaults(role) {
+  const schema = RBAC_SCHEMA[role];
+  if (!schema) return {};
+  const cfg = {};
+  schema.sections.forEach(sec => {
+    cfg[sec.key] = sec.defaultOn;
+    (sec.tabs || []).forEach(tab => { cfg[sec.key + '__' + tab.key] = tab.defaultOn; });
+  });
+  (schema.extras || []).forEach(ex => { cfg[ex.key] = ex.defaultOn; });
+  return cfg;
+}
+
+// ── Load / save helpers ──
+function rbacLoad(schoolId) {
+  const key = schoolId ? K_RBAC_SCHOOL(schoolId) : K_RBAC_GLOBAL;
+  try { return JSON.parse(localStorage.getItem(key)) || {}; } catch { return {}; }
+}
+function rbacSaveRaw(cfg, schoolId) {
+  const key = schoolId ? K_RBAC_SCHOOL(schoolId) : K_RBAC_GLOBAL;
+  localStorage.setItem(key, JSON.stringify(cfg));
+}
+function rbacHasSchoolOverride(schoolId) {
+  if (!schoolId) return false;
+  return localStorage.getItem(K_RBAC_SCHOOL(schoolId)) !== null;
+}
+// Effective config for a role in a school context
+function rbacEffective(role, schoolId) {
+  const globalCfg  = rbacLoad(null)[role]  || rbacDefaults(role);
+  if (!schoolId) return globalCfg;
+  const schoolFull = rbacLoad(schoolId);
+  const schoolRole = schoolFull[role];
+  return (schoolRole && Object.keys(schoolRole).length) ? schoolRole : globalCfg;
+}
+
+// ── UI state ──
+let _rbacMode = 'global';
+let _rbacRole = 'teacher';
+
+function rbacSwitchMode(mode) {
+  _rbacMode = mode;
+  const btnG = document.getElementById('rbacModeGlobal');
+  const btnS = document.getElementById('rbacModeSchool');
+  const picker = document.getElementById('rbacSchoolPicker');
+  if (btnG) btnG.className = mode === 'global' ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm';
+  if (btnS) btnS.className = mode === 'school' ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm';
+  if (picker) picker.style.display = mode === 'school' ? '' : 'none';
+  if (mode === 'school') {
+    const sel = document.getElementById('rbacSchoolSelect');
+    if (sel) {
+      loadPlatform();
+      sel.innerHTML = '<option value="">— Select a school —</option>' +
+        platformSchools.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    }
+  }
+  rbacRender();
+}
+
+function rbacSelectRole(role, btn) {
+  _rbacRole = role;
+  document.querySelectorAll('#rbacRoleTabBar button').forEach(b => {
+    b.style.borderBottomColor = 'transparent';
+    b.style.color = 'var(--text)';
+    b.style.fontWeight = '500';
+  });
+  if (btn) {
+    btn.style.borderBottomColor = 'var(--primary, #4f7cff)';
+    btn.style.color = 'var(--primary, #4f7cff)';
+    btn.style.fontWeight = '700';
+  }
+  rbacRender();
+}
+
+function _rbacCurrentSchoolId() {
+  if (_rbacMode !== 'school') return null;
+  const sel = document.getElementById('rbacSchoolSelect');
+  return (sel && sel.value) ? sel.value : null;
+}
+
+function rbacRender() {
+  const root = document.getElementById('rbacPermissionsRoot');
+  if (!root) return;
+
+  const schoolId = _rbacCurrentSchoolId();
+  const role = _rbacRole;
+  const schema = RBAC_SCHEMA[role];
+  if (!schema) { root.innerHTML = ''; return; }
+
+  // School override note
+  const note = document.getElementById('rbacSchoolNote');
+  if (note) note.style.display = (schoolId && rbacHasSchoolOverride(schoolId)) ? '' : 'none';
+  const clearBtn = document.getElementById('rbacClearSchoolBtn');
+  if (clearBtn) clearBtn.style.display = (schoolId && rbacHasSchoolOverride(schoolId)) ? '' : 'none';
+
+  // If school mode but none selected
+  if (_rbacMode === 'school' && !schoolId) {
+    root.innerHTML = '<p style="color:var(--muted);font-size:.84rem;padding:.5rem 0">Select a school above to configure its role permissions.</p>';
+    return;
+  }
+
+  // Get effective config (school override → global fallback)
+  const globalCfg = rbacLoad(null)[role]  || rbacDefaults(role);
+  const schoolFull = schoolId ? rbacLoad(schoolId) : null;
+  const schoolRole = schoolFull ? schoolFull[role] : null;
+  const effectiveCfg = (schoolRole && Object.keys(schoolRole).length) ? schoolRole : globalCfg;
+
+  // Override note for school mode
+  if (schoolId && !(schoolRole && Object.keys(schoolRole).length)) {
+    root.innerHTML = '<div style="font-size:.78rem;color:#64748b;background:var(--bg);border:1px dashed var(--border);border-radius:8px;padding:.5rem .75rem;margin-bottom:.75rem">ℹ️ No school-specific overrides set — showing global defaults. Saving will create a school override.</div>';
+  } else {
+    root.innerHTML = '';
+  }
+
+  const roleColor = schema.color;
+
+  // Build sections
+  let html = `<div style="display:flex;flex-direction:column;gap:.65rem">`;
+
+  schema.sections.forEach(sec => {
+    const secOn = effectiveCfg[sec.key] !== false;
+    const hasTabs = sec.tabs && sec.tabs.length;
+
+    html += `<div style="border:1.5px solid var(--border);border-radius:10px;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 1rem;background:var(--surface)">
+        <span style="font-weight:700;font-size:.87rem;display:flex;align-items:center;gap:.5rem">
+          <i class="fa-solid ${sec.icon}" style="color:${roleColor};width:16px;text-align:center"></i>
+          ${sec.label}
+        </span>
+        <label class="plat-nav-toggle">
+          <input type="checkbox" id="rbac_sec_${role}_${sec.key}" ${secOn ? 'checked' : ''}
+            onchange="(function(cb){
+              var tl=document.getElementById('rbacTabs_${role}_${sec.key}');
+              if(tl) tl.style.display=cb.checked?'':'none';
+            })(this)"/>
+          <span class="plat-nav-slider"></span>
+        </label>
+      </div>`;
+
+    if (hasTabs) {
+      html += `<div id="rbacTabs_${role}_${sec.key}" style="${secOn ? '' : 'display:none'}">`;
+      sec.tabs.forEach((tab, i) => {
+        const tabOn = effectiveCfg[sec.key + '__' + tab.key] !== false;
+        const border = i < sec.tabs.length ? 'border-top:1px solid var(--border-lt,#f1f5f9)' : '';
+        html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:.38rem 1rem .38rem 2.2rem;${border};background:var(--bg)">
+          <span style="font-size:.81rem;color:var(--muted)">${tab.label}</span>
+          <label class="plat-nav-toggle sm">
+            <input type="checkbox" id="rbac_tab_${role}_${sec.key}__${tab.key}" ${tabOn ? 'checked' : ''}/>
+            <span class="plat-nav-slider"></span>
+          </label>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+    html += `</div>`;
+  });
+
+  // Extra capabilities
+  if (schema.extras && schema.extras.length) {
+    html += `<div style="border:1.5px solid var(--border);border-radius:10px;overflow:hidden">
+      <div style="padding:.6rem 1rem;background:var(--surface);font-weight:700;font-size:.87rem;display:flex;align-items:center;gap:.5rem">
+        <i class="fa-solid fa-star" style="color:${roleColor};width:16px;text-align:center"></i>
+        Extra Capabilities
+      </div>`;
+    schema.extras.forEach((ex, i) => {
+      const exOn = effectiveCfg[ex.key] !== false && effectiveCfg[ex.key] !== undefined
+        ? effectiveCfg[ex.key]
+        : ex.defaultOn;
+      const border = i > 0 ? 'border-top:1px solid var(--border-lt,#f1f5f9)' : '';
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:.42rem 1rem .42rem 2.2rem;${border};background:var(--bg)">
+        <span style="font-size:.81rem;color:var(--muted)">${ex.label}</span>
+        <label class="plat-nav-toggle sm">
+          <input type="checkbox" id="rbac_extra_${role}_${ex.key}" ${exOn ? 'checked' : ''}/>
+          <span class="plat-nav-slider"></span>
+        </label>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+
+  // Append to existing content
+  const existingContent = root.innerHTML;
+  root.innerHTML = existingContent + html;
+}
+
+function rbacCollectCurrent() {
+  const role = _rbacRole;
+  const schema = RBAC_SCHEMA[role];
+  if (!schema) return {};
+  const cfg = {};
+  schema.sections.forEach(sec => {
+    const secCb = document.getElementById(`rbac_sec_${role}_${sec.key}`);
+    if (secCb) cfg[sec.key] = secCb.checked;
+    (sec.tabs || []).forEach(tab => {
+      const tabCb = document.getElementById(`rbac_tab_${role}_${sec.key}__${tab.key}`);
+      if (tabCb) cfg[sec.key + '__' + tab.key] = tabCb.checked;
+    });
+  });
+  (schema.extras || []).forEach(ex => {
+    const exCb = document.getElementById(`rbac_extra_${role}_${ex.key}`);
+    if (exCb) cfg[ex.key] = exCb.checked;
+  });
+  return cfg;
+}
+
+function rbacSave() {
+  const role = _rbacRole;
+  const schoolId = _rbacCurrentSchoolId();
+  const collected = rbacCollectCurrent();
+
+  // Load the full config object and update just this role
+  const full = rbacLoad(schoolId);
+  full[role] = collected;
+  rbacSaveRaw(full, schoolId);
+
+  const note = document.getElementById('rbacSchoolNote');
+  if (note) note.style.display = (schoolId && rbacHasSchoolOverride(schoolId)) ? '' : 'none';
+  const clearBtn = document.getElementById('rbacClearSchoolBtn');
+  if (clearBtn) clearBtn.style.display = (schoolId && rbacHasSchoolOverride(schoolId)) ? '' : 'none';
+
+  const st = document.getElementById('rbacStatus');
+  if (st) {
+    st.innerHTML = `<i class="fa-solid fa-circle-check" style="color:#10b981"></i> ${schoolId ? 'Saved for this school.' : 'Saved globally — applies to all schools without a specific override.'}`;
+    st.style.color = '#10b981';
+    setTimeout(() => { if (st) st.innerHTML = ''; }, 4000);
+  }
+  showToast('<i class="fa-solid fa-circle-check"></i> Role permissions saved!', 'success');
+
+  // Re-apply if we're inside a school right now
+  if (currentUser && currentUser.role !== 'platform_admin') {
+    applyRbacPermissions();
+  }
+}
+
+function rbacReset() {
+  const role = _rbacRole;
+  const schoolId = _rbacCurrentSchoolId();
+  const target = schoolId ? 'this school' : 'all schools (global)';
+  if (!confirm(`Reset ${role} permissions to defaults for ${target}?`)) return;
+
+  const full = rbacLoad(schoolId);
+  full[role] = rbacDefaults(role);
+  rbacSaveRaw(full, schoolId);
+  rbacRender();
+
+  showToast(`${RBAC_SCHEMA[role].label} permissions reset to defaults.`, 'info');
+  const st = document.getElementById('rbacStatus');
+  if (st) { st.textContent = '↺ Reset to defaults.'; setTimeout(() => { st.textContent = ''; }, 3000); }
+}
+
+function rbacClearSchoolOverride() {
+  const schoolId = _rbacCurrentSchoolId();
+  if (!schoolId) return;
+  loadPlatform();
+  const school = platformSchools.find(s => s.id === schoolId);
+  const name = school ? school.name : 'this school';
+  if (!confirm(`Remove all RBAC overrides for "${name}"?\n\nIt will revert to global settings.`)) return;
+  localStorage.removeItem(K_RBAC_SCHOOL(schoolId));
+  rbacRender();
+  showToast('School RBAC override removed — using global settings.', 'info');
+}
+
+// ════════════════════════════════════════════════════
+//  APPLY RBAC PERMISSIONS AT RUNTIME
+//  Called after login, uses effective config for school
+// ════════════════════════════════════════════════════
+
+function applyRbacPermissions() {
+  if (!currentUser) return;
+  const role = currentUser.role;
+
+  if (role === 'teacher') {
+    applyRbacTeacher();
+  } else if (role === 'student') {
+    applyRbacStudent();
+  } else if (role === 'guest') {
+    applyRbacGuest();
+  }
+}
+
+function applyRbacTeacher() {
+  const cfg = rbacEffective('teacher', currentSchoolId);
+
+  // Sections — hide/show nav links
+  const teacherSections = ['dashboard','exambuilder','exams','papers','fees','messaging','settings'];
+  teacherSections.forEach(sec => {
+    const allowed = cfg[sec] !== false;
+    document.querySelectorAll(`[data-s="${sec}"]`).forEach(el => {
+      // Only restrict if already visible (don't fight platform nav config)
+      if (!allowed) el.style.display = 'none';
+    });
+  });
+
+  // Exam sub-tabs
+  const examTabs = ['tabExamList','tabExamTimetable','tabCreateExam','tabUploadMarks','tabAnalyse','tabMeritList','tabSummaryAnalytics'];
+  examTabs.forEach(tabId => {
+    const key = 'exams__' + tabId;
+    const allowed = cfg[key] !== false;
+    document.querySelectorAll(`[onclick*="${tabId}"]`).forEach(btn => {
+      if (!allowed) btn.style.display = 'none';
+    });
+  });
+
+  // Fees sub-tabs
+  const feeTabs = ['tabFeeOverview','tabFeeStructure','tabFeePayments','tabFeeStudents','tabFeeImport','tabFeeReminders','tabFeeReceipts'];
+  feeTabs.forEach(tabId => {
+    const key = 'fees__' + tabId;
+    const allowed = cfg[key] !== false;
+    document.querySelectorAll(`[onclick*="${tabId}"]`).forEach(btn => {
+      if (!allowed) btn.style.display = 'none';
+    });
+  });
+
+  // Papers sub-tabs
+  ['tabTermlyExams','tabRevision'].forEach(tabId => {
+    const key = 'papers__' + tabId;
+    const allowed = cfg[key] !== false;
+    document.querySelectorAll(`[onclick*="${tabId}"]`).forEach(btn => {
+      if (!allowed) btn.style.display = 'none';
+    });
+  });
+
+  // Extras: override per-teacher canAnalyse, canReport, canMerit defaults
+  // RBAC sets the DEFAULT; per-teacher flag can still elevate if admin set it
+  if (cfg.canAnalyse === false && !currentUser.canAnalyse) {
+    const btn = document.getElementById('tbAnalyse');
+    if (btn) btn.style.display = 'none';
+  }
+  if (cfg.canMerit === false && !currentUser.canMerit) {
+    const btn = document.getElementById('tbMeritList') || document.querySelector('[onclick*="tabMeritList"]');
+    if (btn) btn.style.display = 'none';
+  }
+}
+
+function applyRbacStudent() {
+  const cfg = rbacEffective('student', currentSchoolId);
+
+  // Student portal tabs
+  const tabMap = { spResults: 'spResults', spFees: 'spFees', spPapers: 'spPapers' };
+  Object.entries(tabMap).forEach(([cfgKey, tabId]) => {
+    const allowed = cfg[cfgKey] !== false;
+    const tabBtn = document.querySelector(`[onclick*="${tabId}"]`);
+    const tabPanel = document.getElementById(tabId);
+    if (!allowed) {
+      if (tabBtn) tabBtn.style.display = 'none';
+      if (tabPanel) tabPanel.style.display = 'none';
+    }
+  });
+}
+
+function applyRbacGuest() {
+  const cfg = rbacEffective('guest', currentSchoolId);
+
+  // Exam Builder tab
+  if (cfg['exambuilder'] === false) {
+    const btn = document.getElementById('guestTabBtnEB');
+    const panel = document.getElementById('guestPanelEB');
+    if (btn) btn.style.display = 'none';
+    if (panel) panel.style.display = 'none';
+  }
+
+  // Papers tab
+  if (cfg['guestPapers'] === false) {
+    const btn = document.getElementById('guestTabBtnPapers');
+    const panel = document.getElementById('guestPanelPapers');
+    if (btn) btn.style.display = 'none';
+    if (panel) panel.style.display = 'none';
+  }
+
+  // Download/print — controlled via existing platExamDlFee mechanism;
+  // RBAC adds a second layer: if disabled, override the unlock check
+  if (cfg['guestDownload'] === false) {
+    // Store flag; the print/download buttons read window._rbacNoGuestDownload
+    window._rbacNoGuestDownload = true;
+  } else {
+    window._rbacNoGuestDownload = false;
+  }
+}
+
+// ─── Hook into existing finishLogin to run RBAC after platform nav config ───
+(function() {
+  const _origFinishLogin = typeof finishLogin === 'function' ? finishLogin : null;
+  if (!_origFinishLogin) return;
+  window._rbacHooked = true;
+})();
+
+// ─── Ensure RBAC is applied after login & nav config ───
+// We patch applyPlatformNavConfig (which already runs post-login)
+const _origApplyPlatformNavConfig = typeof applyPlatformNavConfig === 'function'
+  ? applyPlatformNavConfig : null;
+
+if (_origApplyPlatformNavConfig) {
+  window.applyPlatformNavConfig = function() {
+    _origApplyPlatformNavConfig();
+    // Run RBAC after platform nav config so we can further restrict
+    if (currentUser && currentUser.role !== 'platform_admin' &&
+        currentUser.role !== 'superadmin' && currentUser.role !== 'admin' &&
+        currentUser.role !== 'principal' && currentUser.role !== 'bursar') {
+      applyRbacPermissions();
+    }
+  };
+}
+
+// ─── Also hook finishStudentPortal and finishGuestLogin ───
+const _origFinishStudentPortal = typeof finishStudentPortal === 'function' ? finishStudentPortal : null;
+if (_origFinishStudentPortal) {
+  window.finishStudentPortal = function(school) {
+    _origFinishStudentPortal(school);
+    applyRbacStudent();
+  };
+}
+
+const _origFinishGuestLogin = typeof finishGuestLogin === 'function' ? finishGuestLogin : null;
+if (_origFinishGuestLogin) {
+  window.finishGuestLogin = function(school) {
+    _origFinishGuestLogin(school);
+    applyRbacGuest();
+  };
+}
+
+// ─── Initialize RBAC UI when Platform Admin opens the Access Control tab ───
+// Patch openPlatTab to trigger rbacRender when the access tab is opened
+const _origOpenPlatTab = typeof openPlatTab === 'function' ? openPlatTab : null;
+if (_origOpenPlatTab) {
+  window.openPlatTab = function(tabId, btn) {
+    _origOpenPlatTab(tabId, btn);
+    if (tabId === 'platTab-access') {
+      // Init unlock school list
+      if (typeof platLoadExamDlFee === 'function') platLoadExamDlFee();
+      // Init RBAC
+      setTimeout(() => {
+        rbacSwitchMode('global');
+        rbacSelectRole('teacher', document.getElementById('rbacRoleTab-teacher'));
+      }, 0);
+    }
+  };
+}

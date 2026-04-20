@@ -2732,6 +2732,55 @@
           </div>
         </div>
 
+        <!-- ══ ROLE-BASED ACCESS CONTROL ══ -->
+        <div class="card" style="border-left:4px solid #7c3aed;margin-top:1.25rem">
+          <h3 style="margin-bottom:.25rem"><i class="fa-solid fa-shield-halved"></i> Role-Based Access Control</h3>
+          <p style="font-size:.82rem;color:var(--muted);margin-bottom:1.1rem">
+            Define exactly what each user role can see and do inside a school. Configure globally (applies to all schools) or override for a specific school.
+          </p>
+
+          <!-- Mode selector -->
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem">
+            <span style="font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Apply to:</span>
+            <button id="rbacModeGlobal" class="btn btn-primary btn-sm" onclick="rbacSwitchMode('global')"><i class="fa-solid fa-globe"></i> All Schools (Global)</button>
+            <button id="rbacModeSchool" class="btn btn-outline btn-sm" onclick="rbacSwitchMode('school')"><i class="fa-solid fa-school"></i> Specific School</button>
+          </div>
+          <div id="rbacSchoolPicker" style="display:none;margin-bottom:1rem">
+            <label style="font-size:.8rem;font-weight:600;color:var(--muted)">Choose School</label>
+            <select id="rbacSchoolSelect" onchange="rbacRender()" style="width:100%;max-width:320px;height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem;margin-top:.3rem">
+              <option value="">— Select a school —</option>
+            </select>
+            <div id="rbacSchoolNote" style="display:none;font-size:.75rem;color:#f59e0b;margin-top:.35rem"><i class="fa-solid fa-circle-exclamation"></i> This school has a custom override active.</div>
+          </div>
+
+          <!-- Role tabs -->
+          <div id="rbacRoleTabBar" style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:1rem;overflow-x:auto">
+            <button id="rbacRoleTab-teacher" onclick="rbacSelectRole('teacher',this)"
+              style="padding:.5rem 1.1rem;border:none;border-bottom:3px solid var(--primary,#4f7cff);background:transparent;color:var(--primary,#4f7cff);font-weight:700;font-size:.83rem;cursor:pointer;white-space:nowrap;flex-shrink:0">
+              <i class="fa-solid fa-chalkboard-user"></i> Teacher
+            </button>
+            <button id="rbacRoleTab-student" onclick="rbacSelectRole('student',this)"
+              style="padding:.5rem 1.1rem;border:none;border-bottom:3px solid transparent;background:transparent;color:var(--text);font-weight:500;font-size:.83rem;cursor:pointer;white-space:nowrap;flex-shrink:0">
+              <i class="fa-solid fa-user-graduate"></i> Student
+            </button>
+            <button id="rbacRoleTab-guest" onclick="rbacSelectRole('guest',this)"
+              style="padding:.5rem 1.1rem;border:none;border-bottom:3px solid transparent;background:transparent;color:var(--text);font-weight:500;font-size:.83rem;cursor:pointer;white-space:nowrap;flex-shrink:0">
+              <i class="fa-solid fa-user"></i> Guest
+            </button>
+          </div>
+
+          <!-- Permissions matrix (rendered by JS) -->
+          <div id="rbacPermissionsRoot" style="min-height:60px"></div>
+
+          <!-- Actions -->
+          <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:1.1rem;padding-top:.9rem;border-top:1px solid var(--border)">
+            <button class="btn btn-primary btn-sm" onclick="rbacSave()"><i class="fa-solid fa-floppy-disk"></i> Save Role Permissions</button>
+            <button class="btn btn-outline btn-sm" onclick="rbacReset()">↺ Reset to Defaults</button>
+            <button id="rbacClearSchoolBtn" class="btn btn-outline btn-sm" style="display:none;color:#ef4444;border-color:#ef4444" onclick="rbacClearSchoolOverride()"><i class="fa-solid fa-trash"></i> Remove School Override</button>
+            <span id="rbacStatus" style="font-size:.82rem;color:var(--muted)"></span>
+          </div>
+        </div>
+
       </div><!-- /platTab-access -->
 
       <!-- ══════════════════════════════════════════════ -->
