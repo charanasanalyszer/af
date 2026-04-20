@@ -12281,7 +12281,7 @@ function renderTeacherPreferences() {
     const h3 = card.querySelector('h3');
     if (!h3) return;
     const adminOnlyTitles = ['<i class="fa-solid fa-school"></i> School Information','<i class="fa-solid fa-lock"></i> Admin Accounts','<i class="fa-solid fa-floppy-disk"></i> Data Management','<i class="fa-solid fa-chart-bar"></i> Grading Systems'];
-    if (isTeacher && adminOnlyTitles.some(t => h3.innerHTML.includes(t.replace(/[<i class="fa-solid fa-school"></i><i class="fa-solid fa-lock"></i><i class="fa-solid fa-floppy-disk"></i><i class="fa-solid fa-chart-bar"></i>]/g,'').trim()))) {
+    if (isTeacher && adminOnlyTitles.some(t => h3.innerHTML.includes(t.replace(/<[^>]+>/g,'').trim()) || h3.innerHTML.includes(t))) {
       card.style.display = 'none';
     } else if (!isTeacher) {
       card.style.display = '';
