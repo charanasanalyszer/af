@@ -3108,8 +3108,9 @@ function launchApp() {
     anBtn.style.display = (!isTeacherRole || (!globalRestrictAn && (currentUser.canAnalyse || currentUserIsClassTeacher()))) ? '' : 'none';
   }
 
-  // Settings: visible to all (admins see full settings; teachers see only their prefs)
-  document.querySelectorAll('[data-s="settings"]').forEach(el => el.style.display = '');
+  // Settings: visible to all (admins see full settings; teachers see only their prefs — unless restricted)
+  const _teacherSettingsBlocked = currentUser && currentUser.role === 'teacher' && !!settings.restrictTeacherSettings;
+  document.querySelectorAll('[data-s="settings"]').forEach(el => el.style.display = _teacherSettingsBlocked ? 'none' : '');
 
   // Apply teacher-specific UI restrictions
   applyRoleBasedUI();
@@ -3136,6 +3137,8 @@ function launchApp() {
   // ── Teacher role: Dashboard + Exam Builder + Papers only ──
   if (currentUser && currentUser.role === 'teacher') {
     const teacherAllowed = new Set(['dashboard','exambuilder','papers']);
+    // Settings nav: only show if NOT restricted
+    if (!settings.restrictTeacherSettings) teacherAllowed.add('settings');
     const allSecs = ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','messaging','settings','exambuilder','papers'];
     // Apply show/hide to BOTH sidebar AND mobile bottom nav via querySelectorAll
     allSecs.forEach(sec => {
@@ -3239,7 +3242,7 @@ function initApp() {
 }
 function defaultSettings() {
   return { schoolName:'', address:'', phone:'', email:'', term:'Term 1', year:'2025',
-    restrictTeacherAnalytics: false, restrictTeacherFees: false, restrictTeacherList: false,
+    restrictTeacherAnalytics: false, restrictTeacherFees: false, restrictTeacherList: false, restrictTeacherSettings: false,
     overallGradingMode: 'auto',
     overallGradeThresholds: null
   };
@@ -6840,6 +6843,8 @@ function loadSettings() {
   if (rta) rta.checked = !!s.restrictTeacherAnalytics;
   if (rtf) rtf.checked = !!s.restrictTeacherFees;
   if (rtl) rtl.checked = !!s.restrictTeacherList;
+  const rts = document.getElementById('restrictTeacherSettings');
+  if (rts) rts.checked = !!s.restrictTeacherSettings;
   renderAdminList();
   renderOverallGradingCard();
 }
@@ -6855,6 +6860,7 @@ function saveSettings() {
     restrictTeacherAnalytics: settings.restrictTeacherAnalytics || false,
     restrictTeacherFees:      settings.restrictTeacherFees      || false,
     restrictTeacherList:      settings.restrictTeacherList      || false,
+    restrictTeacherSettings:  settings.restrictTeacherSettings  || false,
   };
   save(K.settings,[settings]);
   document.getElementById('sbSchoolName').textContent=settings.schoolName||'School';
@@ -6865,6 +6871,7 @@ function saveGlobalTeacherRestrictions() {
   settings.restrictTeacherAnalytics = !!document.getElementById('restrictTeacherAnalytics')?.checked;
   settings.restrictTeacherFees      = !!document.getElementById('restrictTeacherFees')?.checked;
   settings.restrictTeacherList      = !!document.getElementById('restrictTeacherList')?.checked;
+  settings.restrictTeacherSettings  = !!document.getElementById('restrictTeacherSettings')?.checked;
   save(K.settings, [settings]);
   // Re-apply UI if a teacher is currently logged in
   if (currentUser && currentUser.role === 'teacher') applyRoleBasedUI();
