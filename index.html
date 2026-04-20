@@ -2774,6 +2774,27 @@
           </div>
         </div>
 
+        <!-- <i class="fa-solid fa-wand-magic-sparkles"></i> Glassmorphism -->
+        <div class="card" style="border-left:4px solid #a78bfa;margin-bottom:1.5rem">
+          <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Glassmorphism (Blur Effects)</h3>
+          <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">
+            When <strong>ON</strong>, backdrop-blur is applied to content cards and panels (tabs, modals, sidebar, topbar). When <strong>OFF</strong>, surfaces stay solid — significantly lighter on the GPU, especially on low-end devices or large screens.
+          </p>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:.85rem 1rem;background:rgba(167,139,250,.07);border:1px solid rgba(167,139,250,.25);border-radius:10px;margin-bottom:.75rem">
+            <div>
+              <div style="font-weight:700;font-size:.9rem"><i class="fa-solid fa-droplet"></i> Blur / Glass Effects</div>
+              <div id="platGlassStatus" style="font-size:.78rem;color:var(--muted);margin-top:.15rem">Loading…</div>
+            </div>
+            <div class="toggle-wrap">
+              <input type="checkbox" id="platGlassToggle" onchange="platToggleGlass(this.checked)" style="display:none">
+              <div class="toggle-pill" onclick="document.getElementById('platGlassToggle').click()">
+                <div class="toggle-knob"></div>
+              </div>
+            </div>
+          </div>
+          <p style="font-size:.76rem;color:var(--muted)"><i class="fa-solid fa-circle-info"></i> This setting is stored per-browser. It applies immediately across all sections — no reload needed.</p>
+        </div>
+
         <!-- Change Platform Password -->
         <div class="card" style="margin-bottom:1.5rem">
           <h3><i class="fa-solid fa-key"></i> Change Platform Password</h3>

@@ -3341,13 +3341,16 @@ body {
 #loginHints { background:rgba(255,255,255,0.05) !important; border:1px solid rgba(255,255,255,0.10) !important; border-radius:12px !important; }
 #loginHints > div:first-child { color:#a78bfa !important; }
 
-/* ── SIDEBAR — one backdrop-filter, fixed element ── */
+/* ── SIDEBAR — solid by default; blur only when glass-on ── */
 .sidebar {
+  background: rgba(8,11,30,0.96) !important;
+  border-right: 1px solid rgba(255,255,255,0.08) !important;
+  box-shadow: 3px 0 20px rgba(0,0,0,0.3) !important;
+}
+body.glass-on .sidebar {
   background: rgba(8,11,30,0.88) !important;
   backdrop-filter: blur(18px) !important;
   -webkit-backdrop-filter: blur(18px) !important;
-  border-right: 1px solid rgba(255,255,255,0.08) !important;
-  box-shadow: 3px 0 20px rgba(0,0,0,0.3) !important;
 }
 .sb-head { border-bottom: 1px solid rgba(255,255,255,0.07) !important; }
 .sb-logo { background: linear-gradient(135deg,#6d4df2,#2563eb) !important; box-shadow:0 0 14px rgba(109,77,242,0.4) !important; }
@@ -3364,13 +3367,16 @@ body {
   box-shadow: 0 2px 10px rgba(109,77,242,0.18) !important;
 }
 
-/* ── TOPBAR — one backdrop-filter, fixed element ── */
+/* ── TOPBAR — solid by default; blur only when glass-on ── */
 .topbar {
+  background: rgba(9,12,32,0.97) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.22) !important;
+}
+body.glass-on .topbar {
   background: rgba(9,12,32,0.82) !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
-  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.22) !important;
 }
 .tb-title  { color:#eef2ff !important; font-weight:800 !important; }
 .menu-btn  { color:rgba(199,210,240,0.65) !important; }
@@ -3493,16 +3499,28 @@ tbody tr:nth-child(even) { background:rgba(255,255,255,0.025) !important; }
 .b-orange { background:rgba(234,88,12,0.18)  !important; color:#fed7aa !important; border:1px solid rgba(234,88,12,0.28)  !important; }
 .b-lblue  { background:rgba(14,165,233,0.18) !important; color:#7dd3fc !important; border:1px solid rgba(14,165,233,0.28) !important; }
 
-/* ── MODAL — one backdrop-filter ── */
+/* ── MODAL — blur only when glass-on ── */
 .modal-overlay { background:rgba(0,0,0,0.55) !important; }
 .modal {
-  background: rgba(9,12,38,0.90) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
+  background: rgba(9,12,38,0.96) !important;
   border: 1px solid rgba(255,255,255,0.13) !important;
   box-shadow: 0 24px 60px rgba(0,0,0,0.55) !important;
   border-radius: 18px !important;
   position:relative; overflow:hidden;
+}
+body.glass-on .modal {
+  background: rgba(9,12,38,0.90) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+}
+
+/* ── CARDS & PANELS — light glass only when glass-on ── */
+body.glass-on .card,
+body.glass-on .chart-box,
+body.glass-on .tab-panel,
+body.glass-on .plat-tab-panel {
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
 }
 .modal::before {
   content:''; position:absolute; top:0; left:0; right:0; height:1px;

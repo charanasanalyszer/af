@@ -849,6 +849,7 @@ function finishStudentPortal(school) {
   document.getElementById('spStudentAdm').textContent  = 'Adm: ' + currentUser.adm;
   document.getElementById('spSchoolBadge').textContent = school.name;
   if (localStorage.getItem('ei_dark')==='1') applyDark(true);
+  initGlass();
   spLoadExamFilter();
   spRenderResults();
   spRenderFees();
@@ -1121,6 +1122,7 @@ function applyGuestRoleUI() {
 
   // ── Dark mode sync ──
   if (localStorage.getItem('ei_dark') === '1') applyDark(true);
+  initGlass();
 
   // ── Show Exam Builder tab first ──
   guestShowTab('exambuilder');
@@ -1163,8 +1165,8 @@ function guestShowTab(which) {
 // ══════════════════════════════════════════════
 // ── Platform Admin Tab Switcher ──────────────────────────
 function openPlatTab(tabId, btn) {
-  // Refresh lite mode config when system tab opens
-  if (tabId === 'platTab-system') { setTimeout(platRenderLiteModeConfig, 50); }
+  // Refresh lite mode config + glass toggle when system tab opens
+  if (tabId === 'platTab-system') { setTimeout(platRenderLiteModeConfig, 50); setTimeout(initGlass, 60); }
   document.querySelectorAll('#s-platform .plat-tab-panel').forEach(p => { p.style.display = 'none'; });
   document.querySelectorAll('#platTabBar .plat-tab-btn').forEach(b => {
     b.style.background = 'var(--surface)';
@@ -1289,6 +1291,7 @@ function enterPlatformDashboard() {
   });
   const platLink = document.getElementById('platNavLink'); if(platLink) platLink.style.display='';
   if (localStorage.getItem('ei_dark')==='1') applyDark(true);
+  initGlass();
   renderPlatformDashboard();
   platRenderNavConfig();
   go('platform', document.getElementById('platNavLink'));
@@ -3120,6 +3123,7 @@ function launchApp() {
   if (ebLink) ebLink.style.display = '';
 
   if (localStorage.getItem(K.dark) === '1') applyDark(true);
+  initGlass();
   // manageSchoolsCard is now platform-only — always hide in school portal
   const msc = document.getElementById('manageSchoolsCard');
   if (msc) msc.style.display = 'none';
@@ -3171,6 +3175,7 @@ function launchApp() {
 function initApp() {
   initLang();
   if (localStorage.getItem('ei_dark') === '1') applyDark(true);
+  initGlass();
 
   // ── Restore session after refresh / back navigation ──
   try {
@@ -3339,6 +3344,27 @@ function applyDark(d) {
   const mbnDmIco = document.getElementById('mbnDmIco'); if(mbnDmIco) mbnDmIco.innerHTML = d?'️':'<i class="fa-solid fa-moon"></i>';
   const mbnDmLbl = document.getElementById('mbnDmLbl'); if(mbnDmLbl) mbnDmLbl.textContent = d?'Light':'Dark';
   localStorage.setItem(K.dark, d?'1':'0');
+}
+
+// ── Glassmorphism toggle ──
+const GLASS_KEY = 'platform_glass_on';
+function applyGlass(on) {
+  document.body.classList.toggle('glass-on', !!on);
+  // Sync the admin toggle checkbox if it's in the DOM
+  const cb = document.getElementById('platGlassToggle');
+  if (cb) cb.checked = !!on;
+  const lbl = document.getElementById('platGlassStatus');
+  if (lbl) lbl.textContent = on ? 'Glassmorphism is ON — blur active on content panels.' : 'Glassmorphism is OFF — solid surfaces, maximum performance.';
+}
+function platToggleGlass(checked) {
+  localStorage.setItem(GLASS_KEY, checked ? '1' : '0');
+  applyGlass(checked);
+  showToast(checked ? 'Glass effects enabled' : 'Glass effects disabled', 'success');
+}
+function initGlass() {
+  const saved = localStorage.getItem(GLASS_KEY);
+  // Default OFF (performance-first)
+  applyGlass(saved === '1');
 }
 
 // ═══════════════ DASHBOARD ═══════════════
