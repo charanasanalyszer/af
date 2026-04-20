@@ -102,7 +102,7 @@ function setSortState(table, col) {
 function sortIcon(table, col) {
   if (sortState[table].col !== col) return '<span style="color:var(--muted);font-size:.65rem;margin-left:2px">⇅</span>';
   return sortState[table].dir === 'asc'
-    ? '<span style="color:var(--primary);font-size:.7rem;margin-left:2px">▲</span>'
+    ? '<span style="color:var(--primary);font-size:.7rem;margin-left:2px"></span>'
     : '<span style="color:var(--primary);font-size:.7rem;margin-left:2px">▼</span>';
 }
 function thSort(table, col, label) {
@@ -283,7 +283,7 @@ function renderGradingSystemsTab() {
       </div>
       <div class="gs-item-btns">
         ${s.id!==gs?`<button class="btn btn-sm btn-outline" onclick="activateGS('${s.id}')">Set Active</button>`:''}
-        <button class="btn btn-sm btn-outline" onclick="editGS('${s.id}')">✏️ Edit</button>
+        <button class="btn btn-sm btn-outline" onclick="editGS('${s.id}')"><i class="fa-solid fa-pen"></i>️ Edit</button>
         ${!s.isDefault?`<button class="btn btn-sm btn-danger-sm" onclick="deleteGS('${s.id}')">Delete</button>`:''}
       </div>
     </div>`).join('') || '<p style="color:var(--muted)">No grading systems.</p>';
@@ -296,7 +296,7 @@ function activateGS(id) {
     settings.overallGradeThresholds = null; // clear cached custom so auto re-derives
   }
   renderOverallGradingCard();
-  showToast('Grading system changed ✓','success');
+  showToast('Grading system changed <i class="fa-solid fa-check"></i>','success');
 }
 function deleteGS(id) {
   if (!confirm('Delete this grading system?')) return;
@@ -327,7 +327,7 @@ function saveNewGradingSystem() {
   gradingSystems.push({ id:'gs_'+Date.now(), name, isDefault:false, bands });
   localStorage.setItem(K_GS, JSON.stringify(gradingSystems));
   renderGradingSystemsTab();
-  showToast('New grading system added ✓','success');
+  showToast('New grading system added <i class="fa-solid fa-check"></i>','success');
   document.getElementById('gsNewName').value='';
 }
 function addGSBandRow() {
@@ -341,7 +341,7 @@ function addGSBandRow() {
     <td><input type="text" class="gs-grade" placeholder="EE1" maxlength="4" style="width:60px"/></td>
     <td><input type="number" class="gs-pts" placeholder="8" min="0" max="10" step="0.5" style="width:60px"/></td>
     <td><input type="text" class="gs-lbl" placeholder="Outstanding" style="width:120px"/></td>
-    <td><button type="button" class="icb dl" onclick="this.closest('tr').remove()">🗑</button></td>`;
+    <td><button type="button" class="icb dl" onclick="this.closest('tr').remove()"><i class="fa-solid fa-trash"></i></button></td>`;
   tbody.appendChild(tr);
 }
 
@@ -507,11 +507,11 @@ function fpSendCode() {
   const errEl = document.getElementById('fpStep1Err');
   errEl.style.display = 'none'; errEl.textContent = '';
 
-  if (!username) { errEl.textContent = '⚠️ Please enter your username.'; errEl.style.display = 'block'; return; }
+  if (!username) { errEl.textContent = '<i class="fa-solid fa-triangle-exclamation"></i>️ Please enter your username.'; errEl.style.display = 'block'; return; }
 
   const found = _fpFindAccount(username);
   if (!found) {
-    errEl.textContent = '❌ No account found with that username. Check spelling and try again.';
+    errEl.textContent = '<i class="fa-solid fa-circle-xmark"></i> No account found with that username. Check spelling and try again.';
     errEl.style.display = 'block';
     return;
   }
@@ -521,7 +521,7 @@ function fpSendCode() {
   const email = record.email || '';
 
   if (!phone && !email) {
-    errEl.textContent = '❌ No phone number or email is registered for this account. Contact your administrator to reset your password.';
+    errEl.textContent = '<i class="fa-solid fa-circle-xmark"></i> No phone number or email is registered for this account. Contact your administrator to reset your password.';
     errEl.style.display = 'block';
     return;
   }
@@ -531,8 +531,8 @@ function fpSendCode() {
 
   // Build sent-to message
   const contacts = [];
-  if (phone) contacts.push('📱 Phone: ' + _maskContact(phone));
-  if (email) contacts.push('✉️ Email: ' + _maskContact(email));
+  if (phone) contacts.push('<i class="fa-solid fa-mobile-screen"></i> Phone: ' + _maskContact(phone));
+  if (email) contacts.push('<i class="fa-solid fa-envelope"></i>️ Email: ' + _maskContact(email));
 
   // Simulate sending — show code in a dev-friendly toast for local use
   // In production, integrate with Africa's Talking / SMTP here
@@ -566,8 +566,8 @@ function fpResend() {
   const phone = record ? (record.phone||'') : '';
   const email = record ? (record.email||'') : '';
   const contacts = [];
-  if (phone) contacts.push('📱 Phone: ' + _maskContact(phone));
-  if (email) contacts.push('✉️ Email: ' + _maskContact(email));
+  if (phone) contacts.push('<i class="fa-solid fa-mobile-screen"></i> Phone: ' + _maskContact(phone));
+  if (email) contacts.push('<i class="fa-solid fa-envelope"></i>️ Email: ' + _maskContact(email));
 
   const sentMsg = document.getElementById('fpSentMsg');
   sentMsg.innerHTML = `A new reset code has been sent to:<br><strong>${contacts.join('<br>')}</strong><br><br>
@@ -575,7 +575,7 @@ function fpResend() {
 
   document.getElementById('fpCode').value = '';
   const e2 = document.getElementById('fpStep2Err'); if (e2) { e2.style.display='none'; e2.textContent=''; }
-  showToast('New reset code sent ✓', 'success');
+  showToast('New reset code sent <i class="fa-solid fa-check"></i>', 'success');
 }
 
 function fpVerifyCode() {
@@ -590,7 +590,7 @@ function fpVerifyCode() {
     return;
   }
   if (entered !== _fpState.code) {
-    errEl.textContent = '❌ Incorrect code. Please try again.';
+    errEl.textContent = '<i class="fa-solid fa-circle-xmark"></i> Incorrect code. Please try again.';
     errEl.style.display = 'block';
     return;
   }
@@ -611,11 +611,11 @@ function fpSetPassword() {
   errEl.style.display = 'none'; errEl.textContent = '';
 
   if (!newPass || newPass.length < 6) {
-    errEl.textContent = '⚠️ Password must be at least 6 characters.';
+    errEl.textContent = '<i class="fa-solid fa-triangle-exclamation"></i>️ Password must be at least 6 characters.';
     errEl.style.display = 'block'; return;
   }
   if (newPass !== confPass) {
-    errEl.textContent = '❌ Passwords do not match.';
+    errEl.textContent = '<i class="fa-solid fa-circle-xmark"></i> Passwords do not match.';
     errEl.style.display = 'block'; return;
   }
   if (!_fpState) { fpCancel(); return; }
@@ -625,7 +625,7 @@ function fpSetPassword() {
   if (type === 'school') {
     loadPlatform();
     const school = platformSchools.find(s => s.id === id);
-    if (!school) { errEl.textContent = '❌ Account not found.'; errEl.style.display='block'; return; }
+    if (!school) { errEl.textContent = '<i class="fa-solid fa-circle-xmark"></i> Account not found.'; errEl.style.display='block'; return; }
     school.password = newPass;
     savePlatform();
   } else if (type === 'teacher') {
@@ -649,7 +649,7 @@ function fpSetPassword() {
 
   _fpState = null;
   fpCancel();
-  showToast('✅ Password updated successfully! Please log in with your new password.', 'success');
+  showToast('<i class="fa-solid fa-circle-check"></i> Password updated successfully! Please log in with your new password.', 'success');
 }
 
 // ═══════════════ AUTH ═══════════════
@@ -669,13 +669,13 @@ function doPlatformLogin() {
   if (!creds) {
     if (!u || !p) {
       re();
-      errEl.textContent = '❌ Enter a username and password to create your platform account.';
+      errEl.textContent = '<i class="fa-solid fa-circle-xmark"></i> Enter a username and password to create your platform account.';
       errEl.style.display = 'block';
       return;
     }
     if (p.length < 6) {
       re();
-      errEl.textContent = '❌ Password must be at least 6 characters.';
+      errEl.textContent = '<i class="fa-solid fa-circle-xmark"></i> Password must be at least 6 characters.';
       errEl.style.display = 'block';
       return;
     }
@@ -686,7 +686,7 @@ function doPlatformLogin() {
     }
     setPlatformCreds(u, p);
     re();
-    showToast('Platform account created ✓', 'success');
+    showToast('Platform account created <i class="fa-solid fa-check"></i>', 'success');
     currentUser = { username: u, role: 'platform_admin', name: 'Platform Admin', canAnalyse: true, canReport: true, canMerit: true };
     showSchoolSelector(true);
     return;
@@ -699,7 +699,7 @@ function doPlatformLogin() {
   } else {
     re();
     // Give a more helpful error — hint about case sensitivity and reset option
-    errEl.innerHTML = '❌ Invalid platform credentials. Check your username and password (case-sensitive). <br><span style="font-size:.78rem;color:#64748b">Forgot them? Use the <strong>Reset Platform Account</strong> button below.</span>';
+    errEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Invalid platform credentials. Check your username and password (case-sensitive). <br><span style="font-size:.78rem;color:#64748b">Forgot them? Use the <strong>Reset Platform Account</strong> button below.</span>';
     errEl.style.display = 'block';
   }
 }
@@ -725,7 +725,7 @@ function doUnifiedLogin() {
     } catch(e) {}
   };
 
-  if (!u || !p) { re(); err.textContent='❌ Please enter your username and password.'; err.style.display='block'; return; }
+  if (!u || !p) { re(); err.textContent='<i class="fa-solid fa-circle-xmark"></i> Please enter your username and password.'; err.style.display='block'; return; }
 
   loadPlatform();
 
@@ -736,12 +736,12 @@ function doUnifiedLogin() {
     // Try schools first; if no match, treat as first-time platform setup
     const anySchoolMatch = platformSchools.some(s => s.username===u && s.password===p);
     if (!anySchoolMatch) {
-      if (p.length < 6) { re(); err.textContent='❌ No account found. Platform password must be ≥6 chars to create.'; err.style.display='block'; return; }
+      if (p.length < 6) { re(); err.textContent='<i class="fa-solid fa-circle-xmark"></i> No account found. Platform password must be ≥6 chars to create.'; err.style.display='block'; return; }
       if (!confirm('Create a new Platform Admin account?\n\nUsername: '+u+'\n\nRemember these credentials — they cannot be recovered without a reset.')) { re(); return; }
       setPlatformCreds(u, p);
       re();
       maybeSaveCreds();
-      showToast('Platform account created ✓','success');
+      showToast('Platform account created <i class="fa-solid fa-check"></i>','success');
       enterPlatformDashboard();
       return;
     }
@@ -756,7 +756,7 @@ function doUnifiedLogin() {
   // superadmin built-in
   if (u==='superadmin' && p==='super123') {
     currentUser = { id:'builtin', name:'Super Admin', username:'superadmin', role:'superadmin', builtin:true, canAnalyse:true, canReport:true, canMerit:true };
-    if (platformSchools.length === 0) { re(); err.innerHTML='⚠️ No school accounts yet. Log in with your platform admin credentials to create schools first.'; err.style.display='block'; return; }
+    if (platformSchools.length === 0) { re(); err.innerHTML='<i class="fa-solid fa-triangle-exclamation"></i>️ No school accounts yet. Log in with your platform admin credentials to create schools first.'; err.style.display='block'; return; }
     // go to first school or school selector — use school selector via legacy path
     re();
     maybeSaveCreds();
@@ -772,12 +772,12 @@ function doUnifiedLogin() {
     if (school.active === false) {
       if (school.username===u && school.password===p) {
         re(); const msg=school.deactivationMessage||'This school account has been suspended.';
-        err.innerHTML='🔒 <strong>Account Suspended:</strong> '+msg; err.style.display='block'; return;
+        err.innerHTML='<i class="fa-solid fa-lock"></i> <strong>Account Suspended:</strong> '+msg; err.style.display='block'; return;
       }
       // also check admins/teachers in suspended school — block them too
       loadSchoolContext(school);
       const matchInSuspended = admins.find(a=>a.username===u&&a.password===p) || teachers.find(t=>t.username===u&&t.password===p);
-      if (matchInSuspended) { re(); const msg=school.deactivationMessage||'This school account has been suspended.'; err.innerHTML='🔒 <strong>Account Suspended:</strong> '+msg; err.style.display='block'; return; }
+      if (matchInSuspended) { re(); const msg=school.deactivationMessage||'This school account has been suspended.'; err.innerHTML='<i class="fa-solid fa-lock"></i> <strong>Account Suspended:</strong> '+msg; err.style.display='block'; return; }
       currentSchoolId = null; continue;
     }
     if (school.username===u && school.password===p) {
@@ -807,7 +807,7 @@ function doUnifiedLogin() {
             currentUser = { username: u, role:'student', name: stuMatch.name, studentId: stuMatch.id, adm: stuMatch.adm, canAnalyse:false, canReport:false, canMerit:false };
             re(); maybeSaveCreds(); finishStudentPortal(school); return;
           } else {
-            re(); err.innerHTML='❌ Incorrect password for student account.'; err.style.display='block'; return;
+            re(); err.innerHTML='<i class="fa-solid fa-circle-xmark"></i> Incorrect password for student account.'; err.style.display='block'; return;
           }
         }
       }
@@ -826,11 +826,11 @@ function doUnifiedLogin() {
 
   // Guest login fallback (no school loop needed if no schools)
   if (u.toLowerCase() === 'guest' && p === 'guest') {
-    re(); err.innerHTML='❌ No schools found. Platform admin must add a school first.'; err.style.display='block'; return;
+    re(); err.innerHTML='<i class="fa-solid fa-circle-xmark"></i> No schools found. Platform admin must add a school first.'; err.style.display='block'; return;
   }
 
   re();
-  err.innerHTML='❌ Invalid credentials. Check your username and password (case-sensitive).';
+  err.innerHTML='<i class="fa-solid fa-circle-xmark"></i> Invalid credentials. Check your username and password (case-sensitive).';
   err.style.display='block';
 }
 
@@ -891,7 +891,7 @@ function spRenderResults() {
     });
   }
   if (!myMarks.length) {
-    body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">📭 No results found yet. Check back after exams are marked.</div>';
+    body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)"><i class="fa-regular fa-envelope-open"></i> No results found yet. Check back after exams are marked.</div>';
     return;
   }
   // Group by exam
@@ -959,7 +959,7 @@ function spRenderFees() {
   // Each record = one term/year entry; payments are inside rec.payments[]
   const stuRecords = feeRecords.filter(r => r.studentId === stuId);
   if (!stuRecords.length) {
-    body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">💰 No fee records found for your account. Contact the school bursar.</div>';
+    body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)"><i class="fa-solid fa-coins"></i> No fee records found for your account. Contact the school bursar.</div>';
     return;
   }
 
@@ -975,7 +975,7 @@ function spRenderFees() {
     <div style="display:flex;gap:1.5rem;flex-wrap:wrap">
       <div><div style="font-size:.75rem;color:var(--muted)">Required</div><div style="font-weight:800;font-size:1.1rem">KES ${curTotal.toLocaleString()}</div></div>
       <div><div style="font-size:.75rem;color:var(--muted)">Paid</div><div style="font-weight:800;font-size:1.1rem;color:#10b981">KES ${curPaid.toLocaleString()}</div></div>
-      <div><div style="font-size:.75rem;color:var(--muted)">Balance</div><div style="font-weight:800;font-size:1.1rem;color:${balColor}">KES ${Math.abs(curBalance).toLocaleString()} ${curBalance <= 0 ? '✅ CLEARED' : '⚠️ OWING'}</div></div>
+      <div><div style="font-size:.75rem;color:var(--muted)">Balance</div><div style="font-weight:800;font-size:1.1rem;color:${balColor}">KES ${Math.abs(curBalance).toLocaleString()} ${curBalance <= 0 ? '<i class="fa-solid fa-circle-check"></i> CLEARED' : '<i class="fa-solid fa-triangle-exclamation"></i>️ OWING'}</div></div>
     </div>
   </div>`;
 
@@ -1022,7 +1022,7 @@ function spRenderPapers() {
   let papers = [...termlyPapers.filter(p => p.section === 'revision' || !p.section), ...platPapers.map(p => ({...p, _isPlatform:true}))];
   if (termFilter) papers = papers.filter(p => p.term === termFilter);
   if (!papers.length) {
-    body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">📚 No revision materials available yet.</div>';
+    body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)"><i class="fa-solid fa-book"></i> No revision materials available yet.</div>';
     return;
   }
   let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.85rem">';
@@ -1032,12 +1032,12 @@ function spRenderPapers() {
     const price = Number(p.price)||0;
     const dlFn = p._isPlatform ? `downloadPlatformPaper('${p.id}')` : `downloadTermlyPaper('${p.id}')`;
     html += `<div style="border:1.5px solid var(--border);border-radius:11px;padding:1rem;background:var(--surface);display:flex;flex-direction:column;gap:.5rem">
-      <div style="font-size:1.8rem;text-align:center">${getFileIcon ? getFileIcon(p.fileType,p.fileName) : '📄'}</div>
+      <div style="font-size:1.8rem;text-align:center">${getFileIcon ? getFileIcon(p.fileType,p.fileName) : '<i class="fa-solid fa-file-lines"></i>'}</div>
       <div style="font-weight:700;font-size:.88rem;text-align:center">${p.title}</div>
       <div style="font-size:.75rem;color:var(--muted);text-align:center">${subjName}${p.term?' · '+p.term:''} ${p.year||''}</div>
       ${price>0?`<div style="text-align:center;font-weight:800;color:#7c3aed;font-size:.95rem">KES ${price.toLocaleString()}</div>`:
         `<div style="text-align:center;font-size:.75rem;color:#10b981;font-weight:700">Free</div>`}
-      <button onclick="${dlFn}" class="btn btn-primary btn-sm" style="width:100%;font-size:.8rem">${price>0?'💳 Buy & Download':'⬇️ Download'}</button>
+      <button onclick="${dlFn}" class="btn btn-primary btn-sm" style="width:100%;font-size:.8rem">${price>0?'<i class="fa-solid fa-credit-card"></i> Buy & Download':'⬇️ Download'}</button>
     </div>`;
   });
   html += '</div>';
@@ -1194,10 +1194,10 @@ function platRenderExamDlFeeUI() {
   if (statusEl) {
     if (!fee || fee <= 0) {
       statusEl.style.background = 'rgba(16,185,129,.1)'; statusEl.style.color='#065f46'; statusEl.style.borderColor='rgba(16,185,129,.3)';
-      statusEl.textContent = '🔓 Free — All teachers & guests can print/download';
+      statusEl.textContent = '<i class="fa-solid fa-lock-open"></i> Free — All teachers & guests can print/download';
     } else {
       statusEl.style.background = 'rgba(245,158,11,.1)'; statusEl.style.color='#b45309'; statusEl.style.borderColor='rgba(245,158,11,.3)';
-      statusEl.textContent = `🔒 Locked — KES ${fee.toLocaleString()} fee required. Unlock per school after payment.`;
+      statusEl.textContent = `<i class="fa-solid fa-lock"></i> Locked — KES ${fee.toLocaleString()} fee required. Unlock per school after payment.`;
     }
   }
   // Populate school unlock dropdown
@@ -1215,9 +1215,9 @@ function platSaveExamDlFee() {
   const msg = document.getElementById('platExamDlFeeSaveMsg');
   const fee = Math.max(0, Number(inp?.value||0));
   localStorage.setItem(K_EXAM_DL_FEE, String(fee));
-  if (msg) { msg.style.color='#10b981'; msg.textContent='✅ Saved!'; setTimeout(()=>{msg.textContent=''},2500); }
+  if (msg) { msg.style.color='#10b981'; msg.textContent='<i class="fa-solid fa-circle-check"></i> Saved!'; setTimeout(()=>{msg.textContent=''},2500); }
   platRenderExamDlFeeUI();
-  showToast(fee>0 ? `Exam download fee set to KES ${fee.toLocaleString()} 🔒` : 'Exam download/print is now free 🔓', 'success');
+  showToast(fee>0 ? `Exam download fee set to KES ${fee.toLocaleString()} <i class="fa-solid fa-lock"></i>` : 'Exam download/print is now free <i class="fa-solid fa-lock-open"></i>', 'success');
 }
 
 function platUnlockSchoolExamDl() {
@@ -1226,7 +1226,7 @@ function platUnlockSchoolExamDl() {
   const unlocked = getExamDlUnlocked();
   if (!unlocked.includes(schoolId)) { unlocked.push(schoolId); localStorage.setItem(K_EXAM_DL_UNLOCKED, JSON.stringify(unlocked)); }
   const school = platformSchools.find(s=>s.id===schoolId);
-  showToast(`✅ ${school?.name||schoolId} unlocked for exam download/print`, 'success');
+  showToast(`<i class="fa-solid fa-circle-check"></i> ${school?.name||schoolId} unlocked for exam download/print`, 'success');
   platRenderExamDlFeeUI();
 }
 
@@ -1236,7 +1236,7 @@ function platLockSchoolExamDl() {
   const unlocked = getExamDlUnlocked().filter(id=>id!==schoolId);
   localStorage.setItem(K_EXAM_DL_UNLOCKED, JSON.stringify(unlocked));
   const school = platformSchools.find(s=>s.id===schoolId);
-  showToast(`🔒 ${school?.name||schoolId} re-locked for exam download/print`, 'info');
+  showToast(`<i class="fa-solid fa-lock"></i> ${school?.name||schoolId} re-locked for exam download/print`, 'info');
   platRenderExamDlFeeUI();
 }
 
@@ -1249,7 +1249,7 @@ function platRenderExamDlUnlockList() {
     unlocked.map(id => {
       const s = platformSchools.find(x=>x.id===id);
       return `<span style="display:inline-flex;align-items:center;gap:.3rem;background:rgba(16,185,129,.1);color:#065f46;border:1px solid rgba(16,185,129,.3);border-radius:99px;padding:.2rem .7rem;font-size:.76rem;font-weight:700;margin:.2rem .2rem 0 0">
-        ✅ ${s?s.name:id}
+        <i class="fa-solid fa-circle-check"></i> ${s?s.name:id}
         <button onclick="platRemoveUnlockById('${id}')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.9rem;padding:0 .1rem;line-height:1">×</button>
       </span>`;
     }).join('');
@@ -1271,7 +1271,7 @@ function enterPlatformDashboard() {
   // Show topbar and sidebar for platform admin
   const tb = document.getElementById('topbar'); if (tb) tb.style.display = '';
   const sb = document.getElementById('sidebar'); if (sb) sb.style.display = '';
-  document.getElementById('tbUser').textContent = '⚙️ Platform Admin';
+  document.getElementById('tbUser').textContent = '<i class="fa-solid fa-gear"></i>️ Platform Admin';
   // Platform portal: no mobile bottom nav
   const mbn = document.getElementById('mobileBottomNav');
   if (mbn) mbn.style.display = 'none';
@@ -1323,9 +1323,9 @@ function saveBroadcastMessage() {
   const msg = (document.getElementById('broadcastMsgInput').value||'').trim();
   localStorage.setItem(K_BROADCAST, msg);
   const status = document.getElementById('broadcastStatus');
-  if (status) { status.textContent = msg ? '✅ Message published to all schools.' : '✅ Banner cleared.'; setTimeout(()=>{status.textContent='';},3000); }
+  if (status) { status.textContent = msg ? '<i class="fa-solid fa-circle-check"></i> Message published to all schools.' : '<i class="fa-solid fa-circle-check"></i> Banner cleared.'; setTimeout(()=>{status.textContent='';},3000); }
   renderBroadcastPreview();
-  showToast(msg ? '📢 Broadcast message published!' : 'Broadcast cleared','success');
+  showToast(msg ? '<i class="fa-solid fa-bullhorn"></i> Broadcast message published!' : 'Broadcast cleared','success');
 }
 function clearBroadcastMessage() {
   localStorage.removeItem(K_BROADCAST);
@@ -1499,21 +1499,21 @@ function renderPlatformSchoolMgmtList() {
           ${statusBadge}
         </div>
         <div style="font-size:.75rem;color:var(--muted)">@${s.username}${s.email?' · '+s.email:''} · Joined ${new Date(s.createdAt).toLocaleDateString()}</div>
-        ${!isActive && s.deactivationMessage ? `<div style="font-size:.74rem;color:#f87171;margin-top:.3rem;font-style:italic;line-height:1.4">📢 "${s.deactivationMessage.substring(0,80)}${s.deactivationMessage.length>80?'…':''}"</div>` : ''}
+        ${!isActive && s.deactivationMessage ? `<div style="font-size:.74rem;color:#f87171;margin-top:.3rem;font-style:italic;line-height:1.4"><i class="fa-solid fa-bullhorn"></i> "${s.deactivationMessage.substring(0,80)}${s.deactivationMessage.length>80?'…':''}"</div>` : ''}
       </div>
       <div style="display:flex;flex-direction:column;gap:.35rem;flex-shrink:0">
         <button onclick="event.stopPropagation();enterSchoolAsPlatformAdmin('${s.id}')"
           style="font-size:.72rem;font-weight:700;padding:.3rem .7rem;border-radius:7px;cursor:pointer;font-family:inherit;border:1px solid rgba(26,111,181,.4);background:rgba(26,111,181,.10);color:#1a6fb5">
-          🔓 Enter School
+          <i class="fa-solid fa-lock-open"></i> Enter School
         </button>
         <button onclick="event.stopPropagation();toggleSchoolActive('${s.id}');setTimeout(renderPlatformSchoolMgmtList,80)" 
           style="font-size:.72rem;font-weight:700;padding:.3rem .7rem;border-radius:7px;cursor:pointer;font-family:inherit;border:1px solid ${isActive?'rgba(239,68,68,.4)':'rgba(16,185,129,.4)'};background:${isActive?'rgba(239,68,68,.08)':'rgba(16,185,129,.08)'};color:${isActive?'#ef4444':'#10b981'}">
           ${isActive ? '⏸ Suspend' : '▶ Activate'}
         </button>
-        ${!isActive ? `<button onclick="editDeactivationMessage('${s.id}');setTimeout(renderPlatformSchoolMgmtList,300)" style="font-size:.72rem;font-weight:700;padding:.3rem .7rem;border-radius:7px;cursor:pointer;font-family:inherit;border:1px solid rgba(245,158,11,.4);background:rgba(245,158,11,.08);color:#f59e0b">✏️ Edit Msg</button>` : ''}
+        ${!isActive ? `<button onclick="editDeactivationMessage('${s.id}');setTimeout(renderPlatformSchoolMgmtList,300)" style="font-size:.72rem;font-weight:700;padding:.3rem .7rem;border-radius:7px;cursor:pointer;font-family:inherit;border:1px solid rgba(245,158,11,.4);background:rgba(245,158,11,.08);color:#f59e0b"><i class="fa-solid fa-pen"></i>️ Edit Msg</button>` : ''}
         <button onclick="event.stopPropagation();platDeleteSchool('${s.id}')" 
           style="font-size:.72rem;font-weight:700;padding:.3rem .7rem;border-radius:7px;cursor:pointer;font-family:inherit;border:1px solid rgba(239,68,68,.25);background:rgba(239,68,68,.06);color:#ef4444">
-          🗑 Delete
+          <i class="fa-solid fa-trash"></i> Delete
         </button>
       </div>
     </div>`;
@@ -1533,7 +1533,7 @@ function platAddSchool() {
   document.getElementById('platSchName').value=''; document.getElementById('platSchUser').value=''; document.getElementById('platSchPass').value=''; document.getElementById('platSchEmail').value='';
   const phEl=document.getElementById('platSchPhone'); if(phEl) phEl.value='';
   renderPlatformSchoolMgmtList();
-  showToast('School "'+name+'" created ✓','success');
+  showToast('School "'+name+'" created <i class="fa-solid fa-check"></i>','success');
 }
 function platToggleSchool(id) {
   // Delegate to the full toggleSchoolActive system (handles suspend modal)
@@ -1559,12 +1559,12 @@ function platUploadExam() {
   const notes   = (document.getElementById('platExamNotes').value||'').trim();
   const gsId    = (document.getElementById('platExamGradingSystem')?.value||'').trim();
   const msgEl   = document.getElementById('platExamMsg');
-  if(!title){ if(msgEl){msgEl.textContent='❌ Exam title is required.';msgEl.style.display='';msgEl.style.color='var(--danger)';} return; }
-  if(!gsId){ if(msgEl){msgEl.textContent='❌ Select a grading system to lock for this exam.';msgEl.style.display='';msgEl.style.color='var(--danger)';} return; }
+  if(!title){ if(msgEl){msgEl.textContent='<i class="fa-solid fa-circle-xmark"></i> Exam title is required.';msgEl.style.display='';msgEl.style.color='var(--danger)';} return; }
+  if(!gsId){ if(msgEl){msgEl.textContent='<i class="fa-solid fa-circle-xmark"></i> Select a grading system to lock for this exam.';msgEl.style.display='';msgEl.style.color='var(--danger)';} return; }
   const exam={id:uid(),title,subject,class:cls,term,year,maxScore,notes,gradingSystemId:gsId,timetable:[],createdAt:new Date().toISOString(),isPlatformExam:true};
   let plExams=[]; try{plExams=JSON.parse(localStorage.getItem(K_PLATFORM_EXAMS)||'[]');}catch{}
   plExams.unshift(exam); localStorage.setItem(K_PLATFORM_EXAMS,JSON.stringify(plExams));
-  if(msgEl){msgEl.textContent='✅ Exam pushed to all schools!';msgEl.style.display='';msgEl.style.color='var(--success,#16a34a)';setTimeout(()=>{msgEl.style.display='none';},3500);}
+  if(msgEl){msgEl.textContent='<i class="fa-solid fa-circle-check"></i> Exam pushed to all schools!';msgEl.style.display='';msgEl.style.color='var(--success,#16a34a)';setTimeout(()=>{msgEl.style.display='none';},3500);}
   document.getElementById('platExamTitle').value=''; document.getElementById('platExamSubject').value=''; document.getElementById('platExamClass').value=''; document.getElementById('platExamNotes').value='';
   renderPlatExamList();
   showToast('Exam "'+title+'" pushed to all schools!','success');
@@ -1594,14 +1594,14 @@ function renderPlatExamList() {
         <div style="flex:1">
           <div style="font-weight:700;font-size:.88rem">${e.title}</div>
           <div style="font-size:.75rem;color:var(--muted);margin-top:.15rem">${[e.subject,e.class,e.term,e.year].filter(Boolean).join(' · ')} · Max: ${e.maxScore}</div>
-          <div style="font-size:.73rem;margin-top:.2rem"><span style="background:#ede9fe;color:#7c3aed;padding:.1rem .45rem;border-radius:4px;font-weight:700">🎓 ${gsName}</span> <span style="background:#f0fdf4;color:#15803d;padding:.1rem .45rem;border-radius:4px;font-weight:700;margin-left:.3rem">📅 ${ttCount} session${ttCount!==1?'s':''}</span> <span style="background:#eff6ff;color:#1d4ed8;padding:.1rem .45rem;border-radius:4px;font-weight:700;margin-left:.3rem">🏫 ${schoolsSubmitted} school${schoolsSubmitted!==1?'s':''} submitted</span>${analysed?'<span style="background:#fef9c3;color:#854d0e;padding:.1rem .45rem;border-radius:4px;font-weight:700;margin-left:.3rem">✅ Results Published</span>':''}</div>
+          <div style="font-size:.73rem;margin-top:.2rem"><span style="background:#ede9fe;color:#7c3aed;padding:.1rem .45rem;border-radius:4px;font-weight:700"><i class="fa-solid fa-user-graduate"></i> ${gsName}</span> <span style="background:#f0fdf4;color:#15803d;padding:.1rem .45rem;border-radius:4px;font-weight:700;margin-left:.3rem"><i class="fa-solid fa-calendar-days"></i> ${ttCount} session${ttCount!==1?'s':''}</span> <span style="background:#eff6ff;color:#1d4ed8;padding:.1rem .45rem;border-radius:4px;font-weight:700;margin-left:.3rem"><i class="fa-solid fa-school"></i> ${schoolsSubmitted} school${schoolsSubmitted!==1?'s':''} submitted</span>${analysed?'<span style="background:#fef9c3;color:#854d0e;padding:.1rem .45rem;border-radius:4px;font-weight:700;margin-left:.3rem"><i class="fa-solid fa-circle-check"></i> Results Published</span>':''}</div>
         </div>
-        <button class="btn btn-outline btn-sm" style="font-size:.72rem" onclick="platOpenTimetableEditor('${e.id}')">📅 Timetable</button>
-        <button class="btn btn-primary btn-sm" style="font-size:.72rem;background:linear-gradient(135deg,#7c3aed,#1d4ed8)" onclick="platAnalyseExamResults('${e.id}')">📊 Analyse</button>
+        <button class="btn btn-outline btn-sm" style="font-size:.72rem" onclick="platOpenTimetableEditor('${e.id}')"><i class="fa-solid fa-calendar-days"></i> Timetable</button>
+        <button class="btn btn-primary btn-sm" style="font-size:.72rem;background:linear-gradient(135deg,#7c3aed,#1d4ed8)" onclick="platAnalyseExamResults('${e.id}')"><i class="fa-solid fa-chart-bar"></i> Analyse</button>
         <button class="btn btn-danger btn-sm" style="font-size:.72rem" onclick="platDeleteExam('${e.id}')">Delete</button>
       </div>
       ${analysed ? `<div style="padding:.55rem .9rem;background:linear-gradient(90deg,rgba(250,204,21,.08),transparent);border-top:2px solid #fbbf24;font-size:.78rem">
-        <strong>📊 Results Published</strong> · Generated ${new Date(resultsData.generatedAt).toLocaleDateString()} · ${(resultsData.schoolSummaries||[]).length} schools · <button class="btn btn-outline btn-sm" style="font-size:.7rem;padding:.2rem .55rem" onclick="platViewPublishedResults('${e.id}')">View Results</button></div>` : ''}
+        <strong><i class="fa-solid fa-chart-bar"></i> Results Published</strong> · Generated ${new Date(resultsData.generatedAt).toLocaleDateString()} · ${(resultsData.schoolSummaries||[]).length} schools · <button class="btn btn-outline btn-sm" style="font-size:.7rem;padding:.2rem .55rem" onclick="platViewPublishedResults('${e.id}')">View Results</button></div>` : ''}
     </div>`;
   }).join('')+'</div>';
 }
@@ -1664,7 +1664,7 @@ function renderPlatTimetableRows(rows) {
       <td style="padding:.5rem .6rem;font-size:.82rem">${r.time||'—'}</td>
       <td style="padding:.5rem .6rem;font-size:.82rem;font-weight:600">${r.subject||'—'}</td>
       <td style="padding:.5rem .6rem;font-size:.82rem">${r.venue||'—'}</td>
-      <td style="padding:.5rem .3rem;text-align:center"><button class="btn btn-danger btn-sm" style="font-size:.7rem;padding:.15rem .4rem" onclick="platRemoveTTRow(${i})">✕</button></td>
+      <td style="padding:.5rem .3rem;text-align:center"><button class="btn btn-danger btn-sm" style="font-size:.7rem;padding:.15rem .4rem" onclick="platRemoveTTRow(${i})"><i class="fa-solid fa-xmark"></i></button></td>
     </tr>`).join('');
 }
 function platAddTTRow() {
@@ -1682,7 +1682,7 @@ function platAddTTRow() {
   localStorage.setItem(K_PLATFORM_EXAMS,JSON.stringify(plExams));
   renderPlatTimetableRows(plExams[idx].timetable);
   ['platTTDate','platTTDay','platTTTime','platTTSubject','platTTVenue'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-  showToast('Session added ✓','success');
+  showToast('Session added <i class="fa-solid fa-check"></i>','success');
 }
 function platRemoveTTRow(rowIdx) {
   const examId = document.getElementById('platTimetableOverlay')?.dataset.examId; if(!examId) return;
@@ -1695,7 +1695,7 @@ function platRemoveTTRow(rowIdx) {
 function platSaveTimetable() {
   closePlatTimetableEditor();
   renderPlatExamList();
-  showToast('Timetable saved ✓','success');
+  showToast('Timetable saved <i class="fa-solid fa-check"></i>','success');
 }
 
 // ─── ANALYSE PLATFORM EXAM RESULTS (Admin only) ───
@@ -1736,7 +1736,7 @@ function platAnalyseExamResults(examId) {
   const resultData = { analysed:true, examId, examTitle:exam.title, generatedAt:new Date().toISOString(), schoolSummaries, gradingSystemName:gs.name, maxScore:exam.maxScore };
   savePlatformResults(examId, resultData);
   renderPlatExamList();
-  showToast(`✅ Results analysed for ${schoolSummaries.length} school(s). Results are now visible to all schools.`,'success');
+  showToast(`<i class="fa-solid fa-circle-check"></i> Results analysed for ${schoolSummaries.length} school(s). Results are now visible to all schools.`,'success');
   setTimeout(()=>platViewPublishedResults(examId), 400);
 }
 
@@ -1752,7 +1752,7 @@ function platViewPublishedResults(examId) {
   else {
     tbody.innerHTML = summaries.map(s=>`
       <tr style="border-bottom:1px solid var(--border)">
-        <td style="padding:.5rem .65rem;font-weight:700;color:${s.rank===1?'#b45309':s.rank===2?'#475569':s.rank===3?'#92400e':'var(--text)'}">${s.rank===1?'🥇':s.rank===2?'🥈':s.rank===3?'🥉':'#'+s.rank}</td>
+        <td style="padding:.5rem .65rem;font-weight:700;color:${s.rank===1?'#b45309':s.rank===2?'#475569':s.rank===3?'#92400e':'var(--text)'}">${s.rank===1?'<i class="fa-solid fa-trophy"></i>':s.rank===2?'<i class="fa-solid fa-medal"></i>':s.rank===3?'<i class="fa-solid fa-award"></i>':'#'+s.rank}</td>
         <td style="padding:.5rem .65rem;font-weight:600">${s.schoolName}</td>
         <td style="padding:.5rem .65rem;text-align:center">${s.studentCount}</td>
         <td style="padding:.5rem .65rem;text-align:center;font-weight:700;color:${s.mean>=70?'#15803d':s.mean>=50?'#b45309':'#dc2626'}">${s.mean.toFixed(1)}</td>
@@ -1787,7 +1787,7 @@ function loadPlatformExamMarkTable() {
   if(ttWrap) { ttWrap.style.display = (exam.timetable&&exam.timetable.length) ? '' : 'none'; }
   // Show grading lock notice
   const notice = document.getElementById('platMarkGradingNotice');
-  if(notice){ notice.textContent = `🔒 Grading locked to: ${gs.name}`; notice.style.display=''; }
+  if(notice){ notice.textContent = `<i class="fa-solid fa-lock"></i> Grading locked to: ${gs.name}`; notice.style.display=''; }
   // Build a simple subject+student entry form
   container.innerHTML = `
     <p style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem">Enter student marks below. Grading is automatically applied using <strong>${gs.name}</strong> as set by the platform.</p>
@@ -1799,7 +1799,7 @@ function loadPlatformExamMarkTable() {
       <div style="display:flex;align-items:flex-end"><button class="btn btn-primary btn-sm" onclick="platAddMarkRow('${examId}')">Add</button></div>
     </div>
     <div style="margin-bottom:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">
-      <label class="btn btn-outline btn-sm" style="cursor:pointer;font-size:.78rem">📤 Upload Excel <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="platHandleMarksExcel(this,'${examId}')"/></label>
+      <label class="btn btn-outline btn-sm" style="cursor:pointer;font-size:.78rem"><i class="fa-solid fa-upload"></i> Upload Excel <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="platHandleMarksExcel(this,'${examId}')"/></label>
       <button class="btn btn-outline btn-sm" style="font-size:.78rem" onclick="platDownloadMarksTemplate('${examId}')">⬇️ Download Template</button>
     </div>
     <div id="platMarkRows" style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
@@ -1819,7 +1819,7 @@ function loadPlatformExamMarkTable() {
     </div>
     <div id="platMarkCount" style="font-size:.78rem;color:var(--muted);margin-top:.4rem"></div>
     <div style="margin-top:.75rem;display:flex;gap:.75rem">
-      <button class="btn btn-primary" onclick="platSubmitSchoolMarks('${examId}')">✅ Submit Marks to Platform</button>
+      <button class="btn btn-primary" onclick="platSubmitSchoolMarks('${examId}')"><i class="fa-solid fa-circle-check"></i> Submit Marks to Platform</button>
     </div>`;
   refreshPlatMarkRowsBody(examId);
 }
@@ -1839,7 +1839,7 @@ function refreshPlatMarkRowsBody(examId) {
         <td style="padding:.35rem .6rem;font-size:.8rem">${r.subject}</td>
         <td style="padding:.35rem .6rem;text-align:center;font-weight:700">${r.score}</td>
         <td style="padding:.35rem .6rem;text-align:center"><span class="badge ${g.cls}" style="font-size:.68rem">${g.grade}</span></td>
-        <td style="padding:.35rem .2rem;text-align:center"><button onclick="platRemoveMarkRow('${examId}',${i})" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.85rem">✕</button></td>
+        <td style="padding:.35rem .2rem;text-align:center"><button onclick="platRemoveMarkRow('${examId}',${i})" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.85rem"><i class="fa-solid fa-xmark"></i></button></td>
       </tr>`;
     }).join('');
   }
@@ -1895,7 +1895,7 @@ function platHandleMarksExcel(input, examId) {
       });
       savePlatformSchoolMarks(examId,currentSchoolId,existing);
       refreshPlatMarkRowsBody(examId);
-      showToast(`${added} record(s) imported${skipped?' ('+skipped+' skipped)':''}  ✓`,'success');
+      showToast(`${added} record(s) imported${skipped?' ('+skipped+' skipped)':''}  <i class="fa-solid fa-check"></i>`,'success');
     } catch(err){ showToast('Error reading file: '+err.message,'error'); }
   };
   reader.readAsArrayBuffer(file); input.value='';
@@ -1911,7 +1911,7 @@ function platSubmitSchoolMarks(examId) {
   const rows = getPlatformSchoolMarks(examId)[currentSchoolId]||[];
   if(!rows.length){ showToast('No marks to submit.','warning'); return; }
   if(!confirm(`Submit ${rows.length} mark record(s) to the platform? The platform admin will use these for analysis.`)) return;
-  showToast(`✅ ${rows.length} mark records submitted to platform successfully!`,'success');
+  showToast(`<i class="fa-solid fa-circle-check"></i> ${rows.length} mark records submitted to platform successfully!`,'success');
   // Marks are already saved in storage, just confirm
 }
 
@@ -1987,13 +1987,13 @@ function renderSchoolPlatformResults() {
       <div style="font-size:.95rem;font-weight:800">${data.examTitle}</div>
       <div style="font-size:.78rem;opacity:.85;margin-top:.2rem">Results published · ${new Date(data.generatedAt).toLocaleDateString()} · Grading: ${data.gradingSystemName||'Platform Standard'}</div>
       ${myEntry?`<div style="margin-top:.65rem;background:rgba(255,255,255,.15);border-radius:8px;padding:.55rem .8rem;display:flex;gap:1.5rem;flex-wrap:wrap">
-        <div><div style="font-size:.72rem;opacity:.8">Your Rank</div><div style="font-size:1.35rem;font-weight:900">${myEntry.rank===1?'🥇 1st':myEntry.rank===2?'🥈 2nd':myEntry.rank===3?'🥉 3rd':'#'+myEntry.rank}</div></div>
+        <div><div style="font-size:.72rem;opacity:.8">Your Rank</div><div style="font-size:1.35rem;font-weight:900">${myEntry.rank===1?'<i class="fa-solid fa-trophy"></i> 1st':myEntry.rank===2?'<i class="fa-solid fa-medal"></i> 2nd':myEntry.rank===3?'<i class="fa-solid fa-award"></i> 3rd':'#'+myEntry.rank}</div></div>
         <div><div style="font-size:.72rem;opacity:.8">Mean Score</div><div style="font-size:1.35rem;font-weight:900">${myEntry.mean.toFixed(1)}%</div></div>
         <div><div style="font-size:.72rem;opacity:.8">Pass Rate</div><div style="font-size:1.35rem;font-weight:900">${myEntry.passRate}%</div></div>
         <div><div style="font-size:.72rem;opacity:.8">Students</div><div style="font-size:1.35rem;font-weight:900">${myEntry.studentCount}</div></div>
       </div>`:''}
     </div>
-    <h4 style="font-size:.88rem;font-weight:700;margin-bottom:.65rem;color:var(--text)">📊 All Schools — Comparative Results</h4>
+    <h4 style="font-size:.88rem;font-weight:700;margin-bottom:.65rem;color:var(--text)"><i class="fa-solid fa-chart-bar"></i> All Schools — Comparative Results</h4>
     <div style="overflow-x:auto">
     <table style="width:100%;border-collapse:collapse;font-size:.82rem">
       <thead><tr style="background:var(--primary-lt,#eff6ff)">
@@ -2009,7 +2009,7 @@ function renderSchoolPlatformResults() {
       ${summaries.map(s=>{
         const isMe = s.schoolId===currentSchoolId;
         return `<tr style="border-bottom:1px solid var(--border);${isMe?'background:rgba(124,58,237,.06);font-weight:700;':''}">
-          <td style="padding:.45rem .65rem;text-align:center;font-weight:800;color:${s.rank===1?'#b45309':s.rank===2?'#475569':s.rank===3?'#92400e':'var(--muted)'}">${s.rank===1?'🥇':s.rank===2?'🥈':s.rank===3?'🥉':'#'+s.rank}</td>
+          <td style="padding:.45rem .65rem;text-align:center;font-weight:800;color:${s.rank===1?'#b45309':s.rank===2?'#475569':s.rank===3?'#92400e':'var(--muted)'}">${s.rank===1?'<i class="fa-solid fa-trophy"></i>':s.rank===2?'<i class="fa-solid fa-medal"></i>':s.rank===3?'<i class="fa-solid fa-award"></i>':'#'+s.rank}</td>
           <td style="padding:.45rem .65rem">${s.schoolName}${isMe?' <span style="background:#ede9fe;color:#7c3aed;font-size:.7rem;padding:.1rem .35rem;border-radius:4px">You</span>':''}</td>
           <td style="padding:.45rem .65rem;text-align:center">${s.studentCount}</td>
           <td style="padding:.45rem .65rem;text-align:center;color:${s.mean>=70?'#15803d':s.mean>=50?'#b45309':'#dc2626'}">${s.mean.toFixed(1)}</td>
@@ -2026,11 +2026,11 @@ function platChangePassword() {
   const cur=document.getElementById('platCurPwd').value; const nw=document.getElementById('platNewPwd').value; const cf=document.getElementById('platConfPwd').value;
   const msgEl=document.getElementById('platPwdMsg');
   const creds=getPlatformCreds();
-  if(!creds||cur!==creds.password){if(msgEl){msgEl.textContent='❌ Current password incorrect.';msgEl.style.color='var(--danger)';msgEl.style.display='';}return;}
-  if(nw.length<6){if(msgEl){msgEl.textContent='❌ New password must be ≥6 characters.';msgEl.style.color='var(--danger)';msgEl.style.display='';}return;}
-  if(nw!==cf){if(msgEl){msgEl.textContent='❌ Passwords do not match.';msgEl.style.color='var(--danger)';msgEl.style.display='';}return;}
+  if(!creds||cur!==creds.password){if(msgEl){msgEl.textContent='<i class="fa-solid fa-circle-xmark"></i> Current password incorrect.';msgEl.style.color='var(--danger)';msgEl.style.display='';}return;}
+  if(nw.length<6){if(msgEl){msgEl.textContent='<i class="fa-solid fa-circle-xmark"></i> New password must be ≥6 characters.';msgEl.style.color='var(--danger)';msgEl.style.display='';}return;}
+  if(nw!==cf){if(msgEl){msgEl.textContent='<i class="fa-solid fa-circle-xmark"></i> Passwords do not match.';msgEl.style.color='var(--danger)';msgEl.style.display='';}return;}
   setPlatformCreds(creds.username,nw);
-  if(msgEl){msgEl.textContent='✅ Password updated!';msgEl.style.color='var(--success,#16a34a)';msgEl.style.display='';setTimeout(()=>{msgEl.style.display='none';},3000);}
+  if(msgEl){msgEl.textContent='<i class="fa-solid fa-circle-check"></i> Password updated!';msgEl.style.color='var(--success,#16a34a)';msgEl.style.display='';setTimeout(()=>{msgEl.style.display='none';},3000);}
   document.getElementById('platCurPwd').value=''; document.getElementById('platNewPwd').value=''; document.getElementById('platConfPwd').value='';
 }
 
@@ -2038,13 +2038,13 @@ function platChangePassword() {
 function platSaveApiKey() {
   const key = (document.getElementById('platApiKeyInput')?.value||'').trim();
   const status = document.getElementById('platApiKeyStatus');
-  if (!key) { if(status){status.style.color='var(--danger)';status.textContent='❌ Please enter an API key.';} return; }
+  if (!key) { if(status){status.style.color='var(--danger)';status.textContent='<i class="fa-solid fa-circle-xmark"></i> Please enter an API key.';} return; }
   // Save via the shared ebSaveApiKey mechanism (stores in settings.ebApiKey)
   // We call the underlying save directly
   settings.ebApiKey = key;
   save(K.settings, [settings]);
-  showToast('API key saved ✅', 'success');
-  if(status){status.style.color='#10b981';status.textContent='✅ Saved!';}
+  showToast('API key saved <i class="fa-solid fa-circle-check"></i>', 'success');
+  if(status){status.style.color='#10b981';status.textContent='<i class="fa-solid fa-circle-check"></i> Saved!';}
   setTimeout(()=>{if(status)status.textContent='';},3000);
 }
 async function platTestApiKey() {
@@ -2057,20 +2057,20 @@ async function platTestApiKey() {
       headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:10,messages:[{role:'user',content:'Hi'}]})
     });
-    if(res.ok){if(status){status.style.color='#10b981';status.textContent='✅ AI Connected (built-in — no key needed)!';}showToast('AI is connected!','success');return;}
+    if(res.ok){if(status){status.style.color='#10b981';status.textContent='<i class="fa-solid fa-circle-check"></i> AI Connected (built-in — no key needed)!';}showToast('AI is connected!','success');return;}
   } catch(e){}
   // Try the saved key
   const key=(document.getElementById('platApiKeyInput')?.value||'').trim()||ebGetApiKey();
-  if(!key){if(status){status.style.color='var(--danger)';status.textContent='❌ No key entered and built-in proxy unavailable.';}return;}
+  if(!key){if(status){status.style.color='var(--danger)';status.textContent='<i class="fa-solid fa-circle-xmark"></i> No key entered and built-in proxy unavailable.';}return;}
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:10,messages:[{role:'user',content:'Hello'}]})
     });
-    if(res.ok){if(status){status.style.color='#10b981';status.textContent='✅ API Key works!';}showToast('API key connected!','success');}
-    else{const e=await res.json().catch(()=>({}));if(status){status.style.color='var(--danger)';status.textContent='❌ '+(e.error?.message||'Invalid key');}}
-  } catch(err){if(status){status.style.color='var(--danger)';status.textContent='❌ '+err.message;}}
+    if(res.ok){if(status){status.style.color='#10b981';status.textContent='<i class="fa-solid fa-circle-check"></i> API Key works!';}showToast('API key connected!','success');}
+    else{const e=await res.json().catch(()=>({}));if(status){status.style.color='var(--danger)';status.textContent='<i class="fa-solid fa-circle-xmark"></i> '+(e.error?.message||'Invalid key');}}
+  } catch(err){if(status){status.style.color='var(--danger)';status.textContent='<i class="fa-solid fa-circle-xmark"></i> '+err.message;}}
 }
 
 // ══ PLATFORM NAV & TAB VISIBILITY CONFIG ══
@@ -2167,7 +2167,7 @@ function platRenderLiteModeConfig() {
 
   const rows = NAV_CONFIG_SCHEMA.map(sec => {
     const checked = mods[sec.section] !== false ? 'checked' : '';
-    const recommended = LITE_MODE_DEFAULTS[sec.section] ? '✅' : '';
+    const recommended = LITE_MODE_DEFAULTS[sec.section] ? '<i class="fa-solid fa-circle-check"></i>' : '';
     return `<label class="lite-mod-row${mods[sec.section] === false ? ' lite-mod-off' : ''}">
       <input type="checkbox" class="lite-mod-cb" data-sec="${sec.section}" ${checked}
         onchange="(function(cb){cb.closest('.lite-mod-row').classList.toggle('lite-mod-off',!cb.checked);})(this)"/>
@@ -2180,7 +2180,7 @@ function platRenderLiteModeConfig() {
   root.innerHTML = `
     <div class="lite-toggle-row">
       <div>
-        <div style="font-weight:700;font-size:.92rem">⚡ Congestion Lite Mode</div>
+        <div style="font-weight:700;font-size:.92rem"><i class="fa-solid fa-bolt"></i> Congestion Lite Mode</div>
         <div style="font-size:.78rem;color:var(--muted);margin-top:.2rem">
           When enabled, all schools are forced into <strong>light mode</strong> and only the modules you select below are accessible. Heavy features (dark mode, themes, color pickers) are hidden.
         </div>
@@ -2192,13 +2192,13 @@ function platRenderLiteModeConfig() {
         </div>
       </div>
     </div>
-    ${enabled ? '<div class="lite-active-badge">🟡 CONGESTION LITE MODE IS ACTIVE — All schools are in restricted mode</div>' : ''}
+    ${enabled ? '<div class="lite-active-badge"><span style="color:#eab308">●</span> CONGESTION LITE MODE IS ACTIVE — All schools are in restricted mode</div>' : ''}
     <div id="liteModuleGrid" style="margin-top:1rem">
       <div style="font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:.6rem;text-transform:uppercase;letter-spacing:.04em">Modules available in lite mode</div>
       <div class="lite-mod-list">${rows}</div>
     </div>
     <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.1rem;padding-top:1rem;border-top:1px solid var(--border)">
-      <button class="btn btn-primary btn-sm" onclick="platSaveLiteMode()">💾 Save Lite Mode Settings</button>
+      <button class="btn btn-primary btn-sm" onclick="platSaveLiteMode()"><i class="fa-solid fa-floppy-disk"></i> Save Lite Mode Settings</button>
       <button class="btn btn-outline btn-sm" onclick="platResetLiteMode()">↺ Reset to Defaults</button>
       <span id="liteModeStatus" style="font-size:.82rem;color:var(--muted)"></span>
     </div>`;
@@ -2223,12 +2223,12 @@ function platSaveLiteMode() {
   const st = document.getElementById('liteModeStatus');
   if (st) {
     st.textContent = enabled
-      ? '✅ Lite mode ACTIVE — schools are now in restricted mode'
-      : '✅ Saved — lite mode is off';
+      ? '<i class="fa-solid fa-circle-check"></i> Lite mode ACTIVE — schools are now in restricted mode'
+      : '<i class="fa-solid fa-circle-check"></i> Saved — lite mode is off';
     st.style.color = enabled ? '#f59e0b' : '#10b981';
     setTimeout(() => { if (st) st.textContent = ''; }, 4000);
   }
-  showToast(enabled ? '⚡ Congestion Lite Mode enabled for all schools' : 'Lite mode disabled', enabled ? 'warning' : 'success');
+  showToast(enabled ? '<i class="fa-solid fa-bolt"></i> Congestion Lite Mode enabled for all schools' : 'Lite mode disabled', enabled ? 'warning' : 'success');
 }
 
 function platResetLiteMode() {
@@ -2239,38 +2239,38 @@ function platResetLiteMode() {
 
 
 const NAV_CONFIG_SCHEMA = [
-  { section:'dashboard',   label:'🏠 Dashboard',         tabs:[] },
-  { section:'subjects',    label:'📚 Subjects',           tabs:[] },
-  { section:'classes',     label:'🏫 Classes & Streams',  tabs:[] },
-  { section:'teachers',    label:'👨‍🏫 Teachers',           tabs:[] },
-  { section:'students',    label:'🎓 Students',           tabs:[] },
-  { section:'timetable',   label:'🕐 Timetables',         tabs:[] },
-  { section:'exambuilder', label:'✏️ Exam Builder',        tabs:[] },
-  { section:'exams',       label:'📝 Exams', tabs:[
+  { section:'dashboard',   label:'<i class="fa-solid fa-house"></i> Dashboard',         tabs:[] },
+  { section:'subjects',    label:'<i class="fa-solid fa-book"></i> Subjects',           tabs:[] },
+  { section:'classes',     label:'<i class="fa-solid fa-school"></i> Classes & Streams',  tabs:[] },
+  { section:'teachers',    label:'<i class="fa-solid fa-person"></i>‍<i class="fa-solid fa-school"></i> Teachers',           tabs:[] },
+  { section:'students',    label:'<i class="fa-solid fa-user-graduate"></i> Students',           tabs:[] },
+  { section:'timetable',   label:'<i class="fa-solid fa-clock"></i> Timetables',         tabs:[] },
+  { section:'exambuilder', label:'<i class="fa-solid fa-pen"></i>️ Exam Builder',        tabs:[] },
+  { section:'exams',       label:'<i class="fa-solid fa-file-pen"></i> Exams', tabs:[
     { id:'tabCreateExam',       label:'Create Exam' },
     { id:'tabExamList',         label:'Exam List' },
-    { id:'tabExamTimetable',    label:'📅 Exam Timetable' },
+    { id:'tabExamTimetable',    label:'<i class="fa-solid fa-calendar-days"></i> Exam Timetable' },
     { id:'tabUploadMarks',      label:'Upload Marks' },
     { id:'tabAnalyse',          label:'Analyse' },
     { id:'tabMeritList',        label:'Merit List' },
-    { id:'tabSummaryAnalytics', label:'📊 Summary Analytics' },
+    { id:'tabSummaryAnalytics', label:'<i class="fa-solid fa-chart-bar"></i> Summary Analytics' },
   ]},
-  { section:'reports',     label:'📄 Report Forms',       tabs:[] },
-  { section:'papers',      label:'📂 Papers & Resources', tabs:[
-    { id:'tabTermlyExams', label:'📝 Termly Exams' },
-    { id:'tabRevision',    label:'📖 Revision' },
+  { section:'reports',     label:'<i class="fa-solid fa-file-lines"></i> Report Forms',       tabs:[] },
+  { section:'papers',      label:'<i class="fa-solid fa-folder-open"></i> Papers & Resources', tabs:[
+    { id:'tabTermlyExams', label:'<i class="fa-solid fa-file-pen"></i> Termly Exams' },
+    { id:'tabRevision',    label:'<i class="fa-solid fa-book-open"></i> Revision' },
   ]},
-  { section:'fees',        label:'💰 Fees', tabs:[
-    { id:'tabFeeOverview',   label:'📊 Overview' },
-    { id:'tabFeeStructure',  label:'🏗 Fee Structure' },
-    { id:'tabFeePayments',   label:'💳 Record Payment' },
-    { id:'tabFeeStudents',   label:'🎓 Student Balances' },
+  { section:'fees',        label:'<i class="fa-solid fa-coins"></i> Fees', tabs:[
+    { id:'tabFeeOverview',   label:'<i class="fa-solid fa-chart-bar"></i> Overview' },
+    { id:'tabFeeStructure',  label:'<i class="fa-solid fa-building-columns"></i> Fee Structure' },
+    { id:'tabFeePayments',   label:'<i class="fa-solid fa-credit-card"></i> Record Payment' },
+    { id:'tabFeeStudents',   label:'<i class="fa-solid fa-user-graduate"></i> Student Balances' },
     { id:'tabFeeImport',     label:'⬆ Import Fees' },
-    { id:'tabFeeReminders',  label:'🔔 Reminders' },
-    { id:'tabFeeReceipts',   label:'🧾 Receipts' },
+    { id:'tabFeeReminders',  label:'<i class="fa-solid fa-bell"></i> Reminders' },
+    { id:'tabFeeReceipts',   label:'<i class="fa-solid fa-receipt"></i> Receipts' },
   ]},
-  { section:'messaging',   label:'💬 Messaging',          tabs:[] },
-  { section:'settings',    label:'🛠️ Settings',            tabs:[] },
+  { section:'messaging',   label:'<i class="fa-solid fa-comments"></i> Messaging',          tabs:[] },
+  { section:'settings',    label:'<i class="fa-solid fa-screwdriver-wrench"></i>️ Settings',            tabs:[] },
 ];
 
 // ── Nav config mode: 'global' or 'school' ──
@@ -2330,7 +2330,7 @@ function platRenderNavConfig() {
 
   // If per-school mode but no school selected yet, show prompt
   if (_navCfgMode === 'school' && !schoolId) {
-    root.innerHTML = '<p style="color:var(--muted);font-size:.84rem;padding:.5rem 0">👆 Select a school above to view and edit its navigation settings.</p>';
+    root.innerHTML = '<p style="color:var(--muted);font-size:.84rem;padding:.5rem 0"> Select a school above to view and edit its navigation settings.</p>';
     return;
   }
 
@@ -2393,8 +2393,8 @@ function platSaveNavConfig() {
   saveNavConfig(cfg, schoolId);
   const status = document.getElementById('platNavConfigStatus');
   const msg = schoolId
-    ? '✅ Saved for this school. Other schools use global settings.'
-    : '✅ Saved — applies to all schools without a specific override.';
+    ? '<i class="fa-solid fa-circle-check"></i> Saved for this school. Other schools use global settings.'
+    : '<i class="fa-solid fa-circle-check"></i> Saved — applies to all schools without a specific override.';
   if (status) { status.textContent = msg; status.style.color='#10b981'; setTimeout(()=>{status.textContent='';},4000); }
   // Update override note visibility
   const note = document.getElementById('navCfgSchoolNote');
@@ -2523,10 +2523,10 @@ function renderPlatformSummary() {
 
   // KPI cards
   const kpis = [
-    { icon:'🏫', label:'Schools',  value: schools.length, color:'#3b82f6' },
-    { icon:'👨‍🎓', label:'Students', value: totalStudents.toLocaleString(), color:'#10b981' },
-    { icon:'📝', label:'Exams',    value: totalExams.toLocaleString(), color:'#f59e0b' },
-    { icon:'📈', label:'Avg Score',value: overallAvg !== null ? overallAvg.toFixed(1)+'%' : '—', color:'#8b5cf6' },
+    { icon:'<i class="fa-solid fa-school"></i>', label:'Schools',  value: schools.length, color:'#3b82f6' },
+    { icon:'<i class="fa-solid fa-person"></i>‍<i class="fa-solid fa-user-graduate"></i>', label:'Students', value: totalStudents.toLocaleString(), color:'#10b981' },
+    { icon:'<i class="fa-solid fa-file-pen"></i>', label:'Exams',    value: totalExams.toLocaleString(), color:'#f59e0b' },
+    { icon:'<i class="fa-solid fa-chart-line"></i>', label:'Avg Score',value: overallAvg !== null ? overallAvg.toFixed(1)+'%' : '—', color:'#8b5cf6' },
   ];
   kpiRow.innerHTML = kpis.map(k => `
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.85rem 1rem;display:flex;align-items:center;gap:.75rem">
@@ -2560,7 +2560,7 @@ function renderPlatformSummary() {
 
   // Exam breakdown cards
   if (schools.length) {
-    breakdown.innerHTML = '<div style="font-size:.85rem;font-weight:700;color:#0f172a;margin-bottom:.75rem">📋 Exam Breakdown by School</div>' +
+    breakdown.innerHTML = '<div style="font-size:.85rem;font-weight:700;color:#0f172a;margin-bottom:.75rem"><i class="fa-solid fa-clipboard-list"></i> Exam Breakdown by School</div>' +
       schoolStats.map(st => {
         if (!st.exams.length) return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.75rem 1rem;margin-bottom:.75rem;font-size:.8rem;color:#94a3b8"><strong style="color:#475569">${st.school.name}</strong> — No exams yet</div>`;
         const rows = st.exams.map(ex => {
@@ -2576,7 +2576,7 @@ function renderPlatformSummary() {
           </tr>`;
         }).join('');
         return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:.75rem">
-          <div style="padding:.6rem 1rem;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-size:.8rem;font-weight:700;color:#0f172a">🏫 ${st.school.name} <span style="font-weight:400;color:#94a3b8">(${st.exams.length} exam${st.exams.length!==1?'s':''})</span></div>
+          <div style="padding:.6rem 1rem;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-size:.8rem;font-weight:700;color:#0f172a"><i class="fa-solid fa-school"></i> ${st.school.name} <span style="font-weight:400;color:#94a3b8">(${st.exams.length} exam${st.exams.length!==1?'s':''})</span></div>
           <table style="width:100%;border-collapse:collapse">
             <thead><tr style="background:#f8fafc"><th style="padding:.4rem .75rem;text-align:left;font-size:.74rem;color:#64748b;font-weight:600">Exam</th><th style="padding:.4rem .75rem;text-align:center;font-size:.74rem;color:#64748b;font-weight:600">Students</th><th style="padding:.4rem .75rem;text-align:center;font-size:.74rem;color:#64748b;font-weight:600">Avg Score</th></tr></thead>
             <tbody>${rows}</tbody>
@@ -2621,15 +2621,15 @@ function showSchoolSelector(isPlatformAdmin) {
           </div>
           <div class="sc-meta">${s.username}</div>
           ${s.email ? '<div class="sc-meta">' + s.email + '</div>' : ''}
-          ${!isActive && s.deactivationMessage ? `<div style="font-size:.72rem;color:#fca5a5;margin-top:.3rem;font-style:italic">📢 ${s.deactivationMessage.substring(0,70)}${s.deactivationMessage.length>70?'…':''}</div>` : ''}
+          ${!isActive && s.deactivationMessage ? `<div style="font-size:.72rem;color:#fca5a5;margin-top:.3rem;font-style:italic"><i class="fa-solid fa-bullhorn"></i> ${s.deactivationMessage.substring(0,70)}${s.deactivationMessage.length>70?'…':''}</div>` : ''}
         </div>
         ${isPlatformAdmin ? `
           <div style="display:flex;flex-direction:column;gap:.4rem;flex-shrink:0;position:relative;z-index:2" onclick="event.stopPropagation()">
             <button onclick="toggleSchoolActive('${s.id}')" style="position:static;display:block;background:${isActive?'rgba(239,68,68,.12)':'rgba(16,185,129,.12)'};color:${isActive?'#ef4444':'#10b981'};border:1px solid ${isActive?'rgba(239,68,68,.35)':'rgba(16,185,129,.35)'};border-radius:7px;font-size:.72rem;font-weight:700;padding:.35rem .75rem;cursor:pointer;white-space:nowrap;font-family:inherit;opacity:1">
               ${isActive ? '⏸ Suspend' : '▶ Resume'}
             </button>
-            ${!isActive ? `<button onclick="editDeactivationMessage('${s.id}')" style="position:static;display:block;background:rgba(245,158,11,.1);color:#f59e0b;border:1px solid rgba(245,158,11,.3);border-radius:7px;font-size:.72rem;font-weight:700;padding:.35rem .75rem;cursor:pointer;white-space:nowrap;font-family:inherit;opacity:1">✏️ Message</button>` : ''}
-            <button onclick="deleteSchoolAccount('${s.id}')" style="position:static;display:block;background:rgba(239,68,68,.07);color:#ef4444;border:1px solid rgba(239,68,68,.2);border-radius:7px;font-size:.72rem;font-weight:700;padding:.35rem .75rem;cursor:pointer;white-space:nowrap;font-family:inherit;opacity:1">🗑️ Delete</button>
+            ${!isActive ? `<button onclick="editDeactivationMessage('${s.id}')" style="position:static;display:block;background:rgba(245,158,11,.1);color:#f59e0b;border:1px solid rgba(245,158,11,.3);border-radius:7px;font-size:.72rem;font-weight:700;padding:.35rem .75rem;cursor:pointer;white-space:nowrap;font-family:inherit;opacity:1"><i class="fa-solid fa-pen"></i>️ Message</button>` : ''}
+            <button onclick="deleteSchoolAccount('${s.id}')" style="position:static;display:block;background:rgba(239,68,68,.07);color:#ef4444;border:1px solid rgba(239,68,68,.2);border-radius:7px;font-size:.72rem;font-weight:700;padding:.35rem .75rem;cursor:pointer;white-space:nowrap;font-family:inherit;opacity:1"><i class="fa-solid fa-trash"></i>️ Delete</button>
           </div>` : ''}
       </div>`;
     }).join('');
@@ -2723,7 +2723,7 @@ function addSchoolAccount() {
   savePlatform();
   ['psName','psUser','psPass','psEmail'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   const psPhEl=document.getElementById('psPhone'); if(psPhEl) psPhEl.value='';
-  showToast('School account created ✓','success');
+  showToast('School account created <i class="fa-solid fa-check"></i>','success');
   showSchoolSelector(true);
 }
 
@@ -2754,7 +2754,7 @@ function toggleSchoolActive(id) {
     school.active = true;
     school.deactivationMessage = '';
     savePlatform();
-    showToast(`✅ ${school.name} has been reactivated`, 'success');
+    showToast(`<i class="fa-solid fa-circle-check"></i> ${school.name} has been reactivated`, 'success');
     if (currentUser && currentUser.role === 'platform_admin') { renderPlatformSchoolMgmtList(); }
     else { showSchoolSelector(true); }
   }
@@ -2763,12 +2763,12 @@ function toggleSchoolActive(id) {
 function openSuspendModal(id, school) {
   // Build a modal in the existing modal system
   const defaultMessages = [
-    { label: '💳 Payment Due', msg: `Dear ${school.name} team,\n\nYour subscription payment is due. Please make payment to continue accessing the Charanas Analyzer system.\n\nContact us: support@charanas.co.ke` },
+    { label: '<i class="fa-solid fa-credit-card"></i> Payment Due', msg: `Dear ${school.name} team,\n\nYour subscription payment is due. Please make payment to continue accessing the Charanas Analyzer system.\n\nContact us: support@charanas.co.ke` },
     { label: '🆓 Free Trial Active', msg: `Dear ${school.name} team,\n\nYou are currently on a free trial of Charanas Analyzer. Your trial gives you full access to all features.\n\nContact us to subscribe before your trial ends: support@charanas.co.ke` },
     { label: '⏳ Trial Over', msg: `Dear ${school.name} team,\n\nYour free trial period has ended. Please subscribe to continue using Charanas Analyzer.\n\nContact support to get started: support@charanas.co.ke` },
-    { label: '⚠️ Overdue Balance', msg: `Dear ${school.name} team,\n\nYour account has been temporarily suspended due to an outstanding balance. Please clear your balance to restore access.\n\nContact us: support@charanas.co.ke` },
-    { label: '🔒 Subscription Expired', msg: `Dear ${school.name} team,\n\nYour Charanas Analyzer subscription has expired. Kindly renew your subscription to regain access.\n\nContact us: support@charanas.co.ke` },
-    { label: '✏️ Custom Message', msg: school.deactivationMessage || '' },
+    { label: '<i class="fa-solid fa-triangle-exclamation"></i>️ Overdue Balance', msg: `Dear ${school.name} team,\n\nYour account has been temporarily suspended due to an outstanding balance. Please clear your balance to restore access.\n\nContact us: support@charanas.co.ke` },
+    { label: '<i class="fa-solid fa-lock"></i> Subscription Expired', msg: `Dear ${school.name} team,\n\nYour Charanas Analyzer subscription has expired. Kindly renew your subscription to regain access.\n\nContact us: support@charanas.co.ke` },
+    { label: '<i class="fa-solid fa-pen"></i>️ Custom Message', msg: school.deactivationMessage || '' },
   ];
 
   const body = `
@@ -2793,7 +2793,7 @@ function openSuspendModal(id, school) {
   window._suspendTemplates = defaultMessages;
   window._suspendSchoolId  = id;
 
-  showModal('🔒 Suspend School Account', body, [
+  showModal('<i class="fa-solid fa-lock"></i> Suspend School Account', body, [
     { label: 'Cancel', cls: 'btn-outline', action: 'closeModal()' },
     { label: '⏸ Suspend School', cls: 'btn-danger', action: `confirmSuspendSchool('${id}')` }
   ]);
@@ -2890,7 +2890,7 @@ function doLogin() {
   if (targetSchools.length === 0) {
     re();
     const errEl = document.getElementById('loginErr');
-    errEl.innerHTML = '⚠️ No school accounts found.<br><span style="font-size:.78rem;color:#64748b">Please contact your Platform Admin to register a school first, or use the Platform Admin login.</span>';
+    errEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>️ No school accounts found.<br><span style="font-size:.78rem;color:#64748b">Please contact your Platform Admin to register a school first, or use the Platform Admin login.</span>';
     errEl.style.display = 'block';
     return;
   }
@@ -2904,7 +2904,7 @@ function doLogin() {
         const errEl = document.getElementById('loginErr');
         const msg = school.deactivationMessage || 'This school account has been suspended. Please contact the platform administrator.';
         errEl.innerHTML = `<div style="text-align:left">
-          <div style="font-weight:700;margin-bottom:.35rem;color:#ef4444">🔒 Account Suspended</div>
+          <div style="font-weight:700;margin-bottom:.35rem;color:#ef4444"><i class="fa-solid fa-lock"></i> Account Suspended</div>
           <div style="font-size:.82rem;line-height:1.55;color:#fca5a5">${msg}</div>
         </div>`;
         errEl.style.display = 'block';
@@ -2933,7 +2933,7 @@ function doLogin() {
         const errEl = document.getElementById('loginErr');
         const msg = school.deactivationMessage || 'This school account has been suspended. Please contact the platform administrator.';
         errEl.innerHTML = `<div style="text-align:left">
-          <div style="font-weight:700;margin-bottom:.35rem;color:#ef4444">🔒 Account Suspended</div>
+          <div style="font-weight:700;margin-bottom:.35rem;color:#ef4444"><i class="fa-solid fa-lock"></i> Account Suspended</div>
           <div style="font-size:.82rem;line-height:1.55;color:#fca5a5">${msg}</div>
         </div>`;
         errEl.style.display = 'block';
@@ -2952,7 +2952,7 @@ function doLogin() {
         const errEl = document.getElementById('loginErr');
         const msg = school.deactivationMessage || 'This school account has been suspended. Please contact the platform administrator.';
         errEl.innerHTML = `<div style="text-align:left">
-          <div style="font-weight:700;margin-bottom:.35rem;color:#ef4444">🔒 Account Suspended</div>
+          <div style="font-weight:700;margin-bottom:.35rem;color:#ef4444"><i class="fa-solid fa-lock"></i> Account Suspended</div>
           <div style="font-size:.82rem;line-height:1.55;color:#fca5a5">${msg}</div>
         </div>`;
         errEl.style.display = 'block';
@@ -3053,7 +3053,7 @@ function doLogout() {
     document.querySelectorAll('[data-s="'+s+'"]').forEach(el => el.style.display='');
   });
   // Also restore topbar user display
-  const tbU = document.getElementById('tbUser'); if (tbU) tbU.innerHTML = '👤 ';
+  const tbU = document.getElementById('tbUser'); if (tbU) tbU.innerHTML = '<i class="fa-solid fa-user"></i> ';
   // Also restore papers upload card visibility
   const termlyUpload = document.getElementById('termlyUploadCard'); if (termlyUpload) termlyUpload.style.display='';
   const platLink=document.getElementById('platNavLink'); if(platLink) platLink.style.display='none';
@@ -3089,7 +3089,7 @@ function launchApp() {
   const mbnRestore = document.getElementById('mbnRestoreTab');
   if (mbnRestore) mbnRestore.style.display = '';
 
-  document.getElementById('tbUser').textContent = '👤 ' + currentUser.name;
+  document.getElementById('tbUser').textContent = '<i class="fa-solid fa-user"></i> ' + currentUser.name;
 
   // Show Platform Marks and Platform Results tabs for school users
   const tbPlatMarks = document.getElementById('tbPlatformMarks');
@@ -3144,7 +3144,7 @@ function launchApp() {
     const termlyUpload = document.getElementById('termlyUploadCard'); if (termlyUpload) termlyUpload.style.display='none';
     // Show badge in topbar
     const tbU = document.getElementById('tbUser');
-    if (tbU) tbU.innerHTML = '👤 ' + currentUser.name + ' <span style="font-size:.72rem;background:rgba(26,111,181,.15);color:#1a6fb5;border-radius:99px;padding:.1rem .5rem;font-weight:700;margin-left:.35rem">TEACHER</span>';
+    if (tbU) tbU.innerHTML = '<i class="fa-solid fa-user"></i> ' + currentUser.name + ' <span style="font-size:.72rem;background:rgba(26,111,181,.15);color:#1a6fb5;border-radius:99px;padding:.1rem .5rem;font-weight:700;margin-left:.35rem">TEACHER</span>';
     // Show fee notice on export button
     updateExamDlFeeNotice();
     // Apply platform nav config last
@@ -3155,7 +3155,7 @@ function launchApp() {
       go('exambuilder', document.getElementById('examBuilderNavLink'));
       setTimeout(() => {
         openExamTab('tabUploadMarks', document.querySelector('[onclick*="tabUploadMarks"]'));
-        showToast(`⚠️ You have ${pending.length} subject(s) with pending marks to upload`, 'warning');
+        showToast(`<i class="fa-solid fa-triangle-exclamation"></i>️ You have ${pending.length} subject(s) with pending marks to upload`, 'warning');
       }, 150);
     } else {
       go('dashboard', document.querySelector('[data-s="dashboard"]'));
@@ -3335,8 +3335,8 @@ function setUmUploadMode(mode, btn) {
 function toggleDark() { const d=document.body.classList.toggle('dark'); applyDark(d); }
 function applyDark(d) {
   document.body.classList.toggle('dark',d);
-  const tbDmIco = document.getElementById('tbDmIco'); if(tbDmIco) tbDmIco.textContent = d?'☀️':'🌙';
-  const mbnDmIco = document.getElementById('mbnDmIco'); if(mbnDmIco) mbnDmIco.textContent = d?'☀️':'🌙';
+  const tbDmIco = document.getElementById('tbDmIco'); if(tbDmIco) tbDmIco.textContent = d?'️':'<i class="fa-solid fa-moon"></i>';
+  const mbnDmIco = document.getElementById('mbnDmIco'); if(mbnDmIco) mbnDmIco.textContent = d?'️':'<i class="fa-solid fa-moon"></i>';
   const mbnDmLbl = document.getElementById('mbnDmLbl'); if(mbnDmLbl) mbnDmLbl.textContent = d?'Light':'Dark';
   localStorage.setItem(K.dark, d?'1':'0');
 }
@@ -3355,12 +3355,12 @@ function renderDashboard() {
   const classMean = sw.length ? (sw.reduce((a,s)=>a+getStudentTotalForLatestExam(s.id),0)/sw.length/subjects.length).toFixed(2) : '—';
 
   document.getElementById('dashStats').innerHTML = `
-    <div class="stat-card sc-blue"><div class="sc-num">${students.length}</div><div class="sc-lbl">Total Students</div><div class="sc-ico">🎓</div></div>
-    <div class="stat-card sc-green"><div class="sc-num">${teachers.length}</div><div class="sc-lbl">Teachers</div><div class="sc-ico">👨‍🏫</div></div>
-    <div class="stat-card sc-teal"><div class="sc-num">${subjects.length}</div><div class="sc-lbl">Subjects</div><div class="sc-ico">📚</div></div>
-    <div class="stat-card sc-amber"><div class="sc-num">${exams.length}</div><div class="sc-lbl">Exams</div><div class="sc-ico">📝</div></div>
-    <div class="stat-card sc-purple"><div class="sc-num">${classMean}</div><div class="sc-lbl">Latest Mean</div><div class="sc-ico">📊</div></div>
-    <div class="stat-card sc-cyan"><div class="sc-num">${students.filter(s=>s.gender==='F').length}</div><div class="sc-lbl">Female Students</div><div class="sc-ico">👩</div></div>
+    <div class="stat-card sc-blue"><div class="sc-num">${students.length}</div><div class="sc-lbl">Total Students</div><div class="sc-ico"><i class="fa-solid fa-user-graduate"></i></div></div>
+    <div class="stat-card sc-green"><div class="sc-num">${teachers.length}</div><div class="sc-lbl">Teachers</div><div class="sc-ico"><i class="fa-solid fa-person"></i>‍<i class="fa-solid fa-school"></i></div></div>
+    <div class="stat-card sc-teal"><div class="sc-num">${subjects.length}</div><div class="sc-lbl">Subjects</div><div class="sc-ico"><i class="fa-solid fa-book"></i></div></div>
+    <div class="stat-card sc-amber"><div class="sc-num">${exams.length}</div><div class="sc-lbl">Exams</div><div class="sc-ico"><i class="fa-solid fa-file-pen"></i></div></div>
+    <div class="stat-card sc-purple"><div class="sc-num">${classMean}</div><div class="sc-lbl">Latest Mean</div><div class="sc-ico"><i class="fa-solid fa-chart-bar"></i></div></div>
+    <div class="stat-card sc-cyan"><div class="sc-num">${students.filter(s=>s.gender==='F').length}</div><div class="sc-lbl">Female Students</div><div class="sc-ico"><i class="fa-solid fa-person"></i></div></div>
   `;
 
   // Subject performance chart
@@ -3521,20 +3521,20 @@ function renderTeacherDashboard() {
   const myExamsCount = [...new Set(marks.filter(m=>mySubIds.includes(m.subjectId)).map(m=>m.examId))].length;
 
   document.getElementById('dashStats').innerHTML = `
-    <div class="stat-card sc-blue"><div class="sc-num">${mySubIds.length}</div><div class="sc-lbl">My Subjects</div><div class="sc-ico">📚</div></div>
-    <div class="stat-card ${pending.length?'sc-amber':'sc-green'}"><div class="sc-num">${pending.length}</div><div class="sc-lbl">Pending Uploads</div><div class="sc-ico">${pending.length?'⚠️':'✅'}</div></div>
-    <div class="stat-card sc-teal"><div class="sc-num">${myExamsCount}</div><div class="sc-lbl">Exams with Marks</div><div class="sc-ico">📝</div></div>
-    <div class="stat-card sc-purple"><div class="sc-num">${isClassTch ? myClassStreams.length : '—'}</div><div class="sc-lbl">${isClassTch?'My Streams':'Class Teacher'}</div><div class="sc-ico">🏫</div></div>
+    <div class="stat-card sc-blue"><div class="sc-num">${mySubIds.length}</div><div class="sc-lbl">My Subjects</div><div class="sc-ico"><i class="fa-solid fa-book"></i></div></div>
+    <div class="stat-card ${pending.length?'sc-amber':'sc-green'}"><div class="sc-num">${pending.length}</div><div class="sc-lbl">Pending Uploads</div><div class="sc-ico">${pending.length?'<i class="fa-solid fa-triangle-exclamation"></i>️':'<i class="fa-solid fa-circle-check"></i>'}</div></div>
+    <div class="stat-card sc-teal"><div class="sc-num">${myExamsCount}</div><div class="sc-lbl">Exams with Marks</div><div class="sc-ico"><i class="fa-solid fa-file-pen"></i></div></div>
+    <div class="stat-card sc-purple"><div class="sc-num">${isClassTch ? myClassStreams.length : '—'}</div><div class="sc-lbl">${isClassTch?'My Streams':'Class Teacher'}</div><div class="sc-ico"><i class="fa-solid fa-school"></i></div></div>
   `;
 
   // Quick cards (teacher-specific)
   document.querySelectorAll('.quick-cards').forEach(qc => {
     qc.innerHTML = `
       <div class="qcard ${pending.length?'amber':'green'}" onclick="go('exambuilder',document.getElementById('examBuilderNavLink'));setTimeout(()=>openExamTab('tabUploadMarks',document.querySelector('[onclick*=tabUploadMarks]')),100)">
-        <div class="qc-icon">${pending.length?'⚠️':'⬆'}</div><div class="qc-label">${pending.length?`Upload Marks (${pending.length})` : 'Upload Marks'}</div>
+        <div class="qc-icon">${pending.length?'<i class="fa-solid fa-triangle-exclamation"></i>️':'⬆'}</div><div class="qc-label">${pending.length?`Upload Marks (${pending.length})` : 'Upload Marks'}</div>
       </div>
       <div class="qcard blue" onclick="go('exambuilder',document.getElementById('examBuilderNavLink'));setTimeout(()=>openExamTab('tabAnalysis',document.querySelector('[onclick*=tabAnalysis]')),100)">
-        <div class="qc-icon">📊</div><div class="qc-label">View Analysis</div>
+        <div class="qc-icon"><i class="fa-solid fa-chart-bar"></i></div><div class="qc-label">View Analysis</div>
       </div>
     `;
   });
@@ -3549,7 +3549,7 @@ function renderTeacherDashboard() {
     pendingHtml = `
       <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1.5px solid #f59e0b;border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.25rem">
         <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.65rem">
-          <span style="font-size:1.2rem">⚠️</span>
+          <span style="font-size:1.2rem"><i class="fa-solid fa-triangle-exclamation"></i>️</span>
           <strong style="color:#92400e;font-size:.95rem">Marks Pending Upload — ${pending.length} subject${pending.length>1?'s':''}</strong>
           <button class="btn btn-sm" style="margin-left:auto;background:#f59e0b;color:#fff;border:none;font-size:.78rem;padding:.3rem .85rem;border-radius:6px;cursor:pointer"
             onclick="go('exambuilder',document.getElementById('examBuilderNavLink'));setTimeout(()=>openExamTab('tabUploadMarks',document.querySelector('[onclick*=tabUploadMarks]')),100)">
@@ -3571,7 +3571,7 @@ function renderTeacherDashboard() {
   // Subject status table
   let subStatusHtml = `
     <div class="card" style="margin-bottom:1.25rem">
-      <h3>📋 My Subjects — Marks Status</h3>`;
+      <h3><i class="fa-solid fa-clipboard-list"></i> My Subjects — Marks Status</h3>`;
   if (!exams.length) {
     subStatusHtml += '<p style="color:var(--muted);font-size:.84rem;padding:.5rem 0">No exams created yet.</p>';
   } else if (!mySubIds.length) {
@@ -3588,8 +3588,8 @@ function renderTeacherDashboard() {
           ${exams.slice(-5).map(exam=>{
             const r = examResults.find(x=>x.exam.id===exam.id);
             if(!r) return `<td style="padding:.5rem .75rem;text-align:center;color:var(--muted)">—</td>`;
-            if(r.count===0) return `<td style="padding:.5rem .75rem;text-align:center"><span style="background:#fef3c7;color:#92400e;font-size:.72rem;padding:.2rem .5rem;border-radius:5px;font-weight:600">⚠ No Marks</span></td>`;
-            return `<td style="padding:.5rem .75rem;text-align:center"><span style="background:#dcfce7;color:#15803d;font-size:.72rem;padding:.2rem .5rem;border-radius:5px;font-weight:600">✅ ${r.mean}%</span><div style="font-size:.69rem;color:var(--muted)">${r.count} entries</div></td>`;
+            if(r.count===0) return `<td style="padding:.5rem .75rem;text-align:center"><span style="background:#fef3c7;color:#92400e;font-size:.72rem;padding:.2rem .5rem;border-radius:5px;font-weight:600"><i class="fa-solid fa-triangle-exclamation"></i> No Marks</span></td>`;
+            return `<td style="padding:.5rem .75rem;text-align:center"><span style="background:#dcfce7;color:#15803d;font-size:.72rem;padding:.2rem .5rem;border-radius:5px;font-weight:600"><i class="fa-solid fa-circle-check"></i> ${r.mean}%</span><div style="font-size:.69rem;color:var(--muted)">${r.count} entries</div></td>`;
           }).join('')}
         </tr>`).join('')}
       </tbody></table></div>`;
@@ -3603,9 +3603,9 @@ function renderTeacherDashboard() {
     const missing = getSubjectsWithoutMarks(myStreamIds);
     classMonitorHtml = `
       <div class="card" style="margin-bottom:1.25rem">
-        <h3>🏫 My Class — Subjects Without Marks</h3>
+        <h3><i class="fa-solid fa-school"></i> My Class — Subjects Without Marks</h3>
         ${missing.length===0
-          ? `<div style="display:flex;align-items:center;gap:.5rem;color:#15803d;font-size:.84rem;padding:.5rem 0"><span>✅</span> All subjects in your class have marks uploaded for all exams.</div>`
+          ? `<div style="display:flex;align-items:center;gap:.5rem;color:#15803d;font-size:.84rem;padding:.5rem 0"><span><i class="fa-solid fa-circle-check"></i></span> All subjects in your class have marks uploaded for all exams.</div>`
           : `<div class="tbl-wrap"><table style="width:100%;font-size:.82rem;border-collapse:collapse">
               <thead><tr style="background:var(--surface-alt)">
                 <th style="padding:.45rem .75rem;border-bottom:1px solid var(--border)">Exam</th>
@@ -3618,7 +3618,7 @@ function renderTeacherDashboard() {
                   <td style="padding:.4rem .75rem;font-size:.78rem">${r.exam.name}<div style="color:var(--muted);font-size:.7rem">${r.exam.term} ${r.exam.year}</div></td>
                   <td style="padding:.4rem .75rem">${r.cls?.name||'?'} — ${r.str.name}</td>
                   <td style="padding:.4rem .75rem;font-weight:600">${r.sub.name} <span style="color:var(--muted);font-size:.72rem">${r.sub.code}</span></td>
-                  <td style="padding:.4rem .75rem;text-align:center"><span style="background:#fef3c7;color:#92400e;font-size:.72rem;padding:.2rem .55rem;border-radius:5px;font-weight:700">⚠ No Marks</span></td>
+                  <td style="padding:.4rem .75rem;text-align:center"><span style="background:#fef3c7;color:#92400e;font-size:.72rem;padding:.2rem .55rem;border-radius:5px;font-weight:700"><i class="fa-solid fa-triangle-exclamation"></i> No Marks</span></td>
                 </tr>`).join('')}
               </tbody></table></div>`
         }
@@ -3637,7 +3637,7 @@ function renderTeacherDashboard() {
     if (chartData.some(d=>d.mean!==null)) {
       chartHtml = `
         <div class="card" style="margin-bottom:1.25rem">
-          <h3>📊 My Subjects — Latest Exam Performance <span style="font-size:.78rem;font-weight:400;color:var(--muted)">(${latestExam.name})</span></h3>
+          <h3><i class="fa-solid fa-chart-bar"></i> My Subjects — Latest Exam Performance <span style="font-size:.78rem;font-weight:400;color:var(--muted)">(${latestExam.name})</span></h3>
           <div style="position:relative;height:220px;width:100%"><canvas id="tchSubChart"></canvas></div>
         </div>`;
     }
@@ -3688,7 +3688,7 @@ function renderSubjectsWithoutMarksPanel(scopeFilter) {
   if (!missing.length) {
     panel.innerHTML = `
       <div class="card" style="margin-top:1.25rem;border-left:4px solid #16a34a">
-        <div style="display:flex;align-items:center;gap:.6rem"><span style="font-size:1.1rem">✅</span>
+        <div style="display:flex;align-items:center;gap:.6rem"><span style="font-size:1.1rem"><i class="fa-solid fa-circle-check"></i></span>
         <strong style="color:#15803d">All Subjects Have Marks</strong>
         <span style="font-size:.8rem;color:var(--muted);margin-left:.3rem">No missing mark entries detected across all exams.</span></div>
       </div>`;
@@ -3705,14 +3705,14 @@ function renderSubjectsWithoutMarksPanel(scopeFilter) {
   panel.innerHTML = `
     <div class="card" style="margin-top:1.25rem;border-left:4px solid #f59e0b">
       <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.9rem;flex-wrap:wrap">
-        <h3 style="margin:0">⚠️ Subjects Without Marks</h3>
+        <h3 style="margin:0"><i class="fa-solid fa-triangle-exclamation"></i>️ Subjects Without Marks</h3>
         <span class="badge b-amber">${missing.length} missing</span>
         <button class="btn btn-outline btn-sm" style="margin-left:auto;font-size:.78rem" onclick="adminDownloadRawMarks()">⬇ Download Raw Marks (All Exams)</button>
       </div>
       ${Object.values(byExam).map(({exam,rows})=>`
         <div style="margin-bottom:1rem">
           <div style="font-weight:700;font-size:.84rem;color:var(--primary);margin-bottom:.4rem;padding:.3rem .6rem;background:var(--surface-alt);border-radius:6px">
-            📝 ${exam.name} — ${exam.term} ${exam.year}
+            <i class="fa-solid fa-file-pen"></i> ${exam.name} — ${exam.term} ${exam.year}
             <span style="font-weight:400;font-size:.75rem;color:var(--muted);margin-left:.5rem">${rows.length} subject/stream combo${rows.length>1?'s':''} missing</span>
             <button class="btn btn-outline btn-sm" style="float:right;font-size:.72rem;padding:.15rem .55rem" onclick="adminDownloadRawMarks('${exam.id}')">⬇ Raw Marks</button>
           </div>
@@ -3800,7 +3800,7 @@ function adminDownloadRawMarks(examId) {
     ? `raw_marks_${targetExams[0]?.name.replace(/\s+/g,'_')||'exam'}.xlsx`
     : `raw_marks_all_exams.xlsx`;
   XLSX.writeFile(wb, fname);
-  showToast(`✅ Downloaded raw marks (${totalRows} student rows)`, 'success');
+  showToast(`<i class="fa-solid fa-circle-check"></i> Downloaded raw marks (${totalRows} student rows)`, 'success');
 }
 
 // ═══════════════ POPULATE DROPDOWNS ═══════════════
@@ -3996,13 +3996,13 @@ function refreshRpFeeAutoLink() {
       if (balEl && !balEl.dataset.manuallySet) balEl.value = bal;
       if (badge) {
         badge.style.display = '';
-        badge.textContent   = bal <= 0 ? '✅ Cleared' : `⚠️ Owes KES ${bal.toLocaleString()}`;
+        badge.textContent   = bal <= 0 ? '<i class="fa-solid fa-circle-check"></i> Cleared' : `<i class="fa-solid fa-triangle-exclamation"></i>️ Owes KES ${bal.toLocaleString()}`;
         badge.style.color   = bal <= 0 ? '#16a34a' : '#dc2626';
       }
       if (statusEl) {
         statusEl.innerHTML = bal <= 0
-          ? `<span style="color:#16a34a;font-weight:700">✅ Fees cleared</span> — ${effectiveTerm} ${effectiveYear}`
-          : `<span style="color:#dc2626;font-weight:700">⚠️ KES ${bal.toLocaleString()} outstanding</span> — ${effectiveTerm} ${effectiveYear}`;
+          ? `<span style="color:#16a34a;font-weight:700"><i class="fa-solid fa-circle-check"></i> Fees cleared</span> — ${effectiveTerm} ${effectiveYear}`
+          : `<span style="color:#dc2626;font-weight:700"><i class="fa-solid fa-triangle-exclamation"></i>️ KES ${bal.toLocaleString()} outstanding</span> — ${effectiveTerm} ${effectiveYear}`;
       }
       if (statusBox) statusBox.style.borderColor = bal <= 0 ? '#16a34a' : '#dc2626';
     } else {
@@ -4029,8 +4029,8 @@ function refreshRpFeeAutoLink() {
     });
     if (statusEl) {
       statusEl.innerHTML = totalRec
-        ? `🔗 <strong>${effectiveTerm} ${effectiveYear}</strong> — ${totalRec} records | Paid: KES ${totalPaid.toLocaleString()} | Outstanding: <span style="color:${totalBal>0?'#dc2626':'#16a34a'}">KES ${totalBal.toLocaleString()}</span>`
-        : `🔗 <strong>${effectiveTerm} ${effectiveYear}</strong> — No fee records found`;
+        ? `<i class="fa-solid fa-link"></i> <strong>${effectiveTerm} ${effectiveYear}</strong> — ${totalRec} records | Paid: KES ${totalPaid.toLocaleString()} | Outstanding: <span style="color:${totalBal>0?'#dc2626':'#16a34a'}">KES ${totalBal.toLocaleString()}</span>`
+        : `<i class="fa-solid fa-link"></i> <strong>${effectiveTerm} ${effectiveYear}</strong> — No fee records found`;
     }
     if (statusBox) statusBox.style.borderColor = totalBal > 0 ? '#f59e0b' : 'var(--border)';
   }
@@ -4156,7 +4156,7 @@ function saveAllMarks() {
     const val = parseInt(inp.value);
     if (!isNaN(val)) autoSaveMark(inp.dataset.stuId, val);
   });
-  showToast('All marks saved ✓','success');
+  showToast('All marks saved <i class="fa-solid fa-check"></i>','success');
   renderDashboard();
   // Refresh subject status panel
   setTimeout(renderUmSubjectStatusPanel, 100);
@@ -4204,7 +4204,7 @@ function handleMarksUpload(input) {
           }
           count++;
         });
-        showToast(`${count} marks uploaded${skipped?' ('+skipped+' skipped)':''} ✓`, 'success');
+        showToast(`${count} marks uploaded${skipped?' ('+skipped+' skipped)':''} <i class="fa-solid fa-check"></i>`, 'success');
         loadUmStudents();
         setTimeout(renderUmSubjectStatusPanel, 100);
 
@@ -4245,7 +4245,7 @@ function handleMarksUpload(input) {
           if (rowSaved) count++;
         });
         save(K.marks, marks);
-        showToast(`All-subjects upload: ${count} students processed${skipped?' ('+skipped+' not found)':''} ✓`, 'success');
+        showToast(`All-subjects upload: ${count} students processed${skipped?' ('+skipped+' not found)':''} <i class="fa-solid fa-check"></i>`, 'success');
         loadUmStudents();
         renderDashboard();
         setTimeout(renderUmSubjectStatusPanel, 100);
@@ -4404,10 +4404,10 @@ function saveExam() {
   if (editId) {
     const i = exams.findIndex(e => e.id === editId);
     if (i > -1) exams[i] = { ...exams[i], name, category:cat, type, term, year, date, classId:clsId, subjectIds:subIds, sourceExamIds, notes };
-    showToast('Exam updated ✓','success');
+    showToast('Exam updated <i class="fa-solid fa-check"></i>','success');
   } else {
     exams.push({ id:uid(), name, category:cat, type, term, year, date, classId:clsId, subjectIds:subIds, sourceExamIds, notes });
-    showToast('Exam created ✓','success');
+    showToast('Exam created <i class="fa-solid fa-check"></i>','success');
   }
   save(K.exams, exams);
   cancelExamEdit(); renderExamList(); populateExamDropdowns();
@@ -4430,8 +4430,8 @@ function renderExamList() {
       <td>${e.subjectIds.length} subjects</td>
       <td>${e.date||'—'}</td>
       <td><div class="act-cell">
-        <button class="icb ed" onclick="editExam('${e.id}')" title="Edit">✏️</button>
-        <button class="icb dl" onclick="deleteExam('${e.id}')" title="Delete">🗑️</button>
+        <button class="icb ed" onclick="editExam('${e.id}')" title="Edit"><i class="fa-solid fa-pen"></i>️</button>
+        <button class="icb dl" onclick="deleteExam('${e.id}')" title="Delete"><i class="fa-solid fa-trash"></i>️</button>
       </div></td>
     </tr>`;
   });
@@ -4474,13 +4474,13 @@ function editExam(id) {
     renderConsolidatedSourceCheckboxes(e.sourceExamIds || []);
   }
   renderExamSubjectCheckboxes(e.subjectIds || []);
-  document.getElementById('examFormTitle').textContent='✏️ Edit Exam';
+  document.getElementById('examFormTitle').textContent='<i class="fa-solid fa-pen"></i>️ Edit Exam';
   openExamTab('tabCreateExam');
 }
 function cancelExamEdit() {
   ['editExamId','examName','examNotes','examDate'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('examType').value=''; document.getElementById('examYear').value='2025';
-  document.getElementById('examFormTitle').textContent='➕ Create New Exam';
+  document.getElementById('examFormTitle').textContent='<i class="fa-solid fa-plus"></i> Create New Exam';
   setExamCategory('regular');
   renderExamSubjectCheckboxes([]);
 }
@@ -4659,7 +4659,7 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
 
   return `
   <div style="margin-top:1.25rem">
-    <h4 style="font-family:var(--font);font-weight:700;font-size:.95rem;margin-bottom:.75rem;color:var(--primary)">📊 Subject Analysis — Grade Distribution & Gender Performance</h4>
+    <h4 style="font-family:var(--font);font-weight:700;font-size:.95rem;margin-bottom:.75rem;color:var(--primary)"><i class="fa-solid fa-chart-bar"></i> Subject Analysis — Grade Distribution & Gender Performance</h4>
     <div class="tbl-wrap">
       <table>
         <thead>
@@ -4671,8 +4671,8 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
             <th rowspan="2">Low</th>
             <th colspan="${gradeKeys.length}" style="text-align:center;background:var(--primary-lt);color:var(--primary)">Grade Distribution</th>
             <th rowspan="2">Overall Grade</th>
-            <th rowspan="2" style="text-align:center">♂ Mean</th>
-            <th rowspan="2" style="text-align:center">♀ Mean</th>
+            <th rowspan="2" style="text-align:center"> Mean</th>
+            <th rowspan="2" style="text-align:center"> Mean</th>
           </tr>
           <tr>${gradeHeaders}</tr>
         </thead>
@@ -4771,7 +4771,7 @@ function printMeritList() {
         <div style="font-size:14pt;font-weight:800;color:#1a6fb5">${sch}</div>
         <div style="font-size:9pt;color:#64748b">Merit List &bull; Printed: ${new Date().toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'})}</div>
       </div>
-      <button class="no-print" onclick="window.print()" style="padding:.4rem 1.2rem;background:#1a6fb5;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.85rem">🖨 Print</button>
+      <button class="no-print" onclick="window.print()" style="padding:.4rem 1.2rem;background:#1a6fb5;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.85rem"><i class="fa-solid fa-print"></i> Print</button>
     </div>
     ${wrap.innerHTML}
   </body></html>`);
@@ -4851,7 +4851,7 @@ function exportMeritExcel() {
   XLSX.utils.book_append_sheet(wb, ws2, 'Subject Analysis');
 
   XLSX.writeFile(wb, `merit_${exam?.name||'exam'}.xlsx`);
-  showToast('Merit list exported to Excel ✓','success');
+  showToast('Merit list exported to Excel <i class="fa-solid fa-check"></i>','success');
 }
 
 // ─── PDF EXPORT FOR MERIT LIST ───────────────────────────────
@@ -4960,7 +4960,7 @@ function exportMeritPDF() {
     }).join('');
     return `
       <div style="page-break-before:always">
-        <h2 style="margin-bottom:4px;color:#0d9488">🌊 ${strCls?.name||''} › ${str.name} — Stream Merit List</h2>
+        <h2 style="margin-bottom:4px;color:#0d9488"> ${strCls?.name||''} › ${str.name} — Stream Merit List</h2>
         <div class="meta">${exam.name} &nbsp;|&nbsp; ${exam.term} ${exam.year} &nbsp;|&nbsp; ${strScored.length} students &nbsp;|&nbsp; Printed: ${new Date().toLocaleDateString()}</div>
         <table>
           <thead><tr>
@@ -5004,7 +5004,7 @@ function exportMeritPDF() {
   </div>
 
   <!-- Overall merit list -->
-  <h2>🏆 Overall Merit List</h2>
+  <h2><i class="fa-solid fa-trophy"></i> Overall Merit List</h2>
   <div class="meta">${scored.length} students</div>
   <table>
     <thead><tr>
@@ -5017,14 +5017,14 @@ function exportMeritPDF() {
 
   <!-- Subject analysis -->
   <div style="page-break-before:always">
-    <h2 style="color:#16a34a">📊 Subject Analysis — Grade Distribution &amp; Gender Performance</h2>
+    <h2 style="color:#16a34a"><i class="fa-solid fa-chart-bar"></i> Subject Analysis — Grade Distribution &amp; Gender Performance</h2>
     <div class="meta">${exam.name} &nbsp;|&nbsp; ${exam.term} ${exam.year}</div>
     <table>
       <thead><tr>
         <th style="text-align:left">Subject</th>
         <th>Count</th><th>Mean</th><th>High</th><th>Low</th>
         ${gradeKeys.map(g=>`<th class="green">${g}</th>`).join('')}
-        <th>Grade</th><th>♂ Mean</th><th>♀ Mean</th>
+        <th>Grade</th><th> Mean</th><th> Mean</th>
       </tr></thead>
       <tbody>${subAnalysisRows}</tbody>
     </table>
@@ -5035,7 +5035,7 @@ function exportMeritPDF() {
 
   <div class="footer no-print">
     <span>Generated by Charanas Analyzer</span>
-    <button onclick="window.print()" style="padding:.3rem 1rem;background:#1a6fb5;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px">🖨 Print / Save PDF</button>
+    <button onclick="window.print()" style="padding:.3rem 1rem;background:#1a6fb5;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px"><i class="fa-solid fa-print"></i> Print / Save PDF</button>
   </div>
 
   <script>window.onload=function(){window.print();}<\/script>
@@ -5132,7 +5132,7 @@ function renderSummaryAnalytics() {
 
     // ── 1. Best 3 overall (class) ──
     const top3Overall = clsStudentData.slice(0,3);
-    const podiumLabels = ['🥇','🥈','🥉'];
+    const podiumLabels = ['<i class="fa-solid fa-trophy"></i>','<i class="fa-solid fa-medal"></i>','<i class="fa-solid fa-award"></i>'];
     const podiumColors = ['#f59e0b','#94a3b8','#cd7f32'];
     const podiumHTML = top3Overall.map((d,i)=>{
       const stu = d.stu;
@@ -5207,10 +5207,10 @@ function renderSummaryAnalytics() {
           <td><strong>${r.stu.name}</strong><br><span style="font-size:.72rem;color:var(--muted)">${r.stu.adm}</span></td>
           <td style="text-align:center">${r.prevMean.toFixed(1)}</td>
           <td style="text-align:center"><strong style="color:var(--primary)">${r.currMean.toFixed(1)}</strong></td>
-          <td style="text-align:center"><strong style="color:${r.delta>=0?'var(--success,#16a34a)':'var(--danger,#dc2626)'}">${r.delta>=0?'▲ +':'▼ '}${Math.abs(r.delta).toFixed(2)}</strong></td>
+          <td style="text-align:center"><strong style="color:${r.delta>=0?'var(--success,#16a34a)':'var(--danger,#dc2626)'}">${r.delta>=0?' +':'▼ '}${Math.abs(r.delta).toFixed(2)}</strong></td>
         </tr>`).join('');
         mostImprovedHTML = `<div class="card sm-section">
-          <h4 class="sm-section-title">📈 Most Improved Overall <span class="sm-prev-badge">vs ${prevExam.name}</span></h4>
+          <h4 class="sm-section-title"><i class="fa-solid fa-chart-line"></i> Most Improved Overall <span class="sm-prev-badge">vs ${prevExam.name}</span></h4>
           <div class="tbl-wrap"><table>
             <thead><tr><th>#</th><th>Student</th><th>Prev Mean</th><th>Curr Mean</th><th>Improvement</th></tr></thead>
             <tbody>${rows}</tbody>
@@ -5234,7 +5234,7 @@ function renderSummaryAnalytics() {
         const rows = ranked.map((r,i)=>`<div class="sm-top3-row">
           <span class="sm-top3-pos">${podiumLabels[i]||`${i+1}.`}</span>
           <span class="sm-top3-name">${r.stu.name}</span>
-          <span class="sm-top3-score" style="color:${r.delta>=0?'var(--success,#16a34a)':'var(--danger,#dc2626)'}">${r.delta>=0?'▲+':'▼'}${Math.abs(r.delta).toFixed(1)}</span>
+          <span class="sm-top3-score" style="color:${r.delta>=0?'var(--success,#16a34a)':'var(--danger,#dc2626)'}">${r.delta>=0?'+':'▼'}${Math.abs(r.delta).toFixed(1)}</span>
         </div>`).join('');
         return `<div class="sm-subcard">
           <div class="sm-subcard-title">${sub.name}</div>
@@ -5243,7 +5243,7 @@ function renderSummaryAnalytics() {
       }).join('');
       if (subImpCards.trim()) {
         mostImprovedSubHTML = `<div class="card sm-section">
-          <h4 class="sm-section-title">🚀 Most Improved Per Subject <span class="sm-prev-badge">vs ${prevExam.name}</span></h4>
+          <h4 class="sm-section-title"><i class="fa-solid fa-rocket"></i> Most Improved Per Subject <span class="sm-prev-badge">vs ${prevExam.name}</span></h4>
           <div class="sm-subgrid">${subImpCards}</div>
         </div>`;
       }
@@ -5275,7 +5275,7 @@ function renderSummaryAnalytics() {
         }).filter(Boolean).join('');
 
         return `<div class="sm-stream-card">
-          <div class="sm-stream-title">🏫 ${st.name} <span style="font-size:.75rem;color:var(--muted);font-weight:400">${stStudents.length} students</span></div>
+          <div class="sm-stream-title"><i class="fa-solid fa-school"></i> ${st.name} <span style="font-size:.75rem;color:var(--muted);font-weight:400">${stStudents.length} students</span></div>
           <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-start">
             <div style="flex:1;min-width:180px">
               <div style="font-size:.75rem;font-weight:600;color:var(--muted);margin-bottom:.4rem;text-transform:uppercase">Top Students</div>
@@ -5293,17 +5293,17 @@ function renderSummaryAnalytics() {
     // Assemble class section
     html += `<div class="sm-class-section">
       <div class="sm-class-header">
-        <h3>🏫 ${cls.name}</h3>
+        <h3><i class="fa-solid fa-school"></i> ${cls.name}</h3>
         <span class="sm-class-badge">${clsStudentData.length} students with data</span>
       </div>
 
       <div class="card sm-section">
-        <h4 class="sm-section-title">🏆 Best 3 Students — Class Overall</h4>
+        <h4 class="sm-section-title"><i class="fa-solid fa-trophy"></i> Best 3 Students — Class Overall</h4>
         <div class="sm-podium">${podiumHTML||'<p style="color:var(--muted)">No data</p>'}</div>
       </div>
 
       <div class="card sm-section">
-        <h4 class="sm-section-title">📊 Subject Ranking by Mean</h4>
+        <h4 class="sm-section-title"><i class="fa-solid fa-chart-bar"></i> Subject Ranking by Mean</h4>
         <div class="tbl-wrap"><table>
           <thead><tr><th>#</th><th>Subject</th><th>Mean</th><th>Highest</th><th>Lowest</th><th>Entries</th><th>Grade</th></tr></thead>
           <tbody>${subRankHTML||'<tr><td colspan="7" style="text-align:center;color:var(--muted)">No data</td></tr>'}</tbody>
@@ -5319,7 +5319,7 @@ function renderSummaryAnalytics() {
       ${mostImprovedSubHTML}
 
       ${streamsHTML ? `<div class="card sm-section">
-        <h4 class="sm-section-title">🌊 Per-Stream Breakdown</h4>
+        <h4 class="sm-section-title"> Per-Stream Breakdown</h4>
         <div class="sm-streams">${streamsHTML}</div>
       </div>` : ''}
     </div>`;
@@ -5397,9 +5397,9 @@ function renderStudents(filter='', genderFilter='', classFilter='', streamFilter
       <td>${s.parent||'—'}</td><td>${s.contact||'—'}</td>
       <td style="max-width:150px;overflow:hidden">${subs||'—'}</td>
       <td><div class="act-cell">
-        ${_isT ? '' : `<button class="icb ed" onclick="editStudent('${s.id}')" title="Edit">✏️</button>`}
-        ${_isT ? '' : `<button class="icb dl" onclick="deleteStudent('${s.id}')" title="Delete">🗑️</button>`}
-        <button class="icb" style="background:var(--purple,#7c3aed);color:#fff;border:none" title="View Analytics" onclick="showStudentAnalytics('${s.id}')">📊</button>
+        ${_isT ? '' : `<button class="icb ed" onclick="editStudent('${s.id}')" title="Edit"><i class="fa-solid fa-pen"></i>️</button>`}
+        ${_isT ? '' : `<button class="icb dl" onclick="deleteStudent('${s.id}')" title="Delete"><i class="fa-solid fa-trash"></i>️</button>`}
+        <button class="icb" style="background:var(--purple,#7c3aed);color:#fff;border:none" title="View Analytics" onclick="showStudentAnalytics('${s.id}')"><i class="fa-solid fa-chart-bar"></i></button>
       </div></td>
     </tr>`;
   }).join('') || `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:1.5rem">No students yet.</td></tr>`;
@@ -5504,12 +5504,12 @@ function showStudentAnalytics(stuId) {
     </div>`).join('');
 
   showModal(
-    `📊 Analytics — ${stu.name} (${stu.adm})`,
+    `<i class="fa-solid fa-chart-bar"></i> Analytics — ${stu.name} (${stu.adm})`,
     `<div style="font-size:.82rem;color:var(--muted);margin-bottom:.75rem">${cls?.name||''}${stream?' · '+stream.name+' Stream':''} · ${stu.gender==='M'?'Male':'Female'}</div>
     ${!hasData?'<p style="color:var(--muted);text-align:center;padding:2rem">No exam data found for this student.</p>':''}
     ${hasData && examData.length > 1 ? `
     <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.75rem;margin-bottom:1rem">
-      <div style="font-weight:700;font-size:.85rem;margin-bottom:.5rem;color:var(--primary)">📈 Performance Trend</div>
+      <div style="font-weight:700;font-size:.85rem;margin-bottom:.5rem;color:var(--primary)"><i class="fa-solid fa-chart-line"></i> Performance Trend</div>
       <canvas id="${chartId}" height="90"></canvas>
     </div>` : ''}
     ${examCards}`,
@@ -5563,7 +5563,7 @@ function enrollStudentInStreamSubjects() {
     cb.checked = assignedSubIds.includes(cb.value);
   });
   updateSelectAllCheckbox();
-  showToast(`${assignedSubIds.length} subjects pre-selected based on stream assignments ✓`,'success');
+  showToast(`${assignedSubIds.length} subjects pre-selected based on stream assignments <i class="fa-solid fa-check"></i>`,'success');
 }
 function updateSelectAllCheckbox() {
   const all = document.querySelectorAll('#stuSubjectsCheckboxes input[type=checkbox]');
@@ -5590,7 +5590,7 @@ function saveStudent() {
   if (editId) {
     const i=students.findIndex(s=>s.id===editId);
     if(i>-1) students[i]={...students[i],adm,name,gender,classId,streamId,parent,contact,dob,notes,subjectIds:subIds};
-    showToast('Student updated ✓','success');
+    showToast('Student updated <i class="fa-solid fa-check"></i>','success');
   } else {
     if(students.find(s=>s.adm===adm)){showToast('Admission number exists','error');return;}
     const stu={id:uid(),adm,name,gender,classId,streamId,parent,contact,dob,notes,subjectIds:subIds};
@@ -5598,7 +5598,7 @@ function saveStudent() {
     // Enrol in all subjects
     subIds.forEach(sid=>{const sub=subjects.find(x=>x.id===sid);if(sub&&!sub.studentIds.includes(stu.id))sub.studentIds.push(stu.id);});
     save(K.subjects,subjects);
-    showToast('Student added ✓','success');
+    showToast('Student added <i class="fa-solid fa-check"></i>','success');
   }
   save(K.students,students); cancelStuEdit(); renderStudents(); renderDashboard(); populateAllDropdowns(); renderArchivedStudents();
 }
@@ -5619,14 +5619,14 @@ function editStudent(id) {
   document.getElementById('stuNotes').value=s.notes||'';
   document.querySelectorAll('#stuSubjectsCheckboxes input[type=checkbox]').forEach(cb=>{cb.checked=(s.subjectIds||[]).includes(cb.value);});
   updateSelectAllCheckbox();
-  document.getElementById('stuFormTitle').textContent='✏️ Edit Student';
+  document.getElementById('stuFormTitle').textContent='<i class="fa-solid fa-pen"></i>️ Edit Student';
   document.getElementById('stuAdm').scrollIntoView({behavior:'smooth',block:'center'});
 }
 
 function cancelStuEdit() {
   ['editStuId','stuAdm','stuName','stuParent','stuContact','stuDOB','stuNotes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('stuGender').value='M';
-  document.getElementById('stuFormTitle').textContent='➕ Add Student';
+  document.getElementById('stuFormTitle').textContent='<i class="fa-solid fa-plus"></i> Add Student';
 }
 
 function deleteStudent(id) {
@@ -5675,7 +5675,7 @@ function handleStudentUpload(input) {
       });
       save(K.students,students); save(K.subjects,subjects);
       renderStudents(); populateAllDropdowns(); renderDashboard();
-      showToast(`${added} students added, ${skipped} skipped ✓`,'success');
+      showToast(`${added} students added, ${skipped} skipped <i class="fa-solid fa-check"></i>`,'success');
     } catch(err){showToast('Error reading file','error');console.error(err);}
   };
   reader.readAsArrayBuffer(file); input.value='';
@@ -5713,7 +5713,7 @@ function exportFilteredStudentsExcel() {
   const sheetLabel = [clsName, strName].filter(Boolean).join('_') || 'Students';
   XLSX.utils.book_append_sheet(wb,ws,sheetLabel.slice(0,31));
   XLSX.writeFile(wb,`students_${sheetLabel.replace(/\s+/g,'_')}.xlsx`);
-  showToast(`${list.length} student(s) exported ✓`,'success');
+  showToast(`${list.length} student(s) exported <i class="fa-solid fa-check"></i>`,'success');
 }
 
 // ═══════════════ TEACHERS CRUD ═══════════════
@@ -5754,7 +5754,7 @@ function handleTeacherUpload(input) {
       });
       save(K.teachers, teachers);
       renderTeachers(); renderDashboard();
-      showToast(`${added} added, ${updated} updated, ${skipped} skipped ✓`, 'success');
+      showToast(`${added} added, ${updated} updated, ${skipped} skipped <i class="fa-solid fa-check"></i>`, 'success');
       document.getElementById('tchUploadCard').style.display = 'none';
     } catch(err) { showToast('Error reading file', 'error'); console.error(err); }
   };
@@ -5805,7 +5805,7 @@ function renderTeachers() {
       if (!sub) return '';
       return `<span class="tch-sub-tag" style="display:inline-flex;align-items:center;gap:2px;background:var(--blue-lt);border:1px solid var(--border);border-radius:12px;padding:1px 6px 1px 8px;font-size:.65rem;margin:2px">
         ${sub.code}
-        <button onclick="removeSubjectFromTeacher('${t.id}','${sub.id}')" title="Remove ${sub.name}" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:.75rem;line-height:1;padding:0 0 0 2px" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">✕</button>
+        <button onclick="removeSubjectFromTeacher('${t.id}','${sub.id}')" title="Remove ${sub.name}" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:.75rem;line-height:1;padding:0 0 0 2px" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'"><i class="fa-solid fa-xmark"></i></button>
       </span>`;
     }).join('');
     const rights=[t.canAnalyse?'Analysis':'',t.canReport?'Reports':'',t.canMerit?'Merit':''].filter(Boolean).join(', ');
@@ -5817,8 +5817,8 @@ function renderTeachers() {
       <td style="font-family:var(--mono);font-size:.8rem">${t.username||'—'}</td>
       <td>${rights?`<span class="badge b-green" style="font-size:.65rem">${rights}</span>`:'—'}</td>
       <td><div class="act-cell">
-        <button class="icb ed" onclick="editTeacher('${t.id}')" title="Edit">✏️</button>
-        <button class="icb dl" onclick="deleteTeacher('${t.id}')" title="Delete">🗑️</button>
+        <button class="icb ed" onclick="editTeacher('${t.id}')" title="Edit"><i class="fa-solid fa-pen"></i>️</button>
+        <button class="icb dl" onclick="deleteTeacher('${t.id}')" title="Delete"><i class="fa-solid fa-trash"></i>️</button>
         <button class="icb" style="background:#0d9488;color:#fff;border:none;font-size:.68rem;padding:.2rem .45rem;border-radius:5px" onclick="downloadTeacherSubjectList('${t.id}')" title="Download class list for subjects taught">⬇ Class List</button>
       </div></td>
     </tr>`;
@@ -5836,7 +5836,7 @@ function removeSubjectFromTeacher(teacherId, subjectId) {
   const t = teachers.find(x => x.id === teacherId);
   if (t) { t.subjectIds = (t.subjectIds || []).filter(x => x !== subjectId); save(K.teachers, teachers); }
   renderTeachers(); renderSubjects();
-  showToast('Subject removed from teacher ✓', 'info');
+  showToast('Subject removed from teacher <i class="fa-solid fa-check"></i>', 'info');
 }
 
 function saveTeacher() {
@@ -5864,10 +5864,10 @@ function saveTeacher() {
       // Preserve existing subjectIds from stream assignments
       teachers[i] = { ...teachers[i], ...obj };
     }
-    showToast('Teacher updated ✓','success');
+    showToast('Teacher updated <i class="fa-solid fa-check"></i>','success');
   } else {
     teachers.push({ id:uid(), subjectIds:[], ...obj });
-    showToast('Teacher added ✓','success');
+    showToast('Teacher added <i class="fa-solid fa-check"></i>','success');
   }
   save(K.teachers, teachers);
   cancelTchEdit();
@@ -5886,13 +5886,13 @@ function editTeacher(id) {
   document.getElementById('tchPass').value=t.password||'';
   document.getElementById('tchClasses').value=t.classes||'';
   // Rights are read-only here (managed in Settings) — no UI to update
-  document.getElementById('tchFormTitle').textContent='✏️ Edit Teacher';
+  document.getElementById('tchFormTitle').textContent='<i class="fa-solid fa-pen"></i>️ Edit Teacher';
   document.getElementById('tchName').scrollIntoView({behavior:'smooth',block:'center'});
 }
 
 function cancelTchEdit() {
   ['editTchId','tchName','tchPhone','tchEmail','tchUser','tchPass','tchClasses'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('tchFormTitle').textContent='➕ Add Teacher';
+  document.getElementById('tchFormTitle').textContent='<i class="fa-solid fa-plus"></i> Add Teacher';
 }
 
 function deleteTeacher(id) {
@@ -5932,8 +5932,8 @@ function renderSubjects() {
       <td>${tch?`<div style="display:flex;align-items:center;gap:.5rem">${teacherInitialsTag(tch)}<span>${tch.name}</span></div>`:'—'}</td>
       <td>${(s.studentIds||[]).length} students</td>
       <td><div class="act-cell">
-        <button class="icb ed" onclick="editSubject('${s.id}')" title="Edit">✏️</button>
-        <button class="icb dl" onclick="deleteSubject('${s.id}')" title="Delete">🗑️</button>
+        <button class="icb ed" onclick="editSubject('${s.id}')" title="Edit"><i class="fa-solid fa-pen"></i>️</button>
+        <button class="icb dl" onclick="deleteSubject('${s.id}')" title="Delete"><i class="fa-solid fa-trash"></i>️</button>
       </div></td>
     </tr>`;
   }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">No subjects yet.</td></tr>';
@@ -5951,7 +5951,7 @@ function saveSubject() {
     const i=subjects.findIndex(s=>s.id===editId);
     // Preserve existing studentIds
     if(i>-1)subjects[i]={...subjects[i],name,code,max,category:cat,teacherId:tchId};
-    showToast('Subject updated ✓','success');
+    showToast('Subject updated <i class="fa-solid fa-check"></i>','success');
   } else {
     if(subjects.find(s=>s.code===code)){showToast('Code already exists','error');return;}
     // Auto-enrol all existing students in new subject
@@ -5963,7 +5963,7 @@ function saveSubject() {
       if(stu){const newSubId=subjects[subjects.length-1].id;if(!stu.subjectIds)stu.subjectIds=[];if(!stu.subjectIds.includes(newSubId))stu.subjectIds.push(newSubId);}
     });
     save(K.students,students);
-    showToast('Subject added ✓','success');
+    showToast('Subject added <i class="fa-solid fa-check"></i>','success');
   }
   save(K.subjects,subjects); cancelSubEdit(); renderSubjects(); populateAllDropdowns();
 }
@@ -5976,13 +5976,13 @@ function editSubject(id) {
   document.getElementById('subMax').value=s.max;
   document.getElementById('subCat').value=s.category;
   document.getElementById('subTeacher').value=s.teacherId||'';
-  document.getElementById('subFormTitle').textContent='✏️ Edit Subject';
+  document.getElementById('subFormTitle').textContent='<i class="fa-solid fa-pen"></i>️ Edit Subject';
   document.getElementById('subName').scrollIntoView({behavior:'smooth',block:'center'});
 }
 function cancelSubEdit() {
   ['editSubId','subName','subCode'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('subMax').value='100';
-  document.getElementById('subFormTitle').textContent='➕ Add Subject';
+  document.getElementById('subFormTitle').textContent='<i class="fa-solid fa-plus"></i> Add Subject';
 }
 function deleteSubject(id) {
   if(!confirm('Delete this subject? Marks data for this subject will also be removed.')) return;
@@ -6012,9 +6012,9 @@ function renderClasses() {
     const cnt=students.filter(s=>s.classId===c.id).length;
     return `<tr><td>${i+1}</td><td><strong>${c.name}</strong></td><td>${c.level||'—'}</td><td>${cnt}</td>
       <td><div class="act-cell">
-        <button class="icb ed" onclick="editClass('${c.id}')" title="Edit">✏️</button>
-        <button class="icb dl" onclick="deleteClass('${c.id}')" title="Delete">🗑️</button>
-        <button class="icb" style="background:var(--primary);color:#fff;border:none" onclick="manageClassStudents('${c.id}')" title="Manage Students">👥</button>
+        <button class="icb ed" onclick="editClass('${c.id}')" title="Edit"><i class="fa-solid fa-pen"></i>️</button>
+        <button class="icb dl" onclick="deleteClass('${c.id}')" title="Delete"><i class="fa-solid fa-trash"></i>️</button>
+        <button class="icb" style="background:var(--primary);color:#fff;border:none" onclick="manageClassStudents('${c.id}')" title="Manage Students"><i class="fa-solid fa-users"></i></button>
         <button class="icb" style="background:var(--secondary,#16a34a);color:#fff;border:none;font-size:.68rem;padding:.2rem .45rem;border-radius:5px" onclick="downloadClassList('${c.id}')" title="Download class student list">⬇</button>
       </div></td></tr>`;
   }).join('');
@@ -6030,21 +6030,21 @@ function saveClass() {
   if(editId){const i=classes.findIndex(c=>c.id===editId);if(i>-1)classes[i]={...classes[i],name,level};}
   else classes.push({id:uid(),name,level});
   save(K.classes,classes); cancelClsEdit(); renderClasses(); populateAllDropdowns();
-  showToast('Class saved ✓','success');
+  showToast('Class saved <i class="fa-solid fa-check"></i>','success');
 }
 function editClass(id){
   const c=classes.find(x=>x.id===id);if(!c)return;
   document.getElementById('editClsId').value=c.id;
   document.getElementById('clsName').value=c.name;
   document.getElementById('clsLevel').value=c.level||'';
-  document.getElementById('clsFormTitle').textContent='✏️ Edit Class';
+  document.getElementById('clsFormTitle').textContent='<i class="fa-solid fa-pen"></i>️ Edit Class';
 }
 function manageClassStudents(classId){
   const cls=classes.find(c=>c.id===classId);if(!cls)return;
   const classStreams=streams.filter(s=>s.classId===classId);
   const classStudents=students.filter(s=>s.classId===classId);
   const allStudents=students;
-  showModal('👥 Manage Class — '+cls.name,`
+  showModal('<i class="fa-solid fa-users"></i> Manage Class — '+cls.name,`
     <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">Students in this class: <strong>${classStudents.length}</strong></p>
     <div style="max-height:300px;overflow-y:auto">
       ${classStudents.map(s=>{
@@ -6058,7 +6058,7 @@ function manageClassStudents(classId){
     <p style="font-size:.78rem;color:var(--muted);margin-top:.75rem">To move or reassign students, edit the student record.</p>
   `,[{label:'Close',cls:'btn-outline',action:'closeModal()'}]);
 }
-function cancelClsEdit(){['editClsId','clsName','clsLevel'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('clsFormTitle').textContent='➕ Add Class';}
+function cancelClsEdit(){['editClsId','clsName','clsLevel'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('clsFormTitle').textContent='<i class="fa-solid fa-plus"></i> Add Class';}
 function deleteClass(id){if(!confirm('Delete class?'))return;classes=classes.filter(c=>c.id!==id);save(K.classes,classes);renderClasses();showToast('Class deleted','info');}
 
 function renderStreams() {
@@ -6088,9 +6088,9 @@ function renderStreams() {
       <td>${clsTeacher?`<div style="display:flex;align-items:center;gap:.4rem">${teacherInitialsTag(clsTeacher)}<span style="font-size:.82rem">${clsTeacher.name}</span></div>`:'<span style="color:var(--muted);font-size:.8rem">Not assigned</span>'}</td>
       <td>${assignedCount ? `<span class="badge b-green" style="font-size:.65rem">${assignedCount} subjects</span>` : '<span style="color:var(--muted);font-size:.75rem">Not configured</span>'}</td>
       <td><div class="act-cell">
-        <button class="icb" style="background:var(--primary);color:#fff;border:none;padding:.2rem .5rem;font-size:.68rem;border-radius:5px;cursor:pointer" onclick="openManageStream('${s.id}')" title="Manage">⚙</button>
-        <button class="icb ed" onclick="editStream('${s.id}')" title="Edit">✏️</button>
-        <button class="icb dl" onclick="deleteStream('${s.id}')" title="Delete">🗑️</button>
+        <button class="icb" style="background:var(--primary);color:#fff;border:none;padding:.2rem .5rem;font-size:.68rem;border-radius:5px;cursor:pointer" onclick="openManageStream('${s.id}')" title="Manage"><i class="fa-solid fa-gear"></i></button>
+        <button class="icb ed" onclick="editStream('${s.id}')" title="Edit"><i class="fa-solid fa-pen"></i>️</button>
+        <button class="icb dl" onclick="deleteStream('${s.id}')" title="Delete"><i class="fa-solid fa-trash"></i>️</button>
         <button class="icb" style="background:var(--secondary,#16a34a);color:#fff;border:none;font-size:.68rem;padding:.2rem .45rem;border-radius:5px" onclick="downloadStreamList('${s.id}')" title="Download stream student list">⬇</button>
       </div></td></tr>`;
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">No streams yet.</td></tr>';
@@ -6105,7 +6105,7 @@ function saveStream(){
   if(editId){const i=streams.findIndex(s=>s.id===editId);if(i>-1)streams[i]={...streams[i],name,classId,streamTeacherId};}
   else streams.push({id:uid(),name,classId,streamTeacherId});
   save(K.streams,streams); cancelStrEdit(); renderStreams(); populateAllDropdowns();
-  showToast('Stream saved ✓','success');
+  showToast('Stream saved <i class="fa-solid fa-check"></i>','success');
 }
 function editStream(id){
   const s=streams.find(x=>x.id===id);if(!s)return;
@@ -6115,13 +6115,13 @@ function editStream(id){
   populateStrTeacherDropdown();
   const strTch=document.getElementById('strTeacher');
   if(strTch) strTch.value=s.streamTeacherId||'';
-  document.getElementById('strFormTitle').textContent='✏️ Edit Stream';
+  document.getElementById('strFormTitle').textContent='<i class="fa-solid fa-pen"></i>️ Edit Stream';
 }
 function populateStrTeacherDropdown(){
   const el=document.getElementById('strTeacher');if(!el)return;
   el.innerHTML='<option value="">— None —</option>'+teachers.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
 }
-function cancelStrEdit(){['editStrId','strName'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('strFormTitle').textContent='➕ Add Stream';}
+function cancelStrEdit(){['editStrId','strName'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('strFormTitle').textContent='<i class="fa-solid fa-plus"></i> Add Stream';}
 function deleteStream(id){if(!confirm('Delete stream?'))return;streams=streams.filter(s=>s.id!==id);save(K.streams,streams);renderStreams();showToast('Stream deleted','info');}
 
 // ═══════════════ STREAM SUBJECT-TEACHER ASSIGNMENTS ═══════════════
@@ -6175,7 +6175,7 @@ function openManageStream(streamId) {
   }).join('');
 
   showModal(
-    `📚 Manage Stream: ${stream.name}${cls ? ' — ' + cls.name : ''}`,
+    `<i class="fa-solid fa-book"></i> Manage Stream: ${stream.name}${cls ? ' — ' + cls.name : ''}`,
     `<p style="font-size:.82rem;color:var(--muted);margin-bottom:.75rem">Assign teachers to subjects for this stream. Teachers will only see & upload marks for their assigned subjects.</p>
     <div class="tbl-wrap" style="max-height:400px;overflow-y:auto">
       <table>
@@ -6183,7 +6183,7 @@ function openManageStream(streamId) {
         <tbody>${rows}</tbody>
       </table>
     </div>`,
-    [{label:'💾 Save Assignments', cls:'btn-primary', action:"saveStreamAssignmentsFromModal('"+streamId+"')"},
+    [{label:'<i class="fa-solid fa-floppy-disk"></i> Save Assignments', cls:'btn-primary', action:"saveStreamAssignmentsFromModal('"+streamId+"')"},
      {label:'Close', cls:'btn-outline', action:'closeModal()'}]
   );
 }
@@ -6226,7 +6226,7 @@ function saveStreamAssignmentsFromModal(streamId) {
   save(K.subjects, subjects);
   save(K.students, students);
   closeModal();
-  showToast('Stream assignments saved ✓', 'success');
+  showToast('Stream assignments saved <i class="fa-solid fa-check"></i>', 'success');
   // Update teacher subject list derived from assignments
   syncTeacherSubjectsFromAssignments();
 }
@@ -6489,7 +6489,7 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
     <!-- PERFORMANCE TREND -->
     ${data.history && data.history.length > 1 ? `
     <div class="rf-section" style="margin-top:.5rem">
-      <div class="rf-section-title" style="background:#7c3aed">📈 Performance Trend</div>
+      <div class="rf-section-title" style="background:#7c3aed"><i class="fa-solid fa-chart-line"></i> Performance Trend</div>
       <div class="rf-section-body">
         <canvas id="rfTrendChart_${data.stu.id}_${data.exam.id}" height="80" data-history="${encodeURIComponent(JSON.stringify(data.history))}"></canvas>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">
@@ -6519,7 +6519,7 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
     <!-- FEES SECTION -->
     ${(data.feeBalance !== undefined && data.feeBalance !== '') || data.feeStatus ? `
     <div class="rf-section" style="margin-top:.5rem;page-break-inside:avoid">
-      <div class="rf-section-title" style="background:#1a6fb5">💰 Fee Statement</div>
+      <div class="rf-section-title" style="background:#1a6fb5"><i class="fa-solid fa-coins"></i> Fee Statement</div>
       <div class="rf-section-body">
         <div class="rf-info-grid" style="grid-template-columns:repeat(3,1fr)">
           <div class="rf-info-item">
@@ -6533,13 +6533,13 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
           <div class="rf-info-item">
             <span class="rf-info-label">Payment Status</span>
             <span class="rf-info-value" style="color:${parseFloat(data.feeBalance||0)<=0?'#16a34a':'#dc2626'};font-weight:700;font-size:.82rem">
-              ${parseFloat(data.feeBalance||0)<=0 ? '✅ FEES CLEARED' : '⚠️ BALANCE OUTSTANDING'}
+              ${parseFloat(data.feeBalance||0)<=0 ? '<i class="fa-solid fa-circle-check"></i> FEES CLEARED' : '<i class="fa-solid fa-triangle-exclamation"></i>️ BALANCE OUTSTANDING'}
             </span>
           </div>
         </div>
         ${parseFloat(data.feeBalance||0) > 0 ? `
         <div style="margin-top:.5rem;padding:.5rem .75rem;background:#fff1f2;border-left:3px solid #dc2626;border-radius:0 4px 4px 0;font-size:.77rem;color:#dc2626">
-          ⚠️ Outstanding balance of KES ${parseFloat(data.feeBalance||0).toLocaleString()} must be cleared. Please contact the school bursar for payment arrangements.
+          <i class="fa-solid fa-triangle-exclamation"></i>️ Outstanding balance of KES ${parseFloat(data.feeBalance||0).toLocaleString()} must be cleared. Please contact the school bursar for payment arrangements.
         </div>` : ''}
       </div>
     </div>` : ''}
@@ -6562,7 +6562,7 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
         <span style="font-size:.55rem;color:#94a3b8;text-align:center">Loading QR…</span>
       </div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:.65rem;font-weight:700;color:#1a6fb5;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.1rem">📱 Scan to View Results Online</div>
+        <div style="font-size:.65rem;font-weight:700;color:#1a6fb5;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.1rem"><i class="fa-solid fa-mobile-screen"></i> Scan to View Results Online</div>
         <div style="font-size:.62rem;color:#555;line-height:1.4">Student can scan to access full results on any device.</div>
         <div style="font-size:.58rem;color:#94a3b8;margin-top:.15rem;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="rf-qr-url-${data.stu.id}-${data.exam.id}"></div>
       </div>
@@ -6619,7 +6619,7 @@ function generateReport() {
     if (exactRec) {
       const bal = getRecordBalance(exactRec);
       autoFeeBalance = bal;
-      autoFeeStatus  = bal <= 0 ? 'FEES CLEARED ✅' : `BALANCE: KES ${bal.toLocaleString()}`;
+      autoFeeStatus  = bal <= 0 ? 'FEES CLEARED <i class="fa-solid fa-circle-check"></i>' : `BALANCE: KES ${bal.toLocaleString()}`;
     } else {
       // Fallback: most recent fee record for this student
       const stuRecs = feeRecords.filter(r => r.studentId===stu.id);
@@ -6634,7 +6634,7 @@ function generateReport() {
         const latestRec = stuRecs[0];
         const bal = getRecordBalance(latestRec);
         autoFeeBalance = bal;
-        autoFeeStatus  = bal <= 0 ? 'FEES CLEARED ✅' : `BALANCE: KES ${bal.toLocaleString()}`;
+        autoFeeStatus  = bal <= 0 ? 'FEES CLEARED <i class="fa-solid fa-circle-check"></i>' : `BALANCE: KES ${bal.toLocaleString()}`;
       }
     }
 
@@ -6649,7 +6649,7 @@ function generateReport() {
     return buildReportHTML(d, finalCT, finalPR, nextOpen, schoolClosed, autoFeeBalance, autoFeeNextTerm, autoFeeStatus);
   }).join('');
 
-  showToast(`${stuList.length} report(s) generated ✓`,'success');
+  showToast(`${stuList.length} report(s) generated <i class="fa-solid fa-check"></i>`,'success');
   area.scrollIntoView({behavior:'smooth'});
   // Draw trend charts after DOM settles
   setTimeout(() => {
@@ -6760,7 +6760,7 @@ function sendBulkSMS() {
   document.getElementById('smsCredits').textContent=smsCredits;
   const log={id:uid(),date:new Date().toLocaleString(),to:`${count} recipients`,preview:msg.slice(0,60)+'...',status:'Sent',credits:count};
   msgLog.unshift(log); save(K.msgLog,msgLog);
-  renderMsgLog(); showToast(`SMS sent to ${count} recipients ✓`,'success');
+  renderMsgLog(); showToast(`SMS sent to ${count} recipients <i class="fa-solid fa-check"></i>`,'success');
 }
 
 function sendResultsSMS() {
@@ -6778,13 +6778,13 @@ function renderMsgLog() {
 }
 
 function openMpesaModal() {
-  showModal('💳 Buy SMS Credits (M-Pesa)',`
+  showModal('<i class="fa-solid fa-credit-card"></i> Buy SMS Credits (M-Pesa)',`
     <p style="margin-bottom:1rem;font-size:.875rem;color:var(--muted)">Enter amount to purchase SMS credits. 1 credit = 1 SMS.</p>
     <div class="fg" style="margin-bottom:1rem"><label>Amount (KES)</label><input type="number" id="mpesaAmount" placeholder="e.g. 500" min="100"/></div>
     <div class="fg"><label>M-Pesa Phone</label><input type="tel" id="mpesaPhone" placeholder="07XX XXX XXX"/></div>
     <p style="margin-top:1rem;font-size:.78rem;color:var(--muted)">KES 100 = 100 SMS credits. A payment prompt will be sent to your phone.</p>
   `,[
-    {label:'💳 Pay Now', cls:'btn-primary', action:'processMpesa()'},
+    {label:'<i class="fa-solid fa-credit-card"></i> Pay Now', cls:'btn-primary', action:'processMpesa()'},
     {label:'Cancel', cls:'btn-outline', action:'closeModal()'}
   ]);
 }
@@ -6794,7 +6794,7 @@ function processMpesa() {
   if(!amt||amt<100){showToast('Minimum KES 100','error');return;}
   smsCredits+=amt; localStorage.setItem(K.smsCredits,smsCredits);
   document.getElementById('smsCredits').textContent=smsCredits;
-  closeModal(); showToast(`${amt} SMS credits added ✓`,'success');
+  closeModal(); showToast(`${amt} SMS credits added <i class="fa-solid fa-check"></i>`,'success');
 }
 
 // ═══════════════ SETTINGS ═══════════════
@@ -6832,7 +6832,7 @@ function saveSettings() {
   };
   save(K.settings,[settings]);
   document.getElementById('sbSchoolName').textContent=settings.schoolName||'School';
-  showToast('Settings saved ✓','success');
+  showToast('Settings saved <i class="fa-solid fa-check"></i>','success');
 }
 
 function saveGlobalTeacherRestrictions() {
@@ -6842,7 +6842,7 @@ function saveGlobalTeacherRestrictions() {
   save(K.settings, [settings]);
   // Re-apply UI if a teacher is currently logged in
   if (currentUser && currentUser.role === 'teacher') applyRoleBasedUI();
-  showToast('Teacher restrictions saved ✓', 'success');
+  showToast('Teacher restrictions saved <i class="fa-solid fa-check"></i>', 'success');
 }
 
 // ═══════════════ OVERALL GRADE THRESHOLDS ═══════════════
@@ -6923,7 +6923,7 @@ function renderOverallGradingTable(mode, gs) {
       </div>
       <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center">
         <button class="btn btn-outline btn-sm" onclick="ogResetToAuto()">↺ Reset to Auto Defaults</button>
-        <button class="btn btn-primary btn-sm" onclick="saveOverallGradeThresholds()">💾 Save Thresholds</button>
+        <button class="btn btn-primary btn-sm" onclick="saveOverallGradeThresholds()"><i class="fa-solid fa-floppy-disk"></i> Save Thresholds</button>
       </div>`;
   }
 }
@@ -6932,7 +6932,7 @@ function onOgModeChange(mode) {
   settings.overallGradingMode = mode;
   save(K.settings, [settings]);
   renderOverallGradingTable(mode);
-  showToast(mode === 'auto' ? 'Auto grading mode active ✓' : 'Custom mode — set your thresholds below', 'success');
+  showToast(mode === 'auto' ? 'Auto grading mode active <i class="fa-solid fa-check"></i>' : 'Custom mode — set your thresholds below', 'success');
 }
 
 function ogResetToAuto() {
@@ -6941,7 +6941,7 @@ function ogResetToAuto() {
   settings.overallGradeThresholds = autoThresh;
   save(K.settings, [settings]);
   renderOverallGradingTable('custom');
-  showToast('Thresholds reset to auto-computed values ✓', 'info');
+  showToast('Thresholds reset to auto-computed values <i class="fa-solid fa-check"></i>', 'info');
 }
 
 function saveOverallGradeThresholds() {
@@ -6972,7 +6972,7 @@ function saveOverallGradeThresholds() {
   settings.overallGradeThresholds = thresholds;
   save(K.settings, [settings]);
   renderOverallGradingTable('custom');
-  showToast('Overall grade thresholds saved ✓', 'success');
+  showToast('Overall grade thresholds saved <i class="fa-solid fa-check"></i>', 'success');
 }
 
 
@@ -6984,7 +6984,7 @@ function renderAdminList() {
   document.getElementById('adminList').innerHTML=list.map(a=>`
     <div class="admin-item">
       <div><div class="ai-name">${a.name}</div><div class="ai-role">${a.username} · <span class="badge ${a.role==='superadmin'?'b-amber':a.role==='principal'?'b-teal':a.role==='bursar'?'b-green':'b-blue'}">${a.role}</span></div></div>
-      ${!a.builtin?`<button class="icb dl" onclick="deleteAdmin('${a.id||''}')">🗑️</button>`:'<span style="font-size:.75rem;color:var(--muted)">Built-in</span>'}
+      ${!a.builtin?`<button class="icb dl" onclick="deleteAdmin('${a.id||''}')"><i class="fa-solid fa-trash"></i>️</button>`:'<span style="font-size:.75rem;color:var(--muted)">Built-in</span>'}
     </div>`).join('') || '<p style="color:var(--muted);font-size:.85rem">No admin accounts.</p>';
 }
 
@@ -6998,7 +6998,7 @@ function addAdminAccount() {
   admins.push({id:uid(),name,username:user,password:pass,role});
   save(K.admins,admins);
   ['newAdminName','newAdminUser','newAdminPass'].forEach(id=>document.getElementById(id).value='');
-  renderAdminList(); showToast('Admin account created ✓','success');
+  renderAdminList(); showToast('Admin account created <i class="fa-solid fa-check"></i>','success');
 }
 
 function deleteAdmin(id) {
@@ -7013,7 +7013,7 @@ function exportAllData() {
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download=`examinsight_backup_${new Date().toISOString().split('T')[0]}.json`; a.click();
-  showToast('Data exported ✓','success');
+  showToast('Data exported <i class="fa-solid fa-check"></i>','success');
 }
 
 function importData(input) {
@@ -7033,7 +7033,7 @@ function importData(input) {
       if(data.admins){admins=data.admins;save(K.admins,admins);}
       renderStudents();renderTeachers();renderSubjects();renderClasses();renderStreams();renderExamList();
       populateAllDropdowns();populateExamDropdowns();renderDashboard();loadSettings();
-      showToast('Data imported successfully ✓','success');
+      showToast('Data imported successfully <i class="fa-solid fa-check"></i>','success');
     } catch(err){showToast('Invalid JSON file','error');console.error(err);}
   };
   reader.readAsText(file); input.value='';
@@ -7069,7 +7069,7 @@ function exportAnalysisPDF() {
       doc.autoTable({startY:44,head:[['Subject','Count','Mean','Max','Min']],body:subjectData,theme:'striped',headStyles:{fillColor:[26,111,181]}});
     }
     doc.save('analysis_report.pdf');
-    showToast('PDF exported ✓','success');
+    showToast('PDF exported <i class="fa-solid fa-check"></i>','success');
   } catch(e){showToast('PDF export error','error');console.error(e);}
 }
 
@@ -7119,7 +7119,7 @@ function exportSummaryAnalyticsPDF() {
   </body></html>`);
   win.document.close();
   setTimeout(()=>win.print(), 600);
-  showToast('Print dialog opened ✓','success');
+  showToast('Print dialog opened <i class="fa-solid fa-check"></i>','success');
 }
 
 function exportSummaryAnalyticsExcel() {
@@ -7171,7 +7171,7 @@ function exportSummaryAnalyticsExcel() {
 
   if (!wb.SheetNames.length) { showToast('No data to export','error'); return; }
   XLSX.writeFile(wb, `summary_analytics_${exam?.name||'exam'}.xlsx`);
-  showToast('Exported to Excel ✓','success');
+  showToast('Exported to Excel <i class="fa-solid fa-check"></i>','success');
 }
 
 // ═══════════════ UTILITIES ═══════════════
@@ -7194,7 +7194,7 @@ document.getElementById('modalOverlay')?.addEventListener('click',e=>{ if(e.targ
 let toastT;
 function showToast(msg, type='success') {
   const t=document.getElementById('toast');
-  const icons={success:'✅',error:'❌',info:'ℹ️',warning:'⚠️'};
+  const icons={success:'<i class="fa-solid fa-circle-check"></i>',error:'<i class="fa-solid fa-circle-xmark"></i>',info:'ℹ️',warning:'<i class="fa-solid fa-triangle-exclamation"></i>️'};
   t.innerHTML=`${icons[type]||''} ${msg}`;
   t.className=`toast ${type} show`;
   clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),3500);
@@ -7228,7 +7228,7 @@ function downloadClassList(classId) {
   const ws=XLSX.utils.json_to_sheet(rows); const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,cls.name);
   XLSX.writeFile(wb,`students_${cls.name.replace(/\s+/g,'_')}.xlsx`);
-  showToast(`${cls.name} student list downloaded ✓`,'success');
+  showToast(`${cls.name} student list downloaded <i class="fa-solid fa-check"></i>`,'success');
 }
 
 function downloadStreamList(streamId) {
@@ -7239,7 +7239,7 @@ function downloadStreamList(streamId) {
   const ws=XLSX.utils.json_to_sheet(rows); const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,str.name.slice(0,31));
   XLSX.writeFile(wb,`stream_${str.name.replace(/\s+/g,'_')}.xlsx`);
-  showToast(`${str.name} list downloaded ✓`,'success');
+  showToast(`${str.name} list downloaded <i class="fa-solid fa-check"></i>`,'success');
 }
 
 // ═══════════════ TEACHER SUBJECT CLASS LIST DOWNLOAD ═══════════════
@@ -7267,7 +7267,7 @@ function downloadTeacherSubjectList(teacherId) {
   });
   if (!wb.SheetNames || !wb.SheetNames.length) { showToast('No student data found for this teacher\'s subjects','warning'); return; }
   XLSX.writeFile(wb, `class_list_${teacher.name.replace(/\s+/g,'_')}.xlsx`);
-  showToast(`Class list for ${teacher.name} downloaded ✓`, 'success');
+  showToast(`Class list for ${teacher.name} downloaded <i class="fa-solid fa-check"></i>`, 'success');
 }
 
 // ═══════════════ ARCHIVED STUDENTS (GRADUATED) ═══════════════
@@ -7304,7 +7304,7 @@ function restoreArchivedStudent(id) {
   save(K.students, students);
   saveCurrentArchive(archived.filter(s=>s.id!==id));
   renderStudents(); renderDashboard(); renderArchivedStudents();
-  showToast(`${stu.name} restored ✓`,'success');
+  showToast(`${stu.name} restored <i class="fa-solid fa-check"></i>`,'success');
 }
 
 function exportArchivedStudentsExcel() {
@@ -7314,14 +7314,14 @@ function exportArchivedStudentsExcel() {
   const ws=XLSX.utils.json_to_sheet(rows); const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Archived');
   XLSX.writeFile(wb,'archived_students.xlsx');
-  showToast('Archive exported ✓','success');
+  showToast('Archive exported <i class="fa-solid fa-check"></i>','success');
 }
 
 // ═══════════════ PLATFORM PROMOTE LEARNERS ═══════════════
 function populatePromoteSchoolDropdown() {
   const sel = document.getElementById('promoteSchoolSel'); if (!sel) return;
   loadPlatform();
-  sel.innerHTML = '<option value="__all__">🌐 All Schools (Global Promotion)</option>' +
+  sel.innerHTML = '<option value="__all__"><i class="fa-solid fa-globe"></i> All Schools (Global Promotion)</option>' +
     platformSchools.filter(s=>s.active!==false).map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
 }
 
@@ -7348,14 +7348,14 @@ function platPreviewPromotion() {
     const toPromote = schStudents.length - toArchive;
     lines.push(`<div style="margin-bottom:.5rem;padding:.5rem .75rem;border-radius:7px;background:rgba(255,255,255,.5);border:1px solid var(--border)">
       <strong>${sch.name}</strong> — ${schStudents.length} students across ${schClasses.length} classes<br>
-      <span style="color:#10b981">▲ ${toPromote} will be promoted</span> &nbsp;|&nbsp; <span style="color:#f59e0b">🗃 ${toArchive} will be archived (${orderedClasses[orderedClasses.length-1]?.name||'final class'})</span>
+      <span style="color:#10b981"> ${toPromote} will be promoted</span> &nbsp;|&nbsp; <span style="color:#f59e0b"><i class="fa-solid fa-box-archive"></i> ${toArchive} will be archived (${orderedClasses[orderedClasses.length-1]?.name||'final class'})</span>
     </div>`);
   });
   box.style.display = '';
-  box.innerHTML = `<div style="margin-bottom:.75rem;font-weight:700;font-size:.88rem">📋 Promotion Preview:</div>${lines.join('')}
+  box.innerHTML = `<div style="margin-bottom:.75rem;font-weight:700;font-size:.88rem"><i class="fa-solid fa-clipboard-list"></i> Promotion Preview:</div>${lines.join('')}
     <div style="margin-top:1rem;display:flex;gap:.75rem">
-      <button class="btn btn-primary btn-sm" onclick="confirmAndPromote('${schoolId}')" style="background:linear-gradient(135deg,#10b981,#059669)">✅ Confirm &amp; Promote All</button>
-      <button class="btn btn-outline btn-sm" onclick="document.getElementById('promotePreviewBox').style.display='none'">✕ Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmAndPromote('${schoolId}')" style="background:linear-gradient(135deg,#10b981,#059669)"><i class="fa-solid fa-circle-check"></i> Confirm &amp; Promote All</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('promotePreviewBox').style.display='none'"><i class="fa-solid fa-xmark"></i> Cancel</button>
     </div>`;
 }
 
@@ -7403,7 +7403,7 @@ function confirmAndPromote(schoolId) {
     }
   });
   document.getElementById('promotePreviewBox').style.display='none';
-  showToast(`✅ Done — ${totalPromoted} promoted, ${totalArchived} archived`,'success');
+  showToast(`<i class="fa-solid fa-circle-check"></i> Done — ${totalPromoted} promoted, ${totalArchived} archived`,'success');
 }
 
 // ═══════════════ MERIT LIST TYPE SWITCHER ═══════════════
@@ -7465,10 +7465,10 @@ function editGS(id) {
       <td><input type="text" class="gs-grade" value="${b.grade}" maxlength="4" style="width:60px"/></td>
       <td><input type="number" class="gs-pts" value="${b.points}" min="0" max="10" step="0.5" style="width:60px"/></td>
       <td><input type="text" class="gs-lbl" value="${b.label||''}" style="width:120px"/></td>
-      <td><button type="button" class="icb dl" onclick="this.closest('tr').remove()">🗑</button></td>
+      <td><button type="button" class="icb dl" onclick="this.closest('tr').remove()"><i class="fa-solid fa-trash"></i></button></td>
     </tr>`).join('');
 
-  showModal(`✏️ Edit Grading System — ${gs.name}`, `
+  showModal(`<i class="fa-solid fa-pen"></i>️ Edit Grading System — ${gs.name}`, `
     <div style="margin-bottom:.75rem">
       <label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:.4rem">System Name</label>
       <input type="text" id="editGsName" value="${gs.name}" style="width:100%;padding:.5rem;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit"/>
@@ -7479,9 +7479,9 @@ function editGS(id) {
         <tbody id="editGsBandsBody">${bandsHTML}</tbody>
       </table>
     </div>
-    <button type="button" class="btn btn-outline btn-sm" style="margin-top:.5rem" onclick="addEditGSBandRow()">➕ Add Band</button>
+    <button type="button" class="btn btn-outline btn-sm" style="margin-top:.5rem" onclick="addEditGSBandRow()"><i class="fa-solid fa-plus"></i> Add Band</button>
   `, [
-    { label:'💾 Save Changes', cls:'btn-primary', action:`saveEditedGS('${id}')` },
+    { label:'<i class="fa-solid fa-floppy-disk"></i> Save Changes', cls:'btn-primary', action:`saveEditedGS('${id}')` },
     { label:'Cancel', cls:'btn-outline', action:'closeModal()' }
   ]);
 }
@@ -7496,7 +7496,7 @@ function addEditGSBandRow() {
     <td><input type="text" class="gs-grade" placeholder="EE1" maxlength="4" style="width:60px"/></td>
     <td><input type="number" class="gs-pts" placeholder="8" min="0" max="10" step="0.5" style="width:60px"/></td>
     <td><input type="text" class="gs-lbl" placeholder="Outstanding" style="width:120px"/></td>
-    <td><button type="button" class="icb dl" onclick="this.closest('tr').remove()">🗑</button></td>`;
+    <td><button type="button" class="icb dl" onclick="this.closest('tr').remove()"><i class="fa-solid fa-trash"></i></button></td>`;
   tbody.appendChild(tr);
 }
 
@@ -7524,7 +7524,7 @@ function saveEditedGS(id) {
   localStorage.setItem(K_GS, JSON.stringify(gradingSystems));
   closeModal();
   renderGradingSystemsTab();
-  showToast('Grading system updated ✓','success');
+  showToast('Grading system updated <i class="fa-solid fa-check"></i>','success');
 }
 
 // ═══════════════ MERIT LIST – UPDATED RENDER ═══════════════
@@ -7560,7 +7560,7 @@ function renderMeritList() {
     </div>`;
     container.innerHTML = ptsLegendStream + `
       <h3 style="margin-bottom:.75rem;font-family:var(--font);font-weight:700">
-        🌊 ${cls ? cls.name + ' &rsaquo; ' : ''}${str?.name||streamId} &mdash; Stream Merit List
+         ${cls ? cls.name + ' &rsaquo; ' : ''}${str?.name||streamId} &mdash; Stream Merit List
         <span style="font-size:.78rem;font-weight:400;color:var(--muted);margin-left:.5rem">${exam?.name||''}</span>
       </h3>
       <div class="tbl-wrap">
@@ -7620,7 +7620,7 @@ function renderMeritList() {
         return `
           <div style="margin-top:1.5rem">
             <h4 style="margin-bottom:.6rem;font-family:var(--font);font-weight:700;color:var(--secondary);font-size:.95rem">
-              🌊 ${str.name} Stream
+               ${str.name} Stream
               <span style="font-size:.75rem;font-weight:400;color:var(--muted);margin-left:.4rem">${strScored.length} student${strScored.length!==1?'s':''}</span>
             </h4>
             <div class="tbl-wrap">
@@ -7635,7 +7635,7 @@ function renderMeritList() {
     return `
       <div style="${pageBreak}">
         <h3 style="margin-bottom:.75rem;font-family:var(--font);font-weight:700;color:var(--primary)">
-          🏆 ${cls.name} &mdash; Class Merit List
+          <i class="fa-solid fa-trophy"></i> ${cls.name} &mdash; Class Merit List
           <span style="font-size:.78rem;font-weight:400;color:var(--muted);margin-left:.5rem">${exam?.name||''} &bull; ${classScored.length} students</span>
         </h3>
         <div class="tbl-wrap">
@@ -7714,7 +7714,7 @@ function downloadAllReportsPDF() {
       await renderForm(forms[i], i);
     }
     doc.save(fileName);
-    showToast(`PDF with ${forms.length} report(s) downloaded ✓`, 'success');
+    showToast(`PDF with ${forms.length} report(s) downloaded <i class="fa-solid fa-check"></i>`, 'success');
   })();
 }
 
@@ -7787,7 +7787,7 @@ function es_exportData() {
   const blob = new Blob([JSON.stringify(es_state, null, 2)], {type:'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = `eduschedule_${(es_state.school.name||'backup').replace(/\s+/g,'_')}.json`;
-  a.click(); es_toast('💾 Data exported!', 'success');
+  a.click(); es_toast('<i class="fa-solid fa-floppy-disk"></i> Data exported!', 'success');
 }
 function es_importDataPrompt() {
   const input = document.createElement('input'); input.type='file'; input.accept='.json';
@@ -7797,8 +7797,8 @@ function es_importDataPrompt() {
       try {
         Object.assign(es_state, JSON.parse(ev.target.result));
         es_saveData(); es_syncSetupForm(); es_renderAll(); es_updateDashboard();
-        es_toast('📂 Data loaded!', 'success');
-      } catch(e) { es_toast('❌ Invalid file', 'danger'); }
+        es_toast('<i class="fa-solid fa-folder-open"></i> Data loaded!', 'success');
+      } catch(e) { es_toast('<i class="fa-solid fa-circle-xmark"></i> Invalid file', 'danger'); }
     };
     r.readAsText(e.target.files[0]);
   };
@@ -7824,7 +7824,7 @@ function es_showPage(name, navEl) {
     if (n.getAttribute('onclick')?.includes("'"+name+"'")) n.classList.add('active');
   });
   const titleEl = document.getElementById('es_topbarTitle');
-  if (titleEl) titleEl.textContent = '📅 ' + (PAGE_TITLES[name] || name);
+  if (titleEl) titleEl.textContent = '<i class="fa-solid fa-calendar-days"></i> ' + (PAGE_TITLES[name] || name);
   if (name==='view')     { es_populateViewSelects(); es_renderTimetableView(); }
   if (name==='generate') es_buildGenClassSelector();
   if (name==='conflicts') es_runConflictCheck();
@@ -7845,7 +7845,7 @@ function es_closeModal(id) { document.getElementById(id).classList.remove('open'
 ===================================================== */
 function es_toast(msg, type='info') {
   const colors = {success:'var(--success)',danger:'var(--danger)',warning:'var(--warning)',info:'var(--accent)'};
-  const icons  = {success:'✅',danger:'❌',warning:'⚠️',info:'ℹ️'};
+  const icons  = {success:'<i class="fa-solid fa-circle-check"></i>',danger:'<i class="fa-solid fa-circle-xmark"></i>',warning:'<i class="fa-solid fa-triangle-exclamation"></i>️',info:'ℹ️'};
   const el = document.createElement('div');
   el.className = 'toast';
   el.style.borderLeft = '3px solid '+(colors[type]||colors.info);
@@ -7877,7 +7877,7 @@ function es_renderPeriodPreview(days, lessons, start, dur) {
       m = (m + brk.duration) % 60;
       const bEl = document.createElement('div');
       bEl.style.cssText = 'padding:4px 8px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;font-size:11px;color:var(--warning);font-weight:600;';
-      bEl.textContent = `☕ ${brk.label||'Break'} ${brk.duration}min`;
+      bEl.textContent = ` ${brk.label||'Break'} ${brk.duration}min`;
       preview.appendChild(bEl);
     }
     const endH = Math.floor((h*60+m+dur)/60) % 24;
@@ -7897,7 +7897,7 @@ function es_clearAllBreaks() {
   if (!confirm('Remove all break periods?')) return;
   es_state.school.breaks = [];
   es_saveData(); es_renderBreakList(); es_updateSetupUI();
-  es_toast('🗑 All breaks cleared','success');
+  es_toast('<i class="fa-solid fa-trash"></i> All breaks cleared','success');
 }
 function es_quickBreak(after, duration, label) {
   if (!es_state.school.breaks) es_state.school.breaks = [];
@@ -7908,7 +7908,7 @@ function es_quickBreak(after, duration, label) {
   es_state.school.breaks.push({after, duration, label});
   es_state.school.breaks.sort((a,b) => a.after - b.after);
   es_saveData(); es_renderBreakList(); es_updateSetupUI();
-  es_toast(`✅ Added: ${label} after Period ${after}`, 'success');
+  es_toast(`<i class="fa-solid fa-circle-check"></i> Added: ${label} after Period ${after}`, 'success');
 }
 window.es_clearAllBreaks = es_clearAllBreaks;
 window.es_quickBreak = es_quickBreak;
@@ -7931,7 +7931,7 @@ function es_renderBreakList() {
   }
   el.innerHTML = breaks.map((b,i) => {
     const isLunch = /lunch/i.test(b.label);
-    const icon = isLunch ? '🍽' : '☕';
+    const icon = isLunch ? '<i class="fa-solid fa-utensils"></i>' : '';
     const bg   = isLunch ? 'rgba(16,185,129,.08)' : 'rgba(245,158,11,.08)';
     const bdr  = isLunch ? 'rgba(16,185,129,.3)' : 'rgba(245,158,11,.3)';
     const col  = isLunch ? '#065f46' : '#92400e';
@@ -7942,7 +7942,7 @@ function es_renderBreakList() {
         <div style="font-weight:700;font-size:13px;color:${col};">${b.label}</div>
         <div style="font-size:11px;color:var(--text3);">After Period ${b.after} &nbsp;•&nbsp; ${b.duration} minutes</div>
       </div>
-      <button class="btn btn-sm btn-danger" onclick="removeBreak(${i})" title="Remove">✕</button>
+      <button class="btn btn-sm btn-danger" onclick="removeBreak(${i})" title="Remove"><i class="fa-solid fa-xmark"></i></button>
     </div>`;
   }).join('');
 }
@@ -7961,7 +7961,7 @@ function es_saveSetup() {
   es_state.school.schoolStart  = document.getElementById('es_schoolStart').value;
   if (!es_state.school.name) { es_toast('Please enter a school name','warning'); return; }
   es_saveData(); es_renderAll(); es_updateDashboard();
-  es_toast('✅ School setup saved!','success');
+  es_toast('<i class="fa-solid fa-circle-check"></i> School setup saved!','success');
 }
 
 /* =====================================================
@@ -7985,7 +7985,7 @@ function es_saveClass() {
   if (idx >= 0) es_state.classes[idx] = obj; else es_state.classes.push(obj);
   es_closeModal('classModal');
   es_renderClasses(); es_updateBadges(); es_updateDashboard(); es_saveData();
-  es_toast('✅ Class saved!','success');
+  es_toast('<i class="fa-solid fa-circle-check"></i> Class saved!','success');
 }
 function es_editClass(id) {
   const c = es_state.classes.find(x => x.id === id); if (!c) return;
@@ -8001,13 +8001,13 @@ function es_deleteClass(id) {
   es_state.classes = es_state.classes.filter(c => c.id !== id);
   delete es_state.timetable[id];
   es_renderClasses(); es_updateBadges(); es_updateDashboard(); es_saveData();
-  es_toast('🗑️ Class deleted','warning');
+  es_toast('<i class="fa-solid fa-trash"></i>️ Class deleted','warning');
 }
 function es_renderClasses() {
   const tbody = document.getElementById('es_classTableBody');
   if (!tbody) return;
   if (es_state.classes.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">🏫</div><h3>No classes yet</h3><p>Click "Add Class" to get started</p></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-school"></i></div><h3>No classes yet</h3><p>Click "Add Class" to get started</p></div></td></tr>';
     return;
   }
   tbody.innerHTML = es_state.classes.map(c => {
@@ -8017,11 +8017,11 @@ function es_renderClasses() {
       <td>${c.stream||'—'}</td>
       <td><strong>${c.grade}${c.stream?' '+c.stream:''}</strong></td>
       <td>${c.students} students</td>
-      <td>${hastt?'<span class="badge badge-green">✅ Generated</span>':'<span class="badge badge-orange">⚪ None</span>'}</td>
+      <td>${hastt?'<span class="badge badge-green"><i class="fa-solid fa-circle-check"></i> Generated</span>':'<span class="badge badge-orange">● None</span>'}</td>
       <td>
-        <button class="btn btn-sm btn-secondary" onclick="viewClassDirect('${c.id}')">📅 View</button>
-        <button class="btn btn-sm btn-secondary" onclick="editClass('${c.id}')">✏️</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteClass('${c.id}')">🗑️</button>
+        <button class="btn btn-sm btn-secondary" onclick="viewClassDirect('${c.id}')"><i class="fa-solid fa-calendar-days"></i> View</button>
+        <button class="btn btn-sm btn-secondary" onclick="editClass('${c.id}')"><i class="fa-solid fa-pen"></i>️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteClass('${c.id}')"><i class="fa-solid fa-trash"></i>️</button>
       </td>
     </tr>`;
   }).join('');
@@ -8080,7 +8080,7 @@ function es_saveSubject() {
   if (idx >= 0) es_state.subjects[idx] = obj; else es_state.subjects.push(obj);
   es_closeModal('subjectModal');
   es_renderSubjects(); es_updateBadges(); es_updateDashboard(); es_saveData();
-  es_toast('✅ Subject saved!','success');
+  es_toast('<i class="fa-solid fa-circle-check"></i> Subject saved!','success');
 }
 function es_editSubject(id) {
   const s = es_state.subjects.find(x => x.id === id); if (!s) return;
@@ -8099,13 +8099,13 @@ function es_deleteSubject(id) {
   if (!confirm('Delete this subject?')) return;
   es_state.subjects = es_state.subjects.filter(s => s.id !== id);
   es_renderSubjects(); es_updateBadges(); es_saveData();
-  es_toast('🗑️ Subject deleted','warning');
+  es_toast('<i class="fa-solid fa-trash"></i>️ Subject deleted','warning');
 }
 function es_renderSubjects() {
   const tbody = document.getElementById('es_subjectTableBody');
   if (!tbody) return;
   if (es_state.subjects.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📚</div><h3>No subjects yet</h3></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-book"></i></div><h3>No subjects yet</h3></div></td></tr>';
     return;
   }
   tbody.innerHTML = es_state.subjects.map(s => `
@@ -8117,8 +8117,8 @@ function es_renderSubjects() {
       <td><span class="badge ${s.double?'badge-green':'badge-red'}">${s.double?'Yes':'No'}</span></td>
       <td style="font-size:11px;color:var(--text2)">${(s.grades||[]).join(', ')}</td>
       <td>
-        <button class="btn btn-sm btn-secondary" onclick="editSubject('${s.id}')">✏️</button>
-        <button class="btn btn-sm btn-danger"    onclick="deleteSubject('${s.id}')">🗑️</button>
+        <button class="btn btn-sm btn-secondary" onclick="editSubject('${s.id}')"><i class="fa-solid fa-pen"></i>️</button>
+        <button class="btn btn-sm btn-danger"    onclick="deleteSubject('${s.id}')"><i class="fa-solid fa-trash"></i>️</button>
       </td>
     </tr>
   `).join('');
@@ -8149,7 +8149,7 @@ function es_buildAvailGrid(teacher) {
     html += `<div class="avail-row"><div class="avail-day-label">${ES_DAY_NAMES[d]}</div>`;
     for (let p = 1; p <= lessons; p++) {
       const avail = teacher ? (teacher.availability?.[d]?.[p] !== false) : true;
-      html += `<div class="avail-cell ${avail?'available':''}" data-day="${d}" data-period="${p}" onclick="toggleAvail(this)">${avail?'✓':''}</div>`;
+      html += `<div class="avail-cell ${avail?'available':''}" data-day="${d}" data-period="${p}" onclick="toggleAvail(this)">${avail?'<i class="fa-solid fa-check"></i>':''}</div>`;
     }
     html += '</div>';
   }
@@ -8157,7 +8157,7 @@ function es_buildAvailGrid(teacher) {
 }
 function es_toggleAvail(el) {
   el.classList.toggle('available');
-  el.textContent = el.classList.contains('available') ? '✓' : '';
+  el.textContent = el.classList.contains('available') ? '<i class="fa-solid fa-check"></i>' : '';
 }
 function es_getAvailFromGrid() {
   const avail = {};
@@ -8181,7 +8181,7 @@ function es_saveTeacher() {
   if (idx >= 0) es_state.teachers[idx] = obj; else es_state.teachers.push(obj);
   es_closeModal('teacherModal');
   es_renderTeachers(); es_updateBadges(); es_updateDashboard(); es_saveData();
-  es_toast('✅ Teacher saved!','success');
+  es_toast('<i class="fa-solid fa-circle-check"></i> Teacher saved!','success');
 }
 function es_editTeacher(id) {
   const t = es_state.teachers.find(x => x.id === id); if (!t) return;
@@ -8199,13 +8199,13 @@ function es_deleteTeacher(id) {
   if (!confirm('Delete this teacher?')) return;
   es_state.teachers = es_state.teachers.filter(t => t.id !== id);
   es_renderTeachers(); es_updateBadges(); es_saveData();
-  es_toast('🗑️ Teacher deleted','warning');
+  es_toast('<i class="fa-solid fa-trash"></i>️ Teacher deleted','warning');
 }
 function es_renderTeachers() {
   const tbody = document.getElementById('es_teacherTableBody');
   if (!tbody) return;
   if (es_state.teachers.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">👨‍🏫</div><h3>No teachers yet</h3></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-person"></i>‍<i class="fa-solid fa-school"></i></div><h3>No teachers yet</h3></div></td></tr>';
     return;
   }
   tbody.innerHTML = es_state.teachers.map(t => {
@@ -8231,8 +8231,8 @@ function es_renderTeachers() {
         <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${col}"></div></div>
       </td>
       <td>
-        <button class="btn btn-sm btn-secondary" onclick="editTeacher('${t.id}')">✏️</button>
-        <button class="btn btn-sm btn-danger"    onclick="deleteTeacher('${t.id}')">🗑️</button>
+        <button class="btn btn-sm btn-secondary" onclick="editTeacher('${t.id}')"><i class="fa-solid fa-pen"></i>️</button>
+        <button class="btn btn-sm btn-danger"    onclick="deleteTeacher('${t.id}')"><i class="fa-solid fa-trash"></i>️</button>
       </td>
     </tr>`;
   }).join('');
@@ -8263,7 +8263,7 @@ function es_saveRoom() {
   if (idx >= 0) es_state.rooms[idx] = obj; else es_state.rooms.push(obj);
   es_closeModal('roomModal');
   es_renderRooms(); es_updateBadges(); es_saveData();
-  es_toast('✅ Room saved!','success');
+  es_toast('<i class="fa-solid fa-circle-check"></i> Room saved!','success');
 }
 function es_editRoom(id) {
   const r = es_state.rooms.find(x => x.id === id); if (!r) return;
@@ -8280,13 +8280,13 @@ function es_deleteRoom(id) {
   if (!confirm('Delete this room?')) return;
   es_state.rooms = es_state.rooms.filter(r => r.id !== id);
   es_renderRooms(); es_updateBadges(); es_saveData();
-  es_toast('🗑️ Room deleted','warning');
+  es_toast('<i class="fa-solid fa-trash"></i>️ Room deleted','warning');
 }
 function es_renderRooms() {
   const tbody = document.getElementById('es_roomTableBody');
   if (!tbody) return;
   if (es_state.rooms.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🚪</div><h3>No rooms yet</h3><p>Rooms are optional</p></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-arrow-right-from-bracket"></i></div><h3>No rooms yet</h3><p>Rooms are optional</p></div></td></tr>';
     return;
   }
   tbody.innerHTML = es_state.rooms.map(r => {
@@ -8300,8 +8300,8 @@ function es_renderRooms() {
       <td>${r.capacity}</td>
       <td>${subNames||'—'}</td>
       <td>
-        <button class="btn btn-sm btn-secondary" onclick="editRoom('${r.id}')">✏️</button>
-        <button class="btn btn-sm btn-danger"    onclick="deleteRoom('${r.id}')">🗑️</button>
+        <button class="btn btn-sm btn-secondary" onclick="editRoom('${r.id}')"><i class="fa-solid fa-pen"></i>️</button>
+        <button class="btn btn-sm btn-danger"    onclick="deleteRoom('${r.id}')"><i class="fa-solid fa-trash"></i>️</button>
       </td>
     </tr>`;
   }).join('');
@@ -8338,7 +8338,7 @@ async function es_generateTimetable() {
   btn.disabled = true; btn.textContent = '⏳ Generating…';
   document.getElementById('es_genLog').innerHTML = '';
   es_setProgress(0);
-  es_genLog('🚀 Starting generation…');
+  es_genLog('<i class="fa-solid fa-rocket"></i> Starting generation…');
 
   const days      = parseInt(es_state.school.daysPerWeek) || 5;
   const periods   = parseInt(es_state.school.lessonsPerDay) || 9;
@@ -8397,7 +8397,7 @@ async function es_generateTimetable() {
     const cls     = es_state.classes.find(c => c.id === classId);
     if (!cls) continue;
 
-    es_genLog(`📋 Scheduling ${cls.grade}${cls.stream?' '+cls.stream:''}…`);
+    es_genLog(`<i class="fa-solid fa-clipboard-list"></i> Scheduling ${cls.grade}${cls.stream?' '+cls.stream:''}…`);
     es_setProgress(Math.round((di / selectedClassIds.length) * 85));
 
     // Init class timetable
@@ -8553,17 +8553,17 @@ async function es_generateTimetable() {
 
       if (!scheduled) {
         const sub = es_state.subjects.find(s => s.id === sid);
-        es_genLog(`⚠️ Could not place: ${sub?.name||'Unknown'} for ${cls.grade}${cls.stream?' '+cls.stream:''}`);
+        es_genLog(`<i class="fa-solid fa-triangle-exclamation"></i>️ Could not place: ${sub?.name||'Unknown'} for ${cls.grade}${cls.stream?' '+cls.stream:''}`);
       }
     }
 
     const totalLessons = lessons.length;
-    es_genLog(`✅ ${cls.grade}${cls.stream?' '+cls.stream:''}: ${placed}/${totalLessons} lessons placed`);
+    es_genLog(`<i class="fa-solid fa-circle-check"></i> ${cls.grade}${cls.stream?' '+cls.stream:''}: ${placed}/${totalLessons} lessons placed`);
     await es_sleep(20);
   }
 
   es_setProgress(100);
-  es_genLog('🔍 Running collision resolution pass…');
+  es_genLog('<i class="fa-solid fa-magnifying-glass"></i> Running collision resolution pass…');
 
   // ── Post-generation collision resolver ──────────────────────────────────
   // Scan every (day, period) across all selected classes. If more than one
@@ -8581,7 +8581,7 @@ async function es_generateTimetable() {
             // Collision: clear the teacher from this later-processed class slot
             const teacher = es_state.teachers.find(t => t.id === slot.teacherId);
             const cls2    = es_state.classes.find(c => c.id === classId);
-            es_genLog(`🔧 Fixed collision: ${teacher?.name||slot.teacherId} was in 2 classes on ${ES_DAY_NAMES[d]} P${p+1}. Cleared from ${cls2?.grade||classId}.`);
+            es_genLog(`<i class="fa-solid fa-wrench"></i> Fixed collision: ${teacher?.name||slot.teacherId} was in 2 classes on ${ES_DAY_NAMES[d]} P${p+1}. Cleared from ${cls2?.grade||classId}.`);
             slot.teacherId = null;
             resolvedCount.conflicts++;
           } else {
@@ -8591,18 +8591,18 @@ async function es_generateTimetable() {
       }
     }
     if (resolvedCount.conflicts === 0) {
-      es_genLog('✅ No teacher collisions found.');
+      es_genLog('<i class="fa-solid fa-circle-check"></i> No teacher collisions found.');
     } else {
-      es_genLog(`⚠️ Resolved ${resolvedCount.conflicts} teacher collision(s). Consider adding more teachers.`);
+      es_genLog(`<i class="fa-solid fa-triangle-exclamation"></i>️ Resolved ${resolvedCount.conflicts} teacher collision(s). Consider adding more teachers.`);
     }
   }
   // ────────────────────────────────────────────────────────────────────────
 
-  es_genLog('🎉 Generation complete! Check "View Timetable" to review.');
+  es_genLog('<i class="fa-solid fa-party-horn"></i> Generation complete! Check "View Timetable" to review.');
   es_saveData(); es_updateDashboard(); es_updateBadges();
   es_runConflictCheck();
-  btn.disabled = false; btn.textContent = '⚡ Generate Timetable';
-  es_toast('🎉 Timetable generated!','success');
+  btn.disabled = false; btn.textContent = '<i class="fa-solid fa-bolt"></i> Generate Timetable';
+  es_toast('<i class="fa-solid fa-party-horn"></i> Timetable generated!','success');
   es_populateViewSelects();
 }
 
@@ -8610,7 +8610,7 @@ function es_clearTimetable() {
   if (!confirm('Clear all generated timetable data?')) return;
   es_state.timetable = {};
   es_saveData(); es_updateDashboard(); es_updateBadges();
-  es_toast('🗑️ Timetable cleared','warning');
+  es_toast('<i class="fa-solid fa-trash"></i>️ Timetable cleared','warning');
 }
 function es_genLog(msg) {
   const el = document.getElementById('es_genLog');
@@ -8687,7 +8687,7 @@ function es_renderTimetableView() {
       html += `<div class="tt-cell tt-cell-header" style="min-width:72px;">Day</div>`;
     } else if (col.type === 'break') {
       const isLunch = /lunch/i.test(col.breakObj.label);
-      html += `<div class="tt-cell tt-break-col-hdr ${isLunch?'tt-lunch-hdr':'tt-break-hdr'}">${isLunch?'🍽':'☕'}<br><span>${col.breakObj.label}</span><br><span style="font-size:9px;opacity:.7">${col.breakObj.duration}min</span></div>`;
+      html += `<div class="tt-cell tt-break-col-hdr ${isLunch?'tt-lunch-hdr':'tt-break-hdr'}">${isLunch?'<i class="fa-solid fa-utensils"></i>':''}<br><span>${col.breakObj.label}</span><br><span style="font-size:9px;opacity:.7">${col.breakObj.duration}min</span></div>`;
     } else {
       html += `<div class="tt-cell tt-cell-header">${col.periodIndex+1}<br><span style="font-size:9px;font-weight:400;color:var(--text3);">${es_getPeriodTime(col.periodIndex)}</span></div>`;
     }
@@ -8700,7 +8700,7 @@ function es_renderTimetableView() {
         html += `<div class="tt-cell tt-day-label">${ES_DAY_FULL[d].substring(0,3)}<br><span style="font-size:9px;font-weight:400;">${ES_DAY_FULL[d].substring(3)}</span></div>`;
       } else if (col.type === 'break') {
         const isLunch = /lunch/i.test(col.breakObj.label);
-        html += `<div class="tt-cell tt-break-col ${isLunch?'tt-lunch-col':''}"><div class="tt-break-inner">${isLunch?'🍽':'☕'}</div></div>`;
+        html += `<div class="tt-cell tt-break-col ${isLunch?'tt-lunch-col':''}"><div class="tt-break-inner">${isLunch?'<i class="fa-solid fa-utensils"></i>':''}</div></div>`;
       } else {
         const p    = col.periodIndex;
         const slot = classTT[d]?.[p];
@@ -8718,11 +8718,11 @@ function es_renderTimetableView() {
                  ondragleave="this.closest('.tt-cell').classList.remove('drag-over')"
                  ondrop="es_dragDrop(event,'${classId}',${d},${p})">
               <div class="lesson-subject">${sub?.name||'?'}</div>
-              <div class="lesson-teacher">${teacher?teacher.name:'⚠ No teacher'}</div>
-              ${room?`<div class="lesson-room">📍${room.name}</div>`:''}
+              <div class="lesson-teacher">${teacher?teacher.name:'<i class="fa-solid fa-triangle-exclamation"></i> No teacher'}</div>
+              ${room?`<div class="lesson-room"><i class="fa-solid fa-location-dot"></i>${room.name}</div>`:''}
               <div class="lesson-actions">
-                <button class="lesson-action-btn" onclick="es_openLessonEdit('${classId}',${d},${p})" title="Edit">✏️</button>
-                <button class="lesson-action-btn" onclick="es_toggleLock('${classId}',${d},${p})" title="${slot.locked?'Unlock':'Lock'}">${slot.locked?'🔓':'🔒'}</button>
+                <button class="lesson-action-btn" onclick="es_openLessonEdit('${classId}',${d},${p})" title="Edit"><i class="fa-solid fa-pen"></i>️</button>
+                <button class="lesson-action-btn" onclick="es_toggleLock('${classId}',${d},${p})" title="${slot.locked?'Unlock':'Lock'}">${slot.locked?'<i class="fa-solid fa-lock-open"></i>':'<i class="fa-solid fa-lock"></i>'}</button>
               </div>
             </div>
           </div>`;
@@ -8770,7 +8770,7 @@ function es_renderTeacherView() {
   const container   = document.getElementById('es_timetableViewContainer');
   const cols        = es_buildColList(periods);
   const colTemplate = cols.map(c => c.type==='day' ? 'auto' : c.type==='break' ? '52px' : '1fr').join(' ');
-  let html = `<div style="font-size:17px;font-weight:800;margin-bottom:14px;">👨‍🏫 ${teacher.name} — Teaching Schedule</div>`;
+  let html = `<div style="font-size:17px;font-weight:800;margin-bottom:14px;"><i class="fa-solid fa-person"></i>‍<i class="fa-solid fa-school"></i> ${teacher.name} — Teaching Schedule</div>`;
   html += `<div class="timetable-container"><div class="tt-grid" style="display:grid;grid-template-columns:${colTemplate};">`;
   // Header
   for (const col of cols) {
@@ -8778,7 +8778,7 @@ function es_renderTeacherView() {
       html += `<div class="tt-cell tt-cell-header">Day</div>`;
     } else if (col.type === 'break') {
       const isLunch = /lunch/i.test(col.breakObj.label);
-      html += `<div class="tt-cell tt-break-col-hdr ${isLunch?'tt-lunch-hdr':'tt-break-hdr'}">${isLunch?'🍽':'☕'}<br><span>${col.breakObj.label}</span><br><span style="font-size:9px;opacity:.7">${col.breakObj.duration}min</span></div>`;
+      html += `<div class="tt-cell tt-break-col-hdr ${isLunch?'tt-lunch-hdr':'tt-break-hdr'}">${isLunch?'<i class="fa-solid fa-utensils"></i>':''}<br><span>${col.breakObj.label}</span><br><span style="font-size:9px;opacity:.7">${col.breakObj.duration}min</span></div>`;
     } else {
       html += `<div class="tt-cell tt-cell-header">${col.periodIndex+1}<br><span style="font-size:9px;font-weight:400;color:var(--text3);">${es_getPeriodTime(col.periodIndex)}</span></div>`;
     }
@@ -8790,7 +8790,7 @@ function es_renderTeacherView() {
         html += `<div class="tt-cell tt-day-label">${ES_DAY_FULL[d].substring(0,3)}</div>`;
       } else if (col.type === 'break') {
         const isLunch = /lunch/i.test(col.breakObj.label);
-        html += `<div class="tt-cell tt-break-col ${isLunch?'tt-lunch-col':''}"><div class="tt-break-inner">${isLunch?'🍽':'☕'}</div></div>`;
+        html += `<div class="tt-cell tt-break-col ${isLunch?'tt-lunch-col':''}"><div class="tt-break-inner">${isLunch?'<i class="fa-solid fa-utensils"></i>':''}</div></div>`;
       } else {
         const p    = col.periodIndex;
         const slot = teacherGrid[d]?.[p];
@@ -8816,7 +8816,7 @@ function es_renderEmptyView() {
   document.getElementById('es_viewLegendCard').style.display = 'none';
   document.getElementById('es_timetableViewContainer').innerHTML = `
     <div class="empty-state">
-      <div class="empty-icon">📅</div>
+      <div class="empty-icon"><i class="fa-solid fa-calendar-days"></i></div>
       <h3>Select a class or teacher to view their timetable</h3>
       <p>Use the dropdowns above</p>
     </div>`;
@@ -8840,7 +8840,7 @@ function es_renderAllClassView() {
   const container = document.getElementById('es_allClassContainer');
   const generated = es_state.classes.filter(c => es_state.timetable[c.id]);
   if (generated.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🗓️</div><h3>No timetables generated yet</h3><p>Go to Generate page first</p></div>';
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-calendar"></i>️</div><h3>No timetables generated yet</h3><p>Go to Generate page first</p></div>';
     return;
   }
   const days    = parseInt(es_state.school.daysPerWeek) || 5;
@@ -8852,10 +8852,10 @@ function es_renderAllClassView() {
     const colTpl    = cols.map(c => c.type==='day' ? 'auto' : c.type==='break' ? '36px' : '1fr').join(' ');
     let html = `<div class="card" style="margin-bottom:20px;">
       <div class="card-header">
-        <div class="card-title">📚 ${cls.grade}${cls.stream?' '+cls.stream:''}</div>
+        <div class="card-title"><i class="fa-solid fa-book"></i> ${cls.grade}${cls.stream?' '+cls.stream:''}</div>
         <div style="display:flex;gap:6px;">
-          <button class="btn btn-sm btn-secondary" onclick="viewClassDirect('${cls.id}')">📅 Full View</button>
-          <button class="btn btn-sm btn-secondary" onclick="exportPDFClass('${cls.id}')">📄 PDF</button>
+          <button class="btn btn-sm btn-secondary" onclick="viewClassDirect('${cls.id}')"><i class="fa-solid fa-calendar-days"></i> Full View</button>
+          <button class="btn btn-sm btn-secondary" onclick="exportPDFClass('${cls.id}')"><i class="fa-solid fa-file-lines"></i> PDF</button>
         </div>
       </div>
       <div class="timetable-container">
@@ -8866,7 +8866,7 @@ function es_renderAllClassView() {
         html += `<div class="tt-cell tt-cell-header" style="font-size:10px;">Day</div>`;
       } else if (col.type === 'break') {
         const isLunch = /lunch/i.test(col.breakObj.label);
-        html += `<div class="tt-cell tt-break-col-hdr ${isLunch?'tt-lunch-hdr':'tt-break-hdr'}" style="font-size:9px;">${isLunch?'🍽':'☕'}</div>`;
+        html += `<div class="tt-cell tt-break-col-hdr ${isLunch?'tt-lunch-hdr':'tt-break-hdr'}" style="font-size:9px;">${isLunch?'<i class="fa-solid fa-utensils"></i>':''}</div>`;
       } else {
         html += `<div class="tt-cell tt-cell-header" style="font-size:10px;">${col.periodIndex+1}</div>`;
       }
@@ -8878,7 +8878,7 @@ function es_renderAllClassView() {
           html += `<div class="tt-cell tt-day-label" style="font-size:10px;min-width:40px;">${ES_DAY_NAMES[d]}</div>`;
         } else if (col.type === 'break') {
           const isLunch = /lunch/i.test(col.breakObj.label);
-          html += `<div class="tt-cell tt-break-col ${isLunch?'tt-lunch-col':''}" style="min-height:44px;"><div class="tt-break-inner" style="font-size:11px;">${isLunch?'🍽':'☕'}</div></div>`;
+          html += `<div class="tt-cell tt-break-col ${isLunch?'tt-lunch-col':''}" style="min-height:44px;"><div class="tt-break-inner" style="font-size:11px;">${isLunch?'<i class="fa-solid fa-utensils"></i>':''}</div></div>`;
         } else {
           const p    = col.periodIndex;
           const slot = classTT[d]?.[p];
@@ -8930,7 +8930,7 @@ function es_dragDrop(e, classId, day, period) {
   const {classId: srcClass, day: srcDay, period: srcPeriod} = es_dragData;
   const src = es_state.timetable[srcClass]?.[srcDay]?.[srcPeriod];
   const dst = es_state.timetable[classId]?.[day]?.[period];
-  if (src?.locked) { es_toast('🔒 Locked lessons cannot be moved','warning'); es_dragData=null; return; }
+  if (src?.locked) { es_toast('<i class="fa-solid fa-lock"></i> Locked lessons cannot be moved','warning'); es_dragData=null; return; }
   if (!es_state.timetable[classId])          es_state.timetable[classId] = {};
   if (!es_state.timetable[classId][day])     es_state.timetable[classId][day] = {};
   if (!es_state.timetable[srcClass])         es_state.timetable[srcClass] = {};
@@ -8989,7 +8989,7 @@ function es_saveLessonEdit() {
     : null;
   es_closeModal('lessonEditModal');
   es_saveData(); es_runConflictCheck(); es_renderTimetableView();
-  es_toast('✅ Lesson updated','success');
+  es_toast('<i class="fa-solid fa-circle-check"></i> Lesson updated','success');
 }
 function es_clearLesson() {
   const classId = document.getElementById('es_lessonEditClass').value;
@@ -9000,14 +9000,14 @@ function es_clearLesson() {
   }
   es_closeModal('lessonEditModal');
   es_saveData(); es_runConflictCheck(); es_renderTimetableView();
-  es_toast('🗑️ Lesson cleared','warning');
+  es_toast('<i class="fa-solid fa-trash"></i>️ Lesson cleared','warning');
 }
 function es_toggleLock(classId, day, period) {
   const slot = es_state.timetable[classId]?.[day]?.[period];
   if (!slot) return;
   slot.locked = !slot.locked;
   es_saveData(); es_renderTimetableView();
-  es_toast(slot.locked ? '🔒 Lesson locked' : '🔓 Lesson unlocked','info');
+  es_toast(slot.locked ? '<i class="fa-solid fa-lock"></i> Lesson locked' : '<i class="fa-solid fa-lock-open"></i> Lesson unlocked','info');
 }
 
 /* =====================================================
@@ -9030,7 +9030,7 @@ function es_runConflictCheck() {
           const c1 = es_state.classes.find(x => x.id === teacherMap[slot.teacherId]);
           conflicts.push({
             type:'danger',
-            msg:`👨‍🏫 Teacher clash: ${t?.name||'Unknown'} in ${c1?.grade} ${c1?.stream||''} AND ${cls.grade} ${cls.stream||''} on ${ES_DAY_NAMES[d]} P${p+1}`
+            msg:`<i class="fa-solid fa-person"></i>‍<i class="fa-solid fa-school"></i> Teacher clash: ${t?.name||'Unknown'} in ${c1?.grade} ${c1?.stream||''} AND ${cls.grade} ${cls.stream||''} on ${ES_DAY_NAMES[d]} P${p+1}`
           });
         } else { teacherMap[slot.teacherId] = cls.id; }
       });
@@ -9046,7 +9046,7 @@ function es_runConflictCheck() {
         if (!slot?.roomId) return;
         if (roomMap[slot.roomId]) {
           const r = es_state.rooms.find(x => x.id === slot.roomId);
-          conflicts.push({type:'danger', msg:`🚪 Room clash: ${r?.name||'Room'} double-booked on ${ES_DAY_NAMES[d]} P${p+1}`});
+          conflicts.push({type:'danger', msg:`<i class="fa-solid fa-arrow-right-from-bracket"></i> Room clash: ${r?.name||'Room'} double-booked on ${ES_DAY_NAMES[d]} P${p+1}`});
         } else { roomMap[slot.roomId] = cls.id; }
       });
     }
@@ -9066,11 +9066,11 @@ function es_runConflictCheck() {
       });
     }
     if (weekLoad > t.maxPerWeek) {
-      conflicts.push({type:'warning', msg:`⚠️ Teacher overloaded: ${t.name} has ${weekLoad} lessons/week (max: ${t.maxPerWeek})`});
+      conflicts.push({type:'warning', msg:`<i class="fa-solid fa-triangle-exclamation"></i>️ Teacher overloaded: ${t.name} has ${weekLoad} lessons/week (max: ${t.maxPerWeek})`});
     }
     for (let d = 0; d < days; d++) {
       if (dayLoads[d] > t.maxPerDay) {
-        conflicts.push({type:'warning', msg:`⚠️ Daily overload: ${t.name} has ${dayLoads[d]} lessons on ${ES_DAY_NAMES[d]} (max: ${t.maxPerDay})`});
+        conflicts.push({type:'warning', msg:`<i class="fa-solid fa-triangle-exclamation"></i>️ Daily overload: ${t.name} has ${dayLoads[d]} lessons on ${ES_DAY_NAMES[d]} (max: ${t.maxPerDay})`});
       }
     }
   });
@@ -9090,7 +9090,7 @@ function es_runConflictCheck() {
       const placed = count[sub.id] || 0;
       if (placed < sub.lessonsPerWeek) {
         conflicts.push({type:'warning',
-          msg:`📚 Insufficient: ${sub.name} for ${cls.grade}${cls.stream?' '+cls.stream:''} needs ${sub.lessonsPerWeek} but ${placed} placed`
+          msg:`<i class="fa-solid fa-book"></i> Insufficient: ${sub.name} for ${cls.grade}${cls.stream?' '+cls.stream:''} needs ${sub.lessonsPerWeek} but ${placed} placed`
         });
       }
     });
@@ -9107,7 +9107,7 @@ function es_runConflictCheck() {
     }
   });
   if (noTeacherCount > 0) {
-    conflicts.push({type:'warning', msg:`👤 ${noTeacherCount} lessons have no teacher assigned. Consider adding more teachers.`});
+    conflicts.push({type:'warning', msg:`<i class="fa-solid fa-user"></i> ${noTeacherCount} lessons have no teacher assigned. Consider adding more teachers.`});
   }
 
   // Update UI
@@ -9119,7 +9119,7 @@ function es_runConflictCheck() {
   if (el) {
     if (conflicts.length === 0) {
       el.innerHTML = `<div class="empty-state" style="padding:48px;">
-        <div class="empty-icon">✅</div>
+        <div class="empty-icon"><i class="fa-solid fa-circle-check"></i></div>
         <h3>No conflicts detected!</h3>
         <p>Your timetable looks clean.</p>
       </div>`;
@@ -9140,7 +9140,7 @@ function es_runConflictCheck() {
   if (dashWarn) {
     const top = conflicts.slice(0, 5);
     if (top.length === 0) {
-      dashWarn.innerHTML = `<div class="empty-state" style="padding:16px;"><div class="empty-icon" style="font-size:24px;">✅</div><p>No warnings</p></div>`;
+      dashWarn.innerHTML = `<div class="empty-state" style="padding:16px;"><div class="empty-icon" style="font-size:24px;"><i class="fa-solid fa-circle-check"></i></div><p>No warnings</p></div>`;
     } else {
       dashWarn.innerHTML = top.map(c => `
         <div class="alert alert-${c.type==='danger'?'danger':'warning'}" style="font-size:12px;padding:8px 12px;">
@@ -9325,7 +9325,7 @@ function es_exportPDFClass(classId) {
   doc.text(`Page 1 / 1`, pw-margin, footerY+4, {align:'right'});
 
   doc.save(`timetable_${cls.grade.replace(/\s+/g,'_')}_${cls.stream||'stream'}.pdf`);
-  es_toast('📄 PDF exported!','success');
+  es_toast('<i class="fa-solid fa-file-lines"></i> PDF exported!','success');
 }
 
 
@@ -9620,7 +9620,7 @@ function es_exportExcel() {
         row.push(`${sub?.name||'?'}${teacher?' – '+teacher.name:''}${room?' ['+room.name+']':''}`);
       } else { row.push(''); }
       const brk = breaks.find(b => b.after === p+1);
-      if (brk) row.push(`☕ ${brk.label}`);
+      if (brk) row.push(` ${brk.label}`);
     }
     rows.push(row);
   }
@@ -9629,7 +9629,7 @@ function es_exportExcel() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, `${cls.grade} ${cls.stream||''}`);
   XLSX.writeFile(wb, `timetable_${cls.grade}_${cls.stream||''}.xlsx`);
-  es_toast('📊 Excel exported!','success');
+  es_toast('<i class="fa-solid fa-chart-bar"></i> Excel exported!','success');
 }
 
 /* =====================================================
@@ -9761,7 +9761,7 @@ function es_loadSampleData() {
 
   es_state.timetable = {};
   es_saveData(); es_syncSetupForm(); es_renderAll(); es_updateDashboard();
-  es_toast('📦 Sample CBC data loaded! Go to School Setup to add your breaks, then click ⚡ Generate.','success');
+  es_toast('<i class="fa-solid fa-box"></i> Sample CBC data loaded! Go to School Setup to add your breaks, then click <i class="fa-solid fa-bolt"></i> Generate.','success');
 }
 
 
@@ -9817,48 +9817,48 @@ const TRANSLATIONS = {
     nav_darkmode:   'Dark Mode',
     nav_logout:     'Logout',
     // Dashboard
-    ph_dashboard:   "Good morning! 👋",
+    ph_dashboard:   "Good morning! ",
     ph_dashboard_sub: "Here's your school's academic overview.",
     // Exams
-    ph_exams:       '📝 Exams',
+    ph_exams:       '<i class="fa-solid fa-file-pen"></i> Exams',
     ph_exams_sub:   'Create, manage, upload marks, and analyse examinations.',
     tab_create:        'Create Exam',
     tab_examlist:      'Exam List',
-    tab_examtimetable: '📅 Exam Timetable',
+    tab_examtimetable: '<i class="fa-solid fa-calendar-days"></i> Exam Timetable',
     tab_upload:        'Upload Marks',
     tab_analyse:       'Analyse',
     tab_merit:         'Merit List',
     tab_subanalysis:   'Subject Analysis',
     // Students
-    ph_students:    '🎓 Students',
+    ph_students:    '<i class="fa-solid fa-user-graduate"></i> Students',
     ph_students_sub:'Manage student records and enrolments.',
     // Teachers
-    ph_teachers:    '👨‍🏫 Teachers',
+    ph_teachers:    '<i class="fa-solid fa-person"></i>‍<i class="fa-solid fa-school"></i> Teachers',
     ph_teachers_sub:'Manage teachers, subjects, and system access.',
     // Subjects
-    ph_subjects:    '📚 Subjects',
+    ph_subjects:    '<i class="fa-solid fa-book"></i> Subjects',
     ph_subjects_sub:'Manage subjects, assign teachers and enrol students.',
     // Classes
-    ph_classes:     '🏫 Classes & Streams',
+    ph_classes:     '<i class="fa-solid fa-school"></i> Classes & Streams',
     ph_classes_sub: 'Manage class and stream assignments.',
     // Timetable
-    ph_timetable:   '🕐 Timetables',
+    ph_timetable:   '<i class="fa-solid fa-clock"></i> Timetables',
     ph_timetable_sub:'Generate, view and print class, teacher and block timetables.',
     // Reports
-    ph_reports:     '📄 Report Forms',
+    ph_reports:     '<i class="fa-solid fa-file-lines"></i> Report Forms',
     ph_reports_sub: 'Generate downloadable PDF report forms for students.',
     // Messaging
-    ph_messaging:   '💬 Messaging (SMS)',
+    ph_messaging:   '<i class="fa-solid fa-comments"></i> Messaging (SMS)',
     ph_messaging_sub:'Send messages to parents and teachers.',
     // Settings
-    ph_settings:    '⚙ Settings',
+    ph_settings:    '<i class="fa-solid fa-gear"></i> Settings',
     ph_settings_sub:'Configure your school system.',
     // Buttons
-    btn_save:       '💾 Save',
-    btn_cancel:     '✕ Cancel',
-    btn_generate:   '📄 Generate',
-    btn_preview:    '👁 Preview',
-    btn_print:      '🖨 Print',
+    btn_save:       '<i class="fa-solid fa-floppy-disk"></i> Save',
+    btn_cancel:     '<i class="fa-solid fa-xmark"></i> Cancel',
+    btn_generate:   '<i class="fa-solid fa-file-lines"></i> Generate',
+    btn_preview:    '<i class="fa-solid fa-eye"></i> Preview',
+    btn_print:      '<i class="fa-solid fa-print"></i> Print',
     btn_excel:      '⬇ Excel',
     btn_pdf:        '⬇ PDF',
     btn_run:        '▶ Run',
@@ -9878,48 +9878,48 @@ const TRANSLATIONS = {
     nav_darkmode:   'Hali ya Giza',
     nav_logout:     'Toka',
     // Dashboard
-    ph_dashboard:   "Habari za asubuhi! 👋",
+    ph_dashboard:   "Habari za asubuhi! ",
     ph_dashboard_sub: "Hapa kuna muhtasari wa kitaaluma wa shule yako.",
     // Exams
-    ph_exams:       '📝 Mitihani',
+    ph_exams:       '<i class="fa-solid fa-file-pen"></i> Mitihani',
     ph_exams_sub:   'Unda, simamia, pakia alama na uchanganue mitihani.',
     tab_create:        'Unda Mtihani',
     tab_examlist:      'Orodha ya Mitihani',
-    tab_examtimetable: '📅 Ratiba ya Mtihani',
+    tab_examtimetable: '<i class="fa-solid fa-calendar-days"></i> Ratiba ya Mtihani',
     tab_upload:        'Pakia Alama',
     tab_analyse:       'Uchanganuzi',
     tab_merit:         'Orodha ya Sifa',
     tab_subanalysis:   'Uchanganuzi wa Somo',
     // Students
-    ph_students:    '🎓 Wanafunzi',
+    ph_students:    '<i class="fa-solid fa-user-graduate"></i> Wanafunzi',
     ph_students_sub:'Simamia rekodi na usajili wa wanafunzi.',
     // Teachers
-    ph_teachers:    '👨‍🏫 Walimu',
+    ph_teachers:    '<i class="fa-solid fa-person"></i>‍<i class="fa-solid fa-school"></i> Walimu',
     ph_teachers_sub:'Simamia walimu, masomo, na ufikiaji wa mfumo.',
     // Subjects
-    ph_subjects:    '📚 Masomo',
+    ph_subjects:    '<i class="fa-solid fa-book"></i> Masomo',
     ph_subjects_sub:'Simamia masomo, weka walimu na usajili wanafunzi.',
     // Classes
-    ph_classes:     '🏫 Madarasa & Vikundi',
+    ph_classes:     '<i class="fa-solid fa-school"></i> Madarasa & Vikundi',
     ph_classes_sub: 'Simamia mgawanyo wa madarasa na vikundi.',
     // Timetable
-    ph_timetable:   '🕐 Ratiba za Masomo',
+    ph_timetable:   '<i class="fa-solid fa-clock"></i> Ratiba za Masomo',
     ph_timetable_sub:'Tengeneza, angalia na chapisha ratiba za masomo.',
     // Reports
-    ph_reports:     '📄 Fomu za Ripoti',
+    ph_reports:     '<i class="fa-solid fa-file-lines"></i> Fomu za Ripoti',
     ph_reports_sub: 'Tengeneza fomu za ripoti za PDF zinazoweza kupakuliwa.',
     // Messaging
-    ph_messaging:   '💬 Ujumbe (SMS)',
+    ph_messaging:   '<i class="fa-solid fa-comments"></i> Ujumbe (SMS)',
     ph_messaging_sub:'Tuma ujumbe kwa wazazi na walimu.',
     // Settings
-    ph_settings:    '⚙ Mipangilio',
+    ph_settings:    '<i class="fa-solid fa-gear"></i> Mipangilio',
     ph_settings_sub:'Sanidi mfumo wa shule yako.',
     // Buttons
-    btn_save:       '💾 Hifadhi',
-    btn_cancel:     '✕ Ghairi',
-    btn_generate:   '📄 Tengeneza',
-    btn_preview:    '👁 Hakiki',
-    btn_print:      '🖨 Chapisha',
+    btn_save:       '<i class="fa-solid fa-floppy-disk"></i> Hifadhi',
+    btn_cancel:     '<i class="fa-solid fa-xmark"></i> Ghairi',
+    btn_generate:   '<i class="fa-solid fa-file-lines"></i> Tengeneza',
+    btn_preview:    '<i class="fa-solid fa-eye"></i> Hakiki',
+    btn_print:      '<i class="fa-solid fa-print"></i> Chapisha',
     btn_excel:      '⬇ Excel',
     btn_pdf:        '⬇ PDF',
     btn_run:        '▶ Endesha',
@@ -10228,11 +10228,11 @@ function renderFeeOverview() {
   if (statsEl) {
     statsEl.innerHTML = `
       <div class="fee-ov-stat-row">
-        <div class="fee-stat-card fsc-blue"><div class="fsc-ico">👥</div><div class="fsc-val">${totalStudents}</div><div class="fsc-lbl">Total Students</div></div>
-        <div class="fee-stat-card fsc-teal"><div class="fsc-ico">💰</div><div class="fsc-val">KES ${totalExpected.toLocaleString()}</div><div class="fsc-lbl">Total Expected</div></div>
-        <div class="fee-stat-card fsc-green"><div class="fsc-ico">✅</div><div class="fsc-val">KES ${totalCollected.toLocaleString()}</div><div class="fsc-lbl">Total Collected</div></div>
-        <div class="fee-stat-card fsc-red"><div class="fsc-ico">⚠️</div><div class="fsc-val">KES ${totalOutstanding.toLocaleString()}</div><div class="fsc-lbl">Outstanding</div></div>
-        <div class="fee-stat-card fsc-amber"><div class="fsc-ico">📊</div><div class="fsc-val">${totalExpected>0?Math.round(totalCollected/totalExpected*100):0}%</div><div class="fsc-lbl">Collection Rate</div></div>
+        <div class="fee-stat-card fsc-blue"><div class="fsc-ico"><i class="fa-solid fa-users"></i></div><div class="fsc-val">${totalStudents}</div><div class="fsc-lbl">Total Students</div></div>
+        <div class="fee-stat-card fsc-teal"><div class="fsc-ico"><i class="fa-solid fa-coins"></i></div><div class="fsc-val">KES ${totalExpected.toLocaleString()}</div><div class="fsc-lbl">Total Expected</div></div>
+        <div class="fee-stat-card fsc-green"><div class="fsc-ico"><i class="fa-solid fa-circle-check"></i></div><div class="fsc-val">KES ${totalCollected.toLocaleString()}</div><div class="fsc-lbl">Total Collected</div></div>
+        <div class="fee-stat-card fsc-red"><div class="fsc-ico"><i class="fa-solid fa-triangle-exclamation"></i>️</div><div class="fsc-val">KES ${totalOutstanding.toLocaleString()}</div><div class="fsc-lbl">Outstanding</div></div>
+        <div class="fee-stat-card fsc-amber"><div class="fsc-ico"><i class="fa-solid fa-chart-bar"></i></div><div class="fsc-val">${totalExpected>0?Math.round(totalCollected/totalExpected*100):0}%</div><div class="fsc-lbl">Collection Rate</div></div>
       </div>`;
   }
 
@@ -10240,10 +10240,10 @@ function renderFeeOverview() {
   const adminBar = document.getElementById('feesAdminStats');
   if (adminBar && (currentUser.role==='superadmin'||currentUser.role==='admin')) {
     adminBar.innerHTML = `
-      <div class="stat-card sc-blue"><div class="sc-num">KES ${totalExpected.toLocaleString()}</div><div class="sc-lbl">Expected</div><div class="sc-ico">💰</div></div>
-      <div class="stat-card sc-green"><div class="sc-num">KES ${totalCollected.toLocaleString()}</div><div class="sc-lbl">Collected</div><div class="sc-ico">✅</div></div>
-      <div class="stat-card sc-amber"><div class="sc-num">KES ${totalOutstanding.toLocaleString()}</div><div class="sc-lbl">Outstanding</div><div class="sc-ico">⚠️</div></div>
-      <div class="stat-card sc-teal"><div class="sc-num">${totalExpected>0?Math.round(totalCollected/totalExpected*100):0}%</div><div class="sc-lbl">Collection Rate</div><div class="sc-ico">📊</div></div>`;
+      <div class="stat-card sc-blue"><div class="sc-num">KES ${totalExpected.toLocaleString()}</div><div class="sc-lbl">Expected</div><div class="sc-ico"><i class="fa-solid fa-coins"></i></div></div>
+      <div class="stat-card sc-green"><div class="sc-num">KES ${totalCollected.toLocaleString()}</div><div class="sc-lbl">Collected</div><div class="sc-ico"><i class="fa-solid fa-circle-check"></i></div></div>
+      <div class="stat-card sc-amber"><div class="sc-num">KES ${totalOutstanding.toLocaleString()}</div><div class="sc-lbl">Outstanding</div><div class="sc-ico"><i class="fa-solid fa-triangle-exclamation"></i>️</div></div>
+      <div class="stat-card sc-teal"><div class="sc-num">${totalExpected>0?Math.round(totalCollected/totalExpected*100):0}%</div><div class="sc-lbl">Collection Rate</div><div class="sc-ico"><i class="fa-solid fa-chart-bar"></i></div></div>`;
   }
 
   // Table
@@ -10292,7 +10292,7 @@ function addFstrBreakdownRow() {
     <div class="fg"><input type="text" placeholder="Item (e.g. Tuition)" style="padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);width:100%;font-size:.85rem" class="fstr-item"/></div>
     <div class="fg" style="display:flex;gap:.5rem">
       <input type="number" placeholder="Amount (KES)" min="0" style="padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);width:100%;font-size:.85rem" class="fstr-amt"/>
-      <button class="btn btn-sm btn-danger-sm" onclick="this.closest('.fstr-row').remove()">✕</button>
+      <button class="btn btn-sm btn-danger-sm" onclick="this.closest('.fstr-row').remove()"><i class="fa-solid fa-xmark"></i></button>
     </div>`;
   container.appendChild(div);
 }
@@ -10340,7 +10340,7 @@ function saveFeeStructure() {
   clearFstrForm();
   renderFeeStructureList();
   populateFeesDropdowns();
-  showToast('Fee structure saved ✓', 'success');
+  showToast('Fee structure saved <i class="fa-solid fa-check"></i>', 'success');
 }
 
 function renderFeeStructureList() {
@@ -10365,8 +10365,8 @@ function renderFeeStructureList() {
             ${f.breakdown.map(b=>`<span>${b.item}: <strong>KES ${parseFloat(b.amount).toLocaleString()}</strong></span>`).join('')}
           </div>` : ''}
         <div class="fsi-actions">
-          <button class="btn btn-sm btn-outline" onclick="editFeeStructure('${f.id}')">✏️ Edit</button>
-          <button class="btn btn-sm btn-danger-sm" onclick="deleteFeeStructure('${f.id}')">🗑 Delete</button>
+          <button class="btn btn-sm btn-outline" onclick="editFeeStructure('${f.id}')"><i class="fa-solid fa-pen"></i>️ Edit</button>
+          <button class="btn btn-sm btn-danger-sm" onclick="deleteFeeStructure('${f.id}')"><i class="fa-solid fa-trash"></i> Delete</button>
         </div>
       </div>`;
   }).join('');
@@ -10511,7 +10511,7 @@ function recordFeePayment() {
   const amtEl = document.getElementById('fpAmount'); if (amtEl) amtEl.value = '';
   const notesEl = document.getElementById('fpNotes'); if (notesEl) notesEl.value = '';
   onFpStudentChange();
-  showToast(`Payment of KES ${amount.toLocaleString()} recorded ✓ — Receipt ${receiptNo}`, 'success');
+  showToast(`Payment of KES ${amount.toLocaleString()} recorded <i class="fa-solid fa-check"></i> — Receipt ${receiptNo}`, 'success');
 
   // Auto-print receipt
   setTimeout(() => printLastReceipt(), 400);
@@ -10520,7 +10520,7 @@ function recordFeePayment() {
 function buildReceiptHTML({ stu, cls, term, year, totalFee, payment, balBefore, balAfter, receiptNo, date, mode, notes, amount, schoolName }) {
   const d = new Date(date);
   const dateStr = d.toLocaleDateString('en-KE', { day:'2-digit', month:'long', year:'numeric' });
-  const status = balAfter <= 0 ? '<span style="color:#16a34a;font-weight:700">✅ FEES CLEARED</span>' : `<span style="color:#dc2626;font-weight:700">⚠️ BALANCE: KES ${balAfter.toLocaleString()}</span>`;
+  const status = balAfter <= 0 ? '<span style="color:#16a34a;font-weight:700"><i class="fa-solid fa-circle-check"></i> FEES CLEARED</span>' : `<span style="color:#dc2626;font-weight:700"><i class="fa-solid fa-triangle-exclamation"></i>️ BALANCE: KES ${balAfter.toLocaleString()}</span>`;
   return `
     <div class="fee-receipt" id="feeReceiptPrint">
       <div class="rcpt-header">
@@ -10664,10 +10664,10 @@ function renderStudentBalances() {
 
   tbody.innerHTML = rows.length ? rows.map((r, i) => {
     const statusBadge = r.statusKey === 'cleared'
-      ? '<span class="badge b-green">✅ Cleared</span>'
+      ? '<span class="badge b-green"><i class="fa-solid fa-circle-check"></i> Cleared</span>'
       : r.statusKey === 'partial'
-        ? '<span class="badge b-amber">⚡ Partial</span>'
-        : '<span class="badge b-red">❌ Unpaid</span>';
+        ? '<span class="badge b-amber"><i class="fa-solid fa-bolt"></i> Partial</span>'
+        : '<span class="badge b-red"><i class="fa-solid fa-circle-xmark"></i> Unpaid</span>';
     return `
       <tr class="${r.statusKey==='unpaid'?'fee-defaulter':r.statusKey==='partial'?'fee-partial':''}">
         <td>${i+1}</td>
@@ -10680,8 +10680,8 @@ function renderStudentBalances() {
         <td style="color:${r.bal>0?'var(--danger)':'var(--success)'}"><strong>KES ${r.bal.toLocaleString()}</strong></td>
         <td>${statusBadge}</td>
         <td>
-          <button class="btn btn-sm btn-outline" onclick="viewStudentPaymentHistory('${r.stu.id}','${r.rec.term}','${r.rec.year}')">📋 History</button>
-          <button class="btn btn-sm btn-outline" onclick="quickPayStudent('${r.stu.id}','${r.rec.classId}','${r.rec.term}','${r.rec.year}')">💳 Pay</button>
+          <button class="btn btn-sm btn-outline" onclick="viewStudentPaymentHistory('${r.stu.id}','${r.rec.term}','${r.rec.year}')"><i class="fa-solid fa-clipboard-list"></i> History</button>
+          <button class="btn btn-sm btn-outline" onclick="quickPayStudent('${r.stu.id}','${r.rec.classId}','${r.rec.term}','${r.rec.year}')"><i class="fa-solid fa-credit-card"></i> Pay</button>
         </td>
       </tr>`;
   }).join('') : '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:2rem">No fee records found.</td></tr>';
@@ -10697,7 +10697,7 @@ function viewStudentPaymentHistory(stuId, term, year) {
   const paid = rec ? getRecordTotalPaid(rec) : 0;
   const bal  = rec ? getRecordBalance(rec) : 0;
 
-  showModal(`💳 ${stu.name} — Payment History (${term} ${year})`, `
+  showModal(`<i class="fa-solid fa-credit-card"></i> ${stu.name} — Payment History (${term} ${year})`, `
     <div style="margin-bottom:1rem">
       <div style="display:flex;gap:1rem;flex-wrap:wrap">
         <div class="fbc-row"><span class="fbc-label">Total Fee</span><span class="fbc-val">KES ${parseFloat(rec?.totalFee||0).toLocaleString()}</span></div>
@@ -10715,11 +10715,11 @@ function viewStudentPaymentHistory(stuId, term, year) {
             <td style="padding:.35rem;color:var(--success);font-weight:700">KES ${parseFloat(p.amount).toLocaleString()}</td>
             <td style="padding:.35rem">${p.mode}</td>
             <td style="padding:.35rem;color:${p.balanceAfter>0?'var(--danger)':'var(--success)'}">KES ${parseFloat(p.balanceAfter||0).toLocaleString()}</td>
-            <td style="padding:.35rem"><button class="btn btn-sm btn-outline" onclick="reprintReceipt('${stuId}','${term}','${year}','${p.id}')">🖨</button></td>
+            <td style="padding:.35rem"><button class="btn btn-sm btn-outline" onclick="reprintReceipt('${stuId}','${term}','${year}','${p.id}')"><i class="fa-solid fa-print"></i></button></td>
           </tr>`).join('')}
         </tbody>
       </table>` : '<p style="color:var(--muted);text-align:center;padding:1rem">No payments recorded yet.</p>'}
-  `, [{label:'✕ Close', cls:'btn-outline', action:'closeModal()'}]);
+  `, [{label:'<i class="fa-solid fa-xmark"></i> Close', cls:'btn-outline', action:'closeModal()'}]);
 }
 
 function quickPayStudent(stuId, classId, term, year) {
@@ -10801,7 +10801,7 @@ function renderFeeReminders() {
   if (!el) return;
 
   if (!defaulters.length) {
-    el.innerHTML = '<div class="card" style="text-align:center;padding:2.5rem;color:var(--muted)">🎉 No outstanding fee balances found! All students have cleared their fees.</div>';
+    el.innerHTML = '<div class="card" style="text-align:center;padding:2.5rem;color:var(--muted)"><i class="fa-solid fa-party-horn"></i> No outstanding fee balances found! All students have cleared their fees.</div>';
     return;
   }
 
@@ -10821,7 +10821,7 @@ function buildReminderCardHTML({ stu, cls, rec, bal, paid }) {
   return `
     <div class="reminder-card" onclick="printSingleReminder('${stu.id}','${term}','${year}')">
       <div class="rm-header">
-        <div class="rm-badge">⚠️ FEE REMINDER</div>
+        <div class="rm-badge"><i class="fa-solid fa-triangle-exclamation"></i>️ FEE REMINDER</div>
         <div class="rm-date">${today}</div>
       </div>
       <div class="rm-school">${schoolName}</div>
@@ -10838,7 +10838,7 @@ function buildReminderCardHTML({ stu, cls, rec, bal, paid }) {
       </div>
       <div class="rm-footer">
         <span>Adm: ${stu.adm}</span>
-        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation();printSingleReminder('${stu.id}','${term}','${year}')">🖨 Print</button>
+        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation();printSingleReminder('${stu.id}','${term}','${year}')"><i class="fa-solid fa-print"></i> Print</button>
       </div>
     </div>`;
 }
@@ -10869,7 +10869,7 @@ function printSingleReminder(stuId, term, year) {
     @page{size:A5 portrait;margin:12mm}
     @media print{button{display:none!important}.rm-badge{background:#dc2626!important;color:#fff!important}.rm-outstanding{background:#fff1f2!important}}
   </style></head><body>
-    <div class="rm-header"><div class="rm-badge">⚠️ FEE REMINDER</div><div>${new Date().toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'})}</div></div>
+    <div class="rm-header"><div class="rm-badge"><i class="fa-solid fa-triangle-exclamation"></i>️ FEE REMINDER</div><div>${new Date().toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'})}</div></div>
     <div class="rm-school">${settings.schoolName || 'School'}</div>
     <p>Dear Parent/Guardian of <strong>${stu.name}</strong>,</p>
     <p>This is a kind reminder that your child's school fees for <strong>${term} ${year}</strong> are outstanding.</p>
@@ -10883,7 +10883,7 @@ function printSingleReminder(stuId, term, year) {
     <p>Kindly settle the outstanding balance at your earliest convenience. Please visit the school bursar's office or contact us for payment arrangements.</p>
     <p style="font-size:.78rem;color:#64748b">We value your child's education and look forward to your prompt response.</p>
     <div class="rm-footer"><span>Generated: ${new Date().toLocaleString()}</span><span>${settings.schoolName||''}</span></div>
-    <button onclick="window.print()" style="margin-top:1rem;padding:.5rem 1.5rem;background:#1a6fb5;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.85rem">🖨 Print Reminder</button>
+    <button onclick="window.print()" style="margin-top:1rem;padding:.5rem 1.5rem;background:#1a6fb5;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.85rem"><i class="fa-solid fa-print"></i> Print Reminder</button>
   </body></html>`);
   win.document.close();
   setTimeout(() => { win.focus(); win.print(); }, 300);
@@ -10919,7 +10919,7 @@ function printAllReminders() {
     const { stu, cls, rec, bal, paid } = d;
     return `
       <div style="page-break-inside:avoid;border:1px solid #e2e8f0;border-radius:8px;padding:1.2rem;margin-bottom:1.5rem">
-        <div style="display:flex;justify-content:space-between"><span style="background:#dc2626;color:#fff;padding:.2rem .6rem;border-radius:20px;font-size:.72rem;font-weight:700">⚠️ FEE REMINDER</span><span style="font-size:.8rem;color:#64748b">${new Date().toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'})}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="background:#dc2626;color:#fff;padding:.2rem .6rem;border-radius:20px;font-size:.72rem;font-weight:700"><i class="fa-solid fa-triangle-exclamation"></i>️ FEE REMINDER</span><span style="font-size:.8rem;color:#64748b">${new Date().toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'})}</span></div>
         <div style="font-weight:800;font-size:1rem;color:#1a6fb5;margin:.5rem 0">${settings.schoolName||'School'}</div>
         <p style="font-size:.82rem;margin:.35rem 0">Dear Parent/Guardian of <strong>${stu.name}</strong> (Adm: ${stu.adm}, ${cls?.name||''}),</p>
         <p style="font-size:.82rem;margin:.35rem 0">Your child's fees for <strong>${rec.term} ${rec.year}</strong> are outstanding:</p>
@@ -10939,7 +10939,7 @@ function printAllReminders() {
       <p style="color:#64748b;font-size:.85rem">Generated: ${new Date().toLocaleString()} | ${filterTerm||'All Terms'} ${filterYear||''} | ${defaulters.length} students</p>
     </div>
     ${reminderBlocks}
-    <button onclick="window.print()" style="padding:.6rem 1.5rem;background:#1a6fb5;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨 Print All Reminders</button>
+    <button onclick="window.print()" style="padding:.6rem 1.5rem;background:#1a6fb5;color:#fff;border:none;border-radius:6px;cursor:pointer"><i class="fa-solid fa-print"></i> Print All Reminders</button>
   </body></html>`);
   win.document.close();
   setTimeout(() => { win.focus(); win.print(); }, 400);
@@ -10986,7 +10986,7 @@ function renderReceiptsLog() {
       <td style="color:var(--success);font-weight:700">KES ${parseFloat(p.amount).toLocaleString()}</td>
       <td>${p.mode}</td>
       <td style="color:${p.balanceAfter>0?'var(--danger)':'var(--success)'}">KES ${parseFloat(p.balanceAfter||0).toLocaleString()}</td>
-      <td><button class="btn btn-sm btn-outline" onclick="reprintReceipt('${stu.id}','${rec.term}','${rec.year}','${p.id}')">🖨 Reprint</button></td>
+      <td><button class="btn btn-sm btn-outline" onclick="reprintReceipt('${stu.id}','${rec.term}','${rec.year}','${p.id}')"><i class="fa-solid fa-print"></i> Reprint</button></td>
     </tr>`).join('') : '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">No payment receipts found.</td></tr>';
 }
 
@@ -11018,7 +11018,7 @@ function exportFeesSummary() {
   const a    = document.createElement('a');
   a.href = url; a.download = `fees_summary_${filterTerm||'all'}_${filterYear||'all'}.csv`;
   a.click(); URL.revokeObjectURL(url);
-  showToast('Fee summary exported ✓', 'success');
+  showToast('Fee summary exported <i class="fa-solid fa-check"></i>', 'success');
 }
 
 function exportStudentBalances() {
@@ -11146,7 +11146,7 @@ function downloadFeeStatementPDF() {
 
   const label = [filterClass&&classes.find(c=>c.id===filterClass)?.name, filterTerm, filterYear].filter(Boolean).join('_') || 'all';
   doc.save(`fee_statement_${label}.pdf`);
-  showToast('Fee statement PDF downloaded ✓', 'success');
+  showToast('Fee statement PDF downloaded <i class="fa-solid fa-check"></i>', 'success');
 }
 
 // ── Fee Excel Import ──
@@ -11195,7 +11195,7 @@ function handleFeeImport(input) {
       saveFees();
       renderStudentBalances && renderStudentBalances();
       renderFeeOverview    && renderFeeOverview();
-      showToast(`${added} new records, ${updated} updated, ${skipped} skipped ✓`, 'success');
+      showToast(`${added} new records, ${updated} updated, ${skipped} skipped <i class="fa-solid fa-check"></i>`, 'success');
     } catch(err) { showToast('Error reading file', 'error'); console.error(err); }
   };
   reader.readAsArrayBuffer(file); input.value = '';
@@ -11252,7 +11252,7 @@ function downloadFeeImportTemplate() {
       <tbody>${tableRows}</tbody>
       <tfoot><tr><td>TOTALS</td><td>${students.length}</td><td>KES ${totalExp.toLocaleString()}</td><td>KES ${totalCol.toLocaleString()}</td><td style="color:${totalOut>0?'#dc2626':'#16a34a'}">KES ${totalOut.toLocaleString()}</td><td>${totalExp>0?Math.round(totalCol/totalExp*100):0}%</td></tr></tfoot>
     </table>
-    <button onclick="window.print()" style="margin-top:1rem;padding:.5rem 1.2rem;background:#1a6fb5;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨 Print</button>
+    <button onclick="window.print()" style="margin-top:1rem;padding:.5rem 1.2rem;background:#1a6fb5;color:#fff;border:none;border-radius:6px;cursor:pointer"><i class="fa-solid fa-print"></i> Print</button>
   </body></html>`);
   win.document.close();
   setTimeout(() => { win.focus(); }, 300);
@@ -11292,7 +11292,7 @@ function getStudentFeeStatus(stuId, term, year) {
   const rec = feeRecords.find(r => r.studentId===stuId && r.term===term && String(r.year)===String(year));
   if (!rec) return { status: 'No Record', cleared: false, balance: null };
   const bal = getRecordBalance(rec);
-  return { status: bal <= 0 ? 'FEES CLEARED ✅' : `BALANCE: KES ${bal.toLocaleString()}`, cleared: bal <= 0, balance: bal };
+  return { status: bal <= 0 ? 'FEES CLEARED <i class="fa-solid fa-circle-check"></i>' : `BALANCE: KES ${bal.toLocaleString()}`, cleared: bal <= 0, balance: bal };
 }
 
 // Modal helpers reuse existing showModal() and closeModal() defined earlier in the file.
@@ -11324,7 +11324,7 @@ function sortTable(tbodyId, colIndex, type) {
     if (ths[colIndex]) {
       ths[colIndex].classList.add(dir === 'asc' ? 'sort-asc' : 'sort-desc');
       const ico = ths[colIndex].querySelector('.sort-ico');
-      if (ico) ico.textContent = dir === 'asc' ? '▲' : '▼';
+      if (ico) ico.textContent = dir === 'asc' ? '' : '▼';
     }
   }
 
@@ -11682,7 +11682,7 @@ function renderUmSubjectStatusPanel() {
       sel.value='${s.sub.id}';loadUmStudents();
       var c=document.getElementById('umManualCard');if(c)c.scrollIntoView({behavior:'smooth',block:'start'});
     })()" title="Click to upload marks">
-      <div class="um-sub-icon">⚠️</div>
+      <div class="um-sub-icon"><i class="fa-solid fa-triangle-exclamation"></i>️</div>
       <div class="um-sub-info">
         <div class="um-sub-name">${s.sub.name}</div>
         <div class="um-sub-meta">${s.sub.code} · ${s.expected} students · no marks</div>
@@ -11698,19 +11698,19 @@ function renderUmSubjectStatusPanel() {
       sel.value='${s.sub.id}';loadUmStudents();
       var c=document.getElementById('umManualCard');if(c)c.scrollIntoView({behavior:'smooth',block:'start'});
     })()" title="Click to review/edit marks">
-      <div class="um-sub-icon">${s.complete ? '✅' : '🔶'}</div>
+      <div class="um-sub-icon">${s.complete ? '<i class="fa-solid fa-circle-check"></i>' : '◆'}</div>
       <div class="um-sub-info">
         <div class="um-sub-name">${s.sub.name}</div>
         <div class="um-sub-meta">${s.sub.code} · ${s.uploaded}/${s.expected} · mean ${s.mean}%</div>
       </div>
-      <div class="um-sub-action" style="color:var(--muted);font-size:.72rem">${s.complete ? '✓ Done' : '✏ Edit'}</div>
+      <div class="um-sub-action" style="color:var(--muted);font-size:.72rem">${s.complete ? '<i class="fa-solid fa-check"></i> Done' : '<i class="fa-solid fa-pen"></i> Edit'}</div>
     </div>`).join('');
 
   // All-complete download panel
   const downloadPanel = allComplete ? `
     <div style="margin-top:1rem;padding:1rem 1.25rem;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #16a34a;border-radius:10px">
       <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
-        <span style="font-size:1.2rem">🎉</span>
+        <span style="font-size:1.2rem"><i class="fa-solid fa-party-horn"></i></span>
         <strong style="color:#14532d;font-size:.9rem">All ${subStatus.length} subjects have marks uploaded for ${cls?.name||''} — ${str?.name||''}!</strong>
         <div style="display:flex;gap:.6rem;margin-left:auto;flex-wrap:wrap">
           <button class="btn btn-sm" style="background:#16a34a;color:#fff;border:none;font-size:.78rem;padding:.35rem .85rem;border-radius:6px;cursor:pointer"
@@ -11725,18 +11725,18 @@ function renderUmSubjectStatusPanel() {
   panel.innerHTML = `
     <div class="card" style="padding:1rem 1.25rem">
       <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.85rem;flex-wrap:wrap">
-        <h3 style="margin:0">📋 Subject Marks Status</h3>
+        <h3 style="margin:0"><i class="fa-solid fa-clipboard-list"></i> Subject Marks Status</h3>
         <span style="font-size:.78rem;color:var(--muted)">${cls?.name||''} — ${str?.name||''}</span>
         <span class="badge ${withoutMarks.length ? 'b-amber' : 'b-green'}" style="font-size:.72rem">${withoutMarks.length} pending · ${withMarks.length} uploaded</span>
       </div>
       ${withoutMarks.length ? `
         <div style="margin-bottom:.75rem">
-          <div style="font-size:.78rem;font-weight:700;color:#92400e;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.04em">⚠ Pending Upload</div>
+          <div style="font-size:.78rem;font-weight:700;color:#92400e;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.04em"><i class="fa-solid fa-triangle-exclamation"></i> Pending Upload</div>
           <div class="um-sub-grid">${missingCards}</div>
         </div>` : ''}
       ${withMarks.length ? `
         <div>
-          <div style="font-size:.78rem;font-weight:700;color:#15803d;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.04em">✅ Marks Uploaded</div>
+          <div style="font-size:.78rem;font-weight:700;color:#15803d;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.04em"><i class="fa-solid fa-circle-check"></i> Marks Uploaded</div>
           <div class="um-sub-grid">${uploadedCards}</div>
         </div>` : ''}
       ${downloadPanel}
@@ -11762,7 +11762,7 @@ function downloadStreamRawMarksExcel(examId, streamId) {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Marks');
   XLSX.writeFile(wb, `raw_marks_${exam.name}_${cls?.name||''}_${str?.name||''}.xlsx`.replace(/\s+/g,'_'));
-  showToast('✅ Raw marks downloaded as Excel', 'success');
+  showToast('<i class="fa-solid fa-circle-check"></i> Raw marks downloaded as Excel', 'success');
 }
 
 // Download raw marks for one stream as PDF
@@ -11878,7 +11878,7 @@ function renderAnSubjectReviewPanel(examId) {
   panel.innerHTML = `
     <div class="card" style="border-left:4px solid var(--primary)">
       <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.9rem;flex-wrap:wrap">
-        <h3 style="margin:0">📊 Subject Marks Review</h3>
+        <h3 style="margin:0"><i class="fa-solid fa-chart-bar"></i> Subject Marks Review</h3>
         <span class="badge b-blue" style="font-size:.72rem">${withMarks.length} with marks</span>
         ${withoutMarks.length ? `<span class="badge b-amber" style="font-size:.72rem">${withoutMarks.length} missing</span>` : ''}
         <span style="font-size:.75rem;color:var(--muted);margin-left:auto">Review and edit before running analysis</span>
@@ -11905,7 +11905,7 @@ function renderAnSubjectReviewPanel(examId) {
               <td style="padding:.4rem .7rem;text-align:center;color:#dc2626;font-weight:600">${r.min}</td>
               <td style="padding:.4rem .7rem;text-align:center">
                 ${!isConsolidated ? `<button class="btn btn-sm" style="font-size:.72rem;padding:.2rem .6rem;background:var(--surface);border:1px solid var(--border);border-radius:5px;cursor:pointer"
-                  onclick="window._anEditSub('${r.sub.id}')">✏ Edit</button>` : '<span style="color:var(--muted);font-size:.72rem">Consolidated</span>'}
+                  onclick="window._anEditSub('${r.sub.id}')"><i class="fa-solid fa-pen"></i> Edit</button>` : '<span style="color:var(--muted);font-size:.72rem">Consolidated</span>'}
               </td>
             </tr>`).join('')}
           </tbody>
@@ -11914,7 +11914,7 @@ function renderAnSubjectReviewPanel(examId) {
 
       ${withoutMarks.length ? `
       <div style="padding:.65rem .85rem;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px">
-        <div style="font-size:.78rem;font-weight:700;color:#92400e;margin-bottom:.35rem">⚠ Subjects with no marks (will be excluded from analysis):</div>
+        <div style="font-size:.78rem;font-weight:700;color:#92400e;margin-bottom:.35rem"><i class="fa-solid fa-triangle-exclamation"></i> Subjects with no marks (will be excluded from analysis):</div>
         <div style="display:flex;flex-wrap:wrap;gap:.35rem">
           ${withoutMarks.map(r=>`
             <span style="background:#fef3c7;color:#78350f;font-size:.75rem;padding:.2rem .55rem;border-radius:5px;font-weight:600">
@@ -11974,7 +11974,7 @@ function injectAnalysisScopeNote() {
       anContent.insertBefore(note, anContent.firstChild);
     }
     note.innerHTML = `
-      <span style="font-size:1.1rem">🎯</span>
+      <span style="font-size:1.1rem"><i class="fa-solid fa-bullseye"></i></span>
       <div>
         <strong style="color:var(--primary)">Analysis scoped to your class</strong><br>
         <span style="color:var(--muted)">
@@ -12126,15 +12126,15 @@ function runAnalysis() {
   }).filter(x=>x.count>0);
 
   const scopeLabel = (isTeacher && isClassTch && !isSuperAdmin)
-    ? `<span class="badge b-teal" style="margin-left:.5rem;font-size:.72rem">📌 Scoped: ${getMyClassTeacherStreams().map(s=>s.name).join(', ')}</span>` : '';
+    ? `<span class="badge b-teal" style="margin-left:.5rem;font-size:.72rem"><i class="fa-solid fa-thumbtack"></i> Scoped: ${getMyClassTeacherStreams().map(s=>s.name).join(', ')}</span>` : '';
 
   const consolidatedBadge = isConsolidated
-    ? `<span class="badge b-purple" style="margin-left:.5rem;font-size:.68rem">📊 Consolidated (${sourceExamObjs.length} exams averaged)</span>` : '';
+    ? `<span class="badge b-purple" style="margin-left:.5rem;font-size:.68rem"><i class="fa-solid fa-chart-bar"></i> Consolidated (${sourceExamObjs.length} exams averaged)</span>` : '';
 
   // Grade distribution bar
   const gradeDistHTML = `
     <div class="card" style="margin-top:1rem">
-      <h3>📊 Overall Grade Distribution</h3>
+      <h3><i class="fa-solid fa-chart-bar"></i> Overall Grade Distribution</h3>
       <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:flex-end;padding:.5rem 0">
         ${gs.bands.map(b=>{
           const cnt = gradeDist[b.grade]||0;
@@ -12162,17 +12162,17 @@ function runAnalysis() {
     ${gradeDistHTML}
     <div class="dash-charts dash-charts-3" style="margin-top:1rem">
       <div class="chart-box chart-span2">
-        <h3>📊 Subject Performance${isConsolidated?' <span style="font-size:.7rem;color:var(--muted);font-weight:400">(averaged across source exams)</span>':''}</h3>
+        <h3><i class="fa-solid fa-chart-bar"></i> Subject Performance${isConsolidated?' <span style="font-size:.7rem;color:var(--muted);font-weight:400">(averaged across source exams)</span>':''}</h3>
         <canvas id="anSubChart" style="max-height:220px"></canvas>
       </div>
       <div class="chart-box">
-        <h3>⚧ Gender Comparison</h3>
+        <h3> Gender Comparison</h3>
         <canvas id="anGenderChart" style="max-height:220px"></canvas>
       </div>
-      ${streamPerf.length>1?`<div class="chart-box"><h3>🏫 Stream Comparison</h3><canvas id="anStreamChart" style="max-height:220px"></canvas></div>`:''}
+      ${streamPerf.length>1?`<div class="chart-box"><h3><i class="fa-solid fa-school"></i> Stream Comparison</h3><canvas id="anStreamChart" style="max-height:220px"></canvas></div>`:''}
     </div>
     <div class="card" style="margin-top:1rem">
-      <h3>📋 Subject Breakdown${isConsolidated?' <span style="font-size:.78rem;font-weight:400;color:var(--muted)">&mdash; averages across ' + sourceExamObjs.map(e=>e.name).join(', ') + '</span>':''}</h3>
+      <h3><i class="fa-solid fa-clipboard-list"></i> Subject Breakdown${isConsolidated?' <span style="font-size:.78rem;font-weight:400;color:var(--muted)">&mdash; averages across ' + sourceExamObjs.map(e=>e.name).join(', ') + '</span>':''}</h3>
       <div class="tbl-wrap">
         <table>
           <thead><tr><th>Subject</th><th>Students</th><th>Mean</th><th>Highest</th><th>Lowest</th><th>Grade</th></tr></thead>
@@ -12191,14 +12191,14 @@ function runAnalysis() {
       </div>
     </div>
     <div class="card" style="margin-top:1rem">
-      <h3>🏆 Student Rankings <span style="font-size:.78rem;font-weight:400;color:var(--muted)">(top 50)</span></h3>
+      <h3><i class="fa-solid fa-trophy"></i> Student Rankings <span style="font-size:.78rem;font-weight:400;color:var(--muted)">(top 50)</span></h3>
       <div class="tbl-wrap">
         <table>
           <thead><tr><th>Rank</th><th>Student</th><th>Stream</th><th>Total${isConsolidated?' (avg)':''}</th><th>Mean</th><th>Grade</th><th>Points</th></tr></thead>
           <tbody>${[...studentTotals].sort((a,b)=>b.total-a.total).slice(0,50).map((s,i)=>{
             const str=streams.find(x=>x.id===s.streamId);
             return `<tr>
-              <td style="font-weight:700;color:${i<3?'#d97706':'var(--text)'}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td>
+              <td style="font-weight:700;color:${i<3?'#d97706':'var(--text)'}">${i===0?'<i class="fa-solid fa-trophy"></i>':i===1?'<i class="fa-solid fa-medal"></i>':i===2?'<i class="fa-solid fa-award"></i>':i+1}</td>
               <td><strong>${s.name}</strong><br><span style="font-size:.72rem;color:var(--muted)">${s.adm}</span></td>
               <td>${str?.name||'—'}</td>
               <td style="font-weight:700">${s.total}</td>
@@ -12280,8 +12280,8 @@ function renderTeacherPreferences() {
   allCards.forEach(card => {
     const h3 = card.querySelector('h3');
     if (!h3) return;
-    const adminOnlyTitles = ['🏫 School Information','🔐 Admin Accounts','💾 Data Management','📊 Grading Systems'];
-    if (isTeacher && adminOnlyTitles.some(t => h3.textContent.includes(t.replace(/[🏫🔐💾📊]/g,'').trim()))) {
+    const adminOnlyTitles = ['<i class="fa-solid fa-school"></i> School Information','<i class="fa-solid fa-lock"></i> Admin Accounts','<i class="fa-solid fa-floppy-disk"></i> Data Management','<i class="fa-solid fa-chart-bar"></i> Grading Systems'];
+    if (isTeacher && adminOnlyTitles.some(t => h3.textContent.includes(t.replace(/[<i class="fa-solid fa-school"></i><i class="fa-solid fa-lock"></i><i class="fa-solid fa-floppy-disk"></i><i class="fa-solid fa-chart-bar"></i>]/g,'').trim()))) {
       card.style.display = 'none';
     } else if (!isTeacher) {
       card.style.display = '';
@@ -12316,7 +12316,7 @@ function renderMyPreferences() {
       myClassEl.innerHTML = myStreams.map(str => {
         const cls = classes.find(c => c.id === str.classId);
         return `<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem">
-          <span class="badge b-green" style="font-size:.78rem">🏫 ${cls?.name||'—'} — ${str.name}</span>
+          <span class="badge b-green" style="font-size:.78rem"><i class="fa-solid fa-school"></i> ${cls?.name||'—'} — ${str.name}</span>
           <span style="font-size:.75rem;color:var(--muted)">Class Teacher</span>
         </div>`;
       }).join('');
@@ -12329,9 +12329,9 @@ function renderMyPreferences() {
   const rightsEl = document.getElementById('prefMyRights');
   if (rightsEl) {
     const rights = [
-      { key: 'canAnalyse', label: 'Run Exam Analysis', icon: '📊', desc: 'View and run detailed exam analysis reports' },
-      { key: 'canReport',  label: 'Generate Report Forms', icon: '📄', desc: 'Generate and print student report cards' },
-      { key: 'canMerit',   label: 'View Merit List', icon: '🏆', desc: 'Access the class merit/ranking list' },
+      { key: 'canAnalyse', label: 'Run Exam Analysis', icon: '<i class="fa-solid fa-chart-bar"></i>', desc: 'View and run detailed exam analysis reports' },
+      { key: 'canReport',  label: 'Generate Report Forms', icon: '<i class="fa-solid fa-file-lines"></i>', desc: 'Generate and print student report cards' },
+      { key: 'canMerit',   label: 'View Merit List', icon: '<i class="fa-solid fa-trophy"></i>', desc: 'Access the class merit/ranking list' },
     ];
     rightsEl.innerHTML = rights.map(r => `
       <div style="display:flex;align-items:center;gap:.6rem;padding:.4rem .6rem;border-radius:6px;background:var(--surface);border:1px solid var(--border)">
@@ -12340,7 +12340,7 @@ function renderMyPreferences() {
           <div style="font-size:.82rem;font-weight:600">${r.label}</div>
           <div style="font-size:.72rem;color:var(--muted)">${r.desc}</div>
         </div>
-        <span class="${t[r.key] ? 'badge b-green' : 'badge b-red'}" style="font-size:.7rem">${t[r.key] ? '✅ Granted' : '✗ Restricted'}</span>
+        <span class="${t[r.key] ? 'badge b-green' : 'badge b-red'}" style="font-size:.7rem">${t[r.key] ? '<i class="fa-solid fa-circle-check"></i> Granted' : '<i class="fa-solid fa-xmark"></i> Restricted'}</span>
       </div>`).join('');
   }
 }
@@ -12357,7 +12357,7 @@ function saveTeacherPassword() {
   const i = teachers.findIndex(x => x.id === t.id);
   if (i > -1) { teachers[i].password = nw; save(K.teachers, teachers); }
   ['prefCurPass','prefNewPass','prefConfPass'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
-  showToast('Password updated ✓', 'success');
+  showToast('Password updated <i class="fa-solid fa-check"></i>', 'success');
 }
 
 // ── Admin: Teacher Access Manager in Settings ──
@@ -12448,7 +12448,7 @@ function saveTeacherAccessSettings() {
   save(K.streams, streams);
   saveStreamAssignments();
   renderTeachers(); renderSubjects(); renderStreams();
-  showToast(`Access settings saved for ${t.name} ✓`, 'success');
+  showToast(`Access settings saved for ${t.name} <i class="fa-solid fa-check"></i>`, 'success');
 }
 
 // Hook: call renderTeacherPreferences when navigating to Settings
@@ -12468,8 +12468,8 @@ function renderSettingsSchoolList() {
         <div class="ai-role">${s.username}${s.email?' · '+s.email:''} · <span class="badge b-blue" style="font-size:.65rem">School</span></div>
       </div>
       <div style="display:flex;gap:.5rem;align-items:center">
-        <button class="btn btn-outline btn-sm" style="font-size:.72rem;padding:.2rem .55rem" onclick="resetSchoolPwd('${s.id}')">🔑 Reset Pwd</button>
-        <button class="icb dl" onclick="deleteSchoolFromSettings('${s.id}')" title="Delete">🗑️</button>
+        <button class="btn btn-outline btn-sm" style="font-size:.72rem;padding:.2rem .55rem" onclick="resetSchoolPwd('${s.id}')"><i class="fa-solid fa-key"></i> Reset Pwd</button>
+        <button class="icb dl" onclick="deleteSchoolFromSettings('${s.id}')" title="Delete"><i class="fa-solid fa-trash"></i>️</button>
       </div>
     </div>`).join('');
 }
@@ -12486,7 +12486,7 @@ function addSchoolFromSettings() {
   savePlatform();
   ['spsName','spsUser','spsPass','spsEmail'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   renderSettingsSchoolList();
-  showToast('School account created ✓','success');
+  showToast('School account created <i class="fa-solid fa-check"></i>','success');
 }
 
 function deleteSchoolFromSettings(id) {
@@ -12503,7 +12503,7 @@ function resetSchoolPwd(id) {
   if (!np||np.trim().length<4) { if(np!==null) showToast('Password too short','error'); return; }
   loadPlatform();
   const s = platformSchools.find(x=>x.id===id);
-  if (s) { s.password = np.trim(); savePlatform(); showToast('Password updated ✓','success'); }
+  if (s) { s.password = np.trim(); savePlatform(); showToast('Password updated <i class="fa-solid fa-check"></i>','success'); }
 }
 
 function changePlatformPassword() {
@@ -12516,7 +12516,7 @@ function changePlatformPassword() {
   if (nw !== conf) { showToast('Passwords do not match','error'); return; }
   setPlatformCreds(creds.username, nw);
   ['curPlatformPwd','newPlatformPwd','confPlatformPwd'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-  showToast('Platform password changed ✓','success');
+  showToast('Platform password changed <i class="fa-solid fa-check"></i>','success');
 }
 
 
@@ -12646,7 +12646,7 @@ function uploadTermlyPaper() {
 
     populateTermlyYearFilter();
     renderTermlyPapers();
-    showToast('Paper uploaded successfully ✓', 'success');
+    showToast('Paper uploaded successfully <i class="fa-solid fa-check"></i>', 'success');
   };
   reader.onerror = () => showToast('Failed to read file. Please try again.', 'error');
   reader.readAsDataURL(file);
@@ -12750,7 +12750,7 @@ function renderTermlyPapers() {
 
       // Platform badge
       const platBadge = p._isPlatform
-        ? '<span style="background:#f5f3ff;color:#7c3aed;font-size:.7rem;font-weight:700;padding:.1rem .45rem;border-radius:999px;margin-left:.4rem">📡 Platform</span>'
+        ? '<span style="background:#f5f3ff;color:#7c3aed;font-size:.7rem;font-weight:700;padding:.1rem .45rem;border-radius:999px;margin-left:.4rem"><i class="fa-solid fa-satellite-dish"></i> Platform</span>'
         : '';
 
       // Action button(s)
@@ -12787,7 +12787,7 @@ function renderTermlyPapers() {
       <!-- Subject header -->
       <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;background:var(--primary-lt,#eff6ff);border-bottom:2px solid var(--primary,#1a6fb5)">
         <div style="display:flex;align-items:center;gap:.6rem">
-          <span style="font-size:1.1rem">📘</span>
+          <span style="font-size:1.1rem"><i class="fa-solid fa-book"></i></span>
           <span style="font-weight:800;font-size:1rem;color:var(--primary,#1a6fb5)">${subjName}</span>
         </div>
         <span style="background:var(--primary,#1a6fb5);color:#fff;font-size:.72rem;font-weight:700;padding:.2rem .6rem;border-radius:999px">${count} paper${count !== 1 ? 's' : ''}</span>
@@ -12802,14 +12802,14 @@ function renderTermlyPapers() {
 function getFileIcon(fileType, fileName) {
   if (!fileType && fileName) {
     const ext = fileName.split('.').pop().toLowerCase();
-    if (['jpg','jpeg','png','gif','webp'].includes(ext)) return '🖼️';
-    if (['doc','docx'].includes(ext)) return '📝';
-    return '📄';
+    if (['jpg','jpeg','png','gif','webp'].includes(ext)) return '<i class="fa-regular fa-image"></i>️';
+    if (['doc','docx'].includes(ext)) return '<i class="fa-solid fa-file-pen"></i>';
+    return '<i class="fa-solid fa-file-lines"></i>';
   }
-  if (fileType.includes('pdf'))   return '📄';
-  if (fileType.includes('word') || fileType.includes('document')) return '📝';
-  if (fileType.includes('image')) return '🖼️';
-  return '📁';
+  if (fileType.includes('pdf'))   return '<i class="fa-solid fa-file-lines"></i>';
+  if (fileType.includes('word') || fileType.includes('document')) return '<i class="fa-solid fa-file-pen"></i>';
+  if (fileType.includes('image')) return '<i class="fa-regular fa-image"></i>️';
+  return '<i class="fa-solid fa-folder"></i>';
 }
 
 // ── Download / buy a paper ──
@@ -12822,7 +12822,7 @@ function downloadTermlyPaper(paperId) {
     // Show payment confirmation modal
     const subj = subjects.find(s => s.id === paper.subjectId);
     showModal(
-      '💳 Purchase Paper',
+      '<i class="fa-solid fa-credit-card"></i> Purchase Paper',
       `
       <div style="text-align:center;padding:1rem 0">
         <div style="font-size:2.5rem;margin-bottom:.75rem">${getFileIcon(paper.fileType, paper.fileName)}</div>
@@ -12836,7 +12836,7 @@ function downloadTermlyPaper(paperId) {
           Pay via M-Pesa or school cashier, then click <strong>Confirm &amp; Download</strong>.
         </p>
         <button class="btn btn-primary" style="width:100%;margin-bottom:.5rem" onclick="confirmPaperDownload('${paperId}');closeModal()">
-          ✅ Confirm &amp; Download
+          <i class="fa-solid fa-circle-check"></i> Confirm &amp; Download
         </button>
         <button class="btn" style="width:100%" onclick="closeModal()">Cancel</button>
       </div>`,
@@ -12867,7 +12867,7 @@ function confirmPaperDownload(paperId) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast(`Downloading: ${paper.fileName} ✓`, 'success');
+    showToast(`Downloading: ${paper.fileName} <i class="fa-solid fa-check"></i>`, 'success');
   } catch(e) {
     showToast('Download failed. Please try again.', 'error');
   }
@@ -12920,10 +12920,10 @@ function initRevisionTab() {
       if (this.files && this.files[0]) {
         const f = this.files[0];
         const sizeMB = (f.size / 1048576).toFixed(2);
-        preview.textContent = `✅ ${f.name} (${sizeMB} MB)`;
+        preview.textContent = `<i class="fa-solid fa-circle-check"></i> ${f.name} (${sizeMB} MB)`;
         preview.style.display = 'block';
         preview.style.color = sizeMB > 5 ? '#ef4444' : 'var(--accent-g)';
-        if (sizeMB > 5) preview.textContent += ' — ⚠️ File is large, may be slow to upload';
+        if (sizeMB > 5) preview.textContent += ' — <i class="fa-solid fa-triangle-exclamation"></i>️ File is large, may be slow to upload';
       } else {
         preview.style.display = 'none';
       }
@@ -13008,17 +13008,17 @@ function renderPlatformPapers() {
 
   const fileIcon = name => {
     const ext = (name||'').split('.').pop().toLowerCase();
-    if (ext === 'pdf')               return '📄';
-    if (['doc','docx'].includes(ext)) return '📝';
-    if (['jpg','jpeg','png'].includes(ext)) return '🖼️';
-    return '📂';
+    if (ext === 'pdf')               return '<i class="fa-solid fa-file-lines"></i>';
+    if (['doc','docx'].includes(ext)) return '<i class="fa-solid fa-file-pen"></i>';
+    if (['jpg','jpeg','png'].includes(ext)) return '<i class="fa-regular fa-image"></i>️';
+    return '<i class="fa-solid fa-folder-open"></i>';
   };
 
   grid.innerHTML = Object.entries(grouped).map(([subj, papers]) => `
     <div class="card" style="padding:0;overflow:hidden;margin-bottom:1.25rem">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.1rem;background:linear-gradient(135deg,rgba(26,111,181,.08),rgba(124,58,237,.06));border-bottom:1px solid var(--border-lt)">
         <div style="display:flex;align-items:center;gap:.6rem">
-          <span style="font-size:1.1rem">📚</span>
+          <span style="font-size:1.1rem"><i class="fa-solid fa-book"></i></span>
           <span style="font-size:.9rem;font-weight:700;color:var(--text)">${subj}</span>
           <span style="font-size:.72rem;background:var(--bg);border:1px solid var(--border-lt);color:var(--muted);padding:.15rem .55rem;border-radius:99px">${papers.length} paper${papers.length!==1?'s':''}</span>
         </div>
@@ -13029,22 +13029,22 @@ function renderPlatformPapers() {
         const date = p.uploadedAt ? new Date(p.uploadedAt).toLocaleDateString('en-KE',{day:'2-digit',month:'short',year:'numeric'}) : '';
         return `
         <div style="display:flex;align-items:flex-start;gap:1rem;padding:.9rem 1.1rem;border-bottom:1px solid var(--border-lt);flex-wrap:wrap">
-          <div style="font-size:1.8rem;flex-shrink:0;line-height:1.1;padding-top:.1rem">${icon}${!isFree?'<sup style="font-size:.55rem">🔒</sup>':''}</div>
+          <div style="font-size:1.8rem;flex-shrink:0;line-height:1.1;padding-top:.1rem">${icon}${!isFree?'<sup style="font-size:.55rem"><i class="fa-solid fa-lock"></i></sup>':''}</div>
           <div style="flex:1;min-width:0">
             <div style="font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:.2rem">${p.title}</div>
             <div style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;font-size:.73rem;color:var(--muted)">
               ${p.examType ? `<span style="background:rgba(59,130,246,.1);color:#93c5fd;padding:.1rem .5rem;border-radius:99px;font-weight:600">${p.examType}</span>` : ''}
-              ${p.term    ? `<span>📅 ${p.term}${p.year?' '+p.year:''}</span>` : (p.year?`<span>📅 ${p.year}</span>`:'')}
-              ${p.classLevel ? `<span>🎓 ${p.classLevel}</span>` : ''}
-              <span>${isFree ? '<span style="color:#10b981;font-weight:600">✅ Free</span>' : `<span style="color:#f59e0b;font-weight:600">KES ${parseFloat(p.price).toLocaleString()}</span>`}</span>
+              ${p.term    ? `<span><i class="fa-solid fa-calendar-days"></i> ${p.term}${p.year?' '+p.year:''}</span>` : (p.year?`<span><i class="fa-solid fa-calendar-days"></i> ${p.year}</span>`:'')}
+              ${p.classLevel ? `<span><i class="fa-solid fa-user-graduate"></i> ${p.classLevel}</span>` : ''}
+              <span>${isFree ? '<span style="color:#10b981;font-weight:600"><i class="fa-solid fa-circle-check"></i> Free</span>' : `<span style="color:#f59e0b;font-weight:600">KES ${parseFloat(p.price).toLocaleString()}</span>`}</span>
               ${isPlatformAdmin ? `<span>⬇ ${p.downloads||0} download${(p.downloads||0)!==1?'s':''}</span>` : ''}
-              ${date ? `<span>📤 ${date}</span>` : ''}
+              ${date ? `<span><i class="fa-solid fa-upload"></i> ${date}</span>` : ''}
             </div>
             ${p.desc ? `<div style="font-size:.76rem;color:var(--muted);margin-top:.3rem;line-height:1.5">${p.desc}</div>` : ''}
           </div>
           <div style="display:flex;flex-direction:column;gap:.4rem;align-items:flex-end;flex-shrink:0">
-            ${isFree && p.fileData ? `<button class="btn btn-primary btn-sm" onclick="downloadPlatformPaper('${p.id}')">⬇ Download</button>` : (!isFree ? `<button class="btn btn-outline btn-sm" style="opacity:.6;cursor:not-allowed" disabled>🔒 Paid</button>` : '')}
-            ${isPlatformAdmin ? `<button class="btn btn-outline btn-sm" style="color:#ef4444;border-color:#ef4444" onclick="deletePlatformPaper('${p.id}')">🗑 Delete</button>` : ''}
+            ${isFree && p.fileData ? `<button class="btn btn-primary btn-sm" onclick="downloadPlatformPaper('${p.id}')">⬇ Download</button>` : (!isFree ? `<button class="btn btn-outline btn-sm" style="opacity:.6;cursor:not-allowed" disabled><i class="fa-solid fa-lock"></i> Paid</button>` : '')}
+            ${isPlatformAdmin ? `<button class="btn btn-outline btn-sm" style="color:#ef4444;border-color:#ef4444" onclick="deletePlatformPaper('${p.id}')"><i class="fa-solid fa-trash"></i> Delete</button>` : ''}
           </div>
         </div>`;
       }).join('')}
@@ -13087,7 +13087,7 @@ function uploadPlatformPaper() {
     const papers = loadPlatformPapers();
     papers.push(paper);
     savePlatformPapers(papers);
-    if (statusEl) { statusEl.textContent = '✅ Uploaded successfully!'; statusEl.style.color = '#10b981'; }
+    if (statusEl) { statusEl.textContent = '<i class="fa-solid fa-circle-check"></i> Uploaded successfully!'; statusEl.style.color = '#10b981'; }
     clearPlatformPaperForm();
     populatePlatformPaperFilters();
     renderPlatformPapers();
@@ -13189,7 +13189,7 @@ function platUploadPaper() {
     const papers = loadPlatformPapers();
     papers.push(paper);
     savePlatformPapers(papers);
-    if (statusEl) { statusEl.textContent = '✅ Uploaded successfully!'; statusEl.style.color = '#10b981'; }
+    if (statusEl) { statusEl.textContent = '<i class="fa-solid fa-circle-check"></i> Uploaded successfully!'; statusEl.style.color = '#10b981'; }
     platClearPaperForm();
     renderPlatPapList();
     // Also refresh papers section if open
@@ -13236,8 +13236,8 @@ function renderPlatPapList() {
 
   listEl.innerHTML = list.map(p => {
     const destBadge = (p.section === 'termlyExam')
-      ? '<span style="background:#eff6ff;color:var(--primary);font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:999px">📝 Termly Exams</span>'
-      : '<span style="background:#f5f3ff;color:#7c3aed;font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:999px">📖 Revision</span>';
+      ? '<span style="background:#eff6ff;color:var(--primary);font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:999px"><i class="fa-solid fa-file-pen"></i> Termly Exams</span>'
+      : '<span style="background:#f5f3ff;color:#7c3aed;font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:999px"><i class="fa-solid fa-book-open"></i> Revision</span>';
     const fileIcon = getFileIcon(p.fileType, p.fileName);
     const uploadDate = new Date(p.uploadedAt).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'});
     return `<div style="display:flex;align-items:center;gap:.75rem;padding:.7rem .85rem;border-bottom:1px solid var(--border-lt);flex-wrap:wrap">
@@ -13247,7 +13247,7 @@ function renderPlatPapList() {
         <div style="font-size:.75rem;color:var(--muted);margin-top:.15rem">${p.subject}${p.classLvl ? ' · ' + p.classLvl : ''}${p.term ? ' · ' + p.term : ''} ${p.year} · ${uploadDate}</div>
         <div style="margin-top:.25rem">${destBadge}</div>
       </div>
-      <button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:none;flex-shrink:0" onclick="platDeletePaper('${p.id}')">🗑</button>
+      <button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:none;flex-shrink:0" onclick="platDeletePaper('${p.id}')"><i class="fa-solid fa-trash"></i></button>
     </div>`;
   }).join('');
 }
@@ -13365,7 +13365,7 @@ function ebAddInstruction(text = '') {
   const div = document.createElement('div');
   div.className = 'eb-inst-item';
   div.innerHTML = `<input type="text" value="${ebEscape(text)}" placeholder="Add instruction..." class="eb-inst-input"/>
-    <button class="btn btn-sm" style="padding:3px 8px;color:var(--danger)" onclick="this.closest('.eb-inst-item').remove()">✕</button>`;
+    <button class="btn btn-sm" style="padding:3px 8px;color:var(--danger)" onclick="this.closest('.eb-inst-item').remove()"><i class="fa-solid fa-xmark"></i></button>`;
   list.appendChild(div);
 }
 function ebAutoInstructions() {
@@ -13425,7 +13425,7 @@ function ebRenderSections() {
         <div class="eb-section-color" style="background:${EB.spColors[idx % EB.spColors.length]}"></div>
         <input class="eb-section-title-inp" value="Section ${ebEscape(sec.name)}" onchange="ebUpdateSectionName(${idx},this.value)" placeholder="Section name..."/>
         <span style="margin-left:auto;font-size:.76rem;background:var(--primary-lt);color:var(--primary);padding:2px 8px;border-radius:20px;font-weight:700">${sec.questions.length} Qs</span>
-        <button onclick="ebRemoveSection(${idx})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:1rem;margin-left:.25rem" title="Remove">✕</button>
+        <button onclick="ebRemoveSection(${idx})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:1rem;margin-left:.25rem" title="Remove"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="eb-section-body">
         <div class="eb-section-field"><label>Type</label>
@@ -13459,7 +13459,7 @@ function ebRenderQuestionBuilder() {
   const banner = document.getElementById('ebGenerateAllBanner');
   if (banner) banner.style.display = EB.sections.length > 0 ? 'flex' : 'none';
   if (!EB.sections.length) {
-    area.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)"><div style="font-size:2rem">📂</div><p>No sections defined.</p></div>';
+    area.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)"><div style="font-size:2rem"><i class="fa-solid fa-folder-open"></i></div><p>No sections defined.</p></div>';
     return;
   }
   const letters = ['A','B','C','D'];
@@ -13468,8 +13468,8 @@ function ebRenderQuestionBuilder() {
       <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;border-bottom:1px solid var(--border-lt);background:${EB.spColors[sIdx%EB.spColors.length]}12;border-left:4px solid ${EB.spColors[sIdx%EB.spColors.length]}">
         <h3 style="font-size:.95rem;color:${EB.spColors[sIdx%EB.spColors.length]}">Section ${ebEscape(sec.name)}: ${ebTypeLabel(sec.type)} <span style="font-size:.76rem;background:${EB.spColors[sIdx%EB.spColors.length]}22;padding:1px 8px;border-radius:20px;margin-left:.35rem">${sec.questions.length}/${sec.questionCount}</span></h3>
         <div style="display:flex;gap:.4rem">
-          <button class="btn btn-outline btn-sm" onclick="ebOpenAIModal(${sIdx})">🤖 AI</button>
-          <button class="btn btn-outline btn-sm" onclick="ebAddQuestion(${sIdx})">➕ Manual</button>
+          <button class="btn btn-outline btn-sm" onclick="ebOpenAIModal(${sIdx})"><i class="fa-solid fa-robot"></i> AI</button>
+          <button class="btn btn-outline btn-sm" onclick="ebAddQuestion(${sIdx})"><i class="fa-solid fa-plus"></i> Manual</button>
         </div>
       </div>
       <div style="padding:.75rem 1rem" id="ebqs-${sIdx}">
@@ -13492,9 +13492,9 @@ function ebRenderQCard(sIdx, qIdx, q, sec) {
   // Image preview for this question
   const imgSection = `
     <div style="margin-top:.5rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
-      <button type="button" onclick="ebOpenImgUpload(${sIdx},${qIdx})" class="btn btn-outline btn-sm" style="font-size:.75rem">🖼️ ${q.imageData?'Change':'Add'} Image</button>
+      <button type="button" onclick="ebOpenImgUpload(${sIdx},${qIdx})" class="btn btn-outline btn-sm" style="font-size:.75rem"><i class="fa-regular fa-image"></i>️ ${q.imageData?'Change':'Add'} Image</button>
       ${q.imageData ? `
-        <button type="button" onclick="ebRemoveImg(${sIdx},${qIdx})" class="btn btn-sm" style="color:var(--danger);font-size:.75rem;background:none;border:none">✕ Remove</button>
+        <button type="button" onclick="ebRemoveImg(${sIdx},${qIdx})" class="btn btn-sm" style="color:var(--danger);font-size:.75rem;background:none;border:none"><i class="fa-solid fa-xmark"></i> Remove</button>
         <div style="margin-top:.35rem;position:relative;display:inline-block">
           <img src="${q.imageData}" style="max-height:${q.imageHeight||100}px;max-width:100%;border:1.5px solid var(--border-lt);border-radius:5px;display:block"/>
           <div style="font-size:.7rem;color:var(--muted);margin-top:.2rem">
@@ -13553,7 +13553,7 @@ function ebRenderQCard(sIdx, qIdx, q, sec) {
         ${badge}
         <div style="margin-left:auto;display:flex;gap:.3rem">
           <button onclick="ebOpenMathModal('ebqt-${sIdx}-${qIdx}')" style="background:none;border:none;cursor:pointer;font-size:.82rem;color:var(--muted)" title="Insert equation">√</button>
-          <button onclick="ebRemoveQ(${sIdx},${qIdx})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:.9rem" title="Delete">✕</button>
+          <button onclick="ebRemoveQ(${sIdx},${qIdx})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:.9rem" title="Delete"><i class="fa-solid fa-xmark"></i></button>
         </div>
       </div>
       <div class="eb-qcard-body">${body}</div>
@@ -13867,7 +13867,7 @@ function ebSaveExam() {
     exams.push(examData);
   }
   ebSave(exams);
-  showToast('Exam saved successfully! 💾', 'success');
+  showToast('Exam saved successfully! <i class="fa-solid fa-floppy-disk"></i>', 'success');
 }
 
 // ─── Render Saved Exams ───────────────────────────────────────────────────────
@@ -13881,20 +13881,20 @@ function ebRenderSavedExams() {
   const c = document.getElementById('ebSavedList');
   if (!c) return;
   if (!filtered.length) {
-    c.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)"><div style="font-size:2rem">📁</div><p style="margin-top:.5rem">No saved exams yet</p></div>';
+    c.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)"><div style="font-size:2rem"><i class="fa-solid fa-folder"></i></div><p style="margin-top:.5rem">No saved exams yet</p></div>';
     return;
   }
   c.innerHTML = filtered.slice().reverse().map(e => `
     <div class="eb-exam-item">
-      <div class="eb-exam-icon">📄</div>
+      <div class="eb-exam-icon"><i class="fa-solid fa-file-lines"></i></div>
       <div class="eb-exam-info">
         <div class="eb-exam-title">${ebEscape(e.header?.subject||'Untitled')} — ${ebEscape(e.header?.examType||'')}</div>
         <div class="eb-exam-meta">${ebEscape(e.header?.schoolName||'')} · ${ebEscape(e.header?.class||'')} · ${e.totalMarks} marks · ${e.sections?.length||0} sections</div>
       </div>
       <div class="eb-exam-actions">
-        <button class="btn btn-outline btn-sm" onclick="ebLoadExamForEdit('${e.id}')">✏️ Edit</button>
+        <button class="btn btn-outline btn-sm" onclick="ebLoadExamForEdit('${e.id}')"><i class="fa-solid fa-pen"></i>️ Edit</button>
         <button class="btn btn-danger btn-sm" onclick="ebExportExamPDF('${e.id}')">⬇ PDF</button>
-        <button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="ebDeleteExam('${e.id}')">🗑</button>
+        <button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="ebDeleteExam('${e.id}')"><i class="fa-solid fa-trash"></i></button>
       </div>
     </div>`).join('');
 }
@@ -13948,7 +13948,7 @@ function updateExamDlFeeNotice() {
     const fee = getExamDlFee();
     if (fee > 0 && !isSchoolExamDlUnlocked(currentSchoolId)) {
       notice.style.display = '';
-      notice.textContent = `🔒 KES ${fee.toLocaleString()} fee required to download/print`;
+      notice.textContent = `<i class="fa-solid fa-lock"></i> KES ${fee.toLocaleString()} fee required to download/print`;
     } else {
       notice.style.display = 'none';
     }
@@ -13970,9 +13970,9 @@ function checkExamDlAllowed() {
     if (currentSchoolId && isSchoolExamDlUnlocked(currentSchoolId)) return true;
     // Blocked — show paywall message
     showModal(
-      '🔒 Download/Print Locked',
+      '<i class="fa-solid fa-lock"></i> Download/Print Locked',
       `<div style="text-align:center;padding:1rem 0">
-        <div style="font-size:2.5rem;margin-bottom:.75rem">🔒</div>
+        <div style="font-size:2.5rem;margin-bottom:.75rem"><i class="fa-solid fa-lock"></i></div>
         <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">Payment Required</div>
         <div style="color:var(--muted);font-size:.85rem;margin-bottom:1.25rem;line-height:1.6">
           Printing and downloading exam papers requires a platform fee of<br>
@@ -13981,7 +13981,7 @@ function checkExamDlAllowed() {
           your Platform Administrator to unlock your school.
         </div>
         <div style="background:rgba(124,58,237,.07);border-radius:9px;padding:.75rem 1rem;font-size:.8rem;color:#475569">
-          📞 Contact your Platform Admin to confirm payment and unlock access.
+          <i class="fa-solid fa-phone"></i> Contact your Platform Admin to confirm payment and unlock access.
         </div>
       </div>`,
       []
@@ -14219,7 +14219,7 @@ function ebClientSidePDF(exam) {
   doc.text('*** END OF EXAM ***', 105, y, {align:'center'});
   const fn = `${header.schoolName||'Exam'}_${header.subject}_${header.examType}.pdf`.replace(/[^a-z0-9_\-\.]/gi,'_');
   doc.save(fn);
-  showToast('PDF downloaded! 📄', 'success');
+  showToast('PDF downloaded! <i class="fa-solid fa-file-lines"></i>', 'success');
 }
 
 // ─── AI Calls (direct browser → Anthropic API) ───────────────────────────────
@@ -14309,18 +14309,18 @@ async function ebAIGenerate() {
       <div class="eb-gen-q">
         <div class="eb-gen-q-text">${i+1}. ${ebEscape(q.question)}</div>
         ${q.options?.length ? `<div>${q.options.map(o=>`<div style="font-size:.78rem;color:var(--muted);margin-bottom:2px">${ebEscape(o)}</div>`).join('')}</div>` : ''}
-        ${q.answer ? `<div class="eb-gen-q-ans">✓ ${ebEscape(q.answer)}</div>` : ''}
+        ${q.answer ? `<div class="eb-gen-q-ans"><i class="fa-solid fa-check"></i> ${ebEscape(q.answer)}</div>` : ''}
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border-lt)">
           <span style="font-size:.72rem;background:var(--primary-lt);color:var(--primary);padding:1px 8px;border-radius:12px">${q.type||type} · ${q.marks||2} marks</span>
-          <button class="btn btn-outline btn-sm" onclick="ebaiAddSingle(${i})" style="font-size:.76rem">➕ Add to Exam</button>
+          <button class="btn btn-outline btn-sm" onclick="ebaiAddSingle(${i})" style="font-size:.76rem"><i class="fa-solid fa-plus"></i> Add to Exam</button>
         </div>
       </div>`).join('');
-    showToast(`Generated ${qs.length} questions! 🤖`, 'success');
+    showToast(`Generated ${qs.length} questions! <i class="fa-solid fa-robot"></i>`, 'success');
   } catch (err) {
-    resultsEl.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--danger)"><div>❌</div><p style="margin-top:.5rem">${ebEscape(err.message)}</p></div>`;
+    resultsEl.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--danger)"><div><i class="fa-solid fa-circle-xmark"></i></div><p style="margin-top:.5rem">${ebEscape(err.message)}</p></div>`;
     showToast('Generation failed: ' + err.message, 'error');
   } finally {
-    btn.disabled = false; btn.textContent = '🤖 Generate Questions';
+    btn.disabled = false; btn.textContent = '<i class="fa-solid fa-robot"></i> Generate Questions';
   }
 }
 function ebaiAddAllToExam() {
@@ -14395,7 +14395,7 @@ async function ebDoGenAll() {
         .catch(err => console.warn('Section', sec.name, err))
     ));
     ebRenderQuestionBuilder();
-    showToast(`✅ Generated ${total} questions across all sections!`, 'success');
+    showToast(`<i class="fa-solid fa-circle-check"></i> Generated ${total} questions across all sections!`, 'success');
   } catch(err) { showToast('Generation failed: ' + err.message, 'error'); }
   finally { ebHideLoading(); }
 }
@@ -14425,7 +14425,7 @@ async function ebGenerateMarkingScheme() {
         <div style="font-size:.85rem;color:var(--muted);margin-bottom:.4rem">${ebEscape(item.expectedAnswer||'')}</div>
         ${item.markingPoints?.length ? `<ul style="padding-left:1.25rem;font-size:.82rem">${item.markingPoints.map(p => `<li>${ebEscape(p)}</li>`).join('')}</ul>` : ''}
       </div>`).join('') || '<p style="color:var(--muted)">No scheme generated.</p>';
-    showToast('Marking scheme generated! ✅', 'success');
+    showToast('Marking scheme generated! <i class="fa-solid fa-circle-check"></i>', 'success');
   } catch(err) { showToast('Failed: ' + err.message, 'error'); }
   finally { ebHideLoading(); }
 }
@@ -14477,7 +14477,7 @@ function ebOpenSubParts(sIdx, qIdx) {
     <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem">
       <input type="text" value="${ebEscape(p.text||'')}" placeholder="Sub-part text..." style="flex:1;padding:6px 10px;border:1.5px solid var(--border-lt);border-radius:6px;font-size:.82rem;outline:none" class="eb-sp-text"/>
       <input type="number" value="${p.marks||2}" min="1" max="20" style="width:58px;padding:6px 8px;border:1.5px solid var(--border-lt);border-radius:6px;font-size:.82rem;outline:none" class="eb-sp-marks"/>
-      <button onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;color:var(--danger)">✕</button>
+      <button onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;color:var(--danger)"><i class="fa-solid fa-xmark"></i></button>
     </div>`).join('');
   document.getElementById('ebSubPartsModal').style.display = 'flex';
 }
@@ -14487,7 +14487,7 @@ function ebAddSubPart() {
   div.style.cssText = 'display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem';
   div.innerHTML = `<input type="text" placeholder="Sub-part text..." style="flex:1;padding:6px 10px;border:1.5px solid var(--border-lt);border-radius:6px;font-size:.82rem;outline:none" class="eb-sp-text"/>
     <input type="number" value="2" min="1" max="20" style="width:58px;padding:6px 8px;border:1.5px solid var(--border-lt);border-radius:6px;font-size:.82rem;outline:none" class="eb-sp-marks"/>
-    <button onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;color:var(--danger)">✕</button>`;
+    <button onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;color:var(--danger)"><i class="fa-solid fa-xmark"></i></button>`;
   list.appendChild(div);
 }
 function ebSaveSubParts() {
@@ -14552,7 +14552,7 @@ function ebSaveApiKey() {
   if (!key) { showToast('Please enter an API key', 'error'); return; }
   settings.ebApiKey = key;
   save(K.settings, [settings]);
-  showToast('API key saved! ✅', 'success');
+  showToast('API key saved! <i class="fa-solid fa-circle-check"></i>', 'success');
   document.getElementById('ebApiKeyStatus').textContent = '';
 }
 
@@ -14567,23 +14567,23 @@ async function ebTestApiKey() {
       body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 10, messages: [{ role: 'user', content: 'Hi' }] })
     });
     if (res.ok) {
-      statusEl.innerHTML = '<span style="color:#10b981;font-weight:700">✅ AI Connected (built-in)!</span>';
+      statusEl.innerHTML = '<span style="color:#10b981;font-weight:700"><i class="fa-solid fa-circle-check"></i> AI Connected (built-in)!</span>';
       showToast('AI is ready — no API key needed here!', 'success');
       return;
     }
   } catch(e) {}
   // Try user key
   const key = document.getElementById('ebApiKeyInput')?.value?.trim();
-  if (!key) { statusEl.innerHTML = '<span style="color:var(--danger)">❌ No key & proxy unavailable</span>'; return; }
+  if (!key) { statusEl.innerHTML = '<span style="color:var(--danger)"><i class="fa-solid fa-circle-xmark"></i> No key & proxy unavailable</span>'; return; }
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
       body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 10, messages: [{ role: 'user', content: 'Hello' }] })
     });
-    if (res.ok) { statusEl.innerHTML = '<span style="color:#10b981;font-weight:700">✅ API Key Connected!</span>'; showToast('API key works! AI ready.', 'success'); }
-    else { const e = await res.json().catch(() => ({})); statusEl.innerHTML = `<span style="color:var(--danger)">❌ ${e.error?.message || 'Invalid key'}</span>`; }
-  } catch(err) { statusEl.innerHTML = `<span style="color:var(--danger)">❌ ${err.message}</span>`; }
+    if (res.ok) { statusEl.innerHTML = '<span style="color:#10b981;font-weight:700"><i class="fa-solid fa-circle-check"></i> API Key Connected!</span>'; showToast('API key works! AI ready.', 'success'); }
+    else { const e = await res.json().catch(() => ({})); statusEl.innerHTML = `<span style="color:var(--danger)"><i class="fa-solid fa-circle-xmark"></i> ${e.error?.message || 'Invalid key'}</span>`; }
+  } catch(err) { statusEl.innerHTML = `<span style="color:var(--danger)"><i class="fa-solid fa-circle-xmark"></i> ${err.message}</span>`; }
 }
 
 
@@ -14720,7 +14720,7 @@ function es_syncFromCharanas() {
   es_updateDashboard();
   es_syncSetupForm();
 
-  const msg = `✅ Synced: ${newClasses.length} classes, ${newTeachers.length} teachers, ${newSubjects.length} subjects${hadTimetable ? ' (timetable preserved)' : ''}.`;
+  const msg = `<i class="fa-solid fa-circle-check"></i> Synced: ${newClasses.length} classes, ${newTeachers.length} teachers, ${newSubjects.length} subjects${hadTimetable ? ' (timetable preserved)' : ''}.`;
   es_toast(msg, 'success');
   showToast(msg, 'success');
 }
@@ -14756,11 +14756,11 @@ let et_overrides  = {};
 
 /* Fixed daily slot definitions — Morning / Mid-Morning / Afternoon */
 const ET_SLOTS = [
-  { index:0, name:'Morning',     icon:'🌅', startTime:'08:00', endTime:'10:00',
+  { index:0, name:'Morning',     icon:'', startTime:'08:00', endTime:'10:00',
     breakLabel:'Morning Break',  breakDuration:'30 min', breakEnd:'10:30' },
-  { index:1, name:'Mid-Morning', icon:'☀️',  startTime:'10:30', endTime:'12:30',
+  { index:1, name:'Mid-Morning', icon:'️',  startTime:'10:30', endTime:'12:30',
     breakLabel:'Lunch Break',    breakDuration:'1 hour',  breakEnd:'13:30' },
-  { index:2, name:'Afternoon',   icon:'🌤️',  startTime:'13:30', endTime:'15:30',
+  { index:2, name:'Afternoon',   icon:'️',  startTime:'13:30', endTime:'15:30',
     breakLabel:'',               breakDuration:'',        breakEnd:''      },
 ];
 
@@ -14872,7 +14872,7 @@ function etGenerate() {
 
   etRender();
   const days = [...new Set(et_schedule.map(s=>s.date))].length;
-  showToast(`✅ Exam timetable generated — ${subjectIds.length} subject(s) × ${classGroups.length} class group(s) across ${days} day(s).`, 'success');
+  showToast(`<i class="fa-solid fa-circle-check"></i> Exam timetable generated — ${subjectIds.length} subject(s) × ${classGroups.length} class group(s) across ${days} day(s).`, 'success');
 }
 
 /* ── Helper: unique class groups from schedule ── */
@@ -14902,7 +14902,7 @@ function etRender() {
 
   if (!et_schedule.length) {
     output.innerHTML = `<div class="empty-state" style="padding:2.5rem 1rem;text-align:center;color:var(--muted)">
-      <div style="font-size:2.5rem;margin-bottom:.5rem">📅</div>
+      <div style="font-size:2.5rem;margin-bottom:.5rem"><i class="fa-solid fa-calendar-days"></i></div>
       <p>Select an exam and click <strong>Generate Exam Timetable</strong></p></div>`;
     if (legend) legend.style.display='none'; return;
   }
@@ -14927,7 +14927,7 @@ function etRender() {
 
     let html = `<div style="margin-bottom:2.5rem;border-radius:10px;overflow:hidden;border:1px solid var(--border,#e2e8f0);">
       <div style="padding:.65rem 1rem;background:#0f172a;color:#f8fafc;font-size:1rem;font-weight:800;display:flex;align-items:center;gap:.5rem;">
-        🏫 ${grp.classGroupLabel}
+        <i class="fa-solid fa-school"></i> ${grp.classGroupLabel}
         <span style="font-size:.72rem;font-weight:400;color:#94a3b8;margin-left:.25rem">${grp.streamSlots.length} stream(s) — all sit at the same time</span>
       </div>
       <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.8rem">
@@ -14964,7 +14964,7 @@ function etRender() {
               <span style="width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
               <span style="flex:1;font-weight:600">${tName}</span>
               <button onclick="etEditSlot('${key}','${slot.subjectName.replace(/'/g,"\\'")}','${ss.teacherId||''}')"
-                style="background:none;border:none;cursor:pointer;font-size:.7rem;color:var(--muted);padding:0 2px" title="Change invigilator">✏️</button>
+                style="background:none;border:none;cursor:pointer;font-size:.7rem;color:var(--muted);padding:0 2px" title="Change invigilator"><i class="fa-solid fa-pen"></i>️</button>
             </div>
             <div style="font-size:.65rem;color:${dot};margin-left:1.15rem">${roleLabels[role]||''}</div>
           </td>`;
@@ -14978,7 +14978,7 @@ function etRender() {
           html += `<tr style="background:#f8fafc">
             <td style="border:1px solid #e2e8f0"></td>
             <td colspan="${2+grp.streamSlots.length}" style="padding:.35rem .75rem;border:1px solid #e2e8f0;color:#64748b;font-size:.75rem;font-style:italic">
-              ☕ <strong>${slotDef.breakLabel}</strong> &nbsp;(${slotDef.breakDuration}) &nbsp;•&nbsp; ${slotDef.breakEnd} – ${nextSlot.slotStart}
+               <strong>${slotDef.breakLabel}</strong> &nbsp;(${slotDef.breakDuration}) &nbsp;•&nbsp; ${slotDef.breakEnd} – ${nextSlot.slotStart}
             </td></tr>`;
         }
       });
@@ -15042,7 +15042,7 @@ function etExportPDF() {
     /* ── Page header ── */
     doc.setFillColor(15,23,42); doc.rect(0,0,pw,22,'F');
     doc.setFontSize(14); doc.setFont(undefined,'bold'); doc.setTextColor(248,250,252);
-    doc.text(`📅 Exam Timetable — ${exam?.name||''}`, 12, 11);
+    doc.text(`<i class="fa-solid fa-calendar-days"></i> Exam Timetable — ${exam?.name||''}`, 12, 11);
     doc.setFontSize(8); doc.setFont(undefined,'normal'); doc.setTextColor(148,163,184);
     doc.text(`Generated: ${new Date().toLocaleDateString()}   •   ${grp.classGroupLabel} (${grp.streamSlots.length} stream(s))`, 12, 18);
     doc.setFontSize(7); doc.text(`All streams sit for the same subject at the same time.`, pw-12, 18, {align:'right'});
@@ -15144,7 +15144,7 @@ function etExportPDF() {
           doc.setFillColor(241,245,249); doc.rect(col0,y,pw-margin*2,breakRowH,'F');
           doc.setDrawColor(203,213,225); doc.rect(col0,y,pw-margin*2,breakRowH);
           doc.setTextColor(100,116,139); doc.setFontSize(6); doc.setFont(undefined,'italic');
-          doc.text(`☕  ${slotDef2.breakLabel}  (${slotDef2.breakDuration})   ${slotDef2.breakEnd} – ${nextSlot.slotStart}`, col0+4, y+breakRowH/2+2);
+          doc.text(`  ${slotDef2.breakLabel}  (${slotDef2.breakDuration})   ${slotDef2.breakEnd} – ${nextSlot.slotStart}`, col0+4, y+breakRowH/2+2);
           y += breakRowH;
         }
       });
@@ -15158,7 +15158,7 @@ function etExportPDF() {
   });
 
   doc.save(`exam_timetable_${exam?.name?.replace(/\s+/g,'_')||'export'}.pdf`);
-  showToast('📄 Exam timetable PDF exported!','success');
+  showToast('<i class="fa-solid fa-file-lines"></i> Exam timetable PDF exported!','success');
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -15194,7 +15194,7 @@ function etExportExcel() {
             return ov?(teachers.find(t=>t.id===ov)?.name||ss.teacherName):ss.teacherName;
           })
         ]);
-        if (slotDef.breakLabel && slots[si+1]) rows.push(['','',`☕ ${slotDef.breakLabel}`,'','','']);
+        if (slotDef.breakLabel && slots[si+1]) rows.push(['','',` ${slotDef.breakLabel}`,'','','']);
       });
       rows.push(['','','— — —','','','']);
     });
@@ -15239,7 +15239,7 @@ function etPrint() {
         }).join('');
         const dateTd=`<td class="dc" rowspan="${slots.length}">${si===0?fmtDate(ds):''}</td>`;
         const breakRow= (slotDef.breakLabel&&slots[si+1])
-          ?`<tr class="bkr"><td></td><td colspan="${2+grp.streamSlots.length}">☕ <strong>${slotDef.breakLabel}</strong> (${slotDef.breakDuration}) &nbsp;•&nbsp; ${slotDef.breakEnd} – ${ET_SLOTS[slot.slotIndex+1]?.startTime||''}</td></tr>`:'';
+          ?`<tr class="bkr"><td></td><td colspan="${2+grp.streamSlots.length}"> <strong>${slotDef.breakLabel}</strong> (${slotDef.breakDuration}) &nbsp;•&nbsp; ${slotDef.breakEnd} – ${ET_SLOTS[slot.slotIndex+1]?.startTime||''}</td></tr>`:'';
         return `<tr class="sr" style="--sc:${sc.bg};--st:${sc.text}">
           ${si===0?dateTd:''}
           <td class="sess" style="background:${sc.bg};color:${sc.text}"><strong>${slotDef.icon} ${slot.slotName}</strong><br><small>${slotDef.startTime}–${slotDef.endTime}</small></td>
@@ -15250,7 +15250,7 @@ function etPrint() {
     }).join('');
 
     return `<div class="grp">
-      <div class="grp-hd">🏫 ${grp.classGroupLabel}
+      <div class="grp-hd"><i class="fa-solid fa-school"></i> ${grp.classGroupLabel}
         <span class="sub-note">${grp.streamSlots.length} stream(s) — all sit at the same time</span>
       </div>
       <table>
@@ -15293,10 +15293,10 @@ function etPrint() {
       .grp+.grp{page-break-before:auto}
     }
   </style></head><body>
-  <h1>📅 Exam Timetable — ${exam?.name||'Exam'}</h1>
+  <h1><i class="fa-solid fa-calendar-days"></i> Exam Timetable — ${exam?.name||'Exam'}</h1>
   <div class="meta">
     Generated: ${new Date().toLocaleDateString()} &nbsp;|&nbsp;
-    Sessions: 🌅 Morning (08:00–10:00) &nbsp;•&nbsp; ☀️ Mid-Morning (10:30–12:30) &nbsp;•&nbsp; 🌤️ Afternoon (13:30–15:30)<br>
+    Sessions:  Morning (08:00–10:00) &nbsp;•&nbsp; ️ Mid-Morning (10:30–12:30) &nbsp;•&nbsp; ️ Afternoon (13:30–15:30)<br>
     All streams of the same class sit for the same subject at the same date and session.
   </div>
   ${tablesHtml}
@@ -15337,7 +15337,7 @@ function ebAIPrefillFromExam() {
   if (aiTopic)   aiTopic.value = classLevel ? `${subject} — ${classLevel}` : subject;
   if (aiNotes && examType) aiNotes.placeholder = `Paste syllabus notes for ${examType} exam...`;
 
-  showToast('Fields pre-filled from your exam details ✓', 'success');
+  showToast('Fields pre-filled from your exam details <i class="fa-solid fa-check"></i>', 'success');
 }
 
 /** Quick-jump to AI tab from the exam builder wizard (called by inline button) */
@@ -15370,17 +15370,17 @@ window.ebAutoInstructions = async function() {
       parsed.instructions.forEach(inst => {
         const div = document.createElement('div');
         div.className = 'eb-inst-item';
-        div.innerHTML = `<input type="text" placeholder="Add instruction..." class="eb-inst-input" value="${inst.replace(/"/g,'&quot;')}"/><button class="btn btn-sm" style="padding:4px 8px;color:var(--danger)" onclick="this.closest('.eb-inst-item').remove()">✕</button>`;
+        div.innerHTML = `<input type="text" placeholder="Add instruction..." class="eb-inst-input" value="${inst.replace(/"/g,'&quot;')}"/><button class="btn btn-sm" style="padding:4px 8px;color:var(--danger)" onclick="this.closest('.eb-inst-item').remove()"><i class="fa-solid fa-xmark"></i></button>`;
         list.appendChild(div);
       });
-      showToast(`Generated ${parsed.instructions.length} instructions ✓`, 'success');
+      showToast(`Generated ${parsed.instructions.length} instructions <i class="fa-solid fa-check"></i>`, 'success');
     }
   } catch(err) {
     showToast('AI failed: ' + err.message, 'error');
     // Fall back to original
     if (typeof _origEbAutoInstructions === 'function') _origEbAutoInstructions();
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '✨ Auto-Generate'; }
+    if (btn) { btn.disabled = false; btn.textContent = ' Auto-Generate'; }
   }
 };
 
@@ -15405,7 +15405,7 @@ function platSaveContactSettings() {
   saveContactSettingsData({ whatsapp, facebook, call });
   initFloatingContact();
   const st = document.getElementById('platContactStatus');
-  if (st) { st.textContent = '✅ Saved!'; st.style.color = '#16a34a'; setTimeout(() => { st.textContent = ''; }, 2500); }
+  if (st) { st.textContent = '<i class="fa-solid fa-circle-check"></i> Saved!'; st.style.color = '#16a34a'; setTimeout(() => { st.textContent = ''; }, 2500); }
 }
 
 function platLoadContactInputs() {
@@ -15548,7 +15548,7 @@ platSaveContactSettings = function() {
   saveContactSettingsData({ whatsapp, facebook, call, youtube, tiktok });
   initFloatingContact();
   const st = document.getElementById('platContactStatus');
-  if (st) { st.textContent = '✅ Saved!'; st.style.color = '#16a34a'; setTimeout(()=>{ st.textContent=''; },2500); }
+  if (st) { st.textContent = '<i class="fa-solid fa-circle-check"></i> Saved!'; st.style.color = '#16a34a'; setTimeout(()=>{ st.textContent=''; },2500); }
 };
 
 // ══════════════════════════════════════════════════════
@@ -15576,7 +15576,7 @@ function platSaveChatSettings() {
   lcUpdateToggleUI('chatLiveEnabled');
   lcUpdateToggleUI('chatCommunityEnabled');
   lcUpdateNavVisibility();
-  if (typeof showToast === 'function') showToast('Chat settings saved ✓', 'success');
+  if (typeof showToast === 'function') showToast('Chat settings saved <i class="fa-solid fa-check"></i>', 'success');
 }
 
 function lcUpdateToggleUI(checkboxId) {
@@ -15738,7 +15738,7 @@ function lcSelectSchool(schoolId, schoolName) {
   lcRenderSchoolList();
 
   const header = document.getElementById('lcAdminChatHeader');
-  if (header) header.textContent = '🏫 ' + schoolName;
+  if (header) header.textContent = '<i class="fa-solid fa-school"></i> ' + schoolName;
 
   const inputWrap = document.getElementById('lcAdminInput');
   if (inputWrap) inputWrap.style.display = 'flex';
@@ -15751,7 +15751,7 @@ function lcRenderAdminMessages(schoolId) {
   if (!container) return;
   const msgs = lcGetMsgs(schoolId || _lcActiveSchool);
   if (!msgs.length) {
-    container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:.83rem;margin:auto">No messages yet. Say hello! 👋</div>';
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:.83rem;margin:auto">No messages yet. Say hello! </div>';
     return;
   }
   container.innerHTML = msgs.map(m => `
@@ -15798,7 +15798,7 @@ function lcRenderSchoolMessages(schoolId, containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
   const msgs = lcGetMsgs(schoolId);
-  const base = '<div class="lc-bubble lc-admin" style="max-width:75%;font-size:.83rem">👋 Hello! How can we help you today?</div>';
+  const base = '<div class="lc-bubble lc-admin" style="max-width:75%;font-size:.83rem"> Hello! How can we help you today?</div>';
   if (!msgs.length) { container.innerHTML = base; return; }
   container.innerHTML = base + msgs.map(m => `
     <div style="display:flex;flex-direction:column;align-items:${m.role==='school'?'flex-end':'flex-start'}">
@@ -15876,7 +15876,7 @@ function lcRenderCommunityMessages() {
   const msgs = lcGetCommunity();
   const user = lcCurrentUser();
   if (!msgs.length) {
-    container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:.83rem;margin:auto">Be the first to say something! 👋</div>';
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:.83rem;margin:auto">Be the first to say something! </div>';
     return;
   }
   container.innerHTML = msgs.map(m => {
@@ -16150,7 +16150,7 @@ function themeRenderSwatches() {
   if (enableToggle) enableToggle.checked = enabled;
   const enableStatus = document.getElementById('themeEnabledStatus');
   if (enableStatus) {
-    enableStatus.textContent = enabled ? '✅ Theme customisation is ON for all schools' : '🔒 Theme customisation is OFF (locked to current theme)';
+    enableStatus.textContent = enabled ? '<i class="fa-solid fa-circle-check"></i> Theme customisation is ON for all schools' : '<i class="fa-solid fa-lock"></i> Theme customisation is OFF (locked to current theme)';
     enableStatus.style.color = enabled ? '#16a34a' : '#dc2626';
   }
 
@@ -16185,7 +16185,7 @@ function themeToggleEnabled(val) {
   themeRenderSwatches();
   if (!val) themeApply({});  // clear overrides for non-platform users instantly
   const st = document.getElementById('themeStatus');
-  if (st) { st.textContent = val ? '✅ Enabled for all schools' : '🔒 Disabled for schools'; st.style.color = val ? '#16a34a' : '#dc2626'; setTimeout(()=>{ st.textContent=''; },2500); }
+  if (st) { st.textContent = val ? '<i class="fa-solid fa-circle-check"></i> Enabled for all schools' : '<i class="fa-solid fa-lock"></i> Disabled for schools'; st.style.color = val ? '#16a34a' : '#dc2626'; setTimeout(()=>{ st.textContent=''; },2500); }
 }
 
 function themePickColor(cfgKey, paletteId) {
@@ -16198,8 +16198,8 @@ function themePickColor(cfgKey, paletteId) {
 
 function themeSave() {
   const st = document.getElementById('themeStatus');
-  if (st) { st.textContent = '✅ Theme saved!'; st.style.color = '#16a34a'; setTimeout(()=>{ st.textContent=''; },2500); }
-  if (typeof showToast === 'function') showToast('Theme saved ✓','success');
+  if (st) { st.textContent = '<i class="fa-solid fa-circle-check"></i> Theme saved!'; st.style.color = '#16a34a'; setTimeout(()=>{ st.textContent=''; },2500); }
+  if (typeof showToast === 'function') showToast('Theme saved <i class="fa-solid fa-check"></i>','success');
 }
 
 function themeReset() {

@@ -3156,3 +3156,50 @@ body.lite-mode-active .main {
   color: #fff;
   border-color: var(--primary, #4f7cff);
 }
+
+/* ── FONT AWESOME ICON POLISH ── */
+/* Sidebar nav FA icons */
+.sn i.fa-solid, .sn i.fa-regular, .sn i.fa-brands {
+  font-size: .95rem;
+  width: 1.1rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* Mobile bottom nav FA icons */
+.mbn-item i.fa-solid, .mbn-item i.fa-regular {
+  font-size: 1.1rem;
+  display: block;
+  margin-bottom: .1rem;
+}
+
+/* Quick-card icons */
+.qc-icon i.fa-solid, .qc-icon i.fa-regular {
+  font-size: 1.6rem;
+}
+
+/* Exam category icon */
+.ecat-icon i.fa-solid {
+  font-size: 1.4rem;
+}
+
+/* Inline heading icons */
+h2 i.fa-solid, h3 i.fa-solid {
+  opacity: .8;
+}
+
+/* Button icons */
+.btn i.fa-solid, .btn i.fa-regular {
+  font-size: .85em;
+}
+
+/* Topbar user icon */
+.tb-user i.fa-solid {
+  font-size: .95rem;
+  opacity: .7;
+}
+
+/* Tab button icons */
+.tb i.fa-solid {
+  font-size: .85rem;
+}
