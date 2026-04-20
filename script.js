@@ -849,7 +849,6 @@ function finishStudentPortal(school) {
   document.getElementById('spStudentAdm').textContent  = 'Adm: ' + currentUser.adm;
   document.getElementById('spSchoolBadge').textContent = school.name;
   if (localStorage.getItem('ei_dark')==='1') applyDark(true);
-  initGlass();
   spLoadExamFilter();
   spRenderResults();
   spRenderFees();
@@ -1122,7 +1121,6 @@ function applyGuestRoleUI() {
 
   // ── Dark mode sync ──
   if (localStorage.getItem('ei_dark') === '1') applyDark(true);
-  initGlass();
 
   // ── Show Exam Builder tab first ──
   guestShowTab('exambuilder');
@@ -1165,8 +1163,7 @@ function guestShowTab(which) {
 // ══════════════════════════════════════════════
 // ── Platform Admin Tab Switcher ──────────────────────────
 function openPlatTab(tabId, btn) {
-  // Refresh lite mode config + glass toggle when system tab opens
-  if (tabId === 'platTab-system') { setTimeout(platRenderLiteModeConfig, 50); setTimeout(initGlass, 60); }
+  if (tabId === 'platTab-system') { setTimeout(platRenderLiteModeConfig, 50); }
   document.querySelectorAll('#s-platform .plat-tab-panel').forEach(p => { p.style.display = 'none'; });
   document.querySelectorAll('#platTabBar .plat-tab-btn').forEach(b => {
     b.style.background = 'var(--surface)';
@@ -1291,7 +1288,6 @@ function enterPlatformDashboard() {
   });
   const platLink = document.getElementById('platNavLink'); if(platLink) platLink.style.display='';
   if (localStorage.getItem('ei_dark')==='1') applyDark(true);
-  initGlass();
   renderPlatformDashboard();
   platRenderNavConfig();
   go('platform', document.getElementById('platNavLink'));
@@ -3124,7 +3120,6 @@ function launchApp() {
   if (ebLink) ebLink.style.display = '';
 
   if (localStorage.getItem(K.dark) === '1') applyDark(true);
-  initGlass();
   // manageSchoolsCard is now platform-only — always hide in school portal
   const msc = document.getElementById('manageSchoolsCard');
   if (msc) msc.style.display = 'none';
@@ -3178,7 +3173,6 @@ function launchApp() {
 function initApp() {
   initLang();
   if (localStorage.getItem('ei_dark') === '1') applyDark(true);
-  initGlass();
 
   // ── Restore session after refresh / back navigation ──
   try {
@@ -3349,26 +3343,7 @@ function applyDark(d) {
   localStorage.setItem(K.dark, d?'1':'0');
 }
 
-// ── Glassmorphism toggle ──
-const GLASS_KEY = 'platform_glass_on';
-function applyGlass(on) {
-  document.body.classList.toggle('glass-on', !!on);
-  // Sync the admin toggle checkbox if it's in the DOM
-  const cb = document.getElementById('platGlassToggle');
-  if (cb) cb.checked = !!on;
-  const lbl = document.getElementById('platGlassStatus');
-  if (lbl) lbl.textContent = on ? 'Glassmorphism is ON — blur active on content panels.' : 'Glassmorphism is OFF — solid surfaces, maximum performance.';
-}
-function platToggleGlass(checked) {
-  localStorage.setItem(GLASS_KEY, checked ? '1' : '0');
-  applyGlass(checked);
-  showToast(checked ? 'Glass effects enabled' : 'Glass effects disabled', 'success');
-}
-function initGlass() {
-  const saved = localStorage.getItem(GLASS_KEY);
-  // Default OFF (performance-first)
-  applyGlass(saved === '1');
-}
+// Glassmorphism removed
 
 // ═══════════════ DASHBOARD ═══════════════
 let dashCharts = {};
@@ -15435,7 +15410,10 @@ function platSaveContactSettings() {
   const whatsapp = (document.getElementById('contactWhatsappNum') || {}).value?.trim() || '';
   const facebook = (document.getElementById('contactFacebookUrl') || {}).value?.trim() || '';
   const call     = (document.getElementById('contactCallNum')     || {}).value?.trim() || '';
-  saveContactSettingsData({ whatsapp, facebook, call });
+  const whatsappEnabled = !!(document.getElementById('contactWhatsappEnabled') || {}).checked;
+  const facebookEnabled = !!(document.getElementById('contactFacebookEnabled') || {}).checked;
+  const callEnabled     = !!(document.getElementById('contactCallEnabled')     || {}).checked;
+  saveContactSettingsData({ whatsapp, facebook, call, whatsappEnabled, facebookEnabled, callEnabled });
   initFloatingContact();
   const st = document.getElementById('platContactStatus');
   if (st) { st.innerHTML = '<i class="fa-solid fa-circle-check"></i> Saved!'; st.style.color = '#16a34a'; setTimeout(() => { st.textContent = ''; }, 2500); }
@@ -15447,6 +15425,10 @@ function platLoadContactInputs() {
   set('contactWhatsappNum', cfg.whatsapp);
   set('contactFacebookUrl', cfg.facebook);
   set('contactCallNum',     cfg.call);
+  const setChk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+  setChk('contactWhatsappEnabled', cfg.whatsappEnabled);
+  setChk('contactFacebookEnabled', cfg.facebookEnabled);
+  setChk('contactCallEnabled',     cfg.callEnabled);
 }
 
 function initFloatingContact() {
@@ -15454,13 +15436,13 @@ function initFloatingContact() {
   const wrap = document.getElementById('floatingContact');
   if (!wrap) return;
 
-  const hasAny = cfg.whatsapp || cfg.facebook || cfg.call;
+  const hasAny = (cfg.whatsapp && cfg.whatsappEnabled) || (cfg.facebook && cfg.facebookEnabled) || (cfg.call && cfg.callEnabled);
   wrap.style.display = hasAny ? 'flex' : 'none';
 
   // WhatsApp
   const wa = document.getElementById('fcWhatsapp');
   if (wa) {
-    if (cfg.whatsapp) {
+    if (cfg.whatsapp && cfg.whatsappEnabled) {
       const num = cfg.whatsapp.replace(/\D/g, '');
       wa.href = 'https://wa.me/' + num;
       wa.style.display = 'flex';
@@ -15472,7 +15454,7 @@ function initFloatingContact() {
   // Facebook
   const fb = document.getElementById('fcFacebook');
   if (fb) {
-    if (cfg.facebook) {
+    if (cfg.facebook && cfg.facebookEnabled) {
       fb.href = cfg.facebook;
       fb.style.display = 'flex';
     } else {
@@ -15483,7 +15465,7 @@ function initFloatingContact() {
   // Call
   const cl = document.getElementById('fcCall');
   if (cl) {
-    if (cfg.call) {
+    if (cfg.call && cfg.callEnabled) {
       cl.href = 'tel:' + cfg.call.replace(/\s/g, '');
       cl.style.display = 'flex';
     } else {
@@ -15525,7 +15507,7 @@ initFloatingContact = function() {
 
   // YouTube
   let yt = document.getElementById('fcYoutube');
-  if (cfg.youtube) {
+  if (cfg.youtube && cfg.youtubeEnabled) {
     if (!yt) {
       yt = document.createElement('a');
       yt.id = 'fcYoutube'; yt.target = '_blank'; yt.rel = 'noopener';
@@ -15538,7 +15520,7 @@ initFloatingContact = function() {
 
   // TikTok
   let tt = document.getElementById('fcTiktok');
-  if (cfg.tiktok) {
+  if (cfg.tiktok && cfg.tiktokEnabled) {
     if (!tt) {
       tt = document.createElement('a');
       tt.id = 'fcTiktok'; tt.target = '_blank'; tt.rel = 'noopener';
@@ -15550,7 +15532,7 @@ initFloatingContact = function() {
   } else if (tt) { tt.style.display = 'none'; }
 
   // Re-check hasAny
-  const hasAny = cfg.whatsapp || cfg.facebook || cfg.call || cfg.youtube || cfg.tiktok;
+  const hasAny = (cfg.whatsapp && cfg.whatsappEnabled) || (cfg.facebook && cfg.facebookEnabled) || (cfg.call && cfg.callEnabled) || (cfg.youtube && cfg.youtubeEnabled) || (cfg.tiktok && cfg.tiktokEnabled);
   wrap.style.display = hasAny ? 'flex' : 'none';
 };
 
@@ -15561,6 +15543,9 @@ platLoadContactInputs = function() {
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
   set('contactYoutubeUrl', cfg.youtube);
   set('contactTiktokUrl',  cfg.tiktok);
+  const setChk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+  setChk('contactYoutubeEnabled', cfg.youtubeEnabled);
+  setChk('contactTiktokEnabled',  cfg.tiktokEnabled);
   // Load chat toggles
   const chatCfg = lcGetSettings();
   const live = document.getElementById('chatLiveEnabled');
@@ -15578,7 +15563,12 @@ platSaveContactSettings = function() {
   const call     = (document.getElementById('contactCallNum')||{}).value?.trim()||'';
   const youtube  = (document.getElementById('contactYoutubeUrl')||{}).value?.trim()||'';
   const tiktok   = (document.getElementById('contactTiktokUrl')||{}).value?.trim()||'';
-  saveContactSettingsData({ whatsapp, facebook, call, youtube, tiktok });
+  const whatsappEnabled = !!(document.getElementById('contactWhatsappEnabled')||{}).checked;
+  const facebookEnabled = !!(document.getElementById('contactFacebookEnabled')||{}).checked;
+  const callEnabled     = !!(document.getElementById('contactCallEnabled')||{}).checked;
+  const youtubeEnabled  = !!(document.getElementById('contactYoutubeEnabled')||{}).checked;
+  const tiktokEnabled   = !!(document.getElementById('contactTiktokEnabled')||{}).checked;
+  saveContactSettingsData({ whatsapp, facebook, call, youtube, tiktok, whatsappEnabled, facebookEnabled, callEnabled, youtubeEnabled, tiktokEnabled });
   initFloatingContact();
   const st = document.getElementById('platContactStatus');
   if (st) { st.innerHTML = '<i class="fa-solid fa-circle-check"></i> Saved!'; st.style.color = '#16a34a'; setTimeout(()=>{ st.textContent=''; },2500); }
