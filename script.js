@@ -389,7 +389,7 @@ function showPlatformLogin() {
   } else {
     if (plTitle)    plTitle.textContent    = 'Platform Administration';
     if (plSubtitle) plSubtitle.textContent = 'Sign in to manage school accounts';
-    if (plBtn)      plBtn.textContent      = 'Sign In →';
+    if (plBtn)      plBtn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket" style="margin-right:.4rem"></i>Sign In';
     if (note)       note.style.display     = 'none';
   }
 }
@@ -507,11 +507,11 @@ function fpSendCode() {
   const errEl = document.getElementById('fpStep1Err');
   errEl.style.display = 'none'; errEl.textContent = '';
 
-  if (!username) { errEl.textContent = '<i class="fa-solid fa-triangle-exclamation"></i>️ Please enter your username.'; errEl.style.display = 'block'; return; }
+  if (!username) { errEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>️ Please enter your username.'; errEl.style.display = 'block'; return; }
 
   const found = _fpFindAccount(username);
   if (!found) {
-    errEl.textContent = '<i class="fa-solid fa-circle-xmark"></i> No account found with that username. Check spelling and try again.';
+    errEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> No account found with that username. Check spelling and try again.';
     errEl.style.display = 'block';
     return;
   }
@@ -521,7 +521,7 @@ function fpSendCode() {
   const email = record.email || '';
 
   if (!phone && !email) {
-    errEl.textContent = '<i class="fa-solid fa-circle-xmark"></i> No phone number or email is registered for this account. Contact your administrator to reset your password.';
+    errEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> No phone number or email is registered for this account. Contact your administrator to reset your password.';
     errEl.style.display = 'block';
     return;
   }
@@ -590,7 +590,7 @@ function fpVerifyCode() {
     return;
   }
   if (entered !== _fpState.code) {
-    errEl.textContent = '<i class="fa-solid fa-circle-xmark"></i> Incorrect code. Please try again.';
+    errEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Incorrect code. Please try again.';
     errEl.style.display = 'block';
     return;
   }
@@ -611,11 +611,11 @@ function fpSetPassword() {
   errEl.style.display = 'none'; errEl.textContent = '';
 
   if (!newPass || newPass.length < 6) {
-    errEl.textContent = '<i class="fa-solid fa-triangle-exclamation"></i>️ Password must be at least 6 characters.';
+    errEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>️ Password must be at least 6 characters.';
     errEl.style.display = 'block'; return;
   }
   if (newPass !== confPass) {
-    errEl.textContent = '<i class="fa-solid fa-circle-xmark"></i> Passwords do not match.';
+    errEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Passwords do not match.';
     errEl.style.display = 'block'; return;
   }
   if (!_fpState) { fpCancel(); return; }
@@ -625,7 +625,7 @@ function fpSetPassword() {
   if (type === 'school') {
     loadPlatform();
     const school = platformSchools.find(s => s.id === id);
-    if (!school) { errEl.textContent = '<i class="fa-solid fa-circle-xmark"></i> Account not found.'; errEl.style.display='block'; return; }
+    if (!school) { errEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Account not found.'; errEl.style.display='block'; return; }
     school.password = newPass;
     savePlatform();
   } else if (type === 'teacher') {
@@ -669,13 +669,13 @@ function doPlatformLogin() {
   if (!creds) {
     if (!u || !p) {
       re();
-      errEl.textContent = '<i class="fa-solid fa-circle-xmark"></i> Enter a username and password to create your platform account.';
+      errEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Enter a username and password to create your platform account.';
       errEl.style.display = 'block';
       return;
     }
     if (p.length < 6) {
       re();
-      errEl.textContent = '<i class="fa-solid fa-circle-xmark"></i> Password must be at least 6 characters.';
+      errEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Password must be at least 6 characters.';
       errEl.style.display = 'block';
       return;
     }
@@ -712,7 +712,7 @@ function doUnifiedLogin() {
   const btn = document.getElementById('uniBtn');
   err.style.display = 'none';
   if (btn) { btn.disabled=true; btn.textContent='Signing in…'; }
-  const re = () => { if(btn){ btn.disabled=false; btn.textContent='Sign In →'; } };
+  const re = () => { if(btn){ btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-arrow-right-to-bracket" style="margin-right:.4rem"></i>Sign In'; } };
   // Helper: save credentials if "Remember me" is checked
   const maybeSaveCreds = () => {
     try {
@@ -725,7 +725,7 @@ function doUnifiedLogin() {
     } catch(e) {}
   };
 
-  if (!u || !p) { re(); err.textContent='<i class="fa-solid fa-circle-xmark"></i> Please enter your username and password.'; err.style.display='block'; return; }
+  if (!u || !p) { re(); err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Please enter your username and password.'; err.style.display='block'; return; }
 
   loadPlatform();
 
@@ -736,7 +736,7 @@ function doUnifiedLogin() {
     // Try schools first; if no match, treat as first-time platform setup
     const anySchoolMatch = platformSchools.some(s => s.username===u && s.password===p);
     if (!anySchoolMatch) {
-      if (p.length < 6) { re(); err.textContent='<i class="fa-solid fa-circle-xmark"></i> No account found. Platform password must be ≥6 chars to create.'; err.style.display='block'; return; }
+      if (p.length < 6) { re(); err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> No account found. Platform password must be ≥6 chars to create.'; err.style.display='block'; return; }
       if (!confirm('Create a new Platform Admin account?\n\nUsername: '+u+'\n\nRemember these credentials — they cannot be recovered without a reset.')) { re(); return; }
       setPlatformCreds(u, p);
       re();
@@ -1194,10 +1194,10 @@ function platRenderExamDlFeeUI() {
   if (statusEl) {
     if (!fee || fee <= 0) {
       statusEl.style.background = 'rgba(16,185,129,.1)'; statusEl.style.color='#065f46'; statusEl.style.borderColor='rgba(16,185,129,.3)';
-      statusEl.textContent = '<i class="fa-solid fa-lock-open"></i> Free — All teachers & guests can print/download';
+      statusEl.innerHTML = '<i class="fa-solid fa-lock-open"></i> Free — All teachers & guests can print/download';
     } else {
       statusEl.style.background = 'rgba(245,158,11,.1)'; statusEl.style.color='#b45309'; statusEl.style.borderColor='rgba(245,158,11,.3)';
-      statusEl.textContent = `<i class="fa-solid fa-lock"></i> Locked — KES ${fee.toLocaleString()} fee required. Unlock per school after payment.`;
+      statusEl.innerHTML = `<i class="fa-solid fa-lock"></i> Locked — KES ${fee.toLocaleString()} fee required. Unlock per school after payment.`;
     }
   }
   // Populate school unlock dropdown
@@ -1215,7 +1215,7 @@ function platSaveExamDlFee() {
   const msg = document.getElementById('platExamDlFeeSaveMsg');
   const fee = Math.max(0, Number(inp?.value||0));
   localStorage.setItem(K_EXAM_DL_FEE, String(fee));
-  if (msg) { msg.style.color='#10b981'; msg.textContent='<i class="fa-solid fa-circle-check"></i> Saved!'; setTimeout(()=>{msg.textContent=''},2500); }
+  if (msg) { msg.style.color='#10b981'; msg.innerHTML = '<i class="fa-solid fa-circle-check"></i> Saved!'; setTimeout(()=>{msg.textContent=''},2500); }
   platRenderExamDlFeeUI();
   showToast(fee>0 ? `Exam download fee set to KES ${fee.toLocaleString()} <i class="fa-solid fa-lock"></i>` : 'Exam download/print is now free <i class="fa-solid fa-lock-open"></i>', 'success');
 }
@@ -1271,7 +1271,7 @@ function enterPlatformDashboard() {
   // Show topbar and sidebar for platform admin
   const tb = document.getElementById('topbar'); if (tb) tb.style.display = '';
   const sb = document.getElementById('sidebar'); if (sb) sb.style.display = '';
-  document.getElementById('tbUser').textContent = '<i class="fa-solid fa-gear"></i>️ Platform Admin';
+  document.getElementById('tbUser').innerHTML = '<i class="fa-solid fa-gear"></i>️ Platform Admin';
   // Platform portal: no mobile bottom nav
   const mbn = document.getElementById('mobileBottomNav');
   if (mbn) mbn.style.display = 'none';
@@ -1323,7 +1323,7 @@ function saveBroadcastMessage() {
   const msg = (document.getElementById('broadcastMsgInput').value||'').trim();
   localStorage.setItem(K_BROADCAST, msg);
   const status = document.getElementById('broadcastStatus');
-  if (status) { status.textContent = msg ? '<i class="fa-solid fa-circle-check"></i> Message published to all schools.' : '<i class="fa-solid fa-circle-check"></i> Banner cleared.'; setTimeout(()=>{status.textContent='';},3000); }
+  if (status) { status.innerHTML = msg ? '<i class="fa-solid fa-circle-check"></i> Message published to all schools.' : '<i class="fa-solid fa-circle-check"></i> Banner cleared.'; setTimeout(()=>{status.innerHTML='';},3000); }
   renderBroadcastPreview();
   showToast(msg ? '<i class="fa-solid fa-bullhorn"></i> Broadcast message published!' : 'Broadcast cleared','success');
 }
@@ -1559,12 +1559,12 @@ function platUploadExam() {
   const notes   = (document.getElementById('platExamNotes').value||'').trim();
   const gsId    = (document.getElementById('platExamGradingSystem')?.value||'').trim();
   const msgEl   = document.getElementById('platExamMsg');
-  if(!title){ if(msgEl){msgEl.textContent='<i class="fa-solid fa-circle-xmark"></i> Exam title is required.';msgEl.style.display='';msgEl.style.color='var(--danger)';} return; }
-  if(!gsId){ if(msgEl){msgEl.textContent='<i class="fa-solid fa-circle-xmark"></i> Select a grading system to lock for this exam.';msgEl.style.display='';msgEl.style.color='var(--danger)';} return; }
+  if(!title){ if(msgEl){msgEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Exam title is required.';msgEl.style.display='';msgEl.style.color='var(--danger)';} return; }
+  if(!gsId){ if(msgEl){msgEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Select a grading system to lock for this exam.';msgEl.style.display='';msgEl.style.color='var(--danger)';} return; }
   const exam={id:uid(),title,subject,class:cls,term,year,maxScore,notes,gradingSystemId:gsId,timetable:[],createdAt:new Date().toISOString(),isPlatformExam:true};
   let plExams=[]; try{plExams=JSON.parse(localStorage.getItem(K_PLATFORM_EXAMS)||'[]');}catch{}
   plExams.unshift(exam); localStorage.setItem(K_PLATFORM_EXAMS,JSON.stringify(plExams));
-  if(msgEl){msgEl.textContent='<i class="fa-solid fa-circle-check"></i> Exam pushed to all schools!';msgEl.style.display='';msgEl.style.color='var(--success,#16a34a)';setTimeout(()=>{msgEl.style.display='none';},3500);}
+  if(msgEl){msgEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Exam pushed to all schools!';msgEl.style.display='';msgEl.style.color='var(--success,#16a34a)';setTimeout(()=>{msgEl.style.display='none';},3500);}
   document.getElementById('platExamTitle').value=''; document.getElementById('platExamSubject').value=''; document.getElementById('platExamClass').value=''; document.getElementById('platExamNotes').value='';
   renderPlatExamList();
   showToast('Exam "'+title+'" pushed to all schools!','success');
@@ -1787,7 +1787,7 @@ function loadPlatformExamMarkTable() {
   if(ttWrap) { ttWrap.style.display = (exam.timetable&&exam.timetable.length) ? '' : 'none'; }
   // Show grading lock notice
   const notice = document.getElementById('platMarkGradingNotice');
-  if(notice){ notice.textContent = `<i class="fa-solid fa-lock"></i> Grading locked to: ${gs.name}`; notice.style.display=''; }
+  if(notice){ notice.innerHTML = `<i class="fa-solid fa-lock"></i> Grading locked to: ${gs.name}`; notice.style.display=''; }
   // Build a simple subject+student entry form
   container.innerHTML = `
     <p style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem">Enter student marks below. Grading is automatically applied using <strong>${gs.name}</strong> as set by the platform.</p>
@@ -2026,11 +2026,11 @@ function platChangePassword() {
   const cur=document.getElementById('platCurPwd').value; const nw=document.getElementById('platNewPwd').value; const cf=document.getElementById('platConfPwd').value;
   const msgEl=document.getElementById('platPwdMsg');
   const creds=getPlatformCreds();
-  if(!creds||cur!==creds.password){if(msgEl){msgEl.textContent='<i class="fa-solid fa-circle-xmark"></i> Current password incorrect.';msgEl.style.color='var(--danger)';msgEl.style.display='';}return;}
-  if(nw.length<6){if(msgEl){msgEl.textContent='<i class="fa-solid fa-circle-xmark"></i> New password must be ≥6 characters.';msgEl.style.color='var(--danger)';msgEl.style.display='';}return;}
-  if(nw!==cf){if(msgEl){msgEl.textContent='<i class="fa-solid fa-circle-xmark"></i> Passwords do not match.';msgEl.style.color='var(--danger)';msgEl.style.display='';}return;}
+  if(!creds||cur!==creds.password){if(msgEl){msgEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Current password incorrect.';msgEl.style.color='var(--danger)';msgEl.style.display='';}return;}
+  if(nw.length<6){if(msgEl){msgEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> New password must be ≥6 characters.';msgEl.style.color='var(--danger)';msgEl.style.display='';}return;}
+  if(nw!==cf){if(msgEl){msgEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Passwords do not match.';msgEl.style.color='var(--danger)';msgEl.style.display='';}return;}
   setPlatformCreds(creds.username,nw);
-  if(msgEl){msgEl.textContent='<i class="fa-solid fa-circle-check"></i> Password updated!';msgEl.style.color='var(--success,#16a34a)';msgEl.style.display='';setTimeout(()=>{msgEl.style.display='none';},3000);}
+  if(msgEl){msgEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Password updated!';msgEl.style.color='var(--success,#16a34a)';msgEl.style.display='';setTimeout(()=>{msgEl.style.display='none';},3000);}
   document.getElementById('platCurPwd').value=''; document.getElementById('platNewPwd').value=''; document.getElementById('platConfPwd').value='';
 }
 
@@ -2038,13 +2038,13 @@ function platChangePassword() {
 function platSaveApiKey() {
   const key = (document.getElementById('platApiKeyInput')?.value||'').trim();
   const status = document.getElementById('platApiKeyStatus');
-  if (!key) { if(status){status.style.color='var(--danger)';status.textContent='<i class="fa-solid fa-circle-xmark"></i> Please enter an API key.';} return; }
+  if (!key) { if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Please enter an API key.';} return; }
   // Save via the shared ebSaveApiKey mechanism (stores in settings.ebApiKey)
   // We call the underlying save directly
   settings.ebApiKey = key;
   save(K.settings, [settings]);
   showToast('API key saved <i class="fa-solid fa-circle-check"></i>', 'success');
-  if(status){status.style.color='#10b981';status.textContent='<i class="fa-solid fa-circle-check"></i> Saved!';}
+  if(status){status.style.color='#10b981';status.innerHTML = '<i class="fa-solid fa-circle-check"></i> Saved!';}
   setTimeout(()=>{if(status)status.textContent='';},3000);
 }
 async function platTestApiKey() {
@@ -2057,20 +2057,20 @@ async function platTestApiKey() {
       headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:10,messages:[{role:'user',content:'Hi'}]})
     });
-    if(res.ok){if(status){status.style.color='#10b981';status.textContent='<i class="fa-solid fa-circle-check"></i> AI Connected (built-in — no key needed)!';}showToast('AI is connected!','success');return;}
+    if(res.ok){if(status){status.style.color='#10b981';status.innerHTML = '<i class="fa-solid fa-circle-check"></i> AI Connected (built-in — no key needed)!';}showToast('AI is connected!','success');return;}
   } catch(e){}
   // Try the saved key
   const key=(document.getElementById('platApiKeyInput')?.value||'').trim()||ebGetApiKey();
-  if(!key){if(status){status.style.color='var(--danger)';status.textContent='<i class="fa-solid fa-circle-xmark"></i> No key entered and built-in proxy unavailable.';}return;}
+  if(!key){if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> No key entered and built-in proxy unavailable.';}return;}
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:10,messages:[{role:'user',content:'Hello'}]})
     });
-    if(res.ok){if(status){status.style.color='#10b981';status.textContent='<i class="fa-solid fa-circle-check"></i> API Key works!';}showToast('API key connected!','success');}
-    else{const e=await res.json().catch(()=>({}));if(status){status.style.color='var(--danger)';status.textContent='<i class="fa-solid fa-circle-xmark"></i> '+(e.error?.message||'Invalid key');}}
-  } catch(err){if(status){status.style.color='var(--danger)';status.textContent='<i class="fa-solid fa-circle-xmark"></i> '+err.message;}}
+    if(res.ok){if(status){status.style.color='#10b981';status.innerHTML = '<i class="fa-solid fa-circle-check"></i> API Key works!';}showToast('API key connected!','success');}
+    else{const e=await res.json().catch(()=>({}));if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> '+(e.error?.message||'Invalid key');}}
+  } catch(err){if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> '+err.message;}}
 }
 
 // ══ PLATFORM NAV & TAB VISIBILITY CONFIG ══
@@ -2852,7 +2852,7 @@ function doLogin() {
 
   const btn = document.getElementById('loginBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
-  const re = () => { if (btn) { btn.disabled = false; btn.textContent = 'Sign In →'; } };
+  const re = () => { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket" style="margin-right:.4rem"></i>Sign In'; } };
 
   loadPlatform();
 
@@ -3089,7 +3089,7 @@ function launchApp() {
   const mbnRestore = document.getElementById('mbnRestoreTab');
   if (mbnRestore) mbnRestore.style.display = '';
 
-  document.getElementById('tbUser').textContent = '<i class="fa-solid fa-user"></i> ' + currentUser.name;
+  document.getElementById('tbUser').innerHTML = '<i class="fa-solid fa-user"></i> ' + currentUser.name;
 
   // Show Platform Marks and Platform Results tabs for school users
   const tbPlatMarks = document.getElementById('tbPlatformMarks');
@@ -3335,8 +3335,8 @@ function setUmUploadMode(mode, btn) {
 function toggleDark() { const d=document.body.classList.toggle('dark'); applyDark(d); }
 function applyDark(d) {
   document.body.classList.toggle('dark',d);
-  const tbDmIco = document.getElementById('tbDmIco'); if(tbDmIco) tbDmIco.textContent = d?'️':'<i class="fa-solid fa-moon"></i>';
-  const mbnDmIco = document.getElementById('mbnDmIco'); if(mbnDmIco) mbnDmIco.textContent = d?'️':'<i class="fa-solid fa-moon"></i>';
+  const tbDmIco = document.getElementById('tbDmIco'); if(tbDmIco) tbDmIco.innerHTML = d?'️':'<i class="fa-solid fa-moon"></i>';
+  const mbnDmIco = document.getElementById('mbnDmIco'); if(mbnDmIco) mbnDmIco.innerHTML = d?'️':'<i class="fa-solid fa-moon"></i>';
   const mbnDmLbl = document.getElementById('mbnDmLbl'); if(mbnDmLbl) mbnDmLbl.textContent = d?'Light':'Dark';
   localStorage.setItem(K.dark, d?'1':'0');
 }
@@ -3996,7 +3996,7 @@ function refreshRpFeeAutoLink() {
       if (balEl && !balEl.dataset.manuallySet) balEl.value = bal;
       if (badge) {
         badge.style.display = '';
-        badge.textContent   = bal <= 0 ? '<i class="fa-solid fa-circle-check"></i> Cleared' : `<i class="fa-solid fa-triangle-exclamation"></i>️ Owes KES ${bal.toLocaleString()}`;
+        badge.innerHTML   = bal <= 0 ? '<i class="fa-solid fa-circle-check"></i> Cleared' : `<i class="fa-solid fa-triangle-exclamation"></i>️ Owes KES ${bal.toLocaleString()}`;
         badge.style.color   = bal <= 0 ? '#16a34a' : '#dc2626';
       }
       if (statusEl) {
@@ -4474,13 +4474,13 @@ function editExam(id) {
     renderConsolidatedSourceCheckboxes(e.sourceExamIds || []);
   }
   renderExamSubjectCheckboxes(e.subjectIds || []);
-  document.getElementById('examFormTitle').textContent='<i class="fa-solid fa-pen"></i>️ Edit Exam';
+  document.getElementById('examFormTitle').innerHTML = '<i class="fa-solid fa-pen"></i>️ Edit Exam';
   openExamTab('tabCreateExam');
 }
 function cancelExamEdit() {
   ['editExamId','examName','examNotes','examDate'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('examType').value=''; document.getElementById('examYear').value='2025';
-  document.getElementById('examFormTitle').textContent='<i class="fa-solid fa-plus"></i> Create New Exam';
+  document.getElementById('examFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Create New Exam';
   setExamCategory('regular');
   renderExamSubjectCheckboxes([]);
 }
@@ -5619,14 +5619,14 @@ function editStudent(id) {
   document.getElementById('stuNotes').value=s.notes||'';
   document.querySelectorAll('#stuSubjectsCheckboxes input[type=checkbox]').forEach(cb=>{cb.checked=(s.subjectIds||[]).includes(cb.value);});
   updateSelectAllCheckbox();
-  document.getElementById('stuFormTitle').textContent='<i class="fa-solid fa-pen"></i>️ Edit Student';
+  document.getElementById('stuFormTitle').innerHTML = '<i class="fa-solid fa-pen"></i>️ Edit Student';
   document.getElementById('stuAdm').scrollIntoView({behavior:'smooth',block:'center'});
 }
 
 function cancelStuEdit() {
   ['editStuId','stuAdm','stuName','stuParent','stuContact','stuDOB','stuNotes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('stuGender').value='M';
-  document.getElementById('stuFormTitle').textContent='<i class="fa-solid fa-plus"></i> Add Student';
+  document.getElementById('stuFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Add Student';
 }
 
 function deleteStudent(id) {
@@ -5886,13 +5886,13 @@ function editTeacher(id) {
   document.getElementById('tchPass').value=t.password||'';
   document.getElementById('tchClasses').value=t.classes||'';
   // Rights are read-only here (managed in Settings) — no UI to update
-  document.getElementById('tchFormTitle').textContent='<i class="fa-solid fa-pen"></i>️ Edit Teacher';
+  document.getElementById('tchFormTitle').innerHTML = '<i class="fa-solid fa-pen"></i>️ Edit Teacher';
   document.getElementById('tchName').scrollIntoView({behavior:'smooth',block:'center'});
 }
 
 function cancelTchEdit() {
   ['editTchId','tchName','tchPhone','tchEmail','tchUser','tchPass','tchClasses'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('tchFormTitle').textContent='<i class="fa-solid fa-plus"></i> Add Teacher';
+  document.getElementById('tchFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Add Teacher';
 }
 
 function deleteTeacher(id) {
@@ -5976,13 +5976,13 @@ function editSubject(id) {
   document.getElementById('subMax').value=s.max;
   document.getElementById('subCat').value=s.category;
   document.getElementById('subTeacher').value=s.teacherId||'';
-  document.getElementById('subFormTitle').textContent='<i class="fa-solid fa-pen"></i>️ Edit Subject';
+  document.getElementById('subFormTitle').innerHTML = '<i class="fa-solid fa-pen"></i>️ Edit Subject';
   document.getElementById('subName').scrollIntoView({behavior:'smooth',block:'center'});
 }
 function cancelSubEdit() {
   ['editSubId','subName','subCode'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('subMax').value='100';
-  document.getElementById('subFormTitle').textContent='<i class="fa-solid fa-plus"></i> Add Subject';
+  document.getElementById('subFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Add Subject';
 }
 function deleteSubject(id) {
   if(!confirm('Delete this subject? Marks data for this subject will also be removed.')) return;
@@ -6037,7 +6037,7 @@ function editClass(id){
   document.getElementById('editClsId').value=c.id;
   document.getElementById('clsName').value=c.name;
   document.getElementById('clsLevel').value=c.level||'';
-  document.getElementById('clsFormTitle').textContent='<i class="fa-solid fa-pen"></i>️ Edit Class';
+  document.getElementById('clsFormTitle').innerHTML = '<i class="fa-solid fa-pen"></i>️ Edit Class';
 }
 function manageClassStudents(classId){
   const cls=classes.find(c=>c.id===classId);if(!cls)return;
@@ -6058,7 +6058,7 @@ function manageClassStudents(classId){
     <p style="font-size:.78rem;color:var(--muted);margin-top:.75rem">To move or reassign students, edit the student record.</p>
   `,[{label:'Close',cls:'btn-outline',action:'closeModal()'}]);
 }
-function cancelClsEdit(){['editClsId','clsName','clsLevel'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('clsFormTitle').textContent='<i class="fa-solid fa-plus"></i> Add Class';}
+function cancelClsEdit(){['editClsId','clsName','clsLevel'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('clsFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Add Class';}
 function deleteClass(id){if(!confirm('Delete class?'))return;classes=classes.filter(c=>c.id!==id);save(K.classes,classes);renderClasses();showToast('Class deleted','info');}
 
 function renderStreams() {
@@ -6115,13 +6115,13 @@ function editStream(id){
   populateStrTeacherDropdown();
   const strTch=document.getElementById('strTeacher');
   if(strTch) strTch.value=s.streamTeacherId||'';
-  document.getElementById('strFormTitle').textContent='<i class="fa-solid fa-pen"></i>️ Edit Stream';
+  document.getElementById('strFormTitle').innerHTML = '<i class="fa-solid fa-pen"></i>️ Edit Stream';
 }
 function populateStrTeacherDropdown(){
   const el=document.getElementById('strTeacher');if(!el)return;
   el.innerHTML='<option value="">— None —</option>'+teachers.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
 }
-function cancelStrEdit(){['editStrId','strName'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('strFormTitle').textContent='<i class="fa-solid fa-plus"></i> Add Stream';}
+function cancelStrEdit(){['editStrId','strName'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('strFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Add Stream';}
 function deleteStream(id){if(!confirm('Delete stream?'))return;streams=streams.filter(s=>s.id!==id);save(K.streams,streams);renderStreams();showToast('Stream deleted','info');}
 
 // ═══════════════ STREAM SUBJECT-TEACHER ASSIGNMENTS ═══════════════
@@ -7824,7 +7824,7 @@ function es_showPage(name, navEl) {
     if (n.getAttribute('onclick')?.includes("'"+name+"'")) n.classList.add('active');
   });
   const titleEl = document.getElementById('es_topbarTitle');
-  if (titleEl) titleEl.textContent = '<i class="fa-solid fa-calendar-days"></i> ' + (PAGE_TITLES[name] || name);
+  if (titleEl) titleEl.innerHTML = '<i class="fa-solid fa-calendar-days"></i> ' + (PAGE_TITLES[name] || name);
   if (name==='view')     { es_populateViewSelects(); es_renderTimetableView(); }
   if (name==='generate') es_buildGenClassSelector();
   if (name==='conflicts') es_runConflictCheck();
@@ -8157,7 +8157,7 @@ function es_buildAvailGrid(teacher) {
 }
 function es_toggleAvail(el) {
   el.classList.toggle('available');
-  el.textContent = el.classList.contains('available') ? '<i class="fa-solid fa-check"></i>' : '';
+  el.innerHTML = el.classList.contains('available') ? '<i class="fa-solid fa-check"></i>' : '';
 }
 function es_getAvailFromGrid() {
   const avail = {};
@@ -8601,7 +8601,7 @@ async function es_generateTimetable() {
   es_genLog('<i class="fa-solid fa-party-horn"></i> Generation complete! Check "View Timetable" to review.');
   es_saveData(); es_updateDashboard(); es_updateBadges();
   es_runConflictCheck();
-  btn.disabled = false; btn.textContent = '<i class="fa-solid fa-bolt"></i> Generate Timetable';
+  btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-bolt"></i> Generate Timetable';
   es_toast('<i class="fa-solid fa-party-horn"></i> Timetable generated!','success');
   es_populateViewSelects();
 }
@@ -12281,7 +12281,7 @@ function renderTeacherPreferences() {
     const h3 = card.querySelector('h3');
     if (!h3) return;
     const adminOnlyTitles = ['<i class="fa-solid fa-school"></i> School Information','<i class="fa-solid fa-lock"></i> Admin Accounts','<i class="fa-solid fa-floppy-disk"></i> Data Management','<i class="fa-solid fa-chart-bar"></i> Grading Systems'];
-    if (isTeacher && adminOnlyTitles.some(t => h3.textContent.includes(t.replace(/[<i class="fa-solid fa-school"></i><i class="fa-solid fa-lock"></i><i class="fa-solid fa-floppy-disk"></i><i class="fa-solid fa-chart-bar"></i>]/g,'').trim()))) {
+    if (isTeacher && adminOnlyTitles.some(t => h3.innerHTML.includes(t.replace(/[<i class="fa-solid fa-school"></i><i class="fa-solid fa-lock"></i><i class="fa-solid fa-floppy-disk"></i><i class="fa-solid fa-chart-bar"></i>]/g,'').trim()))) {
       card.style.display = 'none';
     } else if (!isTeacher) {
       card.style.display = '';
@@ -12920,10 +12920,10 @@ function initRevisionTab() {
       if (this.files && this.files[0]) {
         const f = this.files[0];
         const sizeMB = (f.size / 1048576).toFixed(2);
-        preview.textContent = `<i class="fa-solid fa-circle-check"></i> ${f.name} (${sizeMB} MB)`;
+        preview.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${f.name} (${sizeMB} MB)`;
         preview.style.display = 'block';
         preview.style.color = sizeMB > 5 ? '#ef4444' : 'var(--accent-g)';
-        if (sizeMB > 5) preview.textContent += ' — <i class="fa-solid fa-triangle-exclamation"></i>️ File is large, may be slow to upload';
+        if (sizeMB > 5) preview.innerHTML += ' — <i class="fa-solid fa-triangle-exclamation"></i>️ File is large, may be slow to upload';
       } else {
         preview.style.display = 'none';
       }
@@ -13087,7 +13087,7 @@ function uploadPlatformPaper() {
     const papers = loadPlatformPapers();
     papers.push(paper);
     savePlatformPapers(papers);
-    if (statusEl) { statusEl.textContent = '<i class="fa-solid fa-circle-check"></i> Uploaded successfully!'; statusEl.style.color = '#10b981'; }
+    if (statusEl) { statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Uploaded successfully!'; statusEl.style.color = '#10b981'; }
     clearPlatformPaperForm();
     populatePlatformPaperFilters();
     renderPlatformPapers();
@@ -13189,7 +13189,7 @@ function platUploadPaper() {
     const papers = loadPlatformPapers();
     papers.push(paper);
     savePlatformPapers(papers);
-    if (statusEl) { statusEl.textContent = '<i class="fa-solid fa-circle-check"></i> Uploaded successfully!'; statusEl.style.color = '#10b981'; }
+    if (statusEl) { statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Uploaded successfully!'; statusEl.style.color = '#10b981'; }
     platClearPaperForm();
     renderPlatPapList();
     // Also refresh papers section if open
@@ -13948,7 +13948,7 @@ function updateExamDlFeeNotice() {
     const fee = getExamDlFee();
     if (fee > 0 && !isSchoolExamDlUnlocked(currentSchoolId)) {
       notice.style.display = '';
-      notice.textContent = `<i class="fa-solid fa-lock"></i> KES ${fee.toLocaleString()} fee required to download/print`;
+      notice.innerHTML = `<i class="fa-solid fa-lock"></i> KES ${fee.toLocaleString()} fee required to download/print`;
     } else {
       notice.style.display = 'none';
     }
@@ -14320,7 +14320,7 @@ async function ebAIGenerate() {
     resultsEl.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--danger)"><div><i class="fa-solid fa-circle-xmark"></i></div><p style="margin-top:.5rem">${ebEscape(err.message)}</p></div>`;
     showToast('Generation failed: ' + err.message, 'error');
   } finally {
-    btn.disabled = false; btn.textContent = '<i class="fa-solid fa-robot"></i> Generate Questions';
+    btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-robot"></i> Generate Questions';
   }
 }
 function ebaiAddAllToExam() {
@@ -15405,7 +15405,7 @@ function platSaveContactSettings() {
   saveContactSettingsData({ whatsapp, facebook, call });
   initFloatingContact();
   const st = document.getElementById('platContactStatus');
-  if (st) { st.textContent = '<i class="fa-solid fa-circle-check"></i> Saved!'; st.style.color = '#16a34a'; setTimeout(() => { st.textContent = ''; }, 2500); }
+  if (st) { st.innerHTML = '<i class="fa-solid fa-circle-check"></i> Saved!'; st.style.color = '#16a34a'; setTimeout(() => { st.textContent = ''; }, 2500); }
 }
 
 function platLoadContactInputs() {
@@ -15548,7 +15548,7 @@ platSaveContactSettings = function() {
   saveContactSettingsData({ whatsapp, facebook, call, youtube, tiktok });
   initFloatingContact();
   const st = document.getElementById('platContactStatus');
-  if (st) { st.textContent = '<i class="fa-solid fa-circle-check"></i> Saved!'; st.style.color = '#16a34a'; setTimeout(()=>{ st.textContent=''; },2500); }
+  if (st) { st.innerHTML = '<i class="fa-solid fa-circle-check"></i> Saved!'; st.style.color = '#16a34a'; setTimeout(()=>{ st.textContent=''; },2500); }
 };
 
 // ══════════════════════════════════════════════════════
@@ -15738,7 +15738,7 @@ function lcSelectSchool(schoolId, schoolName) {
   lcRenderSchoolList();
 
   const header = document.getElementById('lcAdminChatHeader');
-  if (header) header.textContent = '<i class="fa-solid fa-school"></i> ' + schoolName;
+  if (header) header.innerHTML = '<i class="fa-solid fa-school"></i> ' + schoolName;
 
   const inputWrap = document.getElementById('lcAdminInput');
   if (inputWrap) inputWrap.style.display = 'flex';
@@ -16150,7 +16150,7 @@ function themeRenderSwatches() {
   if (enableToggle) enableToggle.checked = enabled;
   const enableStatus = document.getElementById('themeEnabledStatus');
   if (enableStatus) {
-    enableStatus.textContent = enabled ? '<i class="fa-solid fa-circle-check"></i> Theme customisation is ON for all schools' : '<i class="fa-solid fa-lock"></i> Theme customisation is OFF (locked to current theme)';
+    enableStatus.innerHTML = enabled ? '<i class="fa-solid fa-circle-check"></i> Theme customisation is ON for all schools' : '<i class="fa-solid fa-lock"></i> Theme customisation is OFF (locked to current theme)';
     enableStatus.style.color = enabled ? '#16a34a' : '#dc2626';
   }
 
@@ -16185,7 +16185,7 @@ function themeToggleEnabled(val) {
   themeRenderSwatches();
   if (!val) themeApply({});  // clear overrides for non-platform users instantly
   const st = document.getElementById('themeStatus');
-  if (st) { st.textContent = val ? '<i class="fa-solid fa-circle-check"></i> Enabled for all schools' : '<i class="fa-solid fa-lock"></i> Disabled for schools'; st.style.color = val ? '#16a34a' : '#dc2626'; setTimeout(()=>{ st.textContent=''; },2500); }
+  if (st) { st.innerHTML = val ? '<i class="fa-solid fa-circle-check"></i> Enabled for all schools' : '<i class="fa-solid fa-lock"></i> Disabled for schools'; st.style.color = val ? '#16a34a' : '#dc2626'; setTimeout(()=>{ st.innerHTML=''; },2500); }
 }
 
 function themePickColor(cfgKey, paletteId) {
@@ -16198,7 +16198,7 @@ function themePickColor(cfgKey, paletteId) {
 
 function themeSave() {
   const st = document.getElementById('themeStatus');
-  if (st) { st.textContent = '<i class="fa-solid fa-circle-check"></i> Theme saved!'; st.style.color = '#16a34a'; setTimeout(()=>{ st.textContent=''; },2500); }
+  if (st) { st.innerHTML = '<i class="fa-solid fa-circle-check"></i> Theme saved!'; st.style.color = '#16a34a'; setTimeout(()=>{ st.textContent=''; },2500); }
   if (typeof showToast === 'function') showToast('Theme saved <i class="fa-solid fa-check"></i>','success');
 }
 
