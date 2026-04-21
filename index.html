@@ -242,9 +242,8 @@
       <div class="sb-section-lbl">Administration</div>
       <!-- 11. Finances (formerly Fees) -->
       <a class="sn" data-s="fees"        onclick="go('fees',this)" id="feesNavLink"><i class="fa-solid fa-coins"></i><span>Finances</span></a>
-      <!-- 11b. Staff Details -->
-      <a class="sn" data-s="staffdetails" onclick="go('staffdetails',this)" id="staffDetailsNavLink"><i class="fa-solid fa-id-card"></i><span>Staff Details</span></a>
       <!-- 12. Messaging -->
+      <a class="sn" data-s="staffdetails" onclick="go('staffdetails',this)" id="staffDetailsNavLink"><i class="fa-solid fa-id-card"></i><span>Staff Details</span></a>
       <a class="sn" data-s="messaging"   onclick="go('messaging',this)"><i class="fa-solid fa-comments"></i><span>Messaging</span></a>
       <!-- 12b. Platform Admin (hidden for school users) -->
       <a class="sn" data-s="platform" id="platNavLink" onclick="go('platform',this)" style="display:none"><i class="fa-solid fa-gear"></i><span>Platform Admin</span></a>
@@ -2723,201 +2722,192 @@
     </section>
 
     <!-- ════ SETTINGS ════ -->
-    <!-- ════ PLATFORM ADMIN DASHBOARD ════ -->
-    <!-- ════ STAFF DETAILS ════ -->
+    <!-- ════ STAFF DETAILS (proxy — re-uses Platform Admin Staff Roles) ════ -->
     <section id="s-staffdetails" class="sec">
       <div class="ph">
         <h2><i class="fa-solid fa-id-card"></i> Staff Details</h2>
-        <p>Manage all school staff — personal details, roles, contacts and employment information.</p>
+        <p>Full staff management — records, roles, departments and documents.</p>
       </div>
 
-      <!-- Tab Bar -->
-      <div class="tab-bar" id="staffTabBar">
-        <button class="tb active" onclick="openStaffTab('tabStaffList',this)"><i class="fa-solid fa-list"></i> All Staff</button>
-        <button class="tb" onclick="openStaffTab('tabStaffAdd',this)" id="tbStaffAdd"><i class="fa-solid fa-plus"></i> Add Staff</button>
-        <button class="tb" onclick="openStaffTab('tabStaffRoles',this)"><i class="fa-solid fa-sitemap"></i> Roles & Departments</button>
-        <button class="tb" onclick="openStaffTab('tabStaffDocs',this)"><i class="fa-solid fa-folder-open"></i> Documents</button>
+      <!-- Stats bar -->
+      <div id="sdProxyStats" class="fee-ov-stats" style="margin-bottom:1.25rem"></div>
+
+      <!-- Inner sub-tabs -->
+      <div class="tab-bar" id="sdProxyTabBar" style="margin-bottom:1.25rem">
+        <button class="tb active" id="sdpbtList"  onclick="openSDTab('sdpList',this)"><i class="fa-solid fa-list"></i> All Staff</button>
+        <button class="tb"         id="sdpbtAdd"   onclick="openSDTab('sdpAdd',this)"><i class="fa-solid fa-plus"></i> Add / Edit Staff</button>
+        <button class="tb"         id="sdpbtRoles" onclick="openSDTab('sdpRoles',this)"><i class="fa-solid fa-sitemap"></i> Roles &amp; Departments</button>
+        <button class="tb"         id="sdpbtDocs"  onclick="openSDTab('sdpDocs',this)"><i class="fa-solid fa-folder-open"></i> Documents</button>
       </div>
 
-      <!-- ── ALL STAFF TAB ── -->
-      <div id="tabStaffList" class="tab-panel active">
+      <!-- ALL STAFF -->
+      <div id="sdpList" class="tab-panel active">
         <div class="card" style="margin-bottom:1rem">
           <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center">
-            <div class="search-box"><span><i class="fa-solid fa-magnifying-glass"></i></span><input type="text" id="sdSearch" placeholder="Search staff name, role, ID..." oninput="filterStaffList()"/></div>
-            <select id="sdFilterDept" onchange="filterStaffList()" style="padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.82rem">
+            <div class="search-box"><span><i class="fa-solid fa-magnifying-glass"></i></span>
+              <input type="text" id="sdpSearch" placeholder="Name, role, staff ID…" oninput="sdpFilterStaff()"/>
+            </div>
+            <select id="sdpFilterDept" onchange="sdpFilterStaff()" style="padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.82rem">
               <option value="">All Departments</option>
-              <option>Teaching</option>
-              <option>Administration</option>
-              <option>Support</option>
+              <option>Teaching</option><option>Administration</option><option>Support</option><option>Management</option>
             </select>
-            <select id="sdFilterStatus" onchange="filterStaffList()" style="padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.82rem">
+            <select id="sdpFilterStatus" onchange="sdpFilterStaff()" style="padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.82rem">
               <option value="">All Status</option>
-              <option>Active</option>
-              <option>On Leave</option>
-              <option>Resigned</option>
+              <option>Active</option><option>On Leave</option><option>Resigned</option><option>Retired</option>
             </select>
-            <button class="btn btn-outline btn-sm" onclick="exportStaffCSV()">⬇ Export CSV</button>
-            <button class="btn btn-primary btn-sm" onclick="openStaffTab('tabStaffAdd',document.getElementById('tbStaffAdd'))"><i class="fa-solid fa-plus"></i> Add Staff</button>
+            <button class="btn btn-outline btn-sm" onclick="platExportStaffCSV()">⬇ Export CSV</button>
+            <button class="btn btn-primary btn-sm" onclick="openSDTab('sdpAdd',document.getElementById('sdpbtAdd'))">
+              <i class="fa-solid fa-plus"></i> Add Staff
+            </button>
           </div>
         </div>
         <div class="card">
-          <div id="staffListStats" class="fee-ov-stats" style="margin-bottom:1rem"></div>
           <div class="tbl-wrap">
-            <table id="staffTbl">
-              <thead>
-                <tr>
-                  <th onclick="sortTable('staffBody',0,'num')" class="sortable-th"># <span class="sort-ico">⇅</span></th>
-                  <th onclick="sortTable('staffBody',1,'str')" class="sortable-th">Staff ID <span class="sort-ico">⇅</span></th>
-                  <th onclick="sortTable('staffBody',2,'str')" class="sortable-th">Full Name <span class="sort-ico">⇅</span></th>
-                  <th onclick="sortTable('staffBody',3,'str')" class="sortable-th">Role <span class="sort-ico">⇅</span></th>
-                  <th onclick="sortTable('staffBody',4,'str')" class="sortable-th">Department <span class="sort-ico">⇅</span></th>
-                  <th onclick="sortTable('staffBody',5,'str')" class="sortable-th">Phone <span class="sort-ico">⇅</span></th>
-                  <th onclick="sortTable('staffBody',6,'str')" class="sortable-th">Email <span class="sort-ico">⇅</span></th>
-                  <th onclick="sortTable('staffBody',7,'str')" class="sortable-th">Employment Type <span class="sort-ico">⇅</span></th>
-                  <th onclick="sortTable('staffBody',8,'date')" class="sortable-th">Date Joined <span class="sort-ico">⇅</span></th>
-                  <th onclick="sortTable('staffBody',9,'str')" class="sortable-th">Status <span class="sort-ico">⇅</span></th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="staffBody"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No staff records found. Click <strong>Add Staff</strong> to get started.</td></tr></tbody>
+            <table id="sdpStaffTbl">
+              <thead><tr>
+                <th>#</th>
+                <th onclick="sortTable('sdpStaffBody',1,'str')" class="sortable-th">Staff ID <span class="sort-ico">⇅</span></th>
+                <th onclick="sortTable('sdpStaffBody',2,'str')" class="sortable-th">Full Name <span class="sort-ico">⇅</span></th>
+                <th onclick="sortTable('sdpStaffBody',3,'str')" class="sortable-th">Role <span class="sort-ico">⇅</span></th>
+                <th onclick="sortTable('sdpStaffBody',4,'str')" class="sortable-th">Department <span class="sort-ico">⇅</span></th>
+                <th onclick="sortTable('sdpStaffBody',5,'str')" class="sortable-th">Phone <span class="sort-ico">⇅</span></th>
+                <th onclick="sortTable('sdpStaffBody',6,'str')" class="sortable-th">Email <span class="sort-ico">⇅</span></th>
+                <th onclick="sortTable('sdpStaffBody',7,'str')" class="sortable-th">Type <span class="sort-ico">⇅</span></th>
+                <th onclick="sortTable('sdpStaffBody',8,'date')" class="sortable-th">Joined <span class="sort-ico">⇅</span></th>
+                <th onclick="sortTable('sdpStaffBody',9,'str')" class="sortable-th">Status <span class="sort-ico">⇅</span></th>
+                <th>Actions</th>
+              </tr></thead>
+              <tbody id="sdpStaffBody">
+                <tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No staff records yet. Click <strong>Add Staff</strong> to get started.</td></tr>
+              </tbody>
             </table>
           </div>
         </div>
       </div>
 
-      <!-- ── ADD / EDIT STAFF TAB ── -->
-      <div id="tabStaffAdd" class="tab-panel">
-        <div class="sec-stack">
-          <div class="card">
-            <h3 id="sdFormTitle"><i class="fa-solid fa-plus"></i> Add New Staff Member</h3>
-            <input type="hidden" id="sdEditId"/>
-            <h4 style="font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:.5rem 0">Personal Information</h4>
-            <div class="frow c3">
-              <div class="fg"><label>Full Name *</label><input type="text" id="sdName" placeholder="e.g. Jane Wanjiku"/></div>
-              <div class="fg"><label>Staff ID / TSC No</label><input type="text" id="sdStaffId" placeholder="e.g. TSC/12345"/></div>
-              <div class="fg"><label>National ID No</label><input type="text" id="sdNatId" placeholder="e.g. 23456789"/></div>
-            </div>
-            <div class="frow c3">
-              <div class="fg"><label>Gender</label>
-                <select id="sdGender"><option value="">— Select —</option><option>Male</option><option>Female</option><option>Other</option></select>
-              </div>
-              <div class="fg"><label>Date of Birth</label><input type="date" id="sdDOB"/></div>
-              <div class="fg"><label>Phone *</label><input type="tel" id="sdPhone" placeholder="07XX XXX XXX"/></div>
-            </div>
-            <div class="frow c2">
-              <div class="fg"><label>Email</label><input type="email" id="sdEmail" placeholder="staff@school.ke"/></div>
-              <div class="fg"><label>Physical Address</label><input type="text" id="sdAddress" placeholder="e.g. Eldoret, Uasin Gishu"/></div>
-            </div>
-            <h4 style="font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:.75rem 0 .5rem">Employment Details</h4>
-            <div class="frow c3">
-              <div class="fg"><label>Role / Position *</label><input type="text" id="sdRole" placeholder="e.g. Class Teacher, Bursar"/></div>
-              <div class="fg"><label>Department *</label>
-                <select id="sdDept">
-                  <option value="">— Select —</option>
-                  <option>Teaching</option>
-                  <option>Administration</option>
-                  <option>Support</option>
-                  <option>Management</option>
-                </select>
-              </div>
-              <div class="fg"><label>Employment Type</label>
-                <select id="sdEmpType">
-                  <option>Permanent</option>
-                  <option>Contract</option>
-                  <option>Part-Time</option>
-                  <option>Volunteer</option>
-                </select>
-              </div>
-            </div>
-            <div class="frow c3">
-              <div class="fg"><label>Date Joined</label><input type="date" id="sdJoinDate"/></div>
-              <div class="fg"><label>Contract End Date</label><input type="date" id="sdContractEnd"/></div>
-              <div class="fg"><label>Status</label>
-                <select id="sdStatus">
-                  <option>Active</option>
-                  <option>On Leave</option>
-                  <option>Resigned</option>
-                  <option>Retired</option>
-                </select>
-              </div>
-            </div>
-            <h4 style="font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:.75rem 0 .5rem">Qualifications & Emergency Contact</h4>
-            <div class="frow c2">
-              <div class="fg"><label>Highest Qualification</label><input type="text" id="sdQualification" placeholder="e.g. B.Ed, Diploma in Education"/></div>
-              <div class="fg"><label>Subjects / Specialisation</label><input type="text" id="sdSubjects" placeholder="e.g. Maths, Science"/></div>
-            </div>
-            <div class="frow c2">
-              <div class="fg"><label>Emergency Contact Name</label><input type="text" id="sdECName" placeholder="e.g. John Kamau"/></div>
-              <div class="fg"><label>Emergency Contact Phone</label><input type="tel" id="sdECPhone" placeholder="07XX XXX XXX"/></div>
-            </div>
-            <div class="fg"><label>Notes / Remarks</label><input type="text" id="sdNotes" placeholder="Any additional notes..."/></div>
-            <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem">
-              <button class="btn btn-primary btn-sm" onclick="saveStaffDetails()"><i class="fa-solid fa-floppy-disk"></i> Save Staff Record</button>
-              <button class="btn btn-outline btn-sm" onclick="clearSDForm()"><i class="fa-solid fa-xmark"></i> Clear</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── ROLES & DEPARTMENTS TAB ── -->
-      <div id="tabStaffRoles" class="tab-panel">
-        <div class="sec-stack">
-          <div class="card">
-            <h3><i class="fa-solid fa-plus"></i> Add Role / Department</h3>
-            <div class="frow c2">
-              <div class="fg"><label>Role Name *</label><input type="text" id="srName" placeholder="e.g. Deputy Principal"/></div>
-              <div class="fg"><label>Department *</label>
-                <select id="srDept">
-                  <option>Teaching</option>
-                  <option>Administration</option>
-                  <option>Support</option>
-                  <option>Management</option>
-                </select>
-              </div>
-            </div>
-            <div class="fg"><label>Description</label><input type="text" id="srDesc" placeholder="Brief role description..."/></div>
-            <button class="btn btn-primary btn-sm" style="margin-top:.5rem" onclick="saveStaffRole()"><i class="fa-solid fa-floppy-disk"></i> Save Role</button>
-          </div>
-          <div class="card">
-            <h3><i class="fa-solid fa-clipboard-list"></i> Defined Roles</h3>
-            <div id="staffRolesList"><p style="color:var(--muted);font-size:.85rem">No custom roles added yet.</p></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── DOCUMENTS TAB ── -->
-      <div id="tabStaffDocs" class="tab-panel">
+      <!-- ADD / EDIT STAFF -->
+      <div id="sdpAdd" class="tab-panel" style="display:none">
         <div class="card">
-          <h3><i class="fa-solid fa-folder-open"></i> Staff Documents</h3>
-          <p style="color:var(--muted);font-size:.85rem;margin-bottom:1rem">Upload and manage staff documents such as contracts, certificates, and ID copies.</p>
-          <div class="frow c2">
-            <div class="fg"><label>Staff Member</label>
-              <select id="sdocStaff"><option value="">— Select Staff —</option></select>
+          <h3 id="sdpFormTitle"><i class="fa-solid fa-plus"></i> Add New Staff Member</h3>
+          <input type="hidden" id="sdpEditId"/>
+
+          <h4 style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:.75rem 0 .5rem">Personal Information</h4>
+          <div class="frow c3">
+            <div class="fg"><label>Full Name *</label><input type="text" id="sdpName" placeholder="e.g. Jane Wanjiku"/></div>
+            <div class="fg"><label>Staff ID / TSC No</label><input type="text" id="sdpStaffId" placeholder="e.g. TSC/12345"/></div>
+            <div class="fg"><label>National ID No</label><input type="text" id="sdpNatId" placeholder="e.g. 23456789"/></div>
+          </div>
+          <div class="frow c3">
+            <div class="fg"><label>Gender</label>
+              <select id="sdpGender"><option value="">— Select —</option><option>Male</option><option>Female</option><option>Other</option></select>
             </div>
-            <div class="fg"><label>Document Type</label>
-              <select id="sdocType">
-                <option>Employment Contract</option>
-                <option>ID Copy</option>
-                <option>Academic Certificate</option>
-                <option>TSC Certificate</option>
-                <option>Other</option>
+            <div class="fg"><label>Date of Birth</label><input type="date" id="sdpDOB"/></div>
+            <div class="fg"><label>Phone *</label><input type="tel" id="sdpPhone" placeholder="07XX XXX XXX"/></div>
+          </div>
+          <div class="frow c2">
+            <div class="fg"><label>Email</label><input type="email" id="sdpEmail" placeholder="staff@school.ke"/></div>
+            <div class="fg"><label>Physical Address</label><input type="text" id="sdpAddress" placeholder="e.g. Eldoret, Uasin Gishu"/></div>
+          </div>
+
+          <h4 style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:.75rem 0 .5rem">Employment Details</h4>
+          <div class="frow c3">
+            <div class="fg"><label>Role / Position *</label><input type="text" id="sdpRole" placeholder="e.g. Class Teacher, Bursar"/></div>
+            <div class="fg"><label>Department *</label>
+              <select id="sdpDept">
+                <option value="">— Select —</option>
+                <option>Teaching</option><option>Administration</option><option>Support</option><option>Management</option>
+              </select>
+            </div>
+            <div class="fg"><label>Employment Type</label>
+              <select id="sdpEmpType">
+                <option>Permanent</option><option>Contract</option><option>Part-Time</option><option>Volunteer</option>
               </select>
             </div>
           </div>
-          <div class="upload-zone" onclick="document.getElementById('sdocFile').click()" style="margin-top:.75rem">
+          <div class="frow c3">
+            <div class="fg"><label>Date Joined</label><input type="date" id="sdpJoinDate"/></div>
+            <div class="fg"><label>Contract End Date</label><input type="date" id="sdpContractEnd"/></div>
+            <div class="fg"><label>Status</label>
+              <select id="sdpStatus">
+                <option>Active</option><option>On Leave</option><option>Resigned</option><option>Retired</option>
+              </select>
+            </div>
+          </div>
+
+          <h4 style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:.75rem 0 .5rem">Qualifications &amp; Emergency Contact</h4>
+          <div class="frow c2">
+            <div class="fg"><label>Highest Qualification</label><input type="text" id="sdpQual" placeholder="e.g. B.Ed, Diploma in Education"/></div>
+            <div class="fg"><label>Subjects / Specialisation</label><input type="text" id="sdpSubjects" placeholder="e.g. Maths, Science"/></div>
+          </div>
+          <div class="frow c2">
+            <div class="fg"><label>Emergency Contact Name</label><input type="text" id="sdpECName" placeholder="e.g. John Kamau"/></div>
+            <div class="fg"><label>Emergency Contact Phone</label><input type="tel" id="sdpECPhone" placeholder="07XX XXX XXX"/></div>
+          </div>
+          <div class="fg"><label>Notes / Remarks</label><input type="text" id="sdpNotes" placeholder="Any additional notes…"/></div>
+
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem">
+            <button class="btn btn-primary btn-sm" onclick="sdpSaveStaff()"><i class="fa-solid fa-floppy-disk"></i> Save Staff Record</button>
+            <button class="btn btn-outline btn-sm" onclick="sdpClearForm()"><i class="fa-solid fa-xmark"></i> Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROLES & DEPARTMENTS -->
+      <div id="sdpRoles" class="tab-panel" style="display:none">
+        <div class="sec-stack">
+          <div class="card">
+            <h3><i class="fa-solid fa-plus"></i> Define a Role</h3>
+            <div class="frow c2">
+              <div class="fg"><label>Role Name *</label><input type="text" id="sdprName" placeholder="e.g. Deputy Principal"/></div>
+              <div class="fg"><label>Department *</label>
+                <select id="sdprDept">
+                  <option>Teaching</option><option>Administration</option><option>Support</option><option>Management</option>
+                </select>
+              </div>
+            </div>
+            <div class="fg"><label>Description</label><input type="text" id="sdprDesc" placeholder="Brief role description…"/></div>
+            <button class="btn btn-primary btn-sm" style="margin-top:.5rem" onclick="sdpSaveRole()">
+              <i class="fa-solid fa-floppy-disk"></i> Save Role
+            </button>
+          </div>
+          <div class="card">
+            <h3><i class="fa-solid fa-clipboard-list"></i> Defined Roles</h3>
+            <div id="sdpRolesList"><p style="color:var(--muted);font-size:.85rem">No roles defined yet.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DOCUMENTS -->
+      <div id="sdpDocs" class="tab-panel" style="display:none">
+        <div class="card">
+          <h3><i class="fa-solid fa-folder-open"></i> Staff Documents</h3>
+          <p style="color:var(--muted);font-size:.85rem;margin-bottom:1rem">Record and track staff documents — contracts, certificates, ID copies.</p>
+          <div class="frow c2">
+            <div class="fg"><label>Staff Member</label>
+              <select id="sdpdocStaff"><option value="">— Select Staff —</option></select>
+            </div>
+            <div class="fg"><label>Document Type</label>
+              <select id="sdpdocType">
+                <option>Employment Contract</option><option>ID Copy</option>
+                <option>Academic Certificate</option><option>TSC Certificate</option><option>Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="upload-zone" onclick="document.getElementById('sdpdocFile').click()" style="margin-top:.75rem">
             <div class="uz-icon"><i class="fa-solid fa-file-arrow-up"></i></div>
             <h4>Click to upload document</h4>
-            <p>PDF, JPG, PNG — max 5MB</p>
-            <input type="file" id="sdocFile" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleStaffDocUpload(this)"/>
+            <p>PDF, JPG, PNG — max 5 MB</p>
+            <input type="file" id="sdpdocFile" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="sdpHandleDocUpload(this)"/>
           </div>
-          <div id="staffDocsList" style="margin-top:1rem">
-            <p style="color:var(--muted);font-size:.85rem;text-align:center;padding:1.5rem">No documents uploaded yet.</p>
+          <div id="sdpDocsList" style="margin-top:1rem">
+            <p style="color:var(--muted);font-size:.85rem;text-align:center;padding:1.5rem">No documents recorded yet.</p>
           </div>
         </div>
       </div>
 
     </section>
 
+    <!-- ════ PLATFORM ADMIN DASHBOARD ════ -->
     <!-- ════ PLATFORM ADMIN DASHBOARD ════ -->
     <section id="s-platform" class="sec">
       <div class="ph" style="margin-bottom:0">
@@ -2935,6 +2925,7 @@
           <button class="plat-tab-btn" onclick="openPlatTab('platTab-system',this)" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-gear"></i> System</button>
           <button class="plat-tab-btn" onclick="openPlatTab('platTab-contact',this)" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-phone"></i> Contact &amp; Chat</button>
           <button class="plat-tab-btn" id="bugDetectorTabBtn" onclick="openPlatTab('platTab-bugdetector',this); bugDetectorInit();" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-bug"></i> Bug Detector</button>
+          <button class="plat-tab-btn" id="staffRolesTabBtn" onclick="openPlatTab('platTab-staffroles',this);" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-id-card"></i> Staff Roles</button>
         </div>
       </div>
 
@@ -3529,6 +3520,189 @@
           </div>
         </div>
       </div><!-- /platTab-bugdetector -->
+
+      <!-- ══════════════════════════════════════════════ -->
+      <!-- TAB: STAFF ROLES                              -->
+      <!-- ══════════════════════════════════════════════ -->
+      <div id="platTab-staffroles" class="plat-tab-panel" style="display:none">
+
+        <!-- Stats bar -->
+        <div id="platStaffStats" class="fee-ov-stats" style="margin-bottom:1.25rem"></div>
+
+        <!-- Inner sub-tabs -->
+        <div class="tab-bar" id="platStaffTabBar" style="margin-bottom:1.25rem">
+          <button class="tb active" id="pstbList"   onclick="openPlatStaffTab('pstList',this)"><i class="fa-solid fa-list"></i> All Staff</button>
+          <button class="tb"         id="pstbAdd"    onclick="openPlatStaffTab('pstAdd',this)"><i class="fa-solid fa-plus"></i> Add / Edit Staff</button>
+          <button class="tb"         id="pstbRoles"  onclick="openPlatStaffTab('pstRoles',this)"><i class="fa-solid fa-sitemap"></i> Roles & Departments</button>
+          <button class="tb"         id="pstbDocs"   onclick="openPlatStaffTab('pstDocs',this)"><i class="fa-solid fa-folder-open"></i> Documents</button>
+        </div>
+
+        <!-- ─ ALL STAFF ─ -->
+        <div id="pstList" class="tab-panel active">
+          <div class="card" style="margin-bottom:1rem">
+            <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center">
+              <div class="search-box"><span><i class="fa-solid fa-magnifying-glass"></i></span>
+                <input type="text" id="psdSearch" placeholder="Name, role, staff ID…" oninput="platFilterStaff()"/>
+              </div>
+              <select id="psdFilterDept" onchange="platFilterStaff()" style="padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.82rem">
+                <option value="">All Departments</option>
+                <option>Teaching</option><option>Administration</option><option>Support</option><option>Management</option>
+              </select>
+              <select id="psdFilterStatus" onchange="platFilterStaff()" style="padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.82rem">
+                <option value="">All Status</option>
+                <option>Active</option><option>On Leave</option><option>Resigned</option><option>Retired</option>
+              </select>
+              <button class="btn btn-outline btn-sm" onclick="platExportStaffCSV()">⬇ Export CSV</button>
+              <button class="btn btn-primary btn-sm" onclick="openPlatStaffTab('pstAdd',document.getElementById('pstbAdd'))">
+                <i class="fa-solid fa-plus"></i> Add Staff
+              </button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="tbl-wrap">
+              <table id="platStaffTbl">
+                <thead><tr>
+                  <th>#</th>
+                  <th onclick="sortTable('platStaffBody',1,'str')" class="sortable-th">Staff ID <span class="sort-ico">⇅</span></th>
+                  <th onclick="sortTable('platStaffBody',2,'str')" class="sortable-th">Full Name <span class="sort-ico">⇅</span></th>
+                  <th onclick="sortTable('platStaffBody',3,'str')" class="sortable-th">Role <span class="sort-ico">⇅</span></th>
+                  <th onclick="sortTable('platStaffBody',4,'str')" class="sortable-th">Department <span class="sort-ico">⇅</span></th>
+                  <th onclick="sortTable('platStaffBody',5,'str')" class="sortable-th">Phone <span class="sort-ico">⇅</span></th>
+                  <th onclick="sortTable('platStaffBody',6,'str')" class="sortable-th">Email <span class="sort-ico">⇅</span></th>
+                  <th onclick="sortTable('platStaffBody',7,'str')" class="sortable-th">Type <span class="sort-ico">⇅</span></th>
+                  <th onclick="sortTable('platStaffBody',8,'date')" class="sortable-th">Joined <span class="sort-ico">⇅</span></th>
+                  <th onclick="sortTable('platStaffBody',9,'str')" class="sortable-th">Status <span class="sort-ico">⇅</span></th>
+                  <th>Actions</th>
+                </tr></thead>
+                <tbody id="platStaffBody">
+                  <tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No staff records yet. Click <strong>Add Staff</strong> to get started.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─ ADD / EDIT STAFF ─ -->
+        <div id="pstAdd" class="tab-panel" style="display:none">
+          <div class="card">
+            <h3 id="pstFormTitle"><i class="fa-solid fa-plus"></i> Add New Staff Member</h3>
+            <input type="hidden" id="psdEditId"/>
+
+            <h4 style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:.75rem 0 .5rem">Personal Information</h4>
+            <div class="frow c3">
+              <div class="fg"><label>Full Name *</label><input type="text" id="psdName" placeholder="e.g. Jane Wanjiku"/></div>
+              <div class="fg"><label>Staff ID / TSC No</label><input type="text" id="psdStaffId" placeholder="e.g. TSC/12345"/></div>
+              <div class="fg"><label>National ID No</label><input type="text" id="psdNatId" placeholder="e.g. 23456789"/></div>
+            </div>
+            <div class="frow c3">
+              <div class="fg"><label>Gender</label>
+                <select id="psdGender"><option value="">— Select —</option><option>Male</option><option>Female</option><option>Other</option></select>
+              </div>
+              <div class="fg"><label>Date of Birth</label><input type="date" id="psdDOB"/></div>
+              <div class="fg"><label>Phone *</label><input type="tel" id="psdPhone" placeholder="07XX XXX XXX"/></div>
+            </div>
+            <div class="frow c2">
+              <div class="fg"><label>Email</label><input type="email" id="psdEmail" placeholder="staff@school.ke"/></div>
+              <div class="fg"><label>Physical Address</label><input type="text" id="psdAddress" placeholder="e.g. Eldoret, Uasin Gishu"/></div>
+            </div>
+
+            <h4 style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:.75rem 0 .5rem">Employment Details</h4>
+            <div class="frow c3">
+              <div class="fg"><label>Role / Position *</label><input type="text" id="psdRole" placeholder="e.g. Class Teacher, Bursar"/></div>
+              <div class="fg"><label>Department *</label>
+                <select id="psdDept">
+                  <option value="">— Select —</option>
+                  <option>Teaching</option><option>Administration</option><option>Support</option><option>Management</option>
+                </select>
+              </div>
+              <div class="fg"><label>Employment Type</label>
+                <select id="psdEmpType">
+                  <option>Permanent</option><option>Contract</option><option>Part-Time</option><option>Volunteer</option>
+                </select>
+              </div>
+            </div>
+            <div class="frow c3">
+              <div class="fg"><label>Date Joined</label><input type="date" id="psdJoinDate"/></div>
+              <div class="fg"><label>Contract End Date</label><input type="date" id="psdContractEnd"/></div>
+              <div class="fg"><label>Status</label>
+                <select id="psdStatus">
+                  <option>Active</option><option>On Leave</option><option>Resigned</option><option>Retired</option>
+                </select>
+              </div>
+            </div>
+
+            <h4 style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:.75rem 0 .5rem">Qualifications & Emergency Contact</h4>
+            <div class="frow c2">
+              <div class="fg"><label>Highest Qualification</label><input type="text" id="psdQual" placeholder="e.g. B.Ed, Diploma in Education"/></div>
+              <div class="fg"><label>Subjects / Specialisation</label><input type="text" id="psdSubjects" placeholder="e.g. Maths, Science"/></div>
+            </div>
+            <div class="frow c2">
+              <div class="fg"><label>Emergency Contact Name</label><input type="text" id="psdECName" placeholder="e.g. John Kamau"/></div>
+              <div class="fg"><label>Emergency Contact Phone</label><input type="tel" id="psdECPhone" placeholder="07XX XXX XXX"/></div>
+            </div>
+            <div class="fg"><label>Notes / Remarks</label><input type="text" id="psdNotes" placeholder="Any additional notes…"/></div>
+
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem">
+              <button class="btn btn-primary btn-sm" onclick="platSaveStaff()"><i class="fa-solid fa-floppy-disk"></i> Save Staff Record</button>
+              <button class="btn btn-outline btn-sm" onclick="platClearStaffForm()"><i class="fa-solid fa-xmark"></i> Clear</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─ ROLES & DEPARTMENTS ─ -->
+        <div id="pstRoles" class="tab-panel" style="display:none">
+          <div class="sec-stack">
+            <div class="card">
+              <h3><i class="fa-solid fa-plus"></i> Define a Role</h3>
+              <div class="frow c2">
+                <div class="fg"><label>Role Name *</label><input type="text" id="psrName" placeholder="e.g. Deputy Principal"/></div>
+                <div class="fg"><label>Department *</label>
+                  <select id="psrDept">
+                    <option>Teaching</option><option>Administration</option><option>Support</option><option>Management</option>
+                  </select>
+                </div>
+              </div>
+              <div class="fg"><label>Description</label><input type="text" id="psrDesc" placeholder="Brief role description…"/></div>
+              <button class="btn btn-primary btn-sm" style="margin-top:.5rem" onclick="platSaveRole()">
+                <i class="fa-solid fa-floppy-disk"></i> Save Role
+              </button>
+            </div>
+            <div class="card">
+              <h3><i class="fa-solid fa-clipboard-list"></i> Defined Roles</h3>
+              <div id="platRolesList"><p style="color:var(--muted);font-size:.85rem">No roles defined yet.</p></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─ DOCUMENTS ─ -->
+        <div id="pstDocs" class="tab-panel" style="display:none">
+          <div class="card">
+            <h3><i class="fa-solid fa-folder-open"></i> Staff Documents</h3>
+            <p style="color:var(--muted);font-size:.85rem;margin-bottom:1rem">Record and track staff documents — contracts, certificates, ID copies.</p>
+            <div class="frow c2">
+              <div class="fg"><label>Staff Member</label>
+                <select id="psdocStaff"><option value="">— Select Staff —</option></select>
+              </div>
+              <div class="fg"><label>Document Type</label>
+                <select id="psdocType">
+                  <option>Employment Contract</option><option>ID Copy</option>
+                  <option>Academic Certificate</option><option>TSC Certificate</option><option>Other</option>
+                </select>
+              </div>
+            </div>
+            <div class="upload-zone" onclick="document.getElementById('psdocFile').click()" style="margin-top:.75rem">
+              <div class="uz-icon"><i class="fa-solid fa-file-arrow-up"></i></div>
+              <h4>Click to upload document</h4>
+              <p>PDF, JPG, PNG — max 5 MB</p>
+              <input type="file" id="psdocFile" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="platHandleDocUpload(this)"/>
+            </div>
+            <div id="platDocsList" style="margin-top:1rem">
+              <p style="color:var(--muted);font-size:.85rem;text-align:center;padding:1.5rem">No documents recorded yet.</p>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /platTab-staffroles -->
 
       <!-- ── OVERLAYS (always rendered, outside tabs) ── -->
 
