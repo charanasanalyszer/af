@@ -9,22 +9,23 @@
 const PLATFORM_SCHOOLS_KEY  = 'ei_platform_schools';  // [{id,name,username,password,email,createdAt}]
 const PLATFORM_CREDS_KEY    = 'ei_platform_creds';    // {username, password} — set on first run
 
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
 //  USERNAME FORMAT RULES — enforced at creation & login
-//  Prefixes are NEVER shown on the login screen.
-//  Platform Admin : plat-<name>
-//  School Admin   : adm-<schoolname>
-//  Sub Admin      : sub-<name>
-//  Teacher        : tch-<name>
-//  Student        : <admNo>@<schoolname>   (no prefix, contains @)
+//
+//  Platform Admin : any alphanumeric (no @)   e.g.  myplatform
+//  School Admin   : adminname@school          e.g.  john@school
+//  Teacher        : firstname@schoolcode      e.g.  benson@sunrise
+//  Student        : admNo@schoolcode          e.g.  A001@sunrise
 //  Guest          : guest  (exact, hardcoded)
-// ══════════════════════════════════════════════════════════
+//
+//  school.code  = short school identifier used in teacher/student @suffix
+//  school.username = school admin login (adminname@school)
+// ══════════════════════════════════════════════════════════════════
 const USERNAME_RULES = {
-  platform:    { rx: /^plat-[a-zA-Z0-9_-]{2,32}$/,       hint: 'Platform Admin usernames must start with plat-' },
-  schoolAdmin: { rx: /^adm-[a-zA-Z0-9_-]{2,40}$/,        hint: 'School usernames must start with adm-' },
-  subAdmin:    { rx: /^sub-[a-zA-Z0-9_-]{2,32}$/,        hint: 'Sub-admin usernames must start with sub-' },
-  teacher:     { rx: /^tch-[a-zA-Z0-9_-]{2,32}$/,        hint: 'Teacher usernames must start with tch-' },
-  student:     { rx: /^[A-Za-z0-9_-]+@[a-zA-Z0-9_-]+$/, hint: 'Student usernames must be admNo@schoolname' },
+  platform:    { rx: /^[a-zA-Z0-9_-]{3,40}$/,                    hint: 'Platform Admin username: letters/numbers/_ only (no @)' },
+  schoolAdmin: { rx: /^[a-zA-Z][a-zA-Z0-9_-]*@school$/,          hint: 'School login must be adminname@school  (e.g. john@school)' },
+  teacher:     { rx: /^[a-zA-Z][a-zA-Z0-9_-]*@[a-zA-Z0-9_-]+$/, hint: 'Teacher username: firstname@schoolcode  (e.g. benson@sunrise)' },
+  student:     { rx: /^[A-Za-z0-9_-]+@[a-zA-Z0-9_-]+$/,         hint: 'Student username: admNo@schoolcode  (e.g. A001@sunrise)' },
 };
 
 /** Returns true if valid, false + shows toast if not. Used at creation time. */
@@ -40,13 +41,42 @@ function validateUsername(role, val) {
 
 /** Detects which role a username format belongs to. Returns role string or null. */
 function detectUsernameRole(u) {
+  if (!u) return null;
   if (u === 'guest') return 'guest';
-  if (/^plat-/.test(u)) return 'platform';
-  if (/^adm-/.test(u))  return 'schoolAdmin';
-  if (/^sub-/.test(u))  return 'subAdmin';
-  if (/^tch-/.test(u))  return 'teacher';
-  if (u.includes('@'))  return 'student';
-  return null; // unknown
+  if (u === 'superadmin') return 'platform';
+  const atIdx = u.indexOf('@');
+  if (atIdx < 0) return 'platform';             // no @ → platform admin
+  const suffix = u.slice(atIdx + 1).toLowerCase();
+  if (suffix === 'school') return 'schoolAdmin';
+  if (/^[a-zA-Z0-9_-]+$/.test(suffix)) return 'teacherOrStudent';
+  return null; // unrecognised
+}
+
+// ── Username / school-code generation helpers ──────────────────────────────
+
+/** Derive a clean school code from the school name. e.g. "Sunrise Academy" → "sunrise" */
+function generateSchoolCode(name) {
+  return (name || '').trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '') || 'school';
+}
+
+/** Generate teacher username: firstname@schoolcode */
+function generateTeacherUsername(fullName, schoolCode) {
+  const first = (fullName || '').trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+  return (first && schoolCode) ? first + '@' + schoolCode : '';
+}
+
+/** Generate school admin login username: adminname@school */
+function generateSchoolAdminUsername(adminName) {
+  const cleaned = (adminName || '').trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+  return cleaned ? cleaned + '@school' : '';
+}
+
+/** Migrate legacy school objects: add .code field if missing */
+function migrateSchoolCode(s) {
+  if (s.code) return s;
+  const raw = (s.username || '').replace(/^adm-/, '').replace(/^tch-/, '')
+                                 .replace(/@school$/, '').replace(/@.*$/, '');
+  return { ...s, code: raw || generateSchoolCode(s.name) };
 }
 
 const K_BROADCAST           = 'ei_platform_broadcast'; // platform broadcast message string
@@ -69,7 +99,7 @@ function isSchoolExamDlUnlocked(schoolId) {
 }
 
 
-function loadPlatform()  { try { platformSchools = JSON.parse(localStorage.getItem(PLATFORM_SCHOOLS_KEY)) || []; } catch { platformSchools = []; } }
+function loadPlatform()  { try { platformSchools = (JSON.parse(localStorage.getItem(PLATFORM_SCHOOLS_KEY)) || []).map(migrateSchoolCode); } catch { platformSchools = []; } }
 function savePlatform()  { localStorage.setItem(PLATFORM_SCHOOLS_KEY, JSON.stringify(platformSchools)); }
 
 // ═══════════════ SCHOOL ARCHIVE (GRADUATED STUDENTS) ═══════════════
@@ -748,16 +778,16 @@ function doUnifiedLogin() {
   const _detectedRole = detectUsernameRole(u);
   if (!_detectedRole) {
     re();
-    err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Username format not recognised. Please check your credentials with your administrator.';
+    err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Username format not recognised. Check your credentials — format should be <strong>name@schoolcode</strong> for teachers/students or <strong>name@school</strong> for school login.';
     err.style.display = 'block';
     return;
   }
-  // Validate detected role's exact pattern (catches partial prefixes like "plat" without dash)
-  if (_detectedRole !== 'guest') {
+  // Validate exact pattern for known roles (skip for teacherOrStudent — resolved at lookup)
+  if (_detectedRole !== 'guest' && _detectedRole !== 'teacherOrStudent') {
     const _rule = USERNAME_RULES[_detectedRole];
     if (_rule && !_rule.rx.test(u)) {
       re();
-      err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Username format not recognised. Please check your credentials with your administrator.';
+      err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Username format not recognised. ' + _rule.hint;
       err.style.display = 'block';
       return;
     }
@@ -774,7 +804,8 @@ function doUnifiedLogin() {
     if (!anySchoolMatch) {
       if (p.length < 6) { re(); err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> No account found. Platform password must be ≥6 chars to create.'; err.style.display='block'; return; }
       if (!confirm('Create a new Platform Admin account?\n\nUsername: '+u+'\n\nRemember these credentials — they cannot be recovered without a reset.')) { re(); return; }
-      if (!validateUsername('platform', u)) { re(); return; }
+      // Platform admin: any alphanumeric username (no @ allowed)
+      if (u.includes('@')) { re(); err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Platform Admin username cannot contain @. Use a plain name like: myadmin'; err.style.display='block'; return; }
       setPlatformCreds(u, p);
       re();
       maybeSaveCreds();
@@ -828,13 +859,14 @@ function doUnifiedLogin() {
     const teacher = teachers.find(t=>t.username===u&&t.password===p);
     if (teacher) { currentUser={username:teacher.username,role:'teacher',name:teacher.name,teacherId:teacher.id,canAnalyse:teacher.canAnalyse,canReport:teacher.canReport,canMerit:teacher.canMerit}; re(); maybeSaveCreds(); finishLogin(school); return; }
 
-    // ── Student login: adm-number@schoolname (any password) ──
-    // Username format: admNo@schoolUsername  e.g. 2024001@sunrise
+    // ── Student login: admNo@schoolcode  e.g. 2024001@sunrise ──
     const atIdx = u.indexOf('@');
     if (atIdx > 0) {
       const admPart = u.slice(0, atIdx).trim();
       const schoolPart = u.slice(atIdx+1).trim().toLowerCase();
-      if (school.username.toLowerCase() === schoolPart) {
+      // Match against school.code (new) or fall back to legacy school.username match
+      const _schoolCode = ((school.code) || school.username.replace(/^adm-/,'')).toLowerCase();
+      if (_schoolCode === schoolPart) {
         // check if this adm number exists
         const stuMatch = students.find(s => s.adm.toLowerCase() === admPart.toLowerCase());
         if (stuMatch) {
@@ -1241,7 +1273,7 @@ function platRenderExamDlFeeUI() {
   if (sel) {
     loadPlatform();
     sel.innerHTML = '<option value="">— Select School —</option>' +
-      platformSchools.map(s=>`<option value="${s.id}">${s.name} (@${s.username})</option>`).join('');
+      platformSchools.map(s=>`<option value="${s.id}">${s.name} (code: ${s.code||s.username})</option>`).join('');
   }
   platRenderExamDlUnlockList();
 }
@@ -1534,7 +1566,7 @@ function renderPlatformSchoolMgmtList() {
           <span style="font-weight:700;font-size:.92rem">${s.name}</span>
           ${statusBadge}
         </div>
-        <div style="font-size:.75rem;color:var(--muted)">@${s.username}${s.email?' · '+s.email:''} · Joined ${new Date(s.createdAt).toLocaleDateString()}</div>
+        <div style="font-size:.75rem;color:var(--muted)">Login: <strong>${s.username}</strong> · Code: <strong>${s.code||s.username}</strong>${s.email?' · '+s.email:''} · Joined ${new Date(s.createdAt).toLocaleDateString()}</div>
         ${!isActive && s.deactivationMessage ? `<div style="font-size:.74rem;color:#f87171;margin-top:.3rem;font-style:italic;line-height:1.4"><i class="fa-solid fa-bullhorn"></i> "${s.deactivationMessage.substring(0,80)}${s.deactivationMessage.length>80?'…':''}"</div>` : ''}
       </div>
       <div style="display:flex;flex-direction:column;gap:.35rem;flex-shrink:0">
@@ -1555,22 +1587,71 @@ function renderPlatformSchoolMgmtList() {
     </div>`;
   }).join('');
 }
+// ── Auto-fill helpers for forms ─────────────────────────────────────────────
+
+/** Called when school name changes in the Add School form — auto-fills code & username */
+function platSchAutoFill() {
+  const nameEl  = document.getElementById('platSchName');
+  const codeEl  = document.getElementById('platSchCode');
+  const userEl  = document.getElementById('platSchUser');
+  const prevEl  = document.getElementById('platSchUserPreview');
+  if (!nameEl) return;
+  const name = nameEl.value.trim();
+  // Only auto-fill if user hasn't manually edited those fields
+  const autoCode = generateSchoolCode(name);
+  if (codeEl && !codeEl.dataset.edited) {
+    codeEl.value = autoCode;
+  }
+  const code = (codeEl && codeEl.value.trim()) || autoCode;
+  if (userEl && !userEl.dataset.edited) {
+    const suggestion = generateSchoolAdminUsername(name);
+    userEl.value = suggestion;
+    if (prevEl) prevEl.textContent = suggestion ? '→ ' + suggestion : '';
+  }
+}
+
+/** Called when code field is manually edited */
+function platSchCodeChanged() {
+  const codeEl = document.getElementById('platSchCode');
+  if (codeEl) codeEl.dataset.edited = '1';
+}
+
+/** Called when teacher name changes — auto-fills username field */
+function tchAutoFillUsername() {
+  const nameEl = document.getElementById('tchName');
+  const userEl = document.getElementById('tchUser');
+  const prevEl = document.getElementById('tchUserPreview');
+  if (!nameEl || !userEl) return;
+  if (userEl.dataset.edited) return; // user manually edited — don't overwrite
+  const sch  = platformSchools.find(s => s.id === currentSchoolId);
+  const code = sch ? (sch.code || generateSchoolCode(sch.name)) : '';
+  const suggestion = generateTeacherUsername(nameEl.value, code);
+  userEl.value = suggestion;
+  if (prevEl) prevEl.textContent = suggestion ? '→ ' + suggestion : '';
+}
+
 function platAddSchool() {
   const name  = (document.getElementById('platSchName').value||'').trim();
   const uname = (document.getElementById('platSchUser').value||'').trim();
+  const code  = (document.getElementById('platSchCode') ? document.getElementById('platSchCode').value||'' : generateSchoolCode(name)).trim().toLowerCase();
   const pass  = (document.getElementById('platSchPass').value||'').trim();
   const email = (document.getElementById('platSchEmail').value||'').trim();
   const phone = (document.getElementById('platSchPhone') ? document.getElementById('platSchPhone').value||'' : '').trim();
   if(!name||!uname||!pass){ showToast('Name, username and password are required','error'); return; }
+  if(!code){ showToast('School code is required','error'); return; }
+  if(!/^[a-z0-9]+$/.test(code)){ showToast('School code must be lowercase letters/numbers only','error'); return; }
   if(!validateUsername('schoolAdmin', uname)) return;
   loadPlatform();
   if(platformSchools.find(s=>s.username===uname)){ showToast('Username already taken','error'); return; }
-  const s={id:uid(),name,username:uname,password:pass,email,phone,createdAt:new Date().toISOString(),active:true};
+  if(platformSchools.find(s=>s.code===code)){ showToast('School code already taken — choose a different code','error'); return; }
+  const s={id:uid(),name,username:uname,code,password:pass,email,phone,createdAt:new Date().toISOString(),active:true};
   platformSchools.push(s); savePlatform();
   document.getElementById('platSchName').value=''; document.getElementById('platSchUser').value=''; document.getElementById('platSchPass').value=''; document.getElementById('platSchEmail').value='';
+  const codeEl=document.getElementById('platSchCode'); if(codeEl) codeEl.value='';
   const phEl=document.getElementById('platSchPhone'); if(phEl) phEl.value='';
+  const prevEl=document.getElementById('platSchUserPreview'); if(prevEl) prevEl.textContent='';
   renderPlatformSchoolMgmtList();
-  showToast('School "'+name+'" created <i class="fa-solid fa-check"></i>','success');
+  showToast('School "'+name+'" created — admin login: <strong>'+uname+'</strong> <i class="fa-solid fa-check"></i>','success');
 }
 function platToggleSchool(id) {
   // Delegate to the full toggleSchoolActive system (handles suspend modal)
@@ -5886,7 +5967,13 @@ function saveTeacher() {
   const name  = document.getElementById('tchName').value.trim();
   const phone = document.getElementById('tchPhone').value.trim();
   const email = document.getElementById('tchEmail').value.trim();
-  const user  = document.getElementById('tchUser').value.trim();
+  // Auto-generate username if blank: firstname@schoolcode
+  let user  = document.getElementById('tchUser').value.trim();
+  if (!user) {
+    const sch = platformSchools.find(s => s.id === currentSchoolId);
+    const code = sch ? (sch.code || generateSchoolCode(sch.name)) : '';
+    user = generateTeacherUsername(name, code);
+  }
   const passEl= document.getElementById('tchPass');
   const pass  = passEl ? passEl.value : '';
   const cls   = document.getElementById('tchClasses').value.trim();
@@ -5935,7 +6022,8 @@ function editTeacher(id) {
 }
 
 function cancelTchEdit() {
-  ['editTchId','tchName','tchPhone','tchEmail','tchUser','tchPass','tchClasses'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['editTchId','tchName','tchPhone','tchEmail','tchUser','tchPass','tchClasses'].forEach(id=>{const el=document.getElementById(id);if(el){el.value='';delete el.dataset.edited;}});
+  const prevEl=document.getElementById('tchUserPreview'); if(prevEl) prevEl.textContent='';
   document.getElementById('tchFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Add Teacher';
 }
 
@@ -12516,7 +12604,7 @@ function renderSettingsSchoolList() {
     <div class="admin-item">
       <div>
         <div class="ai-name">${s.name}</div>
-        <div class="ai-role">${s.username}${s.email?' · '+s.email:''} · <span class="badge b-blue" style="font-size:.65rem">School</span></div>
+        <div class="ai-role">Login: <strong>${s.username}</strong> · Code: <strong>${s.code||s.username}</strong>${s.email?' · '+s.email:''} · <span class="badge b-blue" style="font-size:.65rem">School</span></div>
       </div>
       <div style="display:flex;gap:.5rem;align-items:center">
         <button class="btn btn-outline btn-sm" style="font-size:.72rem;padding:.2rem .55rem" onclick="resetSchoolPwd('${s.id}')"><i class="fa-solid fa-key"></i> Reset Pwd</button>
@@ -12528,16 +12616,23 @@ function renderSettingsSchoolList() {
 function addSchoolFromSettings() {
   const name  = document.getElementById('spsName').value.trim();
   const user  = document.getElementById('spsUser').value.trim();
+  const codeEl= document.getElementById('spsCode');
+  const code  = (codeEl ? codeEl.value.trim().toLowerCase() : generateSchoolCode(name));
   const pass  = document.getElementById('spsPass').value;
   const email = document.getElementById('spsEmail').value.trim();
   if (!name||!user||!pass) { showToast('Name, username and password required','error'); return; }
+  if (!code||!/^[a-z0-9]+$/.test(code)) { showToast('School code must be lowercase letters/numbers','error'); return; }
+  if (!validateUsername('schoolAdmin', user)) return;
   loadPlatform();
   if (platformSchools.find(s=>s.username===user)) { showToast('Username already taken','error'); return; }
-  platformSchools.push({ id:'sch_'+uid(), name, username:user, password:pass, email, createdAt:new Date().toISOString() });
+  if (platformSchools.find(s=>s.code===code)) { showToast('School code already in use','error'); return; }
+  platformSchools.push({ id:'sch_'+uid(), name, username:user, code, password:pass, email, createdAt:new Date().toISOString() });
   savePlatform();
   ['spsName','spsUser','spsPass','spsEmail'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  if(codeEl) codeEl.value='';
+  const prevEl=document.getElementById('spsUserPreview'); if(prevEl) prevEl.textContent='';
   renderSettingsSchoolList();
-  showToast('School account created <i class="fa-solid fa-check"></i>','success');
+  showToast('School created — admin login: <strong>'+user+'</strong> <i class="fa-solid fa-check"></i>','success');
 }
 
 function deleteSchoolFromSettings(id) {

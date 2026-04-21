@@ -39,6 +39,13 @@
     <div class="form-group">
       <label>Username</label>
       <input type="text" id="uniUser" name="username" placeholder="Enter username" autocomplete="username"/>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:.3rem;line-height:1.5">
+        <span style="display:block"><i class="fa-solid fa-circle-info" style="color:#7c3aed;margin-right:.25rem"></i>
+          <strong>Teacher:</strong> firstname@schoolcode &nbsp;·&nbsp;
+          <strong>School:</strong> adminname@school &nbsp;·&nbsp;
+          <strong>Student:</strong> admNo@schoolcode
+        </span>
+      </div>
     </div>
     <div class="form-group">
       <label>Password</label>
@@ -862,12 +869,15 @@
         <h3 id="tchFormTitle"><i class="fa-solid fa-plus"></i> Add Teacher</h3>
         <input type="hidden" id="editTchId"/>
         <div class="frow c3">
-          <div class="fg"><label>Full Name *</label><input type="text" id="tchName" placeholder="Mr. John Kamau"/></div>
+          <div class="fg"><label>Full Name *</label><input type="text" id="tchName" placeholder="Mr. John Kamau" oninput="tchAutoFillUsername()"/></div>
           <div class="fg"><label>Phone *</label><input type="tel" id="tchPhone" placeholder="07XX XXX XXX"/></div>
           <div class="fg"><label>Email</label><input type="email" id="tchEmail" placeholder="teacher@school.ke"/></div>
         </div>
         <div class="frow c3">
-          <div class="fg"><label>Username (Login)</label><input type="text" id="tchUser" placeholder="Unique username"/></div>
+          <div class="fg">
+              <label>Username (Login) <span id="tchUserPreview" style="font-size:.72rem;color:var(--primary);font-weight:600"></span></label>
+              <input type="text" id="tchUser" placeholder="firstname@schoolcode (auto-filled)" oninput="this.dataset.edited='1';document.getElementById('tchUserPreview').textContent=''"/>
+            </div>
           <div class="fg"><label>Password</label><input type="password" id="tchPass" placeholder="Set login password"/></div>
           <div class="fg"><label>Assigned Classes</label><input type="text" id="tchClasses" placeholder="e.g. Grade 9, Grade 8"/></div>
         </div>
@@ -2545,8 +2555,12 @@
           <div style="border-top:1px solid var(--border);padding-top:1rem">
             <h4 style="font-size:.88rem;margin-bottom:.75rem;color:var(--muted)"><i class="fa-solid fa-plus"></i> Add New School</h4>
             <div class="frow c2" style="margin-bottom:.75rem">
-              <div class="fg"><label>School Name *</label><input type="text" id="platSchName" placeholder="e.g. Sunrise Academy"/></div>
-              <div class="fg"><label>Login Username *</label><input type="text" id="platSchUser" placeholder="e.g. sunrise"/></div>
+              <div class="fg"><label>School Name *</label><input type="text" id="platSchName" placeholder="e.g. Sunrise Academy" oninput="platSchAutoFill()"/></div>
+              <div class="fg"><label>School Code * <span style="font-size:.72rem;color:var(--muted)">(short ID used in usernames)</span></label><input type="text" id="platSchCode" placeholder="e.g. sunrise" oninput="platSchCodeChanged()"/></div>
+              <div class="fg">
+                <label>Admin Login Username * <span id="platSchUserPreview" style="font-size:.72rem;color:var(--primary);font-weight:600"></span></label>
+                <input type="text" id="platSchUser" placeholder="adminname@school (auto-filled)" oninput="this.dataset.edited='1';document.getElementById('platSchUserPreview').textContent=''"/>
+              </div>
               <div class="fg"><label>Password *</label><input type="password" id="platSchPass" placeholder="Strong password"/></div>
               <div class="fg"><label>Email</label><input type="email" id="platSchEmail" placeholder="info@school.ke"/></div>
               <div class="fg"><label>Phone</label><input type="tel" id="platSchPhone" placeholder="07XX XXX XXX"/></div>
