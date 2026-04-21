@@ -16764,3 +16764,318 @@ if (_origOpenPlatTab) {
     }
   };
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  BUG DETECTOR & TROUBLESHOOTER — Platform Admin Module
+//  Accessible via Platform Admin → Bug Detector tab
+// ═══════════════════════════════════════════════════════════════
+
+let _bdCurrentTab = 'checks';
+let _bdLastResults = [];
+
+function bugDetectorInit() {
+  // Reset to idle state when tab opens
+  const content = document.getElementById('bdContent');
+  if (content && !_bdLastResults.length) {
+    content.innerHTML = `
+      <div style="text-align:center;padding:2.5rem 1rem;color:var(--muted)">
+        <i class="fa-solid fa-bug" style="font-size:2.2rem;opacity:.25;margin-bottom:.75rem;display:block"></i>
+        <div style="font-size:.85rem">Click <strong>Run Diagnostics</strong> to scan your platform for bugs, security issues and misconfigurations.</div>
+      </div>`;
+  }
+}
+
+function bdSwitchTab(tab, btn) {
+  _bdCurrentTab = tab;
+  document.querySelectorAll('#platTab-bugdetector [id^="bdSubTab-"]').forEach(b => {
+    b.style.borderBottom = '3px solid transparent';
+    b.style.color = 'var(--text)';
+    b.style.fontWeight = '500';
+  });
+  if (btn) {
+    btn.style.borderBottom = '3px solid var(--primary,#4f7cff)';
+    btn.style.color = 'var(--primary,#4f7cff)';
+    btn.style.fontWeight = '700';
+  }
+  if (_bdLastResults.length) bdRenderResults(_bdLastResults);
+}
+
+function bugDetectorRunAll() {
+  const btn = document.getElementById('bdRunBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scanning…'; }
+
+  setTimeout(() => {
+    const results = bdRunChecks();
+    _bdLastResults = results;
+    bdUpdateSummary(results);
+    bdRenderResults(results);
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Re-run'; }
+    const fails = results.filter(r => r.sev === 'critical' || r.sev === 'high').length;
+    showToast(fails ? `<i class="fa-solid fa-triangle-exclamation"></i> ${fails} critical/high issue${fails>1?'s':''} found` : '<i class="fa-solid fa-circle-check"></i> Diagnostics complete — no critical issues', fails ? 'error' : 'success');
+  }, 600);
+}
+
+function bdRunChecks() {
+  const checks = [];
+  const ls = window.localStorage;
+
+  // ── HELPER ──
+  function chk(id, label, cat, sev, pass, note, fix) {
+    checks.push({ id, label, cat, sev, pass, note, fix: fix || null });
+  }
+
+  // ── SECURITY CHECKS ──
+  const creds = (() => { try { return JSON.parse(ls.getItem('ei_platform_creds')); } catch { return null; } })();
+  const savedLogin = (() => { try { return JSON.parse(ls.getItem('ei_saved_login')); } catch { return null; } })();
+
+  chk('pwd_rememberme', 'Remember Me does not persist plain-text password', 'security', 'high',
+    !(savedLogin && savedLogin.password),
+    savedLogin && savedLogin.password
+      ? 'ei_saved_login contains the user\'s password in plain text. Anyone with localStorage access can read it.'
+      : 'ei_saved_login contains only the username — password not persisted.',
+    'Remove the password field from maybeSaveCreds() in doUnifiedLogin().');
+
+  chk('pwd_platform', 'Platform admin password hashing', 'security', 'high',
+    false, // Always warn — plain text by design in this architecture
+    'Platform credentials stored as plain JSON in localStorage. Consider SHA-256 via Web Crypto API.',
+    'Use crypto.subtle.digest("SHA-256", ...) before saving and comparing passwords.');
+
+  const schools = (() => { try { return JSON.parse(ls.getItem('ei_platform_schools')) || []; } catch { return []; } })();
+  const weakPassSchools = schools.filter(s => s.password && s.password.length < 6);
+  chk('pwd_school_weak', 'No school accounts have passwords shorter than 6 characters', 'security', 'medium',
+    weakPassSchools.length === 0,
+    weakPassSchools.length ? `${weakPassSchools.length} school(s) with short passwords: ${weakPassSchools.map(s=>s.name).join(', ')}` : 'All school passwords meet minimum length.',
+    'Enforce minimum 6-character passwords in platAddSchool() and addSchoolFromSettings().');
+
+  chk('backdoor_superadmin', 'Hardcoded superadmin backdoor removed', 'security', 'critical',
+    typeof doUnifiedLogin === 'function'
+      ? !doUnifiedLogin.toString().includes("'superadmin'")
+      : false,
+    doUnifiedLogin && doUnifiedLogin.toString().includes("'superadmin'")
+      ? 'Code still contains: if (u===\'superadmin\' && p===\'super123\'). Anyone who views the JS source gains full access.'
+      : 'Backdoor not detected in source.',
+    'Delete lines 756-764 in script.js — use enterSchoolAsPlatformAdmin() from the dashboard instead.');
+
+  chk('xss_deactivation', 'School deactivation message HTML-escaped before injection', 'security', 'high',
+    typeof doUnifiedLogin === 'function'
+      ? doUnifiedLogin.toString().includes('escHtml(') || doUnifiedLogin.toString().includes('escapeHtml(')
+      : false,
+    'deactivationMessage is concatenated into err.innerHTML without escaping. XSS via admin-entered suspension message is possible.',
+    'Add escHtml() helper and wrap msg: err.innerHTML = \'...\' + escHtml(msg);');
+
+  chk('lockout_bruteforce', 'Login brute-force lockout active', 'security', 'medium',
+    typeof checkLoginLock === 'function',
+    typeof checkLoginLock === 'function'
+      ? 'checkLoginLock() found — lockout is active.'
+      : 'No attempt counter or lockout on login functions. Unlimited password guessing is possible.',
+    'Add checkLoginLock() / recordFailedAttempt() helpers and call them at the top of doPlatformLogin().');
+
+  // ── RBAC CHECKS ──
+  chk('rbac_schema_present', 'RBAC_SCHEMA defined with all 3 roles', 'rbac', 'critical',
+    typeof RBAC_SCHEMA !== 'undefined' && RBAC_SCHEMA.teacher && RBAC_SCHEMA.student && RBAC_SCHEMA.guest,
+    typeof RBAC_SCHEMA !== 'undefined' ? 'RBAC_SCHEMA present with roles: ' + Object.keys(RBAC_SCHEMA).join(', ') : 'RBAC_SCHEMA is undefined!',
+    'Check that the RBAC section at line 16258 of script.js was not accidentally deleted.');
+
+  chk('rbac_defaults_fn', 'rbacDefaults() function available', 'rbac', 'critical',
+    typeof rbacDefaults === 'function',
+    typeof rbacDefaults === 'function' ? 'rbacDefaults() is defined.' : 'rbacDefaults() is missing — RBAC will not initialise.',
+    'Ensure rbacDefaults() is present in script.js.');
+
+  chk('rbac_effective_fn', 'rbacEffective() falls back to global when no school override', 'rbac', 'high',
+    (() => { try { const r = rbacEffective('teacher', 'nonexistent_school_id_test'); return typeof r === 'object' && r !== null; } catch { return false; } })(),
+    'rbacEffective() tested with unknown school ID — should return global defaults.',
+    'Verify rbacEffective() returns globalCfg when schoolFull[role] is empty.');
+
+  const globalRbac = (() => { try { return JSON.parse(ls.getItem('ei_rbac_global')) || {}; } catch { return {}; } })();
+  chk('rbac_global_saved', 'Global RBAC config has been saved at least once', 'rbac', 'medium',
+    Object.keys(globalRbac).length > 0,
+    Object.keys(globalRbac).length > 0 ? 'Global RBAC config found for roles: ' + Object.keys(globalRbac).join(', ') : 'No global RBAC config saved yet. Default permissions apply to all schools.',
+    'Open Platform Admin → Access Control and click "Save Role Permissions" for each role.');
+
+  chk('rbac_plattab_access', 'platTab-access panel present in DOM', 'rbac', 'critical',
+    !!document.getElementById('platTab-access'),
+    document.getElementById('platTab-access') ? 'platTab-access panel found in DOM.' : 'platTab-access element missing from DOM — RBAC UI will not render.',
+    'Ensure the <div id="platTab-access"> block is present in index.html.');
+
+  chk('rbac_patch_fn', 'openPlatTab patched to init RBAC on Access Control tab', 'rbac', 'high',
+    window.openPlatTab && window.openPlatTab.toString().includes('platTab-access'),
+    window.openPlatTab && window.openPlatTab.toString().includes('platTab-access')
+      ? 'openPlatTab is patched — RBAC initialises when Access Control tab is opened.'
+      : 'openPlatTab patch missing or incomplete — RBAC may not initialise on tab open.',
+    'Apply PATCH 3 from the Auto-Fix tab.');
+
+  // ── STORAGE / DATA INTEGRITY ──
+  chk('storage_available', 'localStorage is available and writable', 'storage', 'critical',
+    (() => { try { ls.setItem('_bd_test','1'); ls.removeItem('_bd_test'); return true; } catch { return false; } })(),
+    'localStorage read/write test passed.',
+    'If this fails, the browser may be in private/incognito mode or storage is full.');
+
+  const storageUsed = (() => {
+    try {
+      let total = 0;
+      for (let k in ls) { if (ls.hasOwnProperty(k)) total += (ls[k]||'').length + k.length; }
+      return Math.round(total / 1024);
+    } catch { return 0; }
+  })();
+  chk('storage_quota', 'localStorage usage is under 4MB', 'storage', 'medium',
+    storageUsed < 4096,
+    `Current localStorage usage: ~${storageUsed} KB / ~5120 KB available.`,
+    'Archive old exam data or export school data to free up space.');
+
+  chk('platform_creds_exist', 'Platform admin account created', 'storage', 'critical',
+    !!creds && !!creds.username,
+    creds ? `Platform admin account exists: username="${creds.username}"` : 'No platform credentials found. First-time setup not yet completed.',
+    'Navigate to the login screen and create a platform admin account.');
+
+  chk('schools_exist', 'At least one school registered', 'storage', 'high',
+    schools.length > 0,
+    schools.length > 0 ? `${schools.length} school(s) registered.` : 'No schools found. Login will redirect to platform setup.',
+    'Add a school from Platform Admin → Schools tab.');
+
+  const activeSchools = schools.filter(s => s.active !== false);
+  chk('schools_active', 'All schools have active status defined', 'storage', 'medium',
+    schools.every(s => s.active !== undefined),
+    schools.every(s => s.active !== undefined) ? 'All schools have active field set.' : `${schools.filter(s=>s.active===undefined).length} school(s) missing active field — may behave unexpectedly on login.`,
+    'Run: platformSchools.forEach(s => { if(s.active===undefined) s.active=true; }); savePlatform();');
+
+  const examDlFee = getExamDlFee ? getExamDlFee() : 0;
+  chk('exam_dl_fee', 'Exam download fee configured', 'storage', 'info',
+    true,
+    `Exam download fee: KES ${examDlFee || 0} (${examDlFee > 0 ? 'paid access enabled' : 'free for all schools'}).`,
+    null);
+
+  // ── JS LOGIC / FUNCTION CHECKS ──
+  const dupFns = [];
+  if (showUnifiedLogin && typeof showUnifiedLogin === 'function') {
+    // Can't detect dupes at runtime (last wins), but check for the guard
+    const fnSrc = showUnifiedLogin.toString();
+    if (!fnSrc.includes('platformSchools.length')) dupFns.push('showUnifiedLogin missing empty-school guard');
+  }
+  chk('fn_showUnifiedLogin', 'showUnifiedLogin() contains empty-school guard', 'checks', 'critical',
+    showUnifiedLogin && showUnifiedLogin.toString().includes('platformSchools.length'),
+    showUnifiedLogin && showUnifiedLogin.toString().includes('platformSchools.length')
+      ? 'showUnifiedLogin() has the empty-school guard — will redirect to platform setup when no schools exist.'
+      : 'showUnifiedLogin() is missing the empty-school guard (duplicate declaration bug). First-time setup redirect is broken.',
+    'Apply PATCH 1: merge the empty-school guard from line 350 into the line-406 definition.');
+
+  chk('fn_openPapersTab_revision', 'openPapersTab() initialises Revision tab', 'checks', 'critical',
+    typeof openPapersTab === 'function' && openPapersTab.toString().includes('initRevisionTab'),
+    typeof openPapersTab === 'function' && openPapersTab.toString().includes('initRevisionTab')
+      ? 'openPapersTab() calls initRevisionTab() — Revision tab will load correctly.'
+      : 'openPapersTab() does NOT call initRevisionTab() — Revision tab loads blank (duplicate function bug).',
+    'Apply PATCH 2: add if (tabId === \'tabRevision\') initRevisionTab(); to the winning openPapersTab() definition.');
+
+  chk('fn_showToast', 'showToast() utility present', 'checks', 'info',
+    typeof showToast === 'function',
+    typeof showToast === 'function' ? 'showToast() defined at line 7203.' : 'showToast() is missing.',
+    null);
+
+  chk('fn_applyRbacPermissions', 'applyRbacPermissions() present', 'checks', 'high',
+    typeof applyRbacPermissions === 'function',
+    typeof applyRbacPermissions === 'function' ? 'applyRbacPermissions() defined — applied after login.' : 'applyRbacPermissions() is missing — RBAC restrictions will not be applied at login.',
+    null);
+
+  chk('fn_enterPlatformDashboard', 'enterPlatformDashboard() sets correct user role', 'checks', 'high',
+    typeof enterPlatformDashboard === 'function' && enterPlatformDashboard.toString().includes("role:'platform_admin'"),
+    typeof enterPlatformDashboard === 'function' && enterPlatformDashboard.toString().includes("role:'platform_admin'")
+      ? 'enterPlatformDashboard() correctly sets role to platform_admin.'
+      : 'enterPlatformDashboard() may not set correct role.',
+    null);
+
+  chk('fn_gsNameNullSafe', 'saveNewGradingSystem() null-safe gsNewName clear', 'checks', 'medium',
+    (() => {
+      try {
+        const src = saveNewGradingSystem.toString();
+        // Check if the .value='' call is wrapped (guarded) or uses optional chaining
+        return src.includes('gsNameEl') || src.includes('?.value') || src.includes("getElementById('gsNewName')?.") ;
+      } catch { return false; }
+    })(),
+    'saveNewGradingSystem() — checking if gsNewName clear is null-safe.',
+    'Apply PATCH 7: wrap the getElementById(\'gsNewName\').value=\'\' in a null check.');
+
+  return checks;
+}
+
+function bdUpdateSummary(results) {
+  const counts = { critical:0, high:0, warning:0, pass:0 };
+  results.forEach(r => {
+    if (r.pass) { counts.pass++; }
+    else if (r.sev === 'critical') { counts.critical++; }
+    else if (r.sev === 'high') { counts.high++; }
+    else { counts.warning++; }
+  });
+  const el = id => document.getElementById(id);
+  if (el('bdCritCount')) el('bdCritCount').textContent = counts.critical;
+  if (el('bdHighCount')) el('bdHighCount').textContent = counts.high;
+  if (el('bdWarnCount')) el('bdWarnCount').textContent = counts.warning;
+  if (el('bdPassCount')) el('bdPassCount').textContent = counts.pass;
+}
+
+function bdRenderResults(results) {
+  const tab = _bdCurrentTab;
+  const filtered = tab === 'checks' ? results
+    : tab === 'security' ? results.filter(r => r.cat === 'security')
+    : tab === 'rbac'     ? results.filter(r => r.cat === 'rbac')
+    : tab === 'storage'  ? results.filter(r => r.cat === 'storage')
+    : tab === 'fixes'    ? results.filter(r => !r.pass && r.fix)
+    : results;
+
+  if (tab === 'fixes') {
+    const content = document.getElementById('bdContent');
+    if (!content) return;
+    const fixes = filtered;
+    if (!fixes.length) {
+      content.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--muted)"><i class="fa-solid fa-circle-check" style="color:#10b981;font-size:1.5rem;margin-bottom:.5rem;display:block"></i><div style="font-size:.85rem">No issues with available fixes found.</div></div>`;
+      return;
+    }
+    content.innerHTML = fixes.map((r,i) => `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:.75rem;padding:1rem 1.1rem">
+        <div style="display:flex;align-items:center;gap:.65rem;margin-bottom:.5rem">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${bdSevColor(r.sev)};flex-shrink:0"></span>
+          <div style="font-size:.85rem;font-weight:600;color:var(--text);flex:1">${r.label}</div>
+          <span style="font-size:.7rem;padding:2px 8px;border-radius:99px;font-weight:600;background:${bdSevBg(r.sev)};color:${bdSevColor(r.sev)}">${r.sev}</span>
+        </div>
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:.6rem;line-height:1.5">${r.note}</div>
+        <div style="background:var(--input-bg,#f8fafc);border:1px solid var(--border);border-left:3px solid ${bdSevColor(r.sev)};border-radius:6px;padding:.5rem .75rem;font-size:.76rem;color:var(--text);font-family:monospace">${r.fix}</div>
+      </div>
+    `).join('');
+    return;
+  }
+
+  const sevOrder = { critical:0, high:1, medium:2, info:3 };
+  const sorted = [...filtered].sort((a,b) => {
+    if (!a.pass && b.pass) return -1;
+    if (a.pass && !b.pass) return 1;
+    return (sevOrder[a.sev]||9) - (sevOrder[b.sev]||9);
+  });
+
+  const content = document.getElementById('bdContent');
+  if (!content) return;
+
+  content.innerHTML = sorted.length ? `
+    <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
+      ${sorted.map(r => `
+        <div style="display:flex;align-items:flex-start;gap:.75rem;padding:.8rem 1rem;border-bottom:1px solid var(--border);background:${r.pass?'transparent':'rgba(239,68,68,.03)'}">
+          <div style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex-shrink:0;margin-top:1px;background:${r.pass?'#dcfce7':'#fee2e2'};color:${r.pass?'#15803d':'#dc2626'}">
+            ${r.pass?'✓':'✗'}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.82rem;font-weight:600;color:var(--text)">${r.label}</div>
+            <div style="font-size:.76rem;color:var(--muted);margin-top:2px;line-height:1.45">${r.note}</div>
+            ${!r.pass && r.fix ? `<div style="font-size:.74rem;color:#6366f1;margin-top:.35rem"><i class="fa-solid fa-wrench" style="font-size:.65rem"></i> <em>${r.fix}</em></div>` : ''}
+          </div>
+          <span style="font-size:.68rem;padding:2px 7px;border-radius:99px;font-weight:600;background:${bdSevBg(r.sev)};color:${bdSevColor(r.sev)};flex-shrink:0;margin-top:2px">${r.sev}</span>
+        </div>
+      `).join('')}
+    </div>
+    <div style="margin-top:.75rem;font-size:.76rem;color:var(--muted);text-align:right">${sorted.length} checks shown · ${sorted.filter(r=>r.pass).length} passed · ${sorted.filter(r=>!r.pass).length} failed</div>
+  ` : `<div style="text-align:center;padding:2rem;color:var(--muted);font-size:.85rem">No checks in this category.</div>`;
+}
+
+function bdSevColor(sev) {
+  return sev==='critical'?'#ef4444':sev==='high'?'#f59e0b':sev==='medium'?'#3b82f6':sev==='info'?'#10b981':'#64748b';
+}
+function bdSevBg(sev) {
+  return sev==='critical'?'#fee2e2':sev==='high'?'#fef3c7':sev==='medium'?'#dbeafe':sev==='info'?'#d1fae5':'#f1f5f9';
+}
+

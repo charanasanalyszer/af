@@ -2539,6 +2539,7 @@
           <button class="plat-tab-btn" onclick="openPlatTab('platTab-broadcast',this)" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-bullhorn"></i> Broadcast</button>
           <button class="plat-tab-btn" onclick="openPlatTab('platTab-system',this)" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-gear"></i> System</button>
           <button class="plat-tab-btn" onclick="openPlatTab('platTab-contact',this)" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-phone"></i> Contact &amp; Chat</button>
+          <button class="plat-tab-btn" id="bugDetectorTabBtn" onclick="openPlatTab('platTab-bugdetector',this); bugDetectorInit();" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-bug"></i> Bug Detector</button>
         </div>
       </div>
 
@@ -3092,6 +3093,43 @@
       </div>
 
       </div><!-- /platTab-contact -->
+
+      <!-- ── BUG DETECTOR TAB ── -->
+      <div id="platTab-bugdetector" class="plat-tab-panel" style="display:none">
+        <div style="max-width:860px">
+          <div style="display:flex;align-items:center;gap:.85rem;margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border)">
+            <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#4f46e5,#7c3aed);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <i class="fa-solid fa-bug" style="color:#fff;font-size:.95rem"></i>
+            </div>
+            <div style="flex:1">
+              <div style="font-size:1rem;font-weight:700;color:var(--text)">Bug Detector &amp; Troubleshooter</div>
+              <div style="font-size:.78rem;color:var(--muted)">Live diagnostics — JS logic, RBAC, storage, security &amp; data integrity</div>
+            </div>
+            <button onclick="bugDetectorRunAll()" id="bdRunBtn" class="btn btn-primary btn-sm" style="display:flex;align-items:center;gap:.4rem;flex-shrink:0">
+              <i class="fa-solid fa-play"></i> Run Diagnostics
+            </button>
+          </div>
+          <div id="bdSummary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem">
+            <div class="card" style="padding:.85rem 1rem;text-align:center"><div id="bdCritCount" style="font-size:1.6rem;font-weight:800;color:#ef4444">—</div><div style="font-size:.72rem;color:var(--muted)">Critical</div></div>
+            <div class="card" style="padding:.85rem 1rem;text-align:center"><div id="bdHighCount" style="font-size:1.6rem;font-weight:800;color:#f59e0b">—</div><div style="font-size:.72rem;color:var(--muted)">High</div></div>
+            <div class="card" style="padding:.85rem 1rem;text-align:center"><div id="bdWarnCount" style="font-size:1.6rem;font-weight:800;color:#3b82f6">—</div><div style="font-size:.72rem;color:var(--muted)">Warning</div></div>
+            <div class="card" style="padding:.85rem 1rem;text-align:center"><div id="bdPassCount" style="font-size:1.6rem;font-weight:800;color:#10b981">—</div><div style="font-size:.72rem;color:var(--muted)">Pass</div></div>
+          </div>
+          <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:1rem;overflow-x:auto">
+            <button id="bdSubTab-checks" onclick="bdSwitchTab('checks',this)" style="padding:.55rem 1rem;border:none;border-bottom:3px solid var(--primary,#4f7cff);font-size:.8rem;font-weight:700;background:transparent;color:var(--primary,#4f7cff);cursor:pointer;white-space:nowrap"><i class="fa-solid fa-list-check"></i> All Checks</button>
+            <button id="bdSubTab-security" onclick="bdSwitchTab('security',this)" style="padding:.55rem 1rem;border:none;border-bottom:3px solid transparent;font-size:.8rem;font-weight:500;background:transparent;color:var(--text);cursor:pointer;white-space:nowrap"><i class="fa-solid fa-shield-halved"></i> Security</button>
+            <button id="bdSubTab-rbac" onclick="bdSwitchTab('rbac',this)" style="padding:.55rem 1rem;border:none;border-bottom:3px solid transparent;font-size:.8rem;font-weight:500;background:transparent;color:var(--text);cursor:pointer;white-space:nowrap"><i class="fa-solid fa-lock"></i> RBAC</button>
+            <button id="bdSubTab-storage" onclick="bdSwitchTab('storage',this)" style="padding:.55rem 1rem;border:none;border-bottom:3px solid transparent;font-size:.8rem;font-weight:500;background:transparent;color:var(--text);cursor:pointer;white-space:nowrap"><i class="fa-solid fa-database"></i> Storage</button>
+            <button id="bdSubTab-fixes" onclick="bdSwitchTab('fixes',this)" style="padding:.55rem 1rem;border:none;border-bottom:3px solid transparent;font-size:.8rem;font-weight:500;background:transparent;color:var(--text);cursor:pointer;white-space:nowrap"><i class="fa-solid fa-wrench"></i> Auto-Fix</button>
+          </div>
+          <div id="bdContent">
+            <div style="text-align:center;padding:2.5rem 1rem;color:var(--muted)">
+              <i class="fa-solid fa-bug" style="font-size:2.2rem;opacity:.25;margin-bottom:.75rem;display:block"></i>
+              <div style="font-size:.85rem">Click <strong>Run Diagnostics</strong> to scan your platform for bugs, security issues and misconfigurations.</div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /platTab-bugdetector -->
 
       <!-- ── OVERLAYS (always rendered, outside tabs) ── -->
 
