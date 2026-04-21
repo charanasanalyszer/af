@@ -10206,6 +10206,23 @@ function getStudentFeeData(studentId, term, year) {
 function openFeesTab(tabId, btn) {
   document.querySelectorAll('#s-fees .tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('#feesTabBar .tb').forEach(b => b.classList.remove('active'));
+  const p = document.getElementById(tabId); if (p) p.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (tabId === 'tabFeeOverview')   renderFeeOverview();
+  if (tabId === 'tabFeeStructure')  renderFeeStructureList();
+  if (tabId === 'tabFeePayments')   initFeePaymentForm();
+  if (tabId === 'tabFeeStudents')   renderStudentBalances();
+  if (tabId === 'tabFeeReminders')  renderFeeReminders();
+  if (tabId === 'tabFeeReceipts')   renderReceiptsLog();
+  if (tabId === 'tabStaffSalary') {
+    renderStaffSalaryTable();
+    renderBOMSalaryTable();
+    // Ensure first sub-tab is visible
+    openSalarySubTab('tabSalaryStaff', document.getElementById('tbSalaryStaff'));
+  }
+  // tabFeeImport is static HTML — no render call needed
+}
+
 // ── Open Salary Sub-Tab (Staff / BOM Members) ──
 function openSalarySubTab(tabId, btn) {
   document.querySelectorAll('.salary-sub-panel').forEach(p => {
@@ -10343,17 +10360,6 @@ function exportBOMSalaryCSV() {
   a.click();
 }
 
-
-  const p = document.getElementById(tabId); if (p) p.classList.add('active');
-  if (btn) btn.classList.add('active');
-  if (tabId === 'tabFeeOverview')   renderFeeOverview();
-  if (tabId === 'tabFeeStructure')  renderFeeStructureList();
-  if (tabId === 'tabFeePayments')   initFeePaymentForm();
-  if (tabId === 'tabFeeStudents')   renderStudentBalances();
-  if (tabId === 'tabFeeReminders')  renderFeeReminders();
-  if (tabId === 'tabFeeReceipts')   renderReceiptsLog();
-  // tabFeeImport is static HTML — no render call needed
-}
 
 // ── Populate Fees Filter Dropdowns ──
 function populateFeesDropdowns() {
