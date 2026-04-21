@@ -17842,36 +17842,44 @@ function pstRenderList() {
 }
 
 function pstSaveStaff() {
-  const name  = document.getElementById('pstName')?.value.trim();
-  const role  = document.getElementById('pstRole')?.value;
-  const dept  = document.getElementById('pstDept')?.value;
-  const tsc   = document.getElementById('pstTSC')?.value.trim();
-  const phone = document.getElementById('pstPhone')?.value.trim();
-  const email = document.getElementById('pstEmail')?.value.trim();
-  const nid   = document.getElementById('pstNID')?.value.trim();
-  const doe   = document.getElementById('pstDOE')?.value;
-  const notes = document.getElementById('pstNotes')?.value.trim();
-  const editId= document.getElementById('pstEditId')?.value;
+  try {
+    const g = id => { const el = document.getElementById(id); return el ? (el.value || '').trim() : ''; };
+    const name  = g('pstName');
+    const role  = g('pstRole');
+    const dept  = g('pstDept');
+    const tsc   = g('pstTSC');
+    const phone = g('pstPhone');
+    const email = g('pstEmail');
+    const nid   = g('pstNID');
+    const doe   = g('pstDOE');
+    const notes = g('pstNotes');
+    const editId = g('pstEditId');
 
-  if (!name) { alert('Please enter the staff member\'s full name.'); return; }
-  if (!role) { alert('Please select a role.'); return; }
+    if (!name) { alert('Full name is required.'); return; }
+    if (!role) { alert('Please select a role.'); return; }
 
-  let staff = loadPeopleStaff();
+    let staff = loadPeopleStaff();
 
-  if (editId) {
-    const idx = staff.findIndex(s => s.id === editId);
-    if (idx > -1) staff[idx] = { ...staff[idx], name, role, dept, tsc, phone, email, nid, doe, notes };
-  } else {
-    staff.push({ id: 'pst_' + Date.now(), name, role, dept, tsc, phone, email, nid, doe, notes });
+    if (editId) {
+      const idx = staff.findIndex(s => s.id === editId);
+      if (idx > -1) staff[idx] = { ...staff[idx], name, role, dept, tsc, phone, email, nid, doe, notes };
+      else staff.push({ id: editId, name, role, dept, tsc, phone, email, nid, doe, notes });
+    } else {
+      staff.push({ id: 'pst_' + Date.now(), name, role, dept, tsc, phone, email, nid, doe, notes });
+    }
+
+    savePeopleStaff(staff);
+    pstClearForm();
+    pstPopulateDeptFilter();
+    pstRenderList();
+    openPeopleStaffTab('pplStList', document.getElementById('pstbList'));
+    const msg = document.getElementById('pstSaveMsg');
+    if (msg) { msg.textContent = editId ? '✓ Updated!' : '✓ Saved!'; setTimeout(()=>{ msg.textContent=''; }, 3000); }
+    showToast(editId ? 'Staff record updated.' : 'Staff member added.');
+  } catch(e) {
+    console.error('pstSaveStaff error:', e);
+    alert('Error saving staff record: ' + e.message);
   }
-
-  savePeopleStaff(staff);
-  pstClearForm();
-  pstPopulateDeptFilter();
-  pstRenderList();
-  // Switch to list tab to show result
-  openPeopleStaffTab('pplStList', document.getElementById('pstbList'));
-  showToast(editId ? 'Staff record updated.' : 'Staff member added successfully.');
 }
 
 function pstClearForm() {
@@ -17974,30 +17982,39 @@ function pstRenderRoles() {
 // ── BOM Members ──
 
 function peopleSaveBOM() {
-  const name      = document.getElementById('pplBomName')?.value.trim();
-  const position  = document.getElementById('pplBomPosition')?.value;
-  const phone     = document.getElementById('pplBomPhone')?.value.trim();
-  const email     = document.getElementById('pplBomEmail')?.value.trim();
-  const termStart = document.getElementById('pplBomTermStart')?.value;
-  const termEnd   = document.getElementById('pplBomTermEnd')?.value;
-  const editId    = document.getElementById('pplBomEditId')?.value;
+  try {
+    const g = id => { const el = document.getElementById(id); return el ? (el.value || '').trim() : ''; };
+    const name      = g('pplBomName');
+    const position  = g('pplBomPosition');
+    const phone     = g('pplBomPhone');
+    const email     = g('pplBomEmail');
+    const termStart = g('pplBomTermStart');
+    const termEnd   = g('pplBomTermEnd');
+    const editId    = g('pplBomEditId');
 
-  if (!name)     { alert('Please enter the BOM member\'s full name.'); return; }
-  if (!position) { alert('Please select a position.'); return; }
+    if (!name)     { alert('Full name is required.'); return; }
+    if (!position) { alert('Please select a position.'); return; }
 
-  let bom = loadPeopleBOM();
+    let bom = loadPeopleBOM();
 
-  if (editId) {
-    const idx = bom.findIndex(b => b.id === editId);
-    if (idx > -1) bom[idx] = { ...bom[idx], name, position, phone, email, termStart, termEnd };
-  } else {
-    bom.push({ id: 'bom_' + Date.now(), name, position, phone, email, termStart, termEnd });
+    if (editId) {
+      const idx = bom.findIndex(b => b.id === editId);
+      if (idx > -1) bom[idx] = { ...bom[idx], name, position, phone, email, termStart, termEnd };
+      else bom.push({ id: editId, name, position, phone, email, termStart, termEnd });
+    } else {
+      bom.push({ id: 'bom_' + Date.now(), name, position, phone, email, termStart, termEnd });
+    }
+
+    savePeopleBOM(bom);
+    peopleClearBOMForm();
+    peopleRenderBOMTable();
+    const bomMsg = document.getElementById('bomSaveMsg');
+    if (bomMsg) { bomMsg.textContent = editId ? '✓ Updated!' : '✓ Saved!'; setTimeout(()=>{ bomMsg.textContent=''; }, 3000); }
+    showToast(editId ? 'BOM member updated.' : 'BOM member added.');
+  } catch(e) {
+    console.error('peopleSaveBOM error:', e);
+    alert('Error saving BOM member: ' + e.message);
   }
-
-  savePeopleBOM(bom);
-  peopleClearBOMForm();
-  peopleRenderBOMTable();
-  showToast(editId ? 'BOM member updated.' : 'BOM member added.');
 }
 
 function peopleClearBOMForm() {

@@ -2912,9 +2912,10 @@
               <div class="fg"><label>Date of Employment</label><input type="date" id="pstDOE" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem"></div>
             </div>
             <div style="margin-bottom:.75rem"><label>Notes</label><textarea id="pstNotes" rows="3" placeholder="Additional notes..." style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem;resize:vertical"></textarea></div>
-            <div style="display:flex;gap:.75rem">
-              <button class="btn btn-primary" onclick="pstSaveStaff()"><i class="fa-solid fa-floppy-disk"></i> Save</button>
-              <button class="btn btn-outline" onclick="pstClearForm()">Clear</button>
+            <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
+              <button type="button" class="btn btn-primary" onclick="pstSaveStaff()"><i class="fa-solid fa-floppy-disk"></i> Save Staff</button>
+              <button type="button" class="btn btn-outline" onclick="pstClearForm()"><i class="fa-solid fa-xmark"></i> Clear</button>
+              <span id="pstSaveMsg" style="font-size:.82rem;font-weight:600;color:#16a34a"></span>
             </div>
           </div>
         </div>
@@ -2958,9 +2959,10 @@
             <div style="margin-bottom:.75rem"><label>Email</label><input type="text" id="pplBomEmail" placeholder="member@email.com" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem"></div>
             <div style="margin-bottom:.75rem"><label>Term Start</label><input type="date" id="pplBomTermStart" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem"></div>
             <div style="margin-bottom:.75rem"><label>Term End</label><input type="date" id="pplBomTermEnd" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem"></div>
-            <div style="display:flex;gap:.75rem">
-              <button class="btn btn-primary" onclick="peopleSaveBOM()"><i class="fa-solid fa-floppy-disk"></i> Save</button>
-              <button class="btn btn-outline" onclick="peopleClearBOMForm()">Clear</button>
+            <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
+              <button type="button" class="btn btn-primary" onclick="peopleSaveBOM()"><i class="fa-solid fa-floppy-disk"></i> Save BOM Member</button>
+              <button type="button" class="btn btn-outline" onclick="peopleClearBOMForm()"><i class="fa-solid fa-xmark"></i> Clear</button>
+              <span id="bomSaveMsg" style="font-size:.82rem;font-weight:600;color:#16a34a"></span>
             </div>
           </div>
           <!-- BOM Directory -->
