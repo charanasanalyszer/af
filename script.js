@@ -10206,6 +10206,144 @@ function getStudentFeeData(studentId, term, year) {
 function openFeesTab(tabId, btn) {
   document.querySelectorAll('#s-fees .tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('#feesTabBar .tb').forEach(b => b.classList.remove('active'));
+// ── Open Salary Sub-Tab (Staff / BOM Members) ──
+function openSalarySubTab(tabId, btn) {
+  document.querySelectorAll('.salary-sub-panel').forEach(p => {
+    p.style.display = 'none';
+    p.classList.remove('active');
+  });
+  document.querySelectorAll('#salarySubTabBar .tb').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById(tabId);
+  if (panel) { panel.style.display = ''; panel.classList.add('active'); }
+  if (btn) btn.classList.add('active');
+}
+
+// ── BOM Salary Functions ──
+function calcBOMNet() {
+  const basic  = parseFloat(document.getElementById('bomBasic')?.value)       || 0;
+  const allow  = parseFloat(document.getElementById('bomAllowances')?.value)  || 0;
+  const deduct = parseFloat(document.getElementById('bomDeductions')?.value)  || 0;
+  const sha    = parseFloat(document.getElementById('bomSHA')?.value)         || 0;
+  const nssf   = parseFloat(document.getElementById('bomNSSF')?.value)        || 0;
+  const net    = basic + allow - deduct - sha - nssf;
+  const netEl  = document.getElementById('bomNet');
+  if (netEl) netEl.value = net.toFixed(2);
+}
+
+function saveBOMSalary() {
+  const name  = document.getElementById('bomName')?.value.trim();
+  const role  = document.getElementById('bomRole')?.value.trim();
+  const type  = document.getElementById('bomType')?.value;
+  const basic = parseFloat(document.getElementById('bomBasic')?.value)       || 0;
+  const allow = parseFloat(document.getElementById('bomAllowances')?.value)  || 0;
+  const deduct= parseFloat(document.getElementById('bomDeductions')?.value)  || 0;
+  const sha   = parseFloat(document.getElementById('bomSHA')?.value)         || 0;
+  const nssf  = parseFloat(document.getElementById('bomNSSF')?.value)        || 0;
+  const net   = parseFloat(document.getElementById('bomNet')?.value)         || 0;
+  const notes = document.getElementById('bomNotes')?.value.trim()            || '';
+  const editId= document.getElementById('bomEditId')?.value                  || '';
+
+  if (!name || !role || !basic) { alert('Please fill in Name, Role, and Basic Allowance.'); return; }
+
+  const school = getCurrentSchool ? getCurrentSchool() : null;
+  const key = school ? 'bomSalaries_' + school.id : 'bomSalaries';
+  let data = JSON.parse(localStorage.getItem(key) || '[]');
+
+  if (editId) {
+    const idx = data.findIndex(r => r.id === editId);
+    if (idx > -1) data[idx] = { ...data[idx], name, role, type, basic, allow, deduct, sha, nssf, net, notes };
+  } else {
+    data.push({ id: 'bom_' + Date.now(), name, role, type, basic, allow, deduct, sha, nssf, net, notes });
+  }
+  localStorage.setItem(key, JSON.stringify(data));
+  clearBOMForm();
+  renderBOMSalaryTable();
+}
+
+function clearBOMForm() {
+  ['bomName','bomRole','bomBasic','bomAllowances','bomDeductions','bomSHA','bomNSSF','bomNet','bomNotes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = (id === 'bomAllowances' || id === 'bomDeductions' || id === 'bomSHA' || id === 'bomNSSF') ? '0' : '';
+  });
+  const editEl = document.getElementById('bomEditId');
+  if (editEl) editEl.value = '';
+  const typeEl = document.getElementById('bomType');
+  if (typeEl) typeEl.selectedIndex = 0;
+}
+
+function renderBOMSalaryTable() {
+  const body = document.getElementById('bomBody');
+  if (!body) return;
+  const school = getCurrentSchool ? getCurrentSchool() : null;
+  const key = school ? 'bomSalaries_' + school.id : 'bomSalaries';
+  const data = JSON.parse(localStorage.getItem(key) || '[]');
+  if (!data.length) {
+    body.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No BOM salary records yet. Add one above.</td></tr>';
+    return;
+  }
+  body.innerHTML = data.map((r, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${r.name}</td>
+      <td>${r.role}</td>
+      <td>${r.type}</td>
+      <td>KES ${Number(r.basic).toLocaleString()}</td>
+      <td>KES ${Number(r.allow).toLocaleString()}</td>
+      <td>KES ${Number(r.deduct).toLocaleString()}</td>
+      <td>KES ${Number(r.sha).toLocaleString()}</td>
+      <td>KES ${Number(r.nssf).toLocaleString()}</td>
+      <td><strong>KES ${Number(r.net).toLocaleString()}</strong></td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="editBOMSalary('${r.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-danger btn-xs" onclick="deleteBOMSalary('${r.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function editBOMSalary(id) {
+  const school = getCurrentSchool ? getCurrentSchool() : null;
+  const key = school ? 'bomSalaries_' + school.id : 'bomSalaries';
+  const data = JSON.parse(localStorage.getItem(key) || '[]');
+  const r = data.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('bomEditId').value  = r.id;
+  document.getElementById('bomName').value    = r.name;
+  document.getElementById('bomRole').value    = r.role;
+  document.getElementById('bomType').value    = r.type;
+  document.getElementById('bomBasic').value   = r.basic;
+  document.getElementById('bomAllowances').value = r.allow;
+  document.getElementById('bomDeductions').value = r.deduct;
+  document.getElementById('bomSHA').value     = r.sha;
+  document.getElementById('bomNSSF').value    = r.nssf;
+  document.getElementById('bomNotes').value   = r.notes;
+  calcBOMNet();
+  openSalarySubTab('tabSalaryBOM', document.getElementById('tbSalaryBOM'));
+}
+
+function deleteBOMSalary(id) {
+  if (!confirm('Delete this BOM salary record?')) return;
+  const school = getCurrentSchool ? getCurrentSchool() : null;
+  const key = school ? 'bomSalaries_' + school.id : 'bomSalaries';
+  let data = JSON.parse(localStorage.getItem(key) || '[]');
+  data = data.filter(r => r.id !== id);
+  localStorage.setItem(key, JSON.stringify(data));
+  renderBOMSalaryTable();
+}
+
+function exportBOMSalaryCSV() {
+  const school = getCurrentSchool ? getCurrentSchool() : null;
+  const key = school ? 'bomSalaries_' + school.id : 'bomSalaries';
+  const data = JSON.parse(localStorage.getItem(key) || '[]');
+  const rows = [['Name','Role','Type','Basic','Allowances','Deductions','SHA','NSSF','Net Amount']];
+  data.forEach(r => rows.push([r.name, r.role, r.type, r.basic, r.allow, r.deduct, r.sha, r.nssf, r.net]));
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,' + encodeURIComponent(csv);
+  a.download = 'bom_salary_records.csv';
+  a.click();
+}
+
+
   const p = document.getElementById(tabId); if (p) p.classList.add('active');
   if (btn) btn.classList.add('active');
   if (tabId === 'tabFeeOverview')   renderFeeOverview();
@@ -10276,6 +10414,7 @@ function initFeesSection() {
   populateFeesDropdowns();
   populateStaffDropdowns(); // populate staff selects in Salary/Payslip tabs
   renderStaffSalaryTable();
+  renderBOMSalaryTable();
   renderPayslipHistory();
 
   const role      = currentUser && currentUser.role;
@@ -17341,7 +17480,7 @@ function deleteStaffSalary(id) {
 function exportStaffSalaryCSV() {
   const data = loadStaffSalaries();
   if (!data.length) { alert('No salary records to export.'); return; }
-  const rows = [['Name','Role','Type','Basic','Allowances','Deductions','NHIF','NSSF','Net Salary']];
+  const rows = [['Name','Role','Type','Basic','Allowances','Deductions','SHA','NSSF','Net Salary']];
   data.forEach(r => rows.push([r.name, r.role, r.type, r.basic, r.allow, r.deduct, r.nhif, r.nssf, r.net]));
   const csv = rows.map(r => r.join(',')).join('\n');
   const a = document.createElement('a');
@@ -17412,7 +17551,7 @@ function printPayroll() {
   win.document.write(`<!DOCTYPE html><html><head><title>Payroll — ${month} ${year}</title>
   <style>body{font-family:Arial,sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;font-size:12px}th{background:#f5f5f5}</style>
   </head><body><h2 style="text-align:center">Payroll — ${month} ${year}</h2>
-  <table><thead><tr><th>#</th><th>Name</th><th>Role</th><th>Basic</th><th>Allowances</th><th>NHIF</th><th>NSSF</th><th>Deductions</th><th>Net Pay</th><th>Status</th></tr></thead>
+  <table><thead><tr><th>#</th><th>Name</th><th>Role</th><th>Basic</th><th>Allowances</th><th>SHA</th><th>NSSF</th><th>Deductions</th><th>Net Pay</th><th>Status</th></tr></thead>
   <tbody>${rows}</tbody></table></body></html>`);
   win.document.close();
   win.print();
@@ -17460,7 +17599,7 @@ function previewPayslip() {
         <tbody>
           <tr><td style="padding:.4rem .6rem;border:1px solid var(--border)">Basic Salary</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border)">${Number(rec.basic).toLocaleString()}</td></tr>
           <tr><td style="padding:.4rem .6rem;border:1px solid var(--border)">Allowances</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border)">${Number(rec.allow).toLocaleString()}</td></tr>
-          <tr style="background:#fef2f2"><td style="padding:.4rem .6rem;border:1px solid var(--border)">NHIF</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border);color:#ef4444">- ${Number(rec.nhif).toLocaleString()}</td></tr>
+          <tr style="background:#fef2f2"><td style="padding:.4rem .6rem;border:1px solid var(--border)">SHA</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border);color:#ef4444">- ${Number(rec.nhif).toLocaleString()}</td></tr>
           <tr style="background:#fef2f2"><td style="padding:.4rem .6rem;border:1px solid var(--border)">NSSF</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border);color:#ef4444">- ${Number(rec.nssf).toLocaleString()}</td></tr>
           <tr style="background:#fef2f2"><td style="padding:.4rem .6rem;border:1px solid var(--border)">Other Deductions</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border);color:#ef4444">- ${Number(rec.deduct).toLocaleString()}</td></tr>
           <tr style="background:var(--bg-muted);font-weight:700"><td style="padding:.4rem .6rem;border:1px solid var(--border)">NET PAY</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border);color:var(--primary);font-size:1rem">KES ${Number(rec.net).toLocaleString()}</td></tr>

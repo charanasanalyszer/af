@@ -2526,6 +2526,14 @@
 
       <!-- ── STAFF SALARY TAB ── -->
       <div id="tabStaffSalary" class="tab-panel">
+        <!-- Salary Sub-Tab Bar -->
+        <div class="tab-bar" id="salarySubTabBar" style="margin-bottom:1rem;background:var(--bg-muted);border-radius:8px;padding:.3rem">
+          <button class="tb active" onclick="openSalarySubTab('tabSalaryStaff',this)" id="tbSalaryStaff"><i class="fa-solid fa-users"></i> Staff</button>
+          <button class="tb" onclick="openSalarySubTab('tabSalaryBOM',this)" id="tbSalaryBOM"><i class="fa-solid fa-user-tie"></i> BOM Members</button>
+        </div>
+
+        <!-- Staff Sub-Tab -->
+        <div id="tabSalaryStaff" class="salary-sub-panel">
         <div class="sec-stack">
           <div class="card">
             <h3><i class="fa-solid fa-money-bill-wave"></i> Add / Edit Staff Salary</h3>
@@ -2557,7 +2565,7 @@
               </div>
             </div>
             <div class="frow c3">
-              <div class="fg"><label>NHIF (KES)</label>
+              <div class="fg"><label>SHA (KES)</label>
                 <input type="number" id="ssNHIF" placeholder="500" min="0" value="0" oninput="calcNetSalary()"/>
               </div>
               <div class="fg"><label>NSSF (KES)</label>
@@ -2591,7 +2599,7 @@
                     <th>Basic (KES)</th>
                     <th>Allowances</th>
                     <th>Deductions</th>
-                    <th>NHIF</th>
+                    <th>SHA</th>
                     <th>NSSF</th>
                     <th>Net (KES)</th>
                     <th>Actions</th>
@@ -2602,6 +2610,90 @@
             </div>
           </div>
         </div>
+        </div><!-- end tabSalaryStaff -->
+
+        <!-- BOM Members Sub-Tab -->
+        <div id="tabSalaryBOM" class="salary-sub-panel" style="display:none">
+        <div class="sec-stack">
+          <div class="card">
+            <h3><i class="fa-solid fa-user-tie"></i> Add / Edit BOM Member Salary</h3>
+            <input type="hidden" id="bomEditId"/>
+            <div class="frow c3">
+              <div class="fg"><label>BOM Member Name *</label>
+                <input type="text" id="bomName" placeholder="e.g. John Doe"/>
+              </div>
+              <div class="fg"><label>Role / Position *</label>
+                <input type="text" id="bomRole" placeholder="e.g. Chairperson, Secretary"/>
+              </div>
+              <div class="fg"><label>Member Type</label>
+                <select id="bomType">
+                  <option>Chairperson</option>
+                  <option>Vice Chairperson</option>
+                  <option>Secretary</option>
+                  <option>Treasurer</option>
+                  <option>Member</option>
+                </select>
+              </div>
+            </div>
+            <div class="frow c3">
+              <div class="fg"><label>Basic Allowance (KES) *</label>
+                <input type="number" id="bomBasic" placeholder="e.g. 10000" min="0" oninput="calcBOMNet()"/>
+              </div>
+              <div class="fg"><label>Other Allowances (KES)</label>
+                <input type="number" id="bomAllowances" placeholder="e.g. 2000" min="0" value="0" oninput="calcBOMNet()"/>
+              </div>
+              <div class="fg"><label>Deductions (KES)</label>
+                <input type="number" id="bomDeductions" placeholder="e.g. 500" min="0" value="0" oninput="calcBOMNet()"/>
+              </div>
+            </div>
+            <div class="frow c3">
+              <div class="fg"><label>SHA (KES)</label>
+                <input type="number" id="bomSHA" placeholder="500" min="0" value="0" oninput="calcBOMNet()"/>
+              </div>
+              <div class="fg"><label>NSSF (KES)</label>
+                <input type="number" id="bomNSSF" placeholder="200" min="0" value="0" oninput="calcBOMNet()"/>
+              </div>
+              <div class="fg"><label>Net Amount (KES)</label>
+                <input type="number" id="bomNet" placeholder="Auto-calculated" readonly style="background:var(--bg-muted);font-weight:700;color:var(--primary)"/>
+              </div>
+            </div>
+            <div class="fg"><label>Notes</label>
+              <input type="text" id="bomNotes" placeholder="Any extra notes..."/>
+            </div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">
+              <button class="btn btn-primary btn-sm" onclick="saveBOMSalary()"><i class="fa-solid fa-floppy-disk"></i> Save Record</button>
+              <button class="btn btn-outline btn-sm" onclick="clearBOMForm()"><i class="fa-solid fa-xmark"></i> Clear</button>
+            </div>
+          </div>
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem">
+              <h3><i class="fa-solid fa-clipboard-list"></i> BOM Member Records</h3>
+              <button class="btn btn-outline btn-sm" onclick="exportBOMSalaryCSV()">⬇ Export CSV</button>
+            </div>
+            <div class="tbl-wrap">
+              <table id="bomTbl">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Type</th>
+                    <th>Basic (KES)</th>
+                    <th>Allowances</th>
+                    <th>Deductions</th>
+                    <th>SHA</th>
+                    <th>NSSF</th>
+                    <th>Net (KES)</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="bomBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        </div><!-- end tabSalaryBOM -->
+
       </div>
 
       <!-- ── PAYROLL TAB ── -->
@@ -2639,7 +2731,7 @@
                     <th>Role</th>
                     <th>Basic (KES)</th>
                     <th>Allowances</th>
-                    <th>NHIF</th>
+                    <th>SHA</th>
                     <th>NSSF</th>
                     <th>Other Deductions</th>
                     <th>Net Pay (KES)</th>
