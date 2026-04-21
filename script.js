@@ -8,6 +8,47 @@
 // ═══════════════ PLATFORM MULTI-SCHOOL ═══════════════
 const PLATFORM_SCHOOLS_KEY  = 'ei_platform_schools';  // [{id,name,username,password,email,createdAt}]
 const PLATFORM_CREDS_KEY    = 'ei_platform_creds';    // {username, password} — set on first run
+
+// ══════════════════════════════════════════════════════════
+//  USERNAME FORMAT RULES — enforced at creation & login
+//  Prefixes are NEVER shown on the login screen.
+//  Platform Admin : plat-<name>
+//  School Admin   : adm-<schoolname>
+//  Sub Admin      : sub-<name>
+//  Teacher        : tch-<name>
+//  Student        : <admNo>@<schoolname>   (no prefix, contains @)
+//  Guest          : guest  (exact, hardcoded)
+// ══════════════════════════════════════════════════════════
+const USERNAME_RULES = {
+  platform:    { rx: /^plat-[a-zA-Z0-9_-]{2,32}$/,       hint: 'Platform Admin usernames must start with plat-' },
+  schoolAdmin: { rx: /^adm-[a-zA-Z0-9_-]{2,40}$/,        hint: 'School usernames must start with adm-' },
+  subAdmin:    { rx: /^sub-[a-zA-Z0-9_-]{2,32}$/,        hint: 'Sub-admin usernames must start with sub-' },
+  teacher:     { rx: /^tch-[a-zA-Z0-9_-]{2,32}$/,        hint: 'Teacher usernames must start with tch-' },
+  student:     { rx: /^[A-Za-z0-9_-]+@[a-zA-Z0-9_-]+$/, hint: 'Student usernames must be admNo@schoolname' },
+};
+
+/** Returns true if valid, false + shows toast if not. Used at creation time. */
+function validateUsername(role, val) {
+  const rule = USERNAME_RULES[role];
+  if (!rule) return true; // guest handled separately
+  if (!rule.rx.test(val)) {
+    showToast('Invalid username format. ' + rule.hint, 'error');
+    return false;
+  }
+  return true;
+}
+
+/** Detects which role a username format belongs to. Returns role string or null. */
+function detectUsernameRole(u) {
+  if (u === 'guest') return 'guest';
+  if (/^plat-/.test(u)) return 'platform';
+  if (/^adm-/.test(u))  return 'schoolAdmin';
+  if (/^sub-/.test(u))  return 'subAdmin';
+  if (/^tch-/.test(u))  return 'teacher';
+  if (u.includes('@'))  return 'student';
+  return null; // unknown
+}
+
 const K_BROADCAST           = 'ei_platform_broadcast'; // platform broadcast message string
 const K_PLATFORM_EXAMS      = 'ei_platform_exams';     // [{id,title,subject,class,term,year,maxScore,notes,createdAt,gradingSystemId,timetable}]
 const K_PLATFORM_SCHOOL_MARKS = 'ei_platform_school_marks'; // {examId: {schoolId: [{studentName,adm,subject,score}]}}
@@ -659,6 +700,7 @@ function doPlatformLogin() {
       re();
       return;
     }
+    if (!validateUsername('platform', u)) { re(); return; }
     setPlatformCreds(u, p);
     re();
     showToast('Platform account created <i class="fa-solid fa-check"></i>', 'success');
@@ -702,6 +744,25 @@ function doUnifiedLogin() {
 
   if (!u || !p) { re(); err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Please enter your username and password.'; err.style.display='block'; return; }
 
+  // ── FORMAT GATE: reject unrecognised username formats immediately ──
+  const _detectedRole = detectUsernameRole(u);
+  if (!_detectedRole) {
+    re();
+    err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Username format not recognised. Please check your credentials with your administrator.';
+    err.style.display = 'block';
+    return;
+  }
+  // Validate detected role's exact pattern (catches partial prefixes like "plat" without dash)
+  if (_detectedRole !== 'guest') {
+    const _rule = USERNAME_RULES[_detectedRole];
+    if (_rule && !_rule.rx.test(u)) {
+      re();
+      err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Username format not recognised. Please check your credentials with your administrator.';
+      err.style.display = 'block';
+      return;
+    }
+  }
+
   loadPlatform();
 
   // ── 1. Check platform admin credentials ──
@@ -713,6 +774,7 @@ function doUnifiedLogin() {
     if (!anySchoolMatch) {
       if (p.length < 6) { re(); err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> No account found. Platform password must be ≥6 chars to create.'; err.style.display='block'; return; }
       if (!confirm('Create a new Platform Admin account?\n\nUsername: '+u+'\n\nRemember these credentials — they cannot be recovered without a reset.')) { re(); return; }
+      if (!validateUsername('platform', u)) { re(); return; }
       setPlatformCreds(u, p);
       re();
       maybeSaveCreds();
@@ -1500,6 +1562,7 @@ function platAddSchool() {
   const email = (document.getElementById('platSchEmail').value||'').trim();
   const phone = (document.getElementById('platSchPhone') ? document.getElementById('platSchPhone').value||'' : '').trim();
   if(!name||!uname||!pass){ showToast('Name, username and password are required','error'); return; }
+  if(!validateUsername('schoolAdmin', uname)) return;
   loadPlatform();
   if(platformSchools.find(s=>s.username===uname)){ showToast('Username already taken','error'); return; }
   const s={id:uid(),name,username:uname,password:pass,email,phone,createdAt:new Date().toISOString(),active:true};
@@ -2691,6 +2754,7 @@ function addSchoolAccount() {
   const email = document.getElementById('psEmail').value.trim();
   const phone = (document.getElementById('psPhone') ? document.getElementById('psPhone').value||'' : '').trim();
   if (!name||!user||!pass) { showToast('Name, username and password required','error'); return; }
+  if (!validateUsername('schoolAdmin', user)) return;
   loadPlatform();
   if (platformSchools.find(s=>s.username===user)) { showToast('Username already taken','error'); return; }
   platformSchools.push({ id:'sch_'+uid(), name, username:user, password:pass, email, phone, createdAt:new Date().toISOString() });
@@ -5829,6 +5893,7 @@ function saveTeacher() {
   const qualEl= document.getElementById('tchQual');
   const qual  = qualEl ? qualEl.value.trim() : '';
   if (!name || !phone) { showToast('Name and phone are required','error'); return; }
+  if (user && !validateUsername('teacher', user)) return;
   const editId = document.getElementById('editTchId').value;
   // Rights are managed in Settings > Teacher Access Manager — preserve existing rights when editing
   const existingTeacher = editId ? teachers.find(t => t.id === editId) : null;
@@ -6977,6 +7042,7 @@ function addAdminAccount() {
   const pass=document.getElementById('newAdminPass').value;
   const role=document.getElementById('newAdminRole').value;
   if(!name||!user||!pass){showToast('All fields required','error');return;}
+  if(!validateUsername('subAdmin', user)) return;
   if(admins.find(a=>a.username===user)){showToast('Username already exists','error');return;}
   admins.push({id:uid(),name,username:user,password:pass,role});
   save(K.admins,admins);
