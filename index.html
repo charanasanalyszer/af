@@ -2827,10 +2827,6 @@
             </table>
           </div>
         </div>
-              <tbody id="payslipHistBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">No payslips generated yet.</td></tr></tbody>
-            </table>
-          </div>
-        </div>
       </div>
 
       </div><!-- /financeSalaries -->
@@ -2854,14 +2850,14 @@
       <div class="people-main-panel active" id="peopleStaffPanel">
         <!-- Staff sub-tab bar -->
         <div class="tab-bar" id="peopleStaffTabBar" style="margin-bottom:1rem">
-          <button class="tb active" onclick="openPeopleStaffTab('pstList',this)"><i class="fa-solid fa-list"></i> Staff List</button>
-          <button class="tb" onclick="openPeopleStaffTab('pstAddEdit',this)"><i class="fa-solid fa-user-plus"></i> Add / Edit</button>
-          <button class="tb" onclick="openPeopleStaffTab('pstRoles',this)"><i class="fa-solid fa-tags"></i> Roles &amp; Departments</button>
-          <button class="tb" onclick="openPeopleStaffTab('pstDocs',this)"><i class="fa-solid fa-folder-open"></i> Documents</button>
+          <button class="tb active" onclick="openPeopleStaffTab('pplStList',this)"><i class="fa-solid fa-list"></i> Staff List</button>
+          <button class="tb" onclick="openPeopleStaffTab('pplStAddEdit',this)"><i class="fa-solid fa-user-plus"></i> Add / Edit</button>
+          <button class="tb" onclick="openPeopleStaffTab('pplStRoles',this)"><i class="fa-solid fa-tags"></i> Roles &amp; Departments</button>
+          <button class="tb" onclick="openPeopleStaffTab('pplStDocs',this)"><i class="fa-solid fa-folder-open"></i> Documents</button>
         </div>
 
         <!-- Staff List -->
-        <div id="pstList" class="tab-panel active">
+        <div id="pplStList" class="tab-panel active">
           <div class="card" style="padding:1rem;margin-bottom:1rem">
             <div class="frow c3" style="gap:.75rem">
               <div class="fg"><label>Search</label><input type="text" id="pstSearch" placeholder="Name, role..." oninput="pstFilterStaff()" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem"></div>
@@ -2887,9 +2883,9 @@
         </div>
 
         <!-- Add / Edit Staff -->
-        <div id="pstAddEdit" class="tab-panel">
+        <div id="pplStAddEdit" class="tab-panel">
           <div class="card" style="padding:1.25rem">
-            <h3 id="pstFormTitle"><i class="fa-solid fa-user-plus"></i> Add Staff Member</h3>
+            <h3 id="pplStFormTitle"><i class="fa-solid fa-user-plus"></i> Add Staff Member</h3>
             <input type="hidden" id="pstEditId">
             <div class="frow c2" style="gap:.75rem;margin-bottom:.75rem">
               <div class="fg"><label>Full Name *</label><input type="text" id="pstName" placeholder="e.g. Jane Wanjiku" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem"></div>
@@ -2931,7 +2927,7 @@
         </div>
 
         <!-- Roles & Departments -->
-        <div id="pstRoles" class="tab-panel">
+        <div id="pplStRoles" class="tab-panel">
           <div class="card" style="padding:1.25rem">
             <h3><i class="fa-solid fa-tags"></i> Roles &amp; Departments Overview</h3>
             <div id="pstRolesContent" style="margin-top:1rem">
@@ -2941,7 +2937,7 @@
         </div>
 
         <!-- Documents -->
-        <div id="pstDocs" class="tab-panel">
+        <div id="pplStDocs" class="tab-panel">
           <div class="card" style="padding:1.25rem">
             <h3><i class="fa-solid fa-folder-open"></i> Staff Documents</h3>
             <p style="color:var(--muted);margin-top:.5rem">Document upload and management coming soon. Staff records can be exported from the Staff List tab.</p>
@@ -2954,21 +2950,21 @@
         <div class="frow c2" style="gap:1rem;align-items:flex-start">
           <!-- BOM Form -->
           <div class="card" style="padding:1.25rem;flex:1">
-            <h3 id="bomFormTitle"><i class="fa-solid fa-user-tie"></i> Add BOM Member</h3>
-            <input type="hidden" id="bomEditId">
-            <div style="margin-bottom:.75rem"><label>Full Name *</label><input type="text" id="bomName" placeholder="e.g. Mr. John Kamau" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem"></div>
+            <h3 id="pplBomFormTitle"><i class="fa-solid fa-user-tie"></i> Add BOM Member</h3>
+            <input type="hidden" id="pplBomEditId">
+            <div style="margin-bottom:.75rem"><label>Full Name *</label><input type="text" id="pplBomName" placeholder="e.g. Mr. John Kamau" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem"></div>
             <div style="margin-bottom:.75rem"><label>Position *</label>
-              <select id="bomPosition" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem">
+              <select id="pplBomPosition" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem">
                 <option value="">Select position...</option>
                 <option>Chairperson</option><option>Vice Chairperson</option><option>Secretary</option>
                 <option>Treasurer</option><option>Member</option><option>Parent Representative</option>
                 <option>Teacher Representative</option><option>Community Representative</option>
               </select>
             </div>
-            <div style="margin-bottom:.75rem"><label>Phone</label><input type="text" id="bomPhone" placeholder="+254..." style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem"></div>
-            <div style="margin-bottom:.75rem"><label>Email</label><input type="text" id="bomEmail" placeholder="member@email.com" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem"></div>
-            <div style="margin-bottom:.75rem"><label>Term Start</label><input type="date" id="bomTermStart" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem"></div>
-            <div style="margin-bottom:.75rem"><label>Term End</label><input type="date" id="bomTermEnd" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem"></div>
+            <div style="margin-bottom:.75rem"><label>Phone</label><input type="text" id="pplBomPhone" placeholder="+254..." style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem"></div>
+            <div style="margin-bottom:.75rem"><label>Email</label><input type="text" id="pplBomEmail" placeholder="member@email.com" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem"></div>
+            <div style="margin-bottom:.75rem"><label>Term Start</label><input type="date" id="pplBomTermStart" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem"></div>
+            <div style="margin-bottom:.75rem"><label>Term End</label><input type="date" id="pplBomTermEnd" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem"></div>
             <div style="display:flex;gap:.75rem">
               <button class="btn btn-primary" onclick="peopleSaveBOM()"><i class="fa-solid fa-floppy-disk"></i> Save</button>
               <button class="btn btn-outline" onclick="peopleClearBOMForm()">Clear</button>
@@ -2981,9 +2977,9 @@
               <button class="btn btn-outline btn-sm" onclick="peopleExportBOMCSV()">⬇ Export CSV</button>
             </div>
             <div class="tbl-wrap">
-              <table id="bomDirTable">
+              <table id="pplBomDirTable">
                 <thead><tr><th>Name</th><th>Position</th><th>Phone</th><th>Email</th><th>Term Start</th><th>Term End</th><th>Actions</th></tr></thead>
-                <tbody id="bomDirBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">No BOM members added yet.</td></tr></tbody>
+                <tbody id="pplBomDirBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">No BOM members added yet.</td></tr></tbody>
               </table>
             </div>
           </div>

@@ -17767,8 +17767,8 @@ function openPeopleStaffTab(tabId, btn) {
   document.querySelectorAll('#peopleStaffTabBar .tb').forEach(b => b.classList.remove('active'));
   const p = document.getElementById(tabId); if (p) p.classList.add('active');
   if (btn) btn.classList.add('active');
-  if (tabId === 'pstList')  pstRenderList();
-  if (tabId === 'pstRoles') pstRenderRoles();
+  if (tabId === 'pplStList')  pstRenderList();
+  if (tabId === 'pplStRoles') pstRenderRoles();
 }
 
 // ── Staff List ──
@@ -17851,7 +17851,7 @@ function pstSaveStaff() {
   pstPopulateDeptFilter();
   pstRenderList();
   // Switch to list tab to show result
-  openPeopleStaffTab('pstList', document.querySelector('#peopleStaffTabBar .tb'));
+  openPeopleStaffTab('pplStList', document.querySelector('#peopleStaffTabBar .tb'));
   showToast(editId ? 'Staff record updated.' : 'Staff member added.');
 }
 
@@ -17864,7 +17864,7 @@ function pstClearForm() {
   });
   const doe = document.getElementById('pstDOE'); if (doe) doe.value = '';
   const editId = document.getElementById('pstEditId'); if (editId) editId.value = '';
-  const title = document.getElementById('pstFormTitle');
+  const title = document.getElementById('pplStFormTitle');
   if (title) title.innerHTML = '<i class="fa-solid fa-user-plus"></i> Add Staff Member';
 }
 
@@ -17882,11 +17882,11 @@ function pstEditStaff(id) {
   document.getElementById('pstNID').value    = s.nid   || '';
   document.getElementById('pstDOE').value    = s.doe   || '';
   document.getElementById('pstNotes').value  = s.notes || '';
-  const title = document.getElementById('pstFormTitle');
+  const title = document.getElementById('pplStFormTitle');
   if (title) title.innerHTML = '<i class="fa-solid fa-pen"></i> Edit Staff Member';
   // Switch to add/edit tab
   const addBtn = document.querySelector('#peopleStaffTabBar .tb:nth-child(2)');
-  openPeopleStaffTab('pstAddEdit', addBtn);
+  openPeopleStaffTab('pplStAddEdit', addBtn);
 }
 
 function pstDeleteStaff(id) {
@@ -17956,13 +17956,13 @@ function pstRenderRoles() {
 // ── BOM Members ──
 
 function peopleSaveBOM() {
-  const name      = document.getElementById('bomName')?.value.trim();
-  const position  = document.getElementById('bomPosition')?.value;
-  const phone     = document.getElementById('bomPhone')?.value.trim();
-  const email     = document.getElementById('bomEmail')?.value.trim();
-  const termStart = document.getElementById('bomTermStart')?.value;
-  const termEnd   = document.getElementById('bomTermEnd')?.value;
-  const editId    = document.getElementById('bomEditId')?.value;
+  const name      = document.getElementById('pplBomName')?.value.trim();
+  const position  = document.getElementById('pplBomPosition')?.value;
+  const phone     = document.getElementById('pplBomPhone')?.value.trim();
+  const email     = document.getElementById('pplBomEmail')?.value.trim();
+  const termStart = document.getElementById('pplBomTermStart')?.value;
+  const termEnd   = document.getElementById('pplBomTermEnd')?.value;
+  const editId    = document.getElementById('pplBomEditId')?.value;
 
   if (!name)     { alert('Please enter the BOM member\'s full name.'); return; }
   if (!position) { alert('Please select a position.'); return; }
@@ -17983,18 +17983,18 @@ function peopleSaveBOM() {
 }
 
 function peopleClearBOMForm() {
-  ['bomName','bomPhone','bomEmail','bomTermStart','bomTermEnd'].forEach(id => {
+  ['pplBomName','pplBomPhone','pplBomEmail','pplBomTermStart','pplBomTermEnd'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
-  const pos = document.getElementById('bomPosition'); if (pos) pos.value = '';
-  const eid = document.getElementById('bomEditId'); if (eid) eid.value = '';
-  const title = document.getElementById('bomFormTitle');
+  const pos = document.getElementById('pplBomPosition'); if (pos) pos.value = '';
+  const eid = document.getElementById('pplBomEditId'); if (eid) eid.value = '';
+  const title = document.getElementById('pplBomFormTitle');
   if (title) title.innerHTML = '<i class="fa-solid fa-user-tie"></i> Add BOM Member';
 }
 
 function peopleRenderBOMTable() {
   const bom  = loadPeopleBOM();
-  const body = document.getElementById('bomDirBody');
+  const body = document.getElementById('pplBomDirBody');
   if (!body) return;
   if (!bom.length) {
     body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">No BOM members added yet.</td></tr>';
@@ -18019,14 +18019,14 @@ function peopleEditBOM(id) {
   const bom = loadPeopleBOM();
   const b = bom.find(x => x.id === id);
   if (!b) return;
-  document.getElementById('bomEditId').value    = id;
-  document.getElementById('bomName').value      = b.name      || '';
-  document.getElementById('bomPosition').value  = b.position  || '';
-  document.getElementById('bomPhone').value     = b.phone     || '';
-  document.getElementById('bomEmail').value     = b.email     || '';
-  document.getElementById('bomTermStart').value = b.termStart || '';
-  document.getElementById('bomTermEnd').value   = b.termEnd   || '';
-  const title = document.getElementById('bomFormTitle');
+  document.getElementById('pplBomEditId').value    = id;
+  document.getElementById('pplBomName').value      = b.name      || '';
+  document.getElementById('pplBomPosition').value  = b.position  || '';
+  document.getElementById('pplBomPhone').value     = b.phone     || '';
+  document.getElementById('pplBomEmail').value     = b.email     || '';
+  document.getElementById('pplBomTermStart').value = b.termStart || '';
+  document.getElementById('pplBomTermEnd').value   = b.termEnd   || '';
+  const title = document.getElementById('pplBomFormTitle');
   if (title) title.innerHTML = '<i class="fa-solid fa-pen"></i> Edit BOM Member';
 }
 
