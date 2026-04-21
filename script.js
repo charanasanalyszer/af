@@ -17766,8 +17766,10 @@ function savePeopleBOM(arr) {
 }
 
 function initPeopleSection() {
-  // Default to Staff panel
+  // Default to Staff panel, reset sub-tabs to list view
   openPeopleTab('peopleStaffPanel', document.getElementById('pmtStaff'));
+  // Always start on the Staff List sub-tab
+  openPeopleStaffTab('pplStList', document.getElementById('pstbList'));
   pstPopulateDeptFilter();
   pstRenderList();
   peopleRenderBOMTable();
@@ -17822,21 +17824,22 @@ function pstRenderList() {
   });
 
   if (!filtered.length) {
-    body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">${staff.length ? 'No matches found.' : 'No staff records yet. Use Add/Edit tab to add staff.'}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">${staff.length ? 'No matches found.' : 'No staff records yet. Click <strong>Add New Staff</strong> to get started.'}</td></tr>`;
     return;
   }
 
-  body.innerHTML = filtered.map(s => `
+  body.innerHTML = filtered.map((s,i) => `
     <tr>
+      <td>${i+1}</td>
       <td><strong>${s.name || '—'}</strong></td>
       <td>${s.role || '—'}</td>
       <td>${s.dept || '—'}</td>
       <td>${s.phone || '—'}</td>
       <td>${s.email || '—'}</td>
       <td>${s.tsc || '—'}</td>
-      <td>
-        <button class="btn btn-outline btn-sm" onclick="pstEditStaff('${s.id}')"><i class="fa-solid fa-pen"></i></button>
-        <button class="btn btn-sm" style="background:#ef4444;color:#fff;margin-left:.3rem" onclick="pstDeleteStaff('${s.id}')"><i class="fa-solid fa-trash"></i></button>
+      <td style="white-space:nowrap">
+        <button class="btn btn-outline btn-xs" onclick="pstEditStaff('${s.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-danger btn-xs" onclick="pstDeleteStaff('${s.id}')"><i class="fa-solid fa-trash"></i></button>
       </td>
     </tr>`).join('');
 }
@@ -18032,20 +18035,21 @@ function peopleRenderBOMTable() {
   const body = document.getElementById('pplBomDirBody');
   if (!body) return;
   if (!bom.length) {
-    body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">No BOM members added yet.</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">No BOM members added yet. Fill the form on the left and click Save BOM Member.</td></tr>';
     return;
   }
-  body.innerHTML = bom.map(b => `
+  body.innerHTML = bom.map((b,i) => `
     <tr>
+      <td>${i+1}</td>
       <td><strong>${b.name || '—'}</strong></td>
       <td>${b.position || '—'}</td>
       <td>${b.phone || '—'}</td>
       <td>${b.email || '—'}</td>
       <td>${b.termStart || '—'}</td>
       <td>${b.termEnd || '—'}</td>
-      <td>
-        <button class="btn btn-outline btn-sm" onclick="peopleEditBOM('${b.id}')"><i class="fa-solid fa-pen"></i></button>
-        <button class="btn btn-sm" style="background:#ef4444;color:#fff;margin-left:.3rem" onclick="peopleDeleteBOM('${b.id}')"><i class="fa-solid fa-trash"></i></button>
+      <td style="white-space:nowrap">
+        <button class="btn btn-outline btn-xs" onclick="peopleEditBOM('${b.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-danger btn-xs" onclick="peopleDeleteBOM('${b.id}')"><i class="fa-solid fa-trash"></i></button>
       </td>
     </tr>`).join('');
 }

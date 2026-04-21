@@ -2844,7 +2844,7 @@
         <!-- Staff sub-tab bar -->
         <div class="tab-bar" id="peopleStaffTabBar" style="margin-bottom:1rem">
           <button class="tb active" id="pstbList"    onclick="openPeopleStaffTab('pplStList',this)"><i class="fa-solid fa-list"></i> Staff List</button>
-          <button class="tb"        id="pstbAddEdit" onclick="openPeopleStaffTab('pplStAddEdit',this)"><i class="fa-solid fa-user-plus"></i> Add / Edit</button>
+          <button class="tb"        id="pstbAddEdit" onclick="openPeopleStaffTab('pplStAddEdit',this)"><i class="fa-solid fa-user-plus"></i> Add Staff</button>
           <button class="tb"        id="pstbRoles"   onclick="openPeopleStaffTab('pplStRoles',this)"><i class="fa-solid fa-tags"></i> Roles &amp; Departments</button>
           <button class="tb"        id="pstbDocs"    onclick="openPeopleStaffTab('pplStDocs',this)"><i class="fa-solid fa-folder-open"></i> Documents</button>
         </div>
@@ -2852,7 +2852,11 @@
         <!-- Staff List -->
         <div id="pplStList" class="tab-panel active">
           <div class="card" style="padding:1rem;margin-bottom:1rem">
-            <div class="frow c3" style="gap:.75rem">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:.75rem">
+              <h3 style="margin:0"><i class="fa-solid fa-users"></i> Staff Directory</h3>
+              <button type="button" class="btn btn-primary btn-sm" onclick="openPeopleStaffTab('pplStAddEdit', document.getElementById('pstbAddEdit'))"><i class="fa-solid fa-user-plus"></i> Add New Staff</button>
+            </div>
+            <div class="frow c3" style="gap:.75rem;margin-bottom:.75rem">
               <div class="fg"><label>Search</label><input type="text" id="pstSearch" placeholder="Name, role..." oninput="pstFilterStaff()" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem"></div>
               <div class="fg"><label>Department</label>
                 <select id="pstDeptFilter" onchange="pstFilterStaff()" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem">
@@ -2860,16 +2864,13 @@
                 </select>
               </div>
               <div class="fg" style="display:flex;align-items:flex-end;gap:.5rem">
-                <button class="btn btn-outline btn-sm" onclick="pstExportCSV()">⬇ Export CSV</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="pstExportCSV()"><i class="fa-solid fa-download"></i> Export CSV</button>
               </div>
             </div>
-          </div>
-          <div class="card">
-            <h3><i class="fa-solid fa-users"></i> Staff Directory</h3>
             <div class="tbl-wrap">
               <table id="pstTable">
-                <thead><tr><th>Name</th><th>Role</th><th>Department</th><th>Phone</th><th>Email</th><th>TSC No.</th><th>Actions</th></tr></thead>
-                <tbody id="pstBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">No staff records yet. Use Add/Edit tab to add staff.</td></tr></tbody>
+                <thead><tr><th>#</th><th>Name</th><th>Role</th><th>Department</th><th>Phone</th><th>Email</th><th>TSC No.</th><th>Actions</th></tr></thead>
+                <tbody id="pstBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">No staff records yet. Click <strong>Add New Staff</strong> to get started.</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -2878,7 +2879,10 @@
         <!-- Add / Edit Staff -->
         <div id="pplStAddEdit" class="tab-panel">
           <div class="card" style="padding:1.25rem">
-            <h3 id="pplStFormTitle"><i class="fa-solid fa-user-plus"></i> Add Staff Member</h3>
+            <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;flex-wrap:wrap">
+              <button type="button" class="btn btn-outline btn-sm" onclick="openPeopleStaffTab('pplStList', document.getElementById('pstbList'))"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+              <h3 id="pplStFormTitle" style="margin:0"><i class="fa-solid fa-user-plus"></i> Add New Staff Member</h3>
+            </div>
             <input type="hidden" id="pstEditId">
             <div class="frow c2" style="gap:.75rem;margin-bottom:.75rem">
               <div class="fg"><label>Full Name *</label><input type="text" id="pstName" placeholder="e.g. Jane Wanjiku" style="width:100%;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem"></div>
@@ -2973,8 +2977,8 @@
             </div>
             <div class="tbl-wrap">
               <table id="pplBomDirTable">
-                <thead><tr><th>Name</th><th>Position</th><th>Phone</th><th>Email</th><th>Term Start</th><th>Term End</th><th>Actions</th></tr></thead>
-                <tbody id="pplBomDirBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">No BOM members added yet.</td></tr></tbody>
+                <thead><tr><th>#</th><th>Name</th><th>Position</th><th>Phone</th><th>Email</th><th>Term Start</th><th>Term End</th><th>Actions</th></tr></thead>
+                <tbody id="pplBomDirBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">No BOM members added yet.</td></tr></tbody>
               </table>
             </div>
           </div>
