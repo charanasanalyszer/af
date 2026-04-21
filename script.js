@@ -17077,6 +17077,12 @@ if (_origOpenPlatTab) {
     if (tabId === 'platTab-staffroles') {
       platInitStaffRolesTab();
     }
+    if (tabId === 'platTab-hrpayroll') {
+      platInitHRPayroll();
+    }
+    if (tabId === 'platTab-reports') {
+      platInitReports();
+    }
   };
 }
 
@@ -18465,6 +18471,391 @@ function platDeleteDoc(id) {
   let docs=JSON.parse(localStorage.getItem('charanas_staffDocs')||'[]').filter(d=>d.id!==id);
   localStorage.setItem('charanas_staffDocs',JSON.stringify(docs));
   platRenderDocsList(); sdpRenderDocsList();
+}
+
+
+
+// ═══════════════════════════════════════════════════════════════
+//  HR & PAYROLL MODULE
+// ═══════════════════════════════════════════════════════════════
+
+function loadPayrollData()  { return JSON.parse(localStorage.getItem('charanas_payroll')||'[]'); }
+function savePayrollData(d) { localStorage.setItem('charanas_payroll', JSON.stringify(d)); }
+function loadLeaveData()    { return JSON.parse(localStorage.getItem('charanas_leave')||'[]'); }
+function saveLeaveData(d)   { localStorage.setItem('charanas_leave', JSON.stringify(d)); }
+
+function openPlatHRTab(tabId, btn) {
+  document.querySelectorAll('#platTab-hrpayroll .tab-panel').forEach(p => { p.style.display='none'; p.classList.remove('active'); });
+  document.querySelectorAll('#platHRTabBar .tb').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById(tabId);
+  if (panel) { panel.style.display=''; panel.classList.add('active'); }
+  if (btn) btn.classList.add('active');
+}
+
+function platInitHRPayroll() {
+  platRenderHRStats();
+  platRenderPayrollList();
+  platRenderLeaveList();
+  platPopulateHRDropdowns();
+}
+
+function platPopulateHRDropdowns() {
+  const staff = loadStaffDetails();
+  const opts = '<option value="">— Select Staff —</option>' +
+    staff.map(s => `<option value="${s.id}">${s.name}${s.role ? ' — '+s.role : ''}</option>`).join('');
+  ['hrpStaff','hrlStaff','hrpsStaff'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.innerHTML = opts;
+  });
+}
+
+function platRenderHRStats() {
+  const el = document.getElementById('platHRStats'); if (!el) return;
+  const pay = loadPayrollData();
+  const lv  = loadLeaveData();
+  const staff = loadStaffDetails();
+  const totalNet = pay.reduce((a,r) => a + (Number(r.basic||0) + Number(r.allowances||0) - Number(r.deductions||0)), 0);
+  const paid = pay.filter(r => r.status === 'Paid').length;
+  el.innerHTML = `
+    <div class="fee-stat-card"><div class="fsc-label">Payroll Records</div><div class="fsc-val">${pay.length}</div></div>
+    <div class="fee-stat-card"><div class="fsc-label">Paid</div><div class="fsc-val" style="color:#16a34a">${paid}</div></div>
+    <div class="fee-stat-card"><div class="fsc-label">Total Net Pay (KES)</div><div class="fsc-val">${totalNet.toLocaleString()}</div></div>
+    <div class="fee-stat-card"><div class="fsc-label">Leave Records</div><div class="fsc-val">${lv.length}</div></div>`;
+}
+
+function platSavePayroll() {
+  const g = id => (document.getElementById(id)?.value||'').trim();
+  const staffSel = document.getElementById('hrpStaff');
+  const staffName = staffSel?.options[staffSel.selectedIndex]?.text || '';
+  const staffId   = staffSel?.value || '';
+  const period    = g('hrpPeriod');
+  const basic     = Number(g('hrpBasic'));
+  if (!staffId) { showToast('Please select a staff member.'); return; }
+  if (!period)  { showToast('Please select a pay period.'); return; }
+  if (!basic)   { showToast('Basic salary is required.'); return; }
+  const rec = {
+    staffId, staffName, period,
+    basic, allowances: Number(g('hrpAllowances')||0),
+    deductions: Number(g('hrpDeductions')||0),
+    status: document.getElementById('hrpStatus')?.value || 'Pending',
+    notes: g('hrpNotes')
+  };
+  const net = rec.basic + rec.allowances - rec.deductions;
+  if (net < 0) { showToast('Net pay cannot be negative. Check deductions.'); return; }
+  const editId = g('hrpEditId');
+  let data = loadPayrollData();
+  if (editId) {
+    const idx = data.findIndex(r => r.id === editId);
+    if (idx > -1) data[idx] = { ...data[idx], ...rec };
+  } else {
+    data.push({ id: 'pay_'+Date.now(), ...rec });
+  }
+  savePayrollData(data);
+  platClearPayrollForm();
+  platRenderPayrollList();
+  platRenderHRStats();
+  showToast('Payroll record saved.');
+}
+
+function platClearPayrollForm() {
+  ['hrpEditId','hrpBasic','hrpNotes'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  ['hrpAllowances','hrpDeductions'].forEach(id => { const el=document.getElementById(id); if(el) el.value='0'; });
+  const p=document.getElementById('hrpPeriod'); if(p) p.value='';
+  const s=document.getElementById('hrpStaff'); if(s) s.selectedIndex=0;
+  const st=document.getElementById('hrpStatus'); if(st) st.selectedIndex=0;
+}
+
+function platRenderPayrollList() {
+  const body = document.getElementById('hrPayrollBody'); if (!body) return;
+  let data = loadPayrollData();
+  const search = (document.getElementById('hrpSearch')?.value||'').toLowerCase();
+  const filterStatus = document.getElementById('hrpFilterStatus')?.value||'';
+  if (search) data = data.filter(r => (r.staffName+r.period).toLowerCase().includes(search));
+  if (filterStatus) data = data.filter(r => r.status === filterStatus);
+  if (!data.length) {
+    body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">No payroll records found.</td></tr>';
+    return;
+  }
+  const sc = { Paid:'#16a34a', Pending:'#f59e0b', 'On Hold':'#ef4444' };
+  body.innerHTML = data.map((r,i) => {
+    const net = (Number(r.basic)||0) + (Number(r.allowances)||0) - (Number(r.deductions)||0);
+    return `<tr>
+      <td>${i+1}</td>
+      <td><strong>${r.staffName}</strong></td>
+      <td>${r.period}</td>
+      <td>${Number(r.basic).toLocaleString()}</td>
+      <td style="color:#16a34a">+${Number(r.allowances||0).toLocaleString()}</td>
+      <td style="color:#ef4444">-${Number(r.deductions||0).toLocaleString()}</td>
+      <td><strong>${net.toLocaleString()}</strong></td>
+      <td><span class="badge" style="background:${sc[r.status]||'#6b7280'};color:#fff">${r.status}</span></td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="platEditPayroll('${r.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-danger btn-xs"  onclick="platDeletePayroll('${r.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function platEditPayroll(id) {
+  const r = loadPayrollData().find(x => x.id === id); if (!r) return;
+  const s = id => document.getElementById(id);
+  if (s('hrpEditId'))    s('hrpEditId').value    = r.id;
+  if (s('hrpPeriod'))    s('hrpPeriod').value     = r.period;
+  if (s('hrpBasic'))     s('hrpBasic').value      = r.basic;
+  if (s('hrpAllowances'))s('hrpAllowances').value = r.allowances||0;
+  if (s('hrpDeductions'))s('hrpDeductions').value = r.deductions||0;
+  if (s('hrpNotes'))     s('hrpNotes').value      = r.notes||'';
+  if (s('hrpStaff'))     s('hrpStaff').value      = r.staffId;
+  if (s('hrpStatus'))    s('hrpStatus').value      = r.status;
+  openPlatHRTab('hrPayroll', document.getElementById('hrtbPayroll'));
+  showToast('Editing payroll record — make changes and save.');
+}
+
+function platDeletePayroll(id) {
+  if (!confirm('Delete this payroll record?')) return;
+  savePayrollData(loadPayrollData().filter(r => r.id !== id));
+  platRenderPayrollList(); platRenderHRStats();
+  showToast('Payroll record deleted.');
+}
+
+function platExportPayrollCSV() {
+  const data = loadPayrollData();
+  if (!data.length) { showToast('No payroll records to export.'); return; }
+  const rows = [['#','Staff','Period','Basic','Allowances','Deductions','Net Pay','Status','Notes']];
+  data.forEach((r,i) => {
+    const net = (Number(r.basic)||0)+(Number(r.allowances)||0)-(Number(r.deductions)||0);
+    rows.push([i+1,r.staffName,r.period,r.basic,r.allowances||0,r.deductions||0,net,r.status,r.notes||'']);
+  });
+  const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download = 'payroll_export.csv'; a.click();
+}
+
+// ─ LEAVE ─
+
+function platSaveLeave() {
+  const g = id => (document.getElementById(id)?.value||'').trim();
+  const staffSel  = document.getElementById('hrlStaff');
+  const staffName = staffSel?.options[staffSel.selectedIndex]?.text||'';
+  const staffId   = staffSel?.value||'';
+  const start = g('hrlStart'), end = g('hrlEnd');
+  if (!staffId) { showToast('Please select a staff member.'); return; }
+  if (!start)   { showToast('Start date is required.'); return; }
+  if (!end)     { showToast('End date is required.'); return; }
+  if (end < start) { showToast('End date cannot be before start date.'); return; }
+  const days = Math.round((new Date(end)-new Date(start))/(1000*60*60*24))+1;
+  const rec = {
+    staffId, staffName,
+    type:   document.getElementById('hrlType')?.value||'Annual Leave',
+    status: document.getElementById('hrlStatus')?.value||'Pending',
+    start, end, days,
+    reason: g('hrlReason')
+  };
+  const editId = g('hrlEditId');
+  let data = loadLeaveData();
+  if (editId) {
+    const idx = data.findIndex(r=>r.id===editId);
+    if (idx>-1) data[idx]={...data[idx],...rec};
+  } else {
+    data.push({id:'lv_'+Date.now(),...rec});
+  }
+  saveLeaveData(data);
+  ['hrlEditId','hrlStart','hrlEnd','hrlReason'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('hrlStaff').selectedIndex=0;
+  platRenderLeaveList(); platRenderHRStats();
+  showToast('Leave record saved.');
+}
+
+function platRenderLeaveList() {
+  const body = document.getElementById('hrLeaveBody'); if (!body) return;
+  const data = loadLeaveData();
+  if (!data.length) {
+    body.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">No leave records yet.</td></tr>';
+    return;
+  }
+  const sc={Approved:'#16a34a',Pending:'#f59e0b',Rejected:'#ef4444'};
+  body.innerHTML=data.map((r,i)=>`<tr>
+    <td>${i+1}</td><td><strong>${r.staffName}</strong></td><td>${r.type}</td>
+    <td>${r.start}</td><td>${r.end}</td><td>${r.days}</td>
+    <td><span class="badge" style="background:${sc[r.status]||'#6b7280'};color:#fff">${r.status}</span></td>
+    <td>${r.reason||'—'}</td>
+    <td>
+      <button class="btn btn-outline btn-xs" onclick="platEditLeave('${r.id}')"><i class="fa-solid fa-pen"></i></button>
+      <button class="btn btn-danger btn-xs"  onclick="platDeleteLeave('${r.id}')"><i class="fa-solid fa-trash"></i></button>
+    </td>
+  </tr>`).join('');
+}
+
+function platEditLeave(id) {
+  const r=loadLeaveData().find(x=>x.id===id); if(!r) return;
+  const s=id=>document.getElementById(id);
+  if(s('hrlEditId'))  s('hrlEditId').value  =r.id;
+  if(s('hrlStaff'))   s('hrlStaff').value   =r.staffId;
+  if(s('hrlType'))    s('hrlType').value     =r.type;
+  if(s('hrlStatus'))  s('hrlStatus').value   =r.status;
+  if(s('hrlStart'))   s('hrlStart').value    =r.start;
+  if(s('hrlEnd'))     s('hrlEnd').value      =r.end;
+  if(s('hrlReason'))  s('hrlReason').value   =r.reason||'';
+  openPlatHRTab('hrLeave', document.getElementById('hrtbLeave'));
+}
+
+function platDeleteLeave(id) {
+  if(!confirm('Delete this leave record?')) return;
+  saveLeaveData(loadLeaveData().filter(r=>r.id!==id));
+  platRenderLeaveList(); platRenderHRStats();
+  showToast('Leave record deleted.');
+}
+
+// ─ PAYSLIPS ─
+
+function platGeneratePayslip() {
+  const staffSel = document.getElementById('hrpsStaff');
+  const staffId  = staffSel?.value||'';
+  const staffName= staffSel?.options[staffSel.selectedIndex]?.text||'';
+  const period   = document.getElementById('hrpsPeriod')?.value||'';
+  if (!staffId||!period) { showToast('Select a staff member and period.'); return; }
+  const allPay = loadPayrollData();
+  const rec = allPay.find(r=>r.staffId===staffId && r.period===period);
+  const out = document.getElementById('platPayslipOutput'); if(!out) return;
+  if (!rec) {
+    out.innerHTML='<p style="color:var(--muted);font-size:.85rem">No payroll record found for this staff and period.</p>';
+    return;
+  }
+  const net = (Number(rec.basic)||0)+(Number(rec.allowances)||0)-(Number(rec.deductions)||0);
+  const staffRec = loadStaffDetails().find(r=>r.id===staffId)||{};
+  out.innerHTML=`
+    <div style="border:2px solid var(--border);border-radius:12px;padding:1.5rem;max-width:560px;font-size:.88rem" id="payslipPrintArea">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:2px solid var(--border)">
+        <div>
+          <div style="font-size:1.2rem;font-weight:800;color:var(--primary)">PAYSLIP</div>
+          <div style="font-size:.78rem;color:var(--muted)">Pay Period: <strong>${rec.period}</strong></div>
+        </div>
+        <div style="text-align:right;font-size:.78rem;color:var(--muted)">
+          <div><strong>Charanas Platform</strong></div>
+          <div>Generated: ${new Date().toLocaleDateString()}</div>
+        </div>
+      </div>
+      <div style="margin-bottom:1rem">
+        <div style="font-weight:700;font-size:.95rem">${staffName}</div>
+        <div style="color:var(--muted)">${staffRec.role||'—'} · ${staffRec.dept||'—'}</div>
+        <div style="color:var(--muted)">Staff ID: ${staffRec.staffId||'—'}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+        <tr style="background:var(--bg)"><td style="padding:.5rem .75rem;border:1px solid var(--border)">Basic Salary</td><td style="padding:.5rem .75rem;border:1px solid var(--border);text-align:right">KES ${Number(rec.basic).toLocaleString()}</td></tr>
+        <tr><td style="padding:.5rem .75rem;border:1px solid var(--border);color:#16a34a">Allowances</td><td style="padding:.5rem .75rem;border:1px solid var(--border);text-align:right;color:#16a34a">+ KES ${Number(rec.allowances||0).toLocaleString()}</td></tr>
+        <tr><td style="padding:.5rem .75rem;border:1px solid var(--border);color:#ef4444">Deductions</td><td style="padding:.5rem .75rem;border:1px solid var(--border);text-align:right;color:#ef4444">- KES ${Number(rec.deductions||0).toLocaleString()}</td></tr>
+        <tr style="background:var(--primary);color:#fff"><td style="padding:.6rem .75rem;font-weight:700">NET PAY</td><td style="padding:.6rem .75rem;text-align:right;font-weight:700">KES ${net.toLocaleString()}</td></tr>
+      </table>
+      ${rec.status==='Paid'?'<div style="margin-top:.75rem;padding:.4rem .8rem;background:#dcfce7;color:#15803d;border-radius:6px;font-size:.78rem;font-weight:700;display:inline-block">✓ PAID</div>':'<div style="margin-top:.75rem;padding:.4rem .8rem;background:#fef9c3;color:#854d0e;border-radius:6px;font-size:.78rem;font-weight:700;display:inline-block">PENDING PAYMENT</div>'}
+      ${rec.notes?`<div style="margin-top:.75rem;font-size:.78rem;color:var(--muted)"><strong>Notes:</strong> ${rec.notes}</div>`:''}
+    </div>
+    <button class="btn btn-outline btn-sm" style="margin-top:.75rem" onclick="window.print()"><i class="fa-solid fa-print"></i> Print Payslip</button>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  REPORTS MODULE
+// ═══════════════════════════════════════════════════════════════
+
+function platInitReports() {
+  const staff   = loadStaffDetails();
+  const pay     = loadPayrollData();
+  const lv      = loadLeaveData();
+  const docs    = JSON.parse(localStorage.getItem('charanas_staffDocs')||'[]');
+
+  // ── KPIs ──
+  const kpiEl = document.getElementById('platReportKPIs');
+  if (kpiEl) {
+    const totalNet = pay.reduce((a,r)=>a+(Number(r.basic||0)+Number(r.allowances||0)-Number(r.deductions||0)),0);
+    kpiEl.innerHTML = `
+      <div class="fee-stat-card"><div class="fsc-label">Total Staff</div><div class="fsc-val">${staff.length}</div></div>
+      <div class="fee-stat-card"><div class="fsc-label">Active Staff</div><div class="fsc-val" style="color:#16a34a">${staff.filter(r=>r.status==='Active').length}</div></div>
+      <div class="fee-stat-card"><div class="fsc-label">Payroll Records</div><div class="fsc-val">${pay.length}</div></div>
+      <div class="fee-stat-card"><div class="fsc-label">Total Net Paid (KES)</div><div class="fsc-val">${totalNet.toLocaleString()}</div></div>
+      <div class="fee-stat-card"><div class="fsc-label">Leave Records</div><div class="fsc-val">${lv.length}</div></div>
+      <div class="fee-stat-card"><div class="fsc-label">Documents</div><div class="fsc-val">${docs.length}</div></div>`;
+  }
+
+  // ── Staff by Department ──
+  const deptEl = document.getElementById('rptStaffByDept');
+  if (deptEl) {
+    const depts = {};
+    staff.forEach(r=>{ depts[r.dept||'Unknown']=(depts[r.dept||'Unknown']||0)+1; });
+    deptEl.innerHTML = rptBarChart(depts, staff.length, '#4f7cff');
+  }
+
+  // ── Staff by Status ──
+  const statusEl = document.getElementById('rptStaffByStatus');
+  if (statusEl) {
+    const statuses = {};
+    staff.forEach(r=>{ statuses[r.status||'Unknown']=(statuses[r.status||'Unknown']||0)+1; });
+    const sc={Active:'#16a34a','On Leave':'#f59e0b',Resigned:'#ef4444',Retired:'#6b7280'};
+    statusEl.innerHTML = rptBarChart(statuses, staff.length, null, sc);
+  }
+
+  // ── Payroll Summary ──
+  const payEl = document.getElementById('rptPayrollSummary');
+  if (payEl) {
+    if (!pay.length) { payEl.innerHTML='<p style="color:var(--muted);font-size:.85rem">No payroll records yet.</p>'; }
+    else {
+      const totalBasic = pay.reduce((a,r)=>a+Number(r.basic||0),0);
+      const totalAllow = pay.reduce((a,r)=>a+Number(r.allowances||0),0);
+      const totalDed   = pay.reduce((a,r)=>a+Number(r.deductions||0),0);
+      const totalNet2  = totalBasic+totalAllow-totalDed;
+      const paid=pay.filter(r=>r.status==='Paid').length;
+      payEl.innerHTML=`
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem;margin-bottom:1rem">
+          ${[['Total Basic','KES '+totalBasic.toLocaleString(),'#4f7cff'],
+             ['Total Allowances','KES '+totalAllow.toLocaleString(),'#16a34a'],
+             ['Total Deductions','KES '+totalDed.toLocaleString(),'#ef4444'],
+             ['Total Net Pay','KES '+totalNet2.toLocaleString(),'#7c3aed'],
+             ['Paid Records',paid+' / '+pay.length,'#f59e0b']
+            ].map(([l,v,c])=>`<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem">
+              <div style="font-size:.78rem;color:var(--muted)">${l}</div>
+              <div style="font-size:1.1rem;font-weight:700;color:${c}">${v}</div>
+            </div>`).join('')}
+        </div>`;
+    }
+  }
+
+  // ── Documents by Type ──
+  const docEl = document.getElementById('rptDocsByType');
+  if (docEl) {
+    if (!docs.length) { docEl.innerHTML='<p style="color:var(--muted);font-size:.85rem">No documents yet.</p>'; }
+    else {
+      const types={};
+      docs.forEach(d=>{ types[d.type||'Other']=(types[d.type||'Other']||0)+1; });
+      docEl.innerHTML = rptBarChart(types, docs.length, '#7c3aed');
+    }
+  }
+
+  // ── Leave by Type ──
+  const lvEl = document.getElementById('rptLeaveByType');
+  if (lvEl) {
+    if (!lv.length) { lvEl.innerHTML='<p style="color:var(--muted);font-size:.85rem">No leave records yet.</p>'; }
+    else {
+      const types={};
+      lv.forEach(r=>{ types[r.type||'Other']=(types[r.type||'Other']||0)+1; });
+      lvEl.innerHTML = rptBarChart(types, lv.length, '#f59e0b');
+    }
+  }
+}
+
+function rptBarChart(obj, total, defaultColor, colorMap) {
+  const entries = Object.entries(obj).sort((a,b)=>b[1]-a[1]);
+  if (!entries.length) return '<p style="color:var(--muted);font-size:.85rem">No data.</p>';
+  return entries.map(([label,count])=>{
+    const pct = total>0 ? Math.round((count/total)*100) : 0;
+    const color = (colorMap&&colorMap[label]) || defaultColor || '#4f7cff';
+    return `<div style="margin-bottom:.75rem">
+      <div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:.3rem">
+        <span style="font-weight:600">${label}</span>
+        <span style="color:var(--muted)">${count} <span style="font-size:.75rem">(${pct}%)</span></span>
+      </div>
+      <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${color};border-radius:4px;transition:width .5s ease"></div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 

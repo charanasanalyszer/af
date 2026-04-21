@@ -8,6 +8,77 @@
 // ═══════════════ PLATFORM MULTI-SCHOOL ═══════════════
 const PLATFORM_SCHOOLS_KEY  = 'ei_platform_schools';  // [{id,name,username,password,email,createdAt}]
 const PLATFORM_CREDS_KEY    = 'ei_platform_creds';    // {username, password} — set on first run
+
+// ══════════════════════════════════════════════════════════════════
+//  USERNAME FORMAT RULES — enforced at creation & login
+//
+//  Platform Admin : any alphanumeric (no @)   e.g.  myplatform
+//  School Admin   : adminname@school          e.g.  john@school
+//  Teacher        : firstname@schoolcode      e.g.  benson@sunrise
+//  Student        : admNo@schoolcode          e.g.  A001@sunrise
+//  Guest          : guest  (exact, hardcoded)
+//
+//  school.code  = short school identifier used in teacher/student @suffix
+//  school.username = school admin login (adminname@school)
+// ══════════════════════════════════════════════════════════════════
+const USERNAME_RULES = {
+  platform:    { rx: /^[a-zA-Z0-9_-]{3,40}$/,                    hint: 'Platform Admin username: letters/numbers/_ only (no @)' },
+  schoolAdmin: { rx: /^[a-zA-Z][a-zA-Z0-9_-]*@school$/,          hint: 'School login must be adminname@school  (e.g. john@school)' },
+  teacher:     { rx: /^[a-zA-Z][a-zA-Z0-9_-]*@[a-zA-Z0-9_-]+$/, hint: 'Teacher username: firstname@schoolcode  (e.g. benson@sunrise)' },
+  student:     { rx: /^[A-Za-z0-9_-]+@[a-zA-Z0-9_-]+$/,         hint: 'Student username: admNo@schoolcode  (e.g. A001@sunrise)' },
+};
+
+/** Returns true if valid, false + shows toast if not. Used at creation time. */
+function validateUsername(role, val) {
+  const rule = USERNAME_RULES[role];
+  if (!rule) return true; // guest handled separately
+  if (!rule.rx.test(val)) {
+    showToast('Invalid username format. ' + rule.hint, 'error');
+    return false;
+  }
+  return true;
+}
+
+/** Detects which role a username format belongs to. Returns role string or null. */
+function detectUsernameRole(u) {
+  if (!u) return null;
+  if (u === 'guest') return 'guest';
+  if (u === 'superadmin') return 'platform';
+  const atIdx = u.indexOf('@');
+  if (atIdx < 0) return 'platform';             // no @ → platform admin
+  const suffix = u.slice(atIdx + 1).toLowerCase();
+  if (suffix === 'school') return 'schoolAdmin';
+  if (/^[a-zA-Z0-9_-]+$/.test(suffix)) return 'teacherOrStudent';
+  return null; // unrecognised
+}
+
+// ── Username / school-code generation helpers ──────────────────────────────
+
+/** Derive a clean school code from the school name. e.g. "Sunrise Academy" → "sunrise" */
+function generateSchoolCode(name) {
+  return (name || '').trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '') || 'school';
+}
+
+/** Generate teacher username: firstname@schoolcode */
+function generateTeacherUsername(fullName, schoolCode) {
+  const first = (fullName || '').trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+  return (first && schoolCode) ? first + '@' + schoolCode : '';
+}
+
+/** Generate school admin login username: adminname@school */
+function generateSchoolAdminUsername(adminName) {
+  const cleaned = (adminName || '').trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+  return cleaned ? cleaned + '@school' : '';
+}
+
+/** Migrate legacy school objects: add .code field if missing */
+function migrateSchoolCode(s) {
+  if (s.code) return s;
+  const raw = (s.username || '').replace(/^adm-/, '').replace(/^tch-/, '')
+                                 .replace(/@school$/, '').replace(/@.*$/, '');
+  return { ...s, code: raw || generateSchoolCode(s.name) };
+}
+
 const K_BROADCAST           = 'ei_platform_broadcast'; // platform broadcast message string
 const K_PLATFORM_EXAMS      = 'ei_platform_exams';     // [{id,title,subject,class,term,year,maxScore,notes,createdAt,gradingSystemId,timetable}]
 const K_PLATFORM_SCHOOL_MARKS = 'ei_platform_school_marks'; // {examId: {schoolId: [{studentName,adm,subject,score}]}}
@@ -28,7 +99,7 @@ function isSchoolExamDlUnlocked(schoolId) {
 }
 
 
-function loadPlatform()  { try { platformSchools = JSON.parse(localStorage.getItem(PLATFORM_SCHOOLS_KEY)) || []; } catch { platformSchools = []; } }
+function loadPlatform()  { try { platformSchools = (JSON.parse(localStorage.getItem(PLATFORM_SCHOOLS_KEY)) || []).map(migrateSchoolCode); } catch { platformSchools = []; } }
 function savePlatform()  { localStorage.setItem(PLATFORM_SCHOOLS_KEY, JSON.stringify(platformSchools)); }
 
 // ═══════════════ SCHOOL ARCHIVE (GRADUATED STUDENTS) ═══════════════
@@ -347,31 +418,6 @@ function addGSBandRow() {
 
 
 // ═══════════════ PORTAL NAVIGATION ═══════════════
-function showUnifiedLogin() {
-  document.body.classList.add('login-active');
-  ['app'].forEach(id => { const el=document.getElementById(id); if(el) el.style.display='none'; });
-  // Hide fixed-position elements that escape parent display:none
-  const sb = document.getElementById('sidebar'); if (sb) sb.style.display = 'none';
-  const tb = document.getElementById('topbar'); if (tb) tb.style.display = 'none';
-  const mbn = document.getElementById('mobileBottomNav'); if (mbn) mbn.style.display = 'none';
-  const mbnR = document.getElementById('mbnRestoreTab'); if (mbnR) mbnR.style.display = 'none';
-  const ul = document.getElementById('unifiedLogin');
-  if (ul) { ul.style.display='flex'; }
-  const u=document.getElementById('uniUser'); const p=document.getElementById('uniPass');
-  const err=document.getElementById('uniErr'); if(err) err.style.display='none';
-  // Pre-fill saved credentials if "Remember me" was checked
-  try {
-    const saved = JSON.parse(localStorage.getItem('ei_saved_login') || 'null');
-    if (saved && saved.username) {
-      if(u) u.value = saved.username;
-      if(p) p.value = saved.password || '';
-      const rem = document.getElementById('uniRemember'); if(rem) rem.checked = true;
-    } else {
-      if(u) u.value=''; if(p) p.value='';
-    }
-  } catch(e) { if(u) u.value=''; if(p) p.value=''; }
-  setTimeout(()=>{ if(u && !u.value) u.focus(); else if(p && !p.value) p.focus(); else if(u) u.focus(); },100);
-}
 function showDualPortal() { showUnifiedLogin(); } // backward compat alias
 function showPlatformLogin() {
   document.getElementById('dualPortal').style.display = 'none';
@@ -684,6 +730,7 @@ function doPlatformLogin() {
       re();
       return;
     }
+    if (!validateUsername('platform', u)) { re(); return; }
     setPlatformCreds(u, p);
     re();
     showToast('Platform account created <i class="fa-solid fa-check"></i>', 'success');
@@ -727,6 +774,25 @@ function doUnifiedLogin() {
 
   if (!u || !p) { re(); err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Please enter your username and password.'; err.style.display='block'; return; }
 
+  // ── FORMAT GATE: reject unrecognised username formats immediately ──
+  const _detectedRole = detectUsernameRole(u);
+  if (!_detectedRole) {
+    re();
+    err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Username format not recognised. Check your credentials — format should be <strong>name@schoolcode</strong> for teachers/students or <strong>name@school</strong> for school login.';
+    err.style.display = 'block';
+    return;
+  }
+  // Validate exact pattern for known roles (skip for teacherOrStudent — resolved at lookup)
+  if (_detectedRole !== 'guest' && _detectedRole !== 'teacherOrStudent') {
+    const _rule = USERNAME_RULES[_detectedRole];
+    if (_rule && !_rule.rx.test(u)) {
+      re();
+      err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Username format not recognised. ' + _rule.hint;
+      err.style.display = 'block';
+      return;
+    }
+  }
+
   loadPlatform();
 
   // ── 1. Check platform admin credentials ──
@@ -738,6 +804,8 @@ function doUnifiedLogin() {
     if (!anySchoolMatch) {
       if (p.length < 6) { re(); err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> No account found. Platform password must be ≥6 chars to create.'; err.style.display='block'; return; }
       if (!confirm('Create a new Platform Admin account?\n\nUsername: '+u+'\n\nRemember these credentials — they cannot be recovered without a reset.')) { re(); return; }
+      // Platform admin: any alphanumeric username (no @ allowed)
+      if (u.includes('@')) { re(); err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Platform Admin username cannot contain @. Use a plain name like: myadmin'; err.style.display='block'; return; }
       setPlatformCreds(u, p);
       re();
       maybeSaveCreds();
@@ -791,13 +859,14 @@ function doUnifiedLogin() {
     const teacher = teachers.find(t=>t.username===u&&t.password===p);
     if (teacher) { currentUser={username:teacher.username,role:'teacher',name:teacher.name,teacherId:teacher.id,canAnalyse:teacher.canAnalyse,canReport:teacher.canReport,canMerit:teacher.canMerit}; re(); maybeSaveCreds(); finishLogin(school); return; }
 
-    // ── Student login: adm-number@schoolname (any password) ──
-    // Username format: admNo@schoolUsername  e.g. 2024001@sunrise
+    // ── Student login: admNo@schoolcode  e.g. 2024001@sunrise ──
     const atIdx = u.indexOf('@');
     if (atIdx > 0) {
       const admPart = u.slice(0, atIdx).trim();
       const schoolPart = u.slice(atIdx+1).trim().toLowerCase();
-      if (school.username.toLowerCase() === schoolPart) {
+      // Match against school.code (new) or fall back to legacy school.username match
+      const _schoolCode = ((school.code) || school.username.replace(/^adm-/,'')).toLowerCase();
+      if (_schoolCode === schoolPart) {
         // check if this adm number exists
         const stuMatch = students.find(s => s.adm.toLowerCase() === admPart.toLowerCase());
         if (stuMatch) {
@@ -1204,7 +1273,7 @@ function platRenderExamDlFeeUI() {
   if (sel) {
     loadPlatform();
     sel.innerHTML = '<option value="">— Select School —</option>' +
-      platformSchools.map(s=>`<option value="${s.id}">${s.name} (@${s.username})</option>`).join('');
+      platformSchools.map(s=>`<option value="${s.id}">${s.name} (code: ${s.code||s.username})</option>`).join('');
   }
   platRenderExamDlUnlockList();
 }
@@ -1277,7 +1346,7 @@ function enterPlatformDashboard() {
   const mbnRestore = document.getElementById('mbnRestoreTab');
   if (mbnRestore) mbnRestore.style.display = 'none';
   // Platform portal: hide school-specific nav, only show Platform Admin link
-  ['subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','messaging','settings'].forEach(s=>{
+  ['subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','people','staffdetails','messaging','settings'].forEach(s=>{
     const el=document.querySelector('[data-s="'+s+'"]'); if(el) el.style.display='none';
   });
   // Hide school-only exam tabs for platform admin
@@ -1497,7 +1566,7 @@ function renderPlatformSchoolMgmtList() {
           <span style="font-weight:700;font-size:.92rem">${s.name}</span>
           ${statusBadge}
         </div>
-        <div style="font-size:.75rem;color:var(--muted)">@${s.username}${s.email?' · '+s.email:''} · Joined ${new Date(s.createdAt).toLocaleDateString()}</div>
+        <div style="font-size:.75rem;color:var(--muted)">Login: <strong>${s.username}</strong> · Code: <strong>${s.code||s.username}</strong>${s.email?' · '+s.email:''} · Joined ${new Date(s.createdAt).toLocaleDateString()}</div>
         ${!isActive && s.deactivationMessage ? `<div style="font-size:.74rem;color:#f87171;margin-top:.3rem;font-style:italic;line-height:1.4"><i class="fa-solid fa-bullhorn"></i> "${s.deactivationMessage.substring(0,80)}${s.deactivationMessage.length>80?'…':''}"</div>` : ''}
       </div>
       <div style="display:flex;flex-direction:column;gap:.35rem;flex-shrink:0">
@@ -1518,21 +1587,71 @@ function renderPlatformSchoolMgmtList() {
     </div>`;
   }).join('');
 }
+// ── Auto-fill helpers for forms ─────────────────────────────────────────────
+
+/** Called when school name changes in the Add School form — auto-fills code & username */
+function platSchAutoFill() {
+  const nameEl  = document.getElementById('platSchName');
+  const codeEl  = document.getElementById('platSchCode');
+  const userEl  = document.getElementById('platSchUser');
+  const prevEl  = document.getElementById('platSchUserPreview');
+  if (!nameEl) return;
+  const name = nameEl.value.trim();
+  // Only auto-fill if user hasn't manually edited those fields
+  const autoCode = generateSchoolCode(name);
+  if (codeEl && !codeEl.dataset.edited) {
+    codeEl.value = autoCode;
+  }
+  const code = (codeEl && codeEl.value.trim()) || autoCode;
+  if (userEl && !userEl.dataset.edited) {
+    const suggestion = generateSchoolAdminUsername(name);
+    userEl.value = suggestion;
+    if (prevEl) prevEl.textContent = suggestion ? '→ ' + suggestion : '';
+  }
+}
+
+/** Called when code field is manually edited */
+function platSchCodeChanged() {
+  const codeEl = document.getElementById('platSchCode');
+  if (codeEl) codeEl.dataset.edited = '1';
+}
+
+/** Called when teacher name changes — auto-fills username field */
+function tchAutoFillUsername() {
+  const nameEl = document.getElementById('tchName');
+  const userEl = document.getElementById('tchUser');
+  const prevEl = document.getElementById('tchUserPreview');
+  if (!nameEl || !userEl) return;
+  if (userEl.dataset.edited) return; // user manually edited — don't overwrite
+  const sch  = platformSchools.find(s => s.id === currentSchoolId);
+  const code = sch ? (sch.code || generateSchoolCode(sch.name)) : '';
+  const suggestion = generateTeacherUsername(nameEl.value, code);
+  userEl.value = suggestion;
+  if (prevEl) prevEl.textContent = suggestion ? '→ ' + suggestion : '';
+}
+
 function platAddSchool() {
   const name  = (document.getElementById('platSchName').value||'').trim();
   const uname = (document.getElementById('platSchUser').value||'').trim();
+  const code  = (document.getElementById('platSchCode') ? document.getElementById('platSchCode').value||'' : generateSchoolCode(name)).trim().toLowerCase();
   const pass  = (document.getElementById('platSchPass').value||'').trim();
   const email = (document.getElementById('platSchEmail').value||'').trim();
   const phone = (document.getElementById('platSchPhone') ? document.getElementById('platSchPhone').value||'' : '').trim();
   if(!name||!uname||!pass){ showToast('Name, username and password are required','error'); return; }
+  if(!code){ showToast('School code is required','error'); return; }
+  if(!/^[a-z0-9]+$/.test(code)){ showToast('School code must be lowercase letters/numbers only','error'); return; }
+  if(!validateUsername('schoolAdmin', uname)) return;
   loadPlatform();
   if(platformSchools.find(s=>s.username===uname)){ showToast('Username already taken','error'); return; }
-  const s={id:uid(),name,username:uname,password:pass,email,phone,createdAt:new Date().toISOString(),active:true};
+  if(platformSchools.find(s=>s.code===code)){ showToast('School code already taken — choose a different code','error'); return; }
+  const s={id:uid(),name,username:uname,code,password:pass,email,phone,createdAt:new Date().toISOString(),active:true};
   platformSchools.push(s); savePlatform();
   document.getElementById('platSchName').value=''; document.getElementById('platSchUser').value=''; document.getElementById('platSchPass').value=''; document.getElementById('platSchEmail').value='';
+  const codeEl=document.getElementById('platSchCode'); if(codeEl) codeEl.value='';
   const phEl=document.getElementById('platSchPhone'); if(phEl) phEl.value='';
+  const prevEl=document.getElementById('platSchUserPreview'); if(prevEl) prevEl.textContent='';
   renderPlatformSchoolMgmtList();
-  showToast('School "'+name+'" created <i class="fa-solid fa-check"></i>','success');
+  showToast('School "'+name+'" created — admin login: <strong>'+uname+'</strong> <i class="fa-solid fa-check"></i>','success');
 }
 function platToggleSchool(id) {
   // Delegate to the full toggleSchoolActive system (handles suspend modal)
@@ -2716,6 +2835,7 @@ function addSchoolAccount() {
   const email = document.getElementById('psEmail').value.trim();
   const phone = (document.getElementById('psPhone') ? document.getElementById('psPhone').value||'' : '').trim();
   if (!name||!user||!pass) { showToast('Name, username and password required','error'); return; }
+  if (!validateUsername('schoolAdmin', user)) return;
   loadPlatform();
   if (platformSchools.find(s=>s.username===user)) { showToast('Username already taken','error'); return; }
   platformSchools.push({ id:'sch_'+uid(), name, username:user, password:pass, email, phone, createdAt:new Date().toISOString() });
@@ -3048,7 +3168,7 @@ function doLogout() {
   if (mbnRestore) { mbnRestore.classList.remove('visible'); mbnRestore.style.display = 'none'; }
   document.body.classList.remove('mbn-hidden');
   // Restore ALL nav links in both sidebar AND mobile bottom nav for next login
-  ['dashboard','subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','messaging','settings'].forEach(s=>{
+  ['dashboard','subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','people','messaging','staffdetails','settings'].forEach(s=>{
     document.querySelectorAll('[data-s="'+s+'"]').forEach(el => el.style.display='');
   });
   // Also restore topbar user display
@@ -3134,7 +3254,7 @@ function launchApp() {
     const teacherAllowed = new Set(['dashboard','exambuilder','papers']);
     // Settings nav: only show if NOT restricted
     if (!settings.restrictTeacherSettings) teacherAllowed.add('settings');
-    const allSecs = ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','messaging','settings','exambuilder','papers'];
+    const allSecs = ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','people','staffdetails','messaging','settings','exambuilder','papers'];
     // Apply show/hide to BOTH sidebar AND mobile bottom nav via querySelectorAll
     allSecs.forEach(sec => {
       const show = teacherAllowed.has(sec);
@@ -5847,13 +5967,20 @@ function saveTeacher() {
   const name  = document.getElementById('tchName').value.trim();
   const phone = document.getElementById('tchPhone').value.trim();
   const email = document.getElementById('tchEmail').value.trim();
-  const user  = document.getElementById('tchUser').value.trim();
+  // Auto-generate username if blank: firstname@schoolcode
+  let user  = document.getElementById('tchUser').value.trim();
+  if (!user) {
+    const sch = platformSchools.find(s => s.id === currentSchoolId);
+    const code = sch ? (sch.code || generateSchoolCode(sch.name)) : '';
+    user = generateTeacherUsername(name, code);
+  }
   const passEl= document.getElementById('tchPass');
   const pass  = passEl ? passEl.value : '';
   const cls   = document.getElementById('tchClasses').value.trim();
   const qualEl= document.getElementById('tchQual');
   const qual  = qualEl ? qualEl.value.trim() : '';
   if (!name || !phone) { showToast('Name and phone are required','error'); return; }
+  if (user && !validateUsername('teacher', user)) return;
   const editId = document.getElementById('editTchId').value;
   // Rights are managed in Settings > Teacher Access Manager — preserve existing rights when editing
   const existingTeacher = editId ? teachers.find(t => t.id === editId) : null;
@@ -5895,7 +6022,8 @@ function editTeacher(id) {
 }
 
 function cancelTchEdit() {
-  ['editTchId','tchName','tchPhone','tchEmail','tchUser','tchPass','tchClasses'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['editTchId','tchName','tchPhone','tchEmail','tchUser','tchPass','tchClasses'].forEach(id=>{const el=document.getElementById(id);if(el){el.value='';delete el.dataset.edited;}});
+  const prevEl=document.getElementById('tchUserPreview'); if(prevEl) prevEl.textContent='';
   document.getElementById('tchFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Add Teacher';
 }
 
@@ -7002,6 +7130,7 @@ function addAdminAccount() {
   const pass=document.getElementById('newAdminPass').value;
   const role=document.getElementById('newAdminRole').value;
   if(!name||!user||!pass){showToast('All fields required','error');return;}
+  if(!validateUsername('subAdmin', user)) return;
   if(admins.find(a=>a.username===user)){showToast('Username already exists','error');return;}
   admins.push({id:uid(),name,username:user,password:pass,role});
   save(K.admins,admins);
@@ -9794,6 +9923,8 @@ function go(sec, el) {
   if (sec === 'reports')    { populateReportDropdowns(); }
   if (sec === 'messaging')  { loadMsgRecipients(); }
   if (sec === 'fees')       { initFeesSection(); }
+  if (sec === 'people')     { initPeopleSection(); }
+  if (sec === 'staffdetails') { initStaffDetailsSection(); }
   if (sec === 'papers')     { initPapersSection(); }
   if (sec === 'settings')   { renderTeacherPreferences(); }
   if (sec === 'platform')   { renderPlatformDashboard(); _navCfgMode='global'; navCfgSwitchMode('global'); platRenderNavConfig(); platRenderLiteModeConfig(); platLoadContactInputs(); themeRenderSwatches(); /* Activate first platform tab */ openPlatTab('platTab-schools', document.querySelector('#platTabBar .plat-tab-btn')); }
@@ -10073,8 +10204,35 @@ function getStudentFeeData(studentId, term, year) {
 }
 
 // ── Open Fees Tab ──
+// ── Switch top-level Finance panel (Fees | Salaries) ──
+function openFinanceMainTab(panelId, btn) {
+  document.querySelectorAll('.finance-main-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.finance-main-tab').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById(panelId);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (panelId === 'financeSalaries') {
+    // Init first salaries sub-tab
+    const firstBtn = document.querySelector('#salariesTabBar .tb');
+    openSalariesTab('tabStaffSalary', firstBtn);
+  }
+}
+
+// ── Switch Salaries sub-tabs (Staff Salary | Payroll | Payslips) ──
+function openSalariesTab(tabId, btn) {
+  document.querySelectorAll('#financeSalaries .tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#salariesTabBar .tb').forEach(b => b.classList.remove('active'));
+  const p = document.getElementById(tabId); if (p) p.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (tabId === 'tabStaffSalary') {
+    renderStaffSalaryTable();
+    renderBOMSalaryTable();
+    openSalarySubTab('tabSalaryStaff', document.getElementById('tbSalaryStaff'));
+  }
+}
+
 function openFeesTab(tabId, btn) {
-  document.querySelectorAll('#s-fees .tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#financeFees .tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('#feesTabBar .tb').forEach(b => b.classList.remove('active'));
   const p = document.getElementById(tabId); if (p) p.classList.add('active');
   if (btn) btn.classList.add('active');
@@ -10084,8 +10242,152 @@ function openFeesTab(tabId, btn) {
   if (tabId === 'tabFeeStudents')   renderStudentBalances();
   if (tabId === 'tabFeeReminders')  renderFeeReminders();
   if (tabId === 'tabFeeReceipts')   renderReceiptsLog();
+  if (tabId === 'tabStaffSalary') {
+    renderStaffSalaryTable();
+    renderBOMSalaryTable();
+    // Ensure first sub-tab is visible
+    openSalarySubTab('tabSalaryStaff', document.getElementById('tbSalaryStaff'));
+  }
   // tabFeeImport is static HTML — no render call needed
 }
+
+// ── Open Salary Sub-Tab (Staff / BOM Members) ──
+function openSalarySubTab(tabId, btn) {
+  document.querySelectorAll('.salary-sub-panel').forEach(p => {
+    p.style.display = 'none';
+    p.classList.remove('active');
+  });
+  document.querySelectorAll('#salarySubTabBar .tb').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById(tabId);
+  if (panel) { panel.style.display = ''; panel.classList.add('active'); }
+  if (btn) btn.classList.add('active');
+}
+
+// ── BOM Salary Functions ──
+function calcBOMNet() {
+  const basic  = parseFloat(document.getElementById('bomBasic')?.value)       || 0;
+  const allow  = parseFloat(document.getElementById('bomAllowances')?.value)  || 0;
+  const deduct = parseFloat(document.getElementById('bomDeductions')?.value)  || 0;
+  const sha    = parseFloat(document.getElementById('bomSHA')?.value)         || 0;
+  const nssf   = parseFloat(document.getElementById('bomNSSF')?.value)        || 0;
+  const net    = basic + allow - deduct - sha - nssf;
+  const netEl  = document.getElementById('bomNet');
+  if (netEl) netEl.value = net.toFixed(2);
+}
+
+function saveBOMSalary() {
+  const name  = document.getElementById('bomName')?.value.trim();
+  const role  = document.getElementById('bomRole')?.value.trim();
+  const type  = document.getElementById('bomType')?.value;
+  const basic = parseFloat(document.getElementById('bomBasic')?.value)       || 0;
+  const allow = parseFloat(document.getElementById('bomAllowances')?.value)  || 0;
+  const deduct= parseFloat(document.getElementById('bomDeductions')?.value)  || 0;
+  const sha   = parseFloat(document.getElementById('bomSHA')?.value)         || 0;
+  const nssf  = parseFloat(document.getElementById('bomNSSF')?.value)        || 0;
+  const net   = parseFloat(document.getElementById('bomNet')?.value)         || 0;
+  const notes = document.getElementById('bomNotes')?.value.trim()            || '';
+  const editId= document.getElementById('bomEditId')?.value                  || '';
+
+  if (!name || !role || !basic) { alert('Please fill in Name, Role, and Basic Allowance.'); return; }
+
+  const school = getCurrentSchool ? getCurrentSchool() : null;
+  const key = school ? 'bomSalaries_' + school.id : 'bomSalaries';
+  let data = JSON.parse(localStorage.getItem(key) || '[]');
+
+  if (editId) {
+    const idx = data.findIndex(r => r.id === editId);
+    if (idx > -1) data[idx] = { ...data[idx], name, role, type, basic, allow, deduct, sha, nssf, net, notes };
+  } else {
+    data.push({ id: 'bom_' + Date.now(), name, role, type, basic, allow, deduct, sha, nssf, net, notes });
+  }
+  localStorage.setItem(key, JSON.stringify(data));
+  clearBOMForm();
+  renderBOMSalaryTable();
+}
+
+function clearBOMForm() {
+  ['bomName','bomRole','bomBasic','bomAllowances','bomDeductions','bomSHA','bomNSSF','bomNet','bomNotes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = (id === 'bomAllowances' || id === 'bomDeductions' || id === 'bomSHA' || id === 'bomNSSF') ? '0' : '';
+  });
+  const editEl = document.getElementById('bomEditId');
+  if (editEl) editEl.value = '';
+  const typeEl = document.getElementById('bomType');
+  if (typeEl) typeEl.selectedIndex = 0;
+}
+
+function renderBOMSalaryTable() {
+  const body = document.getElementById('bomBody');
+  if (!body) return;
+  const school = getCurrentSchool ? getCurrentSchool() : null;
+  const key = school ? 'bomSalaries_' + school.id : 'bomSalaries';
+  const data = JSON.parse(localStorage.getItem(key) || '[]');
+  if (!data.length) {
+    body.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No BOM salary records yet. Add one above.</td></tr>';
+    return;
+  }
+  body.innerHTML = data.map((r, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${r.name}</td>
+      <td>${r.role}</td>
+      <td>${r.type}</td>
+      <td>KES ${Number(r.basic).toLocaleString()}</td>
+      <td>KES ${Number(r.allow).toLocaleString()}</td>
+      <td>KES ${Number(r.deduct).toLocaleString()}</td>
+      <td>KES ${Number(r.sha).toLocaleString()}</td>
+      <td>KES ${Number(r.nssf).toLocaleString()}</td>
+      <td><strong>KES ${Number(r.net).toLocaleString()}</strong></td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="editBOMSalary('${r.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-danger btn-xs" onclick="deleteBOMSalary('${r.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function editBOMSalary(id) {
+  const school = getCurrentSchool ? getCurrentSchool() : null;
+  const key = school ? 'bomSalaries_' + school.id : 'bomSalaries';
+  const data = JSON.parse(localStorage.getItem(key) || '[]');
+  const r = data.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('bomEditId').value  = r.id;
+  document.getElementById('bomName').value    = r.name;
+  document.getElementById('bomRole').value    = r.role;
+  document.getElementById('bomType').value    = r.type;
+  document.getElementById('bomBasic').value   = r.basic;
+  document.getElementById('bomAllowances').value = r.allow;
+  document.getElementById('bomDeductions').value = r.deduct;
+  document.getElementById('bomSHA').value     = r.sha;
+  document.getElementById('bomNSSF').value    = r.nssf;
+  document.getElementById('bomNotes').value   = r.notes;
+  calcBOMNet();
+  openSalarySubTab('tabSalaryBOM', document.getElementById('tbSalaryBOM'));
+}
+
+function deleteBOMSalary(id) {
+  if (!confirm('Delete this BOM salary record?')) return;
+  const school = getCurrentSchool ? getCurrentSchool() : null;
+  const key = school ? 'bomSalaries_' + school.id : 'bomSalaries';
+  let data = JSON.parse(localStorage.getItem(key) || '[]');
+  data = data.filter(r => r.id !== id);
+  localStorage.setItem(key, JSON.stringify(data));
+  renderBOMSalaryTable();
+}
+
+function exportBOMSalaryCSV() {
+  const school = getCurrentSchool ? getCurrentSchool() : null;
+  const key = school ? 'bomSalaries_' + school.id : 'bomSalaries';
+  const data = JSON.parse(localStorage.getItem(key) || '[]');
+  const rows = [['Name','Role','Type','Basic','Allowances','Deductions','SHA','NSSF','Net Amount']];
+  data.forEach(r => rows.push([r.name, r.role, r.type, r.basic, r.allow, r.deduct, r.sha, r.nssf, r.net]));
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,' + encodeURIComponent(csv);
+  a.download = 'bom_salary_records.csv';
+  a.click();
+}
+
 
 // ── Populate Fees Filter Dropdowns ──
 function populateFeesDropdowns() {
@@ -10142,8 +10444,14 @@ function populateFeesDropdowns() {
 
 // ── Init Fees Section ──
 function initFeesSection() {
+  // Ensure Finance main panel defaults to Fees
+  openFinanceMainTab('financeFees', document.getElementById('fmtFees'));
   loadFees();
   populateFeesDropdowns();
+  populateStaffDropdowns(); // populate staff selects in Salary/Payslip tabs
+  renderStaffSalaryTable();
+  renderBOMSalaryTable();
+  renderPayslipHistory();
 
   const role      = currentUser && currentUser.role;
   const isFullFees = role === 'superadmin' || role === 'admin' || role === 'principal' || role === 'bursar';
@@ -11222,6 +11530,7 @@ function downloadFeeImportTemplate() {
 }
 
 
+function printFeeOverview() {
   loadFees();
   const filterClass = document.getElementById('fovClass')?.value || '';
   const filterTerm  = document.getElementById('fovTerm')?.value  || '';
@@ -11264,6 +11573,7 @@ function downloadFeeImportTemplate() {
   </body></html>`);
   win.document.close();
   setTimeout(() => { win.focus(); }, 300);
+}
 
 // ═══════════════════════════════════════════
 // REPORT FORM INTEGRATION
@@ -11441,6 +11751,11 @@ function applyRoleBasedUI() {
   document.querySelectorAll('[data-s="fees"]').forEach(el => {
     if (isTeacher && !isClassTch) el.style.display = 'none';
     else el.style.display = '';
+  });
+
+  // ── People nav link — hide from all teachers ──
+  document.querySelectorAll('[data-s="people"]').forEach(el => {
+    el.style.display = isTeacher ? 'none' : '';
   });
 
   // ── Exams: hide Create Exam tab for teachers ──
@@ -12473,7 +12788,7 @@ function renderSettingsSchoolList() {
     <div class="admin-item">
       <div>
         <div class="ai-name">${s.name}</div>
-        <div class="ai-role">${s.username}${s.email?' · '+s.email:''} · <span class="badge b-blue" style="font-size:.65rem">School</span></div>
+        <div class="ai-role">Login: <strong>${s.username}</strong> · Code: <strong>${s.code||s.username}</strong>${s.email?' · '+s.email:''} · <span class="badge b-blue" style="font-size:.65rem">School</span></div>
       </div>
       <div style="display:flex;gap:.5rem;align-items:center">
         <button class="btn btn-outline btn-sm" style="font-size:.72rem;padding:.2rem .55rem" onclick="resetSchoolPwd('${s.id}')"><i class="fa-solid fa-key"></i> Reset Pwd</button>
@@ -12485,16 +12800,23 @@ function renderSettingsSchoolList() {
 function addSchoolFromSettings() {
   const name  = document.getElementById('spsName').value.trim();
   const user  = document.getElementById('spsUser').value.trim();
+  const codeEl= document.getElementById('spsCode');
+  const code  = (codeEl ? codeEl.value.trim().toLowerCase() : generateSchoolCode(name));
   const pass  = document.getElementById('spsPass').value;
   const email = document.getElementById('spsEmail').value.trim();
   if (!name||!user||!pass) { showToast('Name, username and password required','error'); return; }
+  if (!code||!/^[a-z0-9]+$/.test(code)) { showToast('School code must be lowercase letters/numbers','error'); return; }
+  if (!validateUsername('schoolAdmin', user)) return;
   loadPlatform();
   if (platformSchools.find(s=>s.username===user)) { showToast('Username already taken','error'); return; }
-  platformSchools.push({ id:'sch_'+uid(), name, username:user, password:pass, email, createdAt:new Date().toISOString() });
+  if (platformSchools.find(s=>s.code===code)) { showToast('School code already in use','error'); return; }
+  platformSchools.push({ id:'sch_'+uid(), name, username:user, code, password:pass, email, createdAt:new Date().toISOString() });
   savePlatform();
   ['spsName','spsUser','spsPass','spsEmail'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  if(codeEl) codeEl.value='';
+  const prevEl=document.getElementById('spsUserPreview'); if(prevEl) prevEl.textContent='';
   renderSettingsSchoolList();
-  showToast('School account created <i class="fa-solid fa-check"></i>','success');
+  showToast('School created — admin login: <strong>'+user+'</strong> <i class="fa-solid fa-check"></i>','success');
 }
 
 function deleteSchoolFromSettings(id) {
@@ -12547,6 +12869,7 @@ function openPapersTab(tabId, btn) {
   const p = document.getElementById(tabId); if (p) p.classList.add('active');
   if (btn) btn.classList.add('active');
   if (tabId === 'tabTermlyExams') initTermlyExamsTab();
+  if (tabId === 'tabRevision') initRevisionTab();
 }
 
 // ── Init when section is entered ──
@@ -12940,17 +13263,6 @@ function initRevisionTab() {
 
   populatePlatformPaperFilters();
   renderPlatformPapers();
-}
-
-// Update openPapersTab to also call initRevisionTab
-const _origOpenPapersTab = window.openPapersTab;
-function openPapersTab(tabId, btn) {
-  document.querySelectorAll('#s-papers .tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('#papersTabBar .tb').forEach(b => b.classList.remove('active'));
-  const p = document.getElementById(tabId); if (p) p.classList.add('active');
-  if (btn) btn.classList.add('active');
-  if (tabId === 'tabTermlyExams') initTermlyExamsTab();
-  if (tabId === 'tabRevision') initRevisionTab();
 }
 
 function populatePlatformPaperFilters() {
@@ -16762,6 +17074,9 @@ if (_origOpenPlatTab) {
         rbacSelectRole('teacher', document.getElementById('rbacRoleTab-teacher'));
       }, 0);
     }
+    if (tabId === 'platTab-staffroles') {
+      platInitStaffRolesTab();
+    }
   };
 }
 
@@ -17079,3 +17394,1078 @@ function bdSevBg(sev) {
   return sev==='critical'?'#fee2e2':sev==='high'?'#fef3c7':sev==='medium'?'#dbeafe':sev==='info'?'#d1fae5':'#f1f5f9';
 }
 
+
+// ══════════════════════════════════════════════════════════════════
+// FINANCES — Staff Salary, Payroll, Payslips
+// ══════════════════════════════════════════════════════════════════
+
+function calcNetSalary() {
+  const basic  = parseFloat(document.getElementById('ssBasic')?.value)       || 0;
+  const allow  = parseFloat(document.getElementById('ssAllowances')?.value)  || 0;
+  const deduct = parseFloat(document.getElementById('ssDeductions')?.value)  || 0;
+  const nhif   = parseFloat(document.getElementById('ssNHIF')?.value)        || 0;
+  const nssf   = parseFloat(document.getElementById('ssNSSF')?.value)        || 0;
+  const net    = basic + allow - deduct - nhif - nssf;
+  const netEl  = document.getElementById('ssNet');
+  if (netEl) netEl.value = net.toFixed(2);
+}
+
+function loadStaffSalaries() {
+  const data = JSON.parse(localStorage.getItem('charanas_staffSalaries') || '[]');
+  return data;
+}
+
+function saveStaffSalariesToStorage(data) {
+  localStorage.setItem('charanas_staffSalaries', JSON.stringify(data));
+}
+
+function saveStaffSalary() {
+  const staffSel = document.getElementById('ssStaff');
+  const name  = staffSel?.options[staffSel.selectedIndex]?.text || '';
+  const staffId = staffSel?.value || '';
+  const role  = (document.getElementById('ssRole')?.value || '').trim();
+  const type  = document.getElementById('ssType')?.value || '';
+  const basic = parseFloat(document.getElementById('ssBasic')?.value) || 0;
+  const allow = parseFloat(document.getElementById('ssAllowances')?.value) || 0;
+  const deduct= parseFloat(document.getElementById('ssDeductions')?.value) || 0;
+  const nhif  = parseFloat(document.getElementById('ssNHIF')?.value) || 0;
+  const nssf  = parseFloat(document.getElementById('ssNSSF')?.value) || 0;
+  const net   = basic + allow - deduct - nhif - nssf;
+  const notes = document.getElementById('ssNotes')?.value || '';
+
+  if (!staffId) { alert('Please select a staff member.'); return; }
+  if (!basic)   { alert('Please enter a basic salary amount.'); return; }
+
+  let data = loadStaffSalaries();
+  const editId = document.getElementById('ssEditId')?.value;
+  if (editId) {
+    const idx = data.findIndex(r => r.id === editId);
+    if (idx > -1) data[idx] = { ...data[idx], name, staffId, role, type, basic, allow, deduct, nhif, nssf, net, notes };
+  } else {
+    data.push({ id: 'ss_' + Date.now(), name, staffId, role, type, basic, allow, deduct, nhif, nssf, net, notes });
+  }
+  saveStaffSalariesToStorage(data);
+  clearSSForm();
+  renderStaffSalaryTable();
+  showToast('Salary record saved.');
+}
+
+function clearSSForm() {
+  ['ssStaff','ssRole','ssType','ssBasic','ssAllowances','ssDeductions','ssNHIF','ssNSSF','ssNet','ssNotes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.tagName === 'SELECT') el.selectedIndex = 0;
+    else el.value = '';
+  });
+  const editEl = document.getElementById('ssEditId');
+  if (editEl) editEl.value = '';
+}
+
+function renderStaffSalaryTable() {
+  const body = document.getElementById('ssBody');
+  if (!body) return;
+  const data = loadStaffSalaries();
+  if (!data.length) {
+    body.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No salary records yet. Add one above.</td></tr>';
+    return;
+  }
+  body.innerHTML = data.map((r, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${r.name}</td>
+      <td>${r.role || '—'}</td>
+      <td><span class="badge">${r.type}</span></td>
+      <td>KES ${Number(r.basic).toLocaleString()}</td>
+      <td>KES ${Number(r.allow).toLocaleString()}</td>
+      <td>KES ${Number(r.deduct).toLocaleString()}</td>
+      <td>KES ${Number(r.nhif).toLocaleString()}</td>
+      <td>KES ${Number(r.nssf).toLocaleString()}</td>
+      <td style="font-weight:700;color:var(--primary)">KES ${Number(r.net).toLocaleString()}</td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="editStaffSalary('${r.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-danger btn-xs" onclick="deleteStaffSalary('${r.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function editStaffSalary(id) {
+  const data = loadStaffSalaries();
+  const r = data.find(x => x.id === id);
+  if (!r) return;
+  const editEl = document.getElementById('ssEditId');
+  if (editEl) editEl.value = id;
+  const staffSel = document.getElementById('ssStaff');
+  if (staffSel) staffSel.value = r.staffId;
+  ['ssRole','ssBasic','ssAllowances','ssDeductions','ssNHIF','ssNSSF','ssNotes'].forEach(fid => {
+    const el = document.getElementById(fid);
+    if (!el) return;
+    const key = fid.replace('ss','').toLowerCase();
+    const map = { role: r.role, basic: r.basic, allowances: r.allow, deductions: r.deduct, nhif: r.nhif, nssf: r.nssf, notes: r.notes };
+    el.value = map[key] !== undefined ? map[key] : '';
+  });
+  const typeEl = document.getElementById('ssType');
+  if (typeEl) typeEl.value = r.type;
+  calcNetSalary();
+  openFeesTab('tabStaffSalary', document.getElementById('tbStaffSalary'));
+}
+
+function deleteStaffSalary(id) {
+  if (!confirm('Delete this salary record?')) return;
+  let data = loadStaffSalaries();
+  data = data.filter(r => r.id !== id);
+  saveStaffSalariesToStorage(data);
+  renderStaffSalaryTable();
+  showToast('Salary record deleted.');
+}
+
+function exportStaffSalaryCSV() {
+  const data = loadStaffSalaries();
+  if (!data.length) { alert('No salary records to export.'); return; }
+  const rows = [['Name','Role','Type','Basic','Allowances','Deductions','SHA','NSSF','Net Salary']];
+  data.forEach(r => rows.push([r.name, r.role, r.type, r.basic, r.allow, r.deduct, r.nhif, r.nssf, r.net]));
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,' + encodeURIComponent(csv);
+  a.download = 'staff_salaries.csv';
+  a.click();
+}
+
+// ── Payroll ──
+
+function generatePayroll() {
+  const month = document.getElementById('prMonth')?.value || '';
+  const year  = document.getElementById('prYear')?.value  || '';
+  const salaries = loadStaffSalaries();
+  const body = document.getElementById('payrollBody');
+  const statsEl = document.getElementById('payrollSummaryStats');
+
+  if (!salaries.length) {
+    if (body) body.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No staff salary records found. Add salaries under <strong>Staff Salary</strong> tab first.</td></tr>';
+    return;
+  }
+
+  const totalNet = salaries.reduce((s, r) => s + Number(r.net), 0);
+  const totalBasic = salaries.reduce((s, r) => s + Number(r.basic), 0);
+
+  if (statsEl) {
+    statsEl.innerHTML = `
+      <div class="fee-stat-card"><div class="fsc-label">Total Staff</div><div class="fsc-val">${salaries.length}</div></div>
+      <div class="fee-stat-card"><div class="fsc-label">Total Basic (KES)</div><div class="fsc-val">${totalBasic.toLocaleString()}</div></div>
+      <div class="fee-stat-card" style="border-color:var(--primary)"><div class="fsc-label">Total Net Payroll (KES)</div><div class="fsc-val" style="color:var(--primary)">${totalNet.toLocaleString()}</div></div>
+      <div class="fee-stat-card"><div class="fsc-label">Period</div><div class="fsc-val" style="font-size:.9rem">${month} ${year}</div></div>`;
+  }
+
+  if (body) {
+    body.innerHTML = salaries.map((r, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${r.name}</td>
+        <td>${r.role || '—'}</td>
+        <td>KES ${Number(r.basic).toLocaleString()}</td>
+        <td>KES ${Number(r.allow).toLocaleString()}</td>
+        <td>KES ${Number(r.nhif).toLocaleString()}</td>
+        <td>KES ${Number(r.nssf).toLocaleString()}</td>
+        <td>KES ${Number(r.deduct).toLocaleString()}</td>
+        <td style="font-weight:700;color:var(--primary)">KES ${Number(r.net).toLocaleString()}</td>
+        <td><span class="badge badge-green">Pending</span></td>
+        <td><button class="btn btn-outline btn-xs" onclick="markPaid(this)">Mark Paid</button></td>
+      </tr>`).join('');
+  }
+  showToast(`Payroll generated for ${month} ${year}.`);
+}
+
+function markPaid(btn) {
+  const row = btn.closest('tr');
+  const statusCell = row.cells[9];
+  statusCell.innerHTML = '<span class="badge badge-green" style="background:#16a34a">Paid</span>';
+  btn.textContent = '✓ Paid';
+  btn.disabled = true;
+  btn.classList.add('btn-primary');
+}
+
+function printPayroll() {
+  const month = document.getElementById('prMonth')?.value || '';
+  const year  = document.getElementById('prYear')?.value  || '';
+  const rows  = document.getElementById('payrollBody')?.innerHTML || '';
+  if (!rows || rows.includes('No staff')) { alert('Generate payroll first.'); return; }
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Payroll — ${month} ${year}</title>
+  <style>body{font-family:Arial,sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;font-size:12px}th{background:#f5f5f5}</style>
+  </head><body><h2 style="text-align:center">Payroll — ${month} ${year}</h2>
+  <table><thead><tr><th>#</th><th>Name</th><th>Role</th><th>Basic</th><th>Allowances</th><th>SHA</th><th>NSSF</th><th>Deductions</th><th>Net Pay</th><th>Status</th></tr></thead>
+  <tbody>${rows}</tbody></table></body></html>`);
+  win.document.close();
+  win.print();
+}
+
+// ── Payslips ──
+
+function onPsStaffChange() {
+  // Could pre-fill salary info when staff is selected
+}
+
+function previewPayslip() {
+  const staffSel = document.getElementById('psStaff');
+  const staffId = staffSel?.value;
+  const staffName = staffSel?.options[staffSel.selectedIndex]?.text || '';
+  const month = document.getElementById('psMonth')?.value || '';
+  const year  = document.getElementById('psYear')?.value  || '';
+  const area  = document.getElementById('payslipPreviewArea');
+  if (!area) return;
+
+  if (!staffId) { area.innerHTML = '<p style="color:var(--muted)">Please select a staff member.</p>'; return; }
+
+  const salaries = loadStaffSalaries();
+  const rec = salaries.find(r => r.staffId === staffId);
+  if (!rec) {
+    area.innerHTML = `<p style="color:var(--muted)">No salary record found for <strong>${staffName}</strong>. Please add their salary under the <strong>Staff Salary</strong> tab first.</p>`;
+    return;
+  }
+
+  const school = localStorage.getItem('charanas_schoolName') || 'School Name';
+  area.innerHTML = `
+    <div style="border:1px solid var(--border);border-radius:8px;padding:1.5rem;width:100%;font-size:.85rem">
+      <div style="text-align:center;margin-bottom:1rem;border-bottom:2px solid var(--primary);padding-bottom:.75rem">
+        <div style="font-size:1.1rem;font-weight:800;color:var(--primary)">${school}</div>
+        <div style="font-size:.9rem;font-weight:600;margin-top:.2rem">PAYSLIP — ${month.toUpperCase()} ${year}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:1rem">
+        <div><span style="color:var(--muted)">Employee:</span> <strong>${rec.name}</strong></div>
+        <div><span style="color:var(--muted)">Role:</span> ${rec.role || '—'}</div>
+        <div><span style="color:var(--muted)">Employment Type:</span> ${rec.type}</div>
+        <div><span style="color:var(--muted)">Pay Period:</span> ${month} ${year}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+        <thead><tr style="background:var(--bg-muted)"><th style="padding:.4rem .6rem;text-align:left;border:1px solid var(--border)">Description</th><th style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border)">Amount (KES)</th></tr></thead>
+        <tbody>
+          <tr><td style="padding:.4rem .6rem;border:1px solid var(--border)">Basic Salary</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border)">${Number(rec.basic).toLocaleString()}</td></tr>
+          <tr><td style="padding:.4rem .6rem;border:1px solid var(--border)">Allowances</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border)">${Number(rec.allow).toLocaleString()}</td></tr>
+          <tr style="background:#fef2f2"><td style="padding:.4rem .6rem;border:1px solid var(--border)">SHA</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border);color:#ef4444">- ${Number(rec.nhif).toLocaleString()}</td></tr>
+          <tr style="background:#fef2f2"><td style="padding:.4rem .6rem;border:1px solid var(--border)">NSSF</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border);color:#ef4444">- ${Number(rec.nssf).toLocaleString()}</td></tr>
+          <tr style="background:#fef2f2"><td style="padding:.4rem .6rem;border:1px solid var(--border)">Other Deductions</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border);color:#ef4444">- ${Number(rec.deduct).toLocaleString()}</td></tr>
+          <tr style="background:var(--bg-muted);font-weight:700"><td style="padding:.4rem .6rem;border:1px solid var(--border)">NET PAY</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border);color:var(--primary);font-size:1rem">KES ${Number(rec.net).toLocaleString()}</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:1rem;font-size:.75rem;color:var(--muted);text-align:center">Generated by Charanas School Management System</div>
+    </div>`;
+
+  // Save to history
+  let history = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
+  const existing = history.find(h => h.staffId === staffId && h.month === month && h.year === year);
+  if (!existing) {
+    history.push({ id: 'ps_' + Date.now(), staffId, name: rec.name, role: rec.role || '', month, year, net: rec.net });
+    localStorage.setItem('charanas_payslipHistory', JSON.stringify(history));
+    renderPayslipHistory();
+  }
+}
+
+function printPayslip() {
+  const area = document.getElementById('payslipPreviewArea');
+  if (!area || area.innerHTML.includes('Select a staff')) { alert('Preview a payslip first.'); return; }
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Payslip</title>
+  <style>body{font-family:Arial,sans-serif;padding:30px;max-width:600px;margin:auto}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;font-size:12px}</style>
+  </head><body>${area.innerHTML}</body></html>`);
+  win.document.close();
+  win.print();
+}
+
+function renderPayslipHistory() {
+  const body = document.getElementById('payslipHistBody');
+  if (!body) return;
+  let history = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
+  const staffFilter = document.getElementById('psHistStaff')?.value || '';
+  const yearFilter  = document.getElementById('psHistYear')?.value  || '';
+  if (staffFilter) history = history.filter(h => h.staffId === staffFilter);
+  if (yearFilter)  history = history.filter(h => h.year === yearFilter);
+  if (!history.length) {
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">No payslips generated yet.</td></tr>';
+    return;
+  }
+  body.innerHTML = history.map((h, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${h.name}</td>
+      <td>${h.role || '—'}</td>
+      <td>${h.month}</td>
+      <td>${h.year}</td>
+      <td style="font-weight:700;color:var(--primary)">KES ${Number(h.net).toLocaleString()}</td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="reloadPayslip('${h.staffId}','${h.month}','${h.year}')"><i class="fa-solid fa-eye"></i> View</button>
+        <button class="btn btn-danger btn-xs" onclick="deletePayslipHistory('${h.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function reloadPayslip(staffId, month, year) {
+  const staffSel = document.getElementById('psStaff');
+  if (staffSel) staffSel.value = staffId;
+  const monthSel = document.getElementById('psMonth');
+  if (monthSel) monthSel.value = month;
+  const yearEl = document.getElementById('psYear');
+  if (yearEl) yearEl.value = year;
+  openFeesTab('tabPayslips', document.getElementById('tbPayslips'));
+  previewPayslip();
+}
+
+function deletePayslipHistory(id) {
+  if (!confirm('Remove this payslip from history?')) return;
+  let history = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
+  history = history.filter(h => h.id !== id);
+  localStorage.setItem('charanas_payslipHistory', JSON.stringify(history));
+  renderPayslipHistory();
+
+// ══════════════════════════════════════════════════════════════════
+// STAFF DETAILS — shared data layer (used by sidebar + platform admin)
+// ══════════════════════════════════════════════════════════════════
+
+function loadStaffDetails() {
+  return JSON.parse(localStorage.getItem('charanas_staffDetails') || '[]');
+}
+function saveStaffDetailsStorage(data) {
+  localStorage.setItem('charanas_staffDetails', JSON.stringify(data));
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PEOPLE SECTION  (Staff & BOM — s-people)
+// ══════════════════════════════════════════════════════════════
+
+const K_PEOPLE_STAFF = 'charanas_peopleStaff';
+const K_PEOPLE_BOM   = 'charanas_peopleBOM';
+
+function loadPeopleStaff() {
+  return JSON.parse(localStorage.getItem(K_PEOPLE_STAFF) || '[]');
+}
+function savePeopleStaff(arr) {
+  localStorage.setItem(K_PEOPLE_STAFF, JSON.stringify(arr));
+}
+function loadPeopleBOM() {
+  return JSON.parse(localStorage.getItem(K_PEOPLE_BOM) || '[]');
+}
+function savePeopleBOM(arr) {
+  localStorage.setItem(K_PEOPLE_BOM, JSON.stringify(arr));
+}
+
+function initPeopleSection() {
+  // Default to Staff panel
+  openPeopleTab('peopleStaffPanel', document.getElementById('pmtStaff'));
+  pstPopulateDeptFilter();
+  pstRenderList();
+  peopleRenderBOMTable();
+}
+
+function openPeopleTab(panelId, btn) {
+  document.querySelectorAll('.people-main-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.people-main-tab').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById(panelId);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+function openPeopleStaffTab(tabId, btn) {
+  document.querySelectorAll('#peopleStaffPanel .tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#peopleStaffTabBar .tb').forEach(b => b.classList.remove('active'));
+  const p = document.getElementById(tabId); if (p) p.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (tabId === 'pplStList')  pstRenderList();
+  if (tabId === 'pplStRoles') pstRenderRoles();
+}
+
+// ── Staff List ──
+
+function pstPopulateDeptFilter() {
+  const staff = loadPeopleStaff();
+  const depts = [...new Set(staff.map(s => s.dept).filter(Boolean))].sort();
+  const sel = document.getElementById('pstDeptFilter');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">All Departments</option>' +
+    depts.map(d => `<option value="${d}">${d}</option>`).join('');
+}
+
+function pstFilterStaff() {
+  pstRenderList();
+}
+
+function pstRenderList() {
+  const staff  = loadPeopleStaff();
+  const search = (document.getElementById('pstSearch')?.value || '').toLowerCase();
+  const dept   = document.getElementById('pstDeptFilter')?.value || '';
+  const body   = document.getElementById('pstBody');
+  if (!body) return;
+
+  const filtered = staff.filter(s => {
+    const matchSearch = !search ||
+      (s.name   || '').toLowerCase().includes(search) ||
+      (s.role   || '').toLowerCase().includes(search) ||
+      (s.dept   || '').toLowerCase().includes(search);
+    const matchDept = !dept || s.dept === dept;
+    return matchSearch && matchDept;
+  });
+
+  if (!filtered.length) {
+    body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">${staff.length ? 'No matches found.' : 'No staff records yet. Use Add/Edit tab to add staff.'}</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = filtered.map(s => `
+    <tr>
+      <td><strong>${s.name || '—'}</strong></td>
+      <td>${s.role || '—'}</td>
+      <td>${s.dept || '—'}</td>
+      <td>${s.phone || '—'}</td>
+      <td>${s.email || '—'}</td>
+      <td>${s.tsc || '—'}</td>
+      <td>
+        <button class="btn btn-outline btn-sm" onclick="pstEditStaff('${s.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-sm" style="background:#ef4444;color:#fff;margin-left:.3rem" onclick="pstDeleteStaff('${s.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function pstSaveStaff() {
+  const name  = document.getElementById('pstName')?.value.trim();
+  const role  = document.getElementById('pstRole')?.value;
+  const dept  = document.getElementById('pstDept')?.value;
+  const tsc   = document.getElementById('pstTSC')?.value.trim();
+  const phone = document.getElementById('pstPhone')?.value.trim();
+  const email = document.getElementById('pstEmail')?.value.trim();
+  const nid   = document.getElementById('pstNID')?.value.trim();
+  const doe   = document.getElementById('pstDOE')?.value;
+  const notes = document.getElementById('pstNotes')?.value.trim();
+  const editId= document.getElementById('pstEditId')?.value;
+
+  if (!name) { alert('Please enter the staff member\'s full name.'); return; }
+  if (!role) { alert('Please select a role.'); return; }
+
+  let staff = loadPeopleStaff();
+
+  if (editId) {
+    const idx = staff.findIndex(s => s.id === editId);
+    if (idx > -1) staff[idx] = { ...staff[idx], name, role, dept, tsc, phone, email, nid, doe, notes };
+  } else {
+    staff.push({ id: 'pst_' + Date.now(), name, role, dept, tsc, phone, email, nid, doe, notes });
+  }
+
+  savePeopleStaff(staff);
+  pstClearForm();
+  pstPopulateDeptFilter();
+  pstRenderList();
+  // Switch to list tab to show result
+  openPeopleStaffTab('pplStList', document.querySelector('#peopleStaffTabBar .tb'));
+  showToast(editId ? 'Staff record updated.' : 'Staff member added.');
+}
+
+function pstClearForm() {
+  ['pstName','pstTSC','pstPhone','pstEmail','pstNID','pstNotes'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['pstRole','pstDept'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const doe = document.getElementById('pstDOE'); if (doe) doe.value = '';
+  const editId = document.getElementById('pstEditId'); if (editId) editId.value = '';
+  const title = document.getElementById('pplStFormTitle');
+  if (title) title.innerHTML = '<i class="fa-solid fa-user-plus"></i> Add Staff Member';
+}
+
+function pstEditStaff(id) {
+  const staff = loadPeopleStaff();
+  const s = staff.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('pstEditId').value = id;
+  document.getElementById('pstName').value   = s.name  || '';
+  document.getElementById('pstRole').value   = s.role  || '';
+  document.getElementById('pstDept').value   = s.dept  || '';
+  document.getElementById('pstTSC').value    = s.tsc   || '';
+  document.getElementById('pstPhone').value  = s.phone || '';
+  document.getElementById('pstEmail').value  = s.email || '';
+  document.getElementById('pstNID').value    = s.nid   || '';
+  document.getElementById('pstDOE').value    = s.doe   || '';
+  document.getElementById('pstNotes').value  = s.notes || '';
+  const title = document.getElementById('pplStFormTitle');
+  if (title) title.innerHTML = '<i class="fa-solid fa-pen"></i> Edit Staff Member';
+  // Switch to add/edit tab
+  const addBtn = document.querySelector('#peopleStaffTabBar .tb:nth-child(2)');
+  openPeopleStaffTab('pplStAddEdit', addBtn);
+}
+
+function pstDeleteStaff(id) {
+  if (!confirm('Delete this staff record? This cannot be undone.')) return;
+  let staff = loadPeopleStaff().filter(s => s.id !== id);
+  savePeopleStaff(staff);
+  pstPopulateDeptFilter();
+  pstRenderList();
+  showToast('Staff record deleted.');
+}
+
+function pstExportCSV() {
+  const staff = loadPeopleStaff();
+  if (!staff.length) { alert('No staff records to export.'); return; }
+  const hdr = ['Name','Role','Department','TSC No.','Phone','Email','National ID','Date of Employment','Notes'];
+  const rows = staff.map(s => [s.name,s.role,s.dept,s.tsc,s.phone,s.email,s.nid,s.doe,s.notes].map(v => `"${(v||'').replace(/"/g,'""')}"`));
+  const csv = [hdr, ...rows].map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'staff_directory.csv';
+  a.click();
+}
+
+// ── Roles & Departments ──
+
+function pstRenderRoles() {
+  const staff   = loadPeopleStaff();
+  const el      = document.getElementById('pstRolesContent');
+  if (!el) return;
+  if (!staff.length) {
+    el.innerHTML = '<p style="color:var(--muted)">Add staff to see roles and department breakdown.</p>';
+    return;
+  }
+
+  // Count by role
+  const roleMap = {};
+  staff.forEach(s => { const r = s.role || 'Unassigned'; roleMap[r] = (roleMap[r]||0)+1; });
+  // Count by dept
+  const deptMap = {};
+  staff.forEach(s => { const d = s.dept || 'Unassigned'; deptMap[d] = (deptMap[d]||0)+1; });
+
+  const roleRows = Object.entries(roleMap).sort((a,b) => b[1]-a[1])
+    .map(([r,c]) => `<tr><td>${r}</td><td>${c}</td></tr>`).join('');
+  const deptRows = Object.entries(deptMap).sort((a,b) => b[1]-a[1])
+    .map(([d,c]) => `<tr><td>${d}</td><td>${c}</td></tr>`).join('');
+
+  el.innerHTML = `
+    <div class="frow c2" style="gap:1.5rem;align-items:flex-start">
+      <div>
+        <h4 style="margin-bottom:.75rem">By Role</h4>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr><th style="text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border)">Role</th><th style="text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border)">Count</th></tr></thead>
+          <tbody>${roleRows}</tbody>
+        </table>
+      </div>
+      <div>
+        <h4 style="margin-bottom:.75rem">By Department</h4>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr><th style="text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border)">Department</th><th style="text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border)">Count</th></tr></thead>
+          <tbody>${deptRows}</tbody>
+        </table>
+      </div>
+    </div>
+    <p style="margin-top:1.25rem;color:var(--muted);font-size:.85rem">Total staff: <strong>${staff.length}</strong></p>`;
+}
+
+// ── BOM Members ──
+
+function peopleSaveBOM() {
+  const name      = document.getElementById('pplBomName')?.value.trim();
+  const position  = document.getElementById('pplBomPosition')?.value;
+  const phone     = document.getElementById('pplBomPhone')?.value.trim();
+  const email     = document.getElementById('pplBomEmail')?.value.trim();
+  const termStart = document.getElementById('pplBomTermStart')?.value;
+  const termEnd   = document.getElementById('pplBomTermEnd')?.value;
+  const editId    = document.getElementById('pplBomEditId')?.value;
+
+  if (!name)     { alert('Please enter the BOM member\'s full name.'); return; }
+  if (!position) { alert('Please select a position.'); return; }
+
+  let bom = loadPeopleBOM();
+
+  if (editId) {
+    const idx = bom.findIndex(b => b.id === editId);
+    if (idx > -1) bom[idx] = { ...bom[idx], name, position, phone, email, termStart, termEnd };
+  } else {
+    bom.push({ id: 'bom_' + Date.now(), name, position, phone, email, termStart, termEnd });
+  }
+
+  savePeopleBOM(bom);
+  peopleClearBOMForm();
+  peopleRenderBOMTable();
+  showToast(editId ? 'BOM member updated.' : 'BOM member added.');
+}
+
+function peopleClearBOMForm() {
+  ['pplBomName','pplBomPhone','pplBomEmail','pplBomTermStart','pplBomTermEnd'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const pos = document.getElementById('pplBomPosition'); if (pos) pos.value = '';
+  const eid = document.getElementById('pplBomEditId'); if (eid) eid.value = '';
+  const title = document.getElementById('pplBomFormTitle');
+  if (title) title.innerHTML = '<i class="fa-solid fa-user-tie"></i> Add BOM Member';
+}
+
+function peopleRenderBOMTable() {
+  const bom  = loadPeopleBOM();
+  const body = document.getElementById('pplBomDirBody');
+  if (!body) return;
+  if (!bom.length) {
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">No BOM members added yet.</td></tr>';
+    return;
+  }
+  body.innerHTML = bom.map(b => `
+    <tr>
+      <td><strong>${b.name || '—'}</strong></td>
+      <td>${b.position || '—'}</td>
+      <td>${b.phone || '—'}</td>
+      <td>${b.email || '—'}</td>
+      <td>${b.termStart || '—'}</td>
+      <td>${b.termEnd || '—'}</td>
+      <td>
+        <button class="btn btn-outline btn-sm" onclick="peopleEditBOM('${b.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-sm" style="background:#ef4444;color:#fff;margin-left:.3rem" onclick="peopleDeleteBOM('${b.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function peopleEditBOM(id) {
+  const bom = loadPeopleBOM();
+  const b = bom.find(x => x.id === id);
+  if (!b) return;
+  document.getElementById('pplBomEditId').value    = id;
+  document.getElementById('pplBomName').value      = b.name      || '';
+  document.getElementById('pplBomPosition').value  = b.position  || '';
+  document.getElementById('pplBomPhone').value     = b.phone     || '';
+  document.getElementById('pplBomEmail').value     = b.email     || '';
+  document.getElementById('pplBomTermStart').value = b.termStart || '';
+  document.getElementById('pplBomTermEnd').value   = b.termEnd   || '';
+  const title = document.getElementById('pplBomFormTitle');
+  if (title) title.innerHTML = '<i class="fa-solid fa-pen"></i> Edit BOM Member';
+}
+
+function peopleDeleteBOM(id) {
+  if (!confirm('Remove this BOM member? This cannot be undone.')) return;
+  let bom = loadPeopleBOM().filter(b => b.id !== id);
+  savePeopleBOM(bom);
+  peopleRenderBOMTable();
+  showToast('BOM member removed.');
+}
+
+function peopleExportBOMCSV() {
+  const bom = loadPeopleBOM();
+  if (!bom.length) { alert('No BOM members to export.'); return; }
+  const hdr  = ['Name','Position','Phone','Email','Term Start','Term End'];
+  const rows = bom.map(b => [b.name,b.position,b.phone,b.email,b.termStart,b.termEnd].map(v => `"${(v||'').replace(/"/g,'""')}"`));
+  const csv  = [hdr, ...rows].map(r => r.join(',')).join('\n');
+  const a    = document.createElement('a');
+  a.href     = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'bom_directory.csv';
+  a.click();
+}
+
+// ── Sidebar Staff Details section ──────────────────────────────
+
+function initStaffDetailsSection() {
+  sdpRenderStats();
+  sdpRenderList();
+  sdpPopulateDropdowns();
+  sdpRenderRolesList();
+  sdpRenderDocsList();
+}
+
+function openSDTab(tabId, btn) {
+  document.querySelectorAll('#s-staffdetails .tab-panel').forEach(p => { p.style.display = 'none'; p.classList.remove('active'); });
+  document.querySelectorAll('#sdProxyTabBar .tb').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById(tabId);
+  if (panel) { panel.style.display = ''; panel.classList.add('active'); }
+  if (btn) btn.classList.add('active');
+}
+
+function sdpRenderStats() {
+  const all = loadStaffDetails();
+  const el = document.getElementById('sdProxyStats');
+  if (!el) return;
+  const depts = [...new Set(all.map(r => r.dept))];
+  el.innerHTML = `
+    <div class="fee-stat-card"><div class="fsc-label">Total Staff</div><div class="fsc-val">${all.length}</div></div>
+    <div class="fee-stat-card"><div class="fsc-label">Active</div><div class="fsc-val" style="color:#16a34a">${all.filter(r=>r.status==='Active').length}</div></div>
+    <div class="fee-stat-card"><div class="fsc-label">On Leave</div><div class="fsc-val" style="color:#f59e0b">${all.filter(r=>r.status==='On Leave').length}</div></div>
+    <div class="fee-stat-card"><div class="fsc-label">Departments</div><div class="fsc-val">${depts.length}</div></div>`;
+}
+
+function sdpFilterStaff() { sdpRenderList(); }
+
+function sdpRenderList() {
+  const body = document.getElementById('sdpStaffBody');
+  if (!body) return;
+  let data = loadStaffDetails();
+  const search = (document.getElementById('sdpSearch')?.value || '').toLowerCase();
+  const dept   = document.getElementById('sdpFilterDept')?.value   || '';
+  const status = document.getElementById('sdpFilterStatus')?.value || '';
+  if (search) data = data.filter(r => (r.name+r.role+r.staffId).toLowerCase().includes(search));
+  if (dept)   data = data.filter(r => r.dept === dept);
+  if (status) data = data.filter(r => r.status === status);
+  sdpRenderStats();
+  if (!data.length) {
+    body.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No staff records found. Click <strong>Add Staff</strong> to get started.</td></tr>';
+    return;
+  }
+  const sc = { Active:'#16a34a','On Leave':'#f59e0b',Resigned:'#ef4444',Retired:'#6b7280' };
+  body.innerHTML = data.map((r,i) => `
+    <tr>
+      <td>${i+1}</td><td>${r.staffId||'—'}</td><td><strong>${r.name}</strong></td>
+      <td>${r.role}</td><td><span class="badge">${r.dept}</span></td>
+      <td>${r.phone}</td><td>${r.email||'—'}</td><td>${r.empType}</td>
+      <td>${r.joinDate||'—'}</td>
+      <td><span class="badge" style="background:${sc[r.status]||'#6b7280'};color:#fff">${r.status}</span></td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="sdpEditStaff('${r.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-danger btn-xs"  onclick="sdpDeleteStaff('${r.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function sdpSaveStaff() {
+  const g = id => (document.getElementById(id)?.value || '').trim();
+  const name = g('sdpName'); const phone = g('sdpPhone'); const role = g('sdpRole');
+  const dept = document.getElementById('sdpDept')?.value || '';
+  if (!name)  { alert('Full name is required.'); return; }
+  if (!phone) { alert('Phone number is required.'); return; }
+  if (!role)  { alert('Role / Position is required.'); return; }
+  if (!dept)  { alert('Department is required.'); return; }
+  const rec = {
+    name, staffId: g('sdpStaffId'), natId: g('sdpNatId'),
+    gender: document.getElementById('sdpGender')?.value||'',
+    dob: g('sdpDOB'), phone, email: g('sdpEmail'), address: g('sdpAddress'),
+    role, dept, empType: document.getElementById('sdpEmpType')?.value||'Permanent',
+    joinDate: g('sdpJoinDate'), contractEnd: g('sdpContractEnd'),
+    status: document.getElementById('sdpStatus')?.value||'Active',
+    qual: g('sdpQual'), subjects: g('sdpSubjects'),
+    ecName: g('sdpECName'), ecPhone: g('sdpECPhone'), notes: g('sdpNotes')
+  };
+  let data = loadStaffDetails();
+  const editId = document.getElementById('sdpEditId')?.value;
+  if (editId) {
+    const idx = data.findIndex(r => r.id === editId);
+    if (idx > -1) data[idx] = { ...data[idx], ...rec };
+  } else {
+    data.push({ id: 'sd_' + Date.now(), ...rec });
+  }
+  saveStaffDetailsStorage(data);
+  sdpClearForm();
+  sdpRenderList();
+  sdpPopulateDropdowns();
+  populateStaffDropdowns();      // keep Finances salary dropdowns in sync
+  platRenderStaffList();         // keep Platform Admin table in sync
+  openSDTab('sdpList', document.getElementById('sdpbtList'));
+  showToast('Staff record saved.');
+}
+
+function sdpClearForm() {
+  ['sdpEditId','sdpName','sdpStaffId','sdpNatId','sdpDOB','sdpPhone','sdpEmail',
+   'sdpAddress','sdpRole','sdpJoinDate','sdpContractEnd','sdpQual','sdpSubjects','sdpECName','sdpECPhone','sdpNotes']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['sdpGender','sdpDept','sdpEmpType','sdpStatus'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.selectedIndex = 0;
+  });
+  const t = document.getElementById('sdpFormTitle');
+  if (t) t.innerHTML = '<i class="fa-solid fa-plus"></i> Add New Staff Member';
+}
+
+function sdpEditStaff(id) {
+  const r = loadStaffDetails().find(x => x.id === id);
+  if (!r) return;
+  const map = { sdpEditId:id, sdpName:r.name, sdpStaffId:r.staffId, sdpNatId:r.natId,
+    sdpDOB:r.dob, sdpPhone:r.phone, sdpEmail:r.email, sdpAddress:r.address,
+    sdpRole:r.role, sdpJoinDate:r.joinDate, sdpContractEnd:r.contractEnd,
+    sdpQual:r.qual, sdpSubjects:r.subjects, sdpECName:r.ecName, sdpECPhone:r.ecPhone, sdpNotes:r.notes };
+  Object.entries(map).forEach(([k,v]) => { const el = document.getElementById(k); if (el) el.value = v||''; });
+  ['sdpGender','sdpDept','sdpEmpType','sdpStatus'].forEach(fid => {
+    const el = document.getElementById(fid);
+    const key = {sdpGender:'gender',sdpDept:'dept',sdpEmpType:'empType',sdpStatus:'status'}[fid];
+    if (el && r[key]) el.value = r[key];
+  });
+  const t = document.getElementById('sdpFormTitle');
+  if (t) t.innerHTML = `<i class="fa-solid fa-pen"></i> Edit — ${r.name}`;
+  openSDTab('sdpAdd', document.getElementById('sdpbtAdd'));
+}
+
+function sdpDeleteStaff(id) {
+  if (!confirm('Delete this staff record? This cannot be undone.')) return;
+  let data = loadStaffDetails().filter(r => r.id !== id);
+  saveStaffDetailsStorage(data);
+  sdpRenderList(); sdpPopulateDropdowns(); populateStaffDropdowns(); platRenderStaffList();
+  showToast('Staff record deleted.');
+}
+
+function platExportStaffCSV() {
+  const data = loadStaffDetails();
+  if (!data.length) { alert('No staff records to export.'); return; }
+  const cols = ['Name','Staff ID','Nat ID','Gender','DOB','Phone','Email','Address','Role','Dept','Employment Type','Date Joined','Contract End','Status','Qualification','Subjects','EC Name','EC Phone','Notes'];
+  const rows = [cols, ...data.map(r => [r.name,r.staffId,r.natId,r.gender,r.dob,r.phone,r.email,r.address,r.role,r.dept,r.empType,r.joinDate,r.contractEnd,r.status,r.qual,r.subjects,r.ecName,r.ecPhone,r.notes])];
+  const a = Object.assign(document.createElement('a'), { href:'data:text/csv,'+encodeURIComponent(rows.map(r=>r.join(',')).join('\n')), download:'staff_details.csv' });
+  a.click();
+}
+
+// Roles (shared storage, rendered in both sidebar and platform admin)
+function sdpSaveRole() {
+  const name = (document.getElementById('sdprName')?.value||'').trim();
+  const dept = document.getElementById('sdprDept')?.value||'';
+  const desc = (document.getElementById('sdprDesc')?.value||'').trim();
+  if (!name) { alert('Role name is required.'); return; }
+  let roles = JSON.parse(localStorage.getItem('charanas_staffRoles')||'[]');
+  roles.push({ id:'sr_'+Date.now(), name, dept, desc });
+  localStorage.setItem('charanas_staffRoles', JSON.stringify(roles));
+  sdpRenderRolesList(); platRenderRolesList();
+  document.getElementById('sdprName').value = '';
+  document.getElementById('sdprDesc').value = '';
+  showToast('Role saved.');
+}
+
+function sdpRenderRolesList() {
+  const el = document.getElementById('sdpRolesList');
+  if (!el) return;
+  const roles = JSON.parse(localStorage.getItem('charanas_staffRoles')||'[]');
+  if (!roles.length) { el.innerHTML = '<p style="color:var(--muted);font-size:.85rem">No roles defined yet.</p>'; return; }
+  el.innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Role</th><th>Department</th><th>Description</th><th>Action</th></tr></thead>
+  <tbody>${roles.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${r.name}</strong></td><td>${r.dept}</td><td>${r.desc||'—'}</td>
+  <td><button class="btn btn-danger btn-xs" onclick="sdpDeleteRole('${r.id}')"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function sdpDeleteRole(id) {
+  if (!confirm('Delete this role?')) return;
+  let roles = JSON.parse(localStorage.getItem('charanas_staffRoles')||'[]').filter(r=>r.id!==id);
+  localStorage.setItem('charanas_staffRoles', JSON.stringify(roles));
+  sdpRenderRolesList(); platRenderRolesList();
+}
+
+// Documents
+function sdpPopulateDropdowns() {
+  const staff = loadStaffDetails();
+  ['sdpdocStaff'].forEach(selId => {
+    const sel = document.getElementById(selId); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Select Staff —</option>' +
+      staff.map(s => `<option value="${s.id}">${s.name}${s.role?' — '+s.role:''}</option>`).join('');
+    if (cur) sel.value = cur;
+  });
+}
+
+function sdpHandleDocUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  const staffSel = document.getElementById('sdpdocStaff');
+  const staffName = staffSel?.options[staffSel.selectedIndex]?.text || 'Unknown';
+  const type = document.getElementById('sdpdocType')?.value || 'Other';
+  let docs = JSON.parse(localStorage.getItem('charanas_staffDocs')||'[]');
+  docs.push({ id:'doc_'+Date.now(), staff:staffName, type, filename:file.name, size:(file.size/1024).toFixed(1)+' KB', uploaded:new Date().toLocaleDateString() });
+  localStorage.setItem('charanas_staffDocs', JSON.stringify(docs));
+  sdpRenderDocsList(); platRenderDocsList();
+  input.value = ''; showToast(`Document "${file.name}" recorded.`);
+}
+
+function sdpRenderDocsList() {
+  const el = document.getElementById('sdpDocsList'); if (!el) return;
+  const docs = JSON.parse(localStorage.getItem('charanas_staffDocs')||'[]');
+  if (!docs.length) { el.innerHTML = '<p style="color:var(--muted);font-size:.85rem;text-align:center;padding:1.5rem">No documents recorded yet.</p>'; return; }
+  el.innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Staff</th><th>Type</th><th>Filename</th><th>Size</th><th>Date</th><th>Action</th></tr></thead>
+  <tbody>${docs.map((d,i)=>`<tr><td>${i+1}</td><td>${d.staff}</td><td>${d.type}</td><td><i class="fa-solid fa-file"></i> ${d.filename}</td><td>${d.size}</td><td>${d.uploaded}</td>
+  <td><button class="btn btn-danger btn-xs" onclick="sdpDeleteDoc('${d.id}')"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function sdpDeleteDoc(id) {
+  if (!confirm('Remove this document record?')) return;
+  let docs = JSON.parse(localStorage.getItem('charanas_staffDocs')||'[]').filter(d=>d.id!==id);
+  localStorage.setItem('charanas_staffDocs', JSON.stringify(docs));
+  sdpRenderDocsList(); platRenderDocsList();
+}
+
+// ── Platform Admin → Staff Roles tab ────────────────────────────
+
+function openPlatStaffTab(tabId, btn) {
+  document.querySelectorAll('#platTab-staffroles .tab-panel').forEach(p => { p.style.display='none'; p.classList.remove('active'); });
+  document.querySelectorAll('#platStaffTabBar .tb').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById(tabId);
+  if (panel) { panel.style.display=''; panel.classList.add('active'); }
+  if (btn) btn.classList.add('active');
+}
+
+function platInitStaffRolesTab() {
+  platRenderStaffStats();
+  platRenderStaffList();
+  platPopulateDocDropdown();
+  platRenderRolesList();
+  platRenderDocsList();
+}
+
+function platRenderStaffStats() {
+  const all = loadStaffDetails();
+  const el = document.getElementById('platStaffStats'); if (!el) return;
+  const depts = [...new Set(all.map(r=>r.dept))];
+  el.innerHTML = `
+    <div class="fee-stat-card"><div class="fsc-label">Total Staff</div><div class="fsc-val">${all.length}</div></div>
+    <div class="fee-stat-card"><div class="fsc-label">Active</div><div class="fsc-val" style="color:#16a34a">${all.filter(r=>r.status==='Active').length}</div></div>
+    <div class="fee-stat-card"><div class="fsc-label">On Leave</div><div class="fsc-val" style="color:#f59e0b">${all.filter(r=>r.status==='On Leave').length}</div></div>
+    <div class="fee-stat-card"><div class="fsc-label">Departments</div><div class="fsc-val">${depts.length}</div></div>`;
+}
+
+function platFilterStaff() { platRenderStaffList(); }
+
+function platRenderStaffList() {
+  const body = document.getElementById('platStaffBody'); if (!body) return;
+  let data = loadStaffDetails();
+  const search = (document.getElementById('psdSearch')?.value||'').toLowerCase();
+  const dept   = document.getElementById('psdFilterDept')?.value||'';
+  const status = document.getElementById('psdFilterStatus')?.value||'';
+  if (search) data = data.filter(r=>(r.name+r.role+r.staffId).toLowerCase().includes(search));
+  if (dept)   data = data.filter(r=>r.dept===dept);
+  if (status) data = data.filter(r=>r.status===status);
+  platRenderStaffStats();
+  if (!data.length) {
+    body.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No staff records found. Click <strong>Add Staff</strong> to get started.</td></tr>';
+    return;
+  }
+  const sc = { Active:'#16a34a','On Leave':'#f59e0b',Resigned:'#ef4444',Retired:'#6b7280' };
+  body.innerHTML = data.map((r,i)=>`
+    <tr>
+      <td>${i+1}</td><td>${r.staffId||'—'}</td><td><strong>${r.name}</strong></td>
+      <td>${r.role}</td><td><span class="badge">${r.dept}</span></td>
+      <td>${r.phone}</td><td>${r.email||'—'}</td><td>${r.empType}</td>
+      <td>${r.joinDate||'—'}</td>
+      <td><span class="badge" style="background:${sc[r.status]||'#6b7280'};color:#fff">${r.status}</span></td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="platEditStaff('${r.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-danger btn-xs"  onclick="platDeleteStaff('${r.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function platSaveStaff() {
+  const g = id => (document.getElementById(id)?.value||'').trim();
+  const name = g('psdName'), phone = g('psdPhone'), role = g('psdRole');
+  const dept = document.getElementById('psdDept')?.value||'';
+  if (!name)  { alert('Full name is required.'); return; }
+  if (!phone) { alert('Phone number is required.'); return; }
+  if (!role)  { alert('Role / Position is required.'); return; }
+  if (!dept)  { alert('Department is required.'); return; }
+  const rec = {
+    name, staffId:g('psdStaffId'), natId:g('psdNatId'),
+    gender:document.getElementById('psdGender')?.value||'',
+    dob:g('psdDOB'), phone, email:g('psdEmail'), address:g('psdAddress'),
+    role, dept, empType:document.getElementById('psdEmpType')?.value||'Permanent',
+    joinDate:g('psdJoinDate'), contractEnd:g('psdContractEnd'),
+    status:document.getElementById('psdStatus')?.value||'Active',
+    qual:g('psdQual'), subjects:g('psdSubjects'),
+    ecName:g('psdECName'), ecPhone:g('psdECPhone'), notes:g('psdNotes')
+  };
+  let data = loadStaffDetails();
+  const editId = document.getElementById('psdEditId')?.value;
+  if (editId) {
+    const idx = data.findIndex(r=>r.id===editId);
+    if (idx>-1) data[idx] = { ...data[idx], ...rec };
+  } else {
+    data.push({ id:'sd_'+Date.now(), ...rec });
+  }
+  saveStaffDetailsStorage(data);
+  platClearStaffForm();
+  platRenderStaffList();
+  platPopulateDocDropdown();
+  sdpRenderList();              // keep sidebar in sync
+  sdpPopulateDropdowns();
+  populateStaffDropdowns();     // keep Finances salary dropdowns in sync
+  openPlatStaffTab('pstList', document.getElementById('pstbList'));
+  showToast('Staff record saved.');
+}
+
+function platClearStaffForm() {
+  ['psdEditId','psdName','psdStaffId','psdNatId','psdDOB','psdPhone','psdEmail',
+   'psdAddress','psdRole','psdJoinDate','psdContractEnd','psdQual','psdSubjects','psdECName','psdECPhone','psdNotes']
+    .forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  ['psdGender','psdDept','psdEmpType','psdStatus'].forEach(id => {
+    const el=document.getElementById(id); if(el) el.selectedIndex=0;
+  });
+  const t=document.getElementById('pstFormTitle');
+  if(t) t.innerHTML='<i class="fa-solid fa-plus"></i> Add New Staff Member';
+}
+
+function platEditStaff(id) {
+  const r = loadStaffDetails().find(x=>x.id===id); if(!r) return;
+  const map = { psdEditId:id, psdName:r.name, psdStaffId:r.staffId, psdNatId:r.natId,
+    psdDOB:r.dob, psdPhone:r.phone, psdEmail:r.email, psdAddress:r.address,
+    psdRole:r.role, psdJoinDate:r.joinDate, psdContractEnd:r.contractEnd,
+    psdQual:r.qual, psdSubjects:r.subjects, psdECName:r.ecName, psdECPhone:r.ecPhone, psdNotes:r.notes };
+  Object.entries(map).forEach(([k,v])=>{ const el=document.getElementById(k); if(el) el.value=v||''; });
+  ['psdGender','psdDept','psdEmpType','psdStatus'].forEach(fid=>{
+    const el=document.getElementById(fid);
+    const key={psdGender:'gender',psdDept:'dept',psdEmpType:'empType',psdStatus:'status'}[fid];
+    if(el && r[key]) el.value=r[key];
+  });
+  const t=document.getElementById('pstFormTitle');
+  if(t) t.innerHTML=`<i class="fa-solid fa-pen"></i> Edit — ${r.name}`;
+  openPlatStaffTab('pstAdd', document.getElementById('pstbAdd'));
+}
+
+function platDeleteStaff(id) {
+  if(!confirm('Delete this staff record? This cannot be undone.')) return;
+  let data = loadStaffDetails().filter(r=>r.id!==id);
+  saveStaffDetailsStorage(data);
+  platRenderStaffList(); platPopulateDocDropdown();
+  sdpRenderList(); sdpPopulateDropdowns(); populateStaffDropdowns();
+  showToast('Staff record deleted.');
+}
+
+function platSaveRole() {
+  const name=(document.getElementById('psrName')?.value||'').trim();
+  const dept=document.getElementById('psrDept')?.value||'';
+  const desc=(document.getElementById('psrDesc')?.value||'').trim();
+  if(!name){alert('Role name is required.');return;}
+  let roles=JSON.parse(localStorage.getItem('charanas_staffRoles')||'[]');
+  roles.push({id:'sr_'+Date.now(),name,dept,desc});
+  localStorage.setItem('charanas_staffRoles',JSON.stringify(roles));
+  platRenderRolesList(); sdpRenderRolesList();
+  document.getElementById('psrName').value='';
+  document.getElementById('psrDesc').value='';
+  showToast('Role saved.');
+}
+
+function platRenderRolesList() {
+  const el=document.getElementById('platRolesList'); if(!el) return;
+  const roles=JSON.parse(localStorage.getItem('charanas_staffRoles')||'[]');
+  if(!roles.length){el.innerHTML='<p style="color:var(--muted);font-size:.85rem">No roles defined yet.</p>';return;}
+  el.innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Role</th><th>Department</th><th>Description</th><th>Action</th></tr></thead>
+  <tbody>${roles.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${r.name}</strong></td><td>${r.dept}</td><td>${r.desc||'—'}</td>
+  <td><button class="btn btn-danger btn-xs" onclick="platDeleteRole('${r.id}')"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function platDeleteRole(id) {
+  if(!confirm('Delete this role?')) return;
+  let roles=JSON.parse(localStorage.getItem('charanas_staffRoles')||'[]').filter(r=>r.id!==id);
+  localStorage.setItem('charanas_staffRoles',JSON.stringify(roles));
+  platRenderRolesList(); sdpRenderRolesList();
+}
+
+function platPopulateDocDropdown() {
+  const staff=loadStaffDetails();
+  const sel=document.getElementById('psdocStaff'); if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">— Select Staff —</option>'+
+    staff.map(s=>`<option value="${s.id}">${s.name}${s.role?' — '+s.role:''}</option>`).join('');
+  if(cur) sel.value=cur;
+}
+
+function platHandleDocUpload(input) {
+  const file=input.files[0]; if(!file) return;
+  const staffSel=document.getElementById('psdocStaff');
+  const staffName=staffSel?.options[staffSel.selectedIndex]?.text||'Unknown';
+  const type=document.getElementById('psdocType')?.value||'Other';
+  let docs=JSON.parse(localStorage.getItem('charanas_staffDocs')||'[]');
+  docs.push({id:'doc_'+Date.now(),staff:staffName,type,filename:file.name,size:(file.size/1024).toFixed(1)+' KB',uploaded:new Date().toLocaleDateString()});
+  localStorage.setItem('charanas_staffDocs',JSON.stringify(docs));
+  platRenderDocsList(); sdpRenderDocsList();
+  input.value=''; showToast(`Document "${file.name}" recorded.`);
+}
+
+function platRenderDocsList() {
+  const el=document.getElementById('platDocsList'); if(!el) return;
+  const docs=JSON.parse(localStorage.getItem('charanas_staffDocs')||'[]');
+  if(!docs.length){el.innerHTML='<p style="color:var(--muted);font-size:.85rem;text-align:center;padding:1.5rem">No documents recorded yet.</p>';return;}
+  el.innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Staff</th><th>Type</th><th>Filename</th><th>Size</th><th>Date</th><th>Action</th></tr></thead>
+  <tbody>${docs.map((d,i)=>`<tr><td>${i+1}</td><td>${d.staff}</td><td>${d.type}</td><td><i class="fa-solid fa-file"></i> ${d.filename}</td><td>${d.size}</td><td>${d.uploaded}</td>
+  <td><button class="btn btn-danger btn-xs" onclick="platDeleteDoc('${d.id}')"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function platDeleteDoc(id) {
+  if(!confirm('Remove this document record?')) return;
+  let docs=JSON.parse(localStorage.getItem('charanas_staffDocs')||'[]').filter(d=>d.id!==id);
+  localStorage.setItem('charanas_staffDocs',JSON.stringify(docs));
+  platRenderDocsList(); sdpRenderDocsList();
+}
+
+
+}
