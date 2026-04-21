@@ -1346,7 +1346,7 @@ function enterPlatformDashboard() {
   const mbnRestore = document.getElementById('mbnRestoreTab');
   if (mbnRestore) mbnRestore.style.display = 'none';
   // Platform portal: hide school-specific nav, only show Platform Admin link
-  ['subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','staffdetails','messaging','settings'].forEach(s=>{
+  ['subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','people','staffdetails','messaging','settings'].forEach(s=>{
     const el=document.querySelector('[data-s="'+s+'"]'); if(el) el.style.display='none';
   });
   // Hide school-only exam tabs for platform admin
@@ -3168,7 +3168,7 @@ function doLogout() {
   if (mbnRestore) { mbnRestore.classList.remove('visible'); mbnRestore.style.display = 'none'; }
   document.body.classList.remove('mbn-hidden');
   // Restore ALL nav links in both sidebar AND mobile bottom nav for next login
-  ['dashboard','subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','messaging','staffdetails','settings'].forEach(s=>{
+  ['dashboard','subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','people','messaging','staffdetails','settings'].forEach(s=>{
     document.querySelectorAll('[data-s="'+s+'"]').forEach(el => el.style.display='');
   });
   // Also restore topbar user display
@@ -3254,7 +3254,7 @@ function launchApp() {
     const teacherAllowed = new Set(['dashboard','exambuilder','papers']);
     // Settings nav: only show if NOT restricted
     if (!settings.restrictTeacherSettings) teacherAllowed.add('settings');
-    const allSecs = ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','staffdetails','messaging','settings','exambuilder','papers'];
+    const allSecs = ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','people','staffdetails','messaging','settings','exambuilder','papers'];
     // Apply show/hide to BOTH sidebar AND mobile bottom nav via querySelectorAll
     allSecs.forEach(sec => {
       const show = teacherAllowed.has(sec);
@@ -9923,6 +9923,7 @@ function go(sec, el) {
   if (sec === 'reports')    { populateReportDropdowns(); }
   if (sec === 'messaging')  { loadMsgRecipients(); }
   if (sec === 'fees')       { initFeesSection(); }
+  if (sec === 'people')     { initPeopleSection(); }
   if (sec === 'staffdetails') { initStaffDetailsSection(); }
   if (sec === 'papers')     { initPapersSection(); }
   if (sec === 'settings')   { renderTeacherPreferences(); }
@@ -10203,8 +10204,35 @@ function getStudentFeeData(studentId, term, year) {
 }
 
 // ── Open Fees Tab ──
+// ── Switch top-level Finance panel (Fees | Salaries) ──
+function openFinanceMainTab(panelId, btn) {
+  document.querySelectorAll('.finance-main-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.finance-main-tab').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById(panelId);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (panelId === 'financeSalaries') {
+    // Init first salaries sub-tab
+    const firstBtn = document.querySelector('#salariesTabBar .tb');
+    openSalariesTab('tabStaffSalary', firstBtn);
+  }
+}
+
+// ── Switch Salaries sub-tabs (Staff Salary | Payroll | Payslips) ──
+function openSalariesTab(tabId, btn) {
+  document.querySelectorAll('#financeSalaries .tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#salariesTabBar .tb').forEach(b => b.classList.remove('active'));
+  const p = document.getElementById(tabId); if (p) p.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (tabId === 'tabStaffSalary') {
+    renderStaffSalaryTable();
+    renderBOMSalaryTable();
+    openSalarySubTab('tabSalaryStaff', document.getElementById('tbSalaryStaff'));
+  }
+}
+
 function openFeesTab(tabId, btn) {
-  document.querySelectorAll('#s-fees .tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#financeFees .tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('#feesTabBar .tb').forEach(b => b.classList.remove('active'));
   const p = document.getElementById(tabId); if (p) p.classList.add('active');
   if (btn) btn.classList.add('active');
@@ -10416,6 +10444,8 @@ function populateFeesDropdowns() {
 
 // ── Init Fees Section ──
 function initFeesSection() {
+  // Ensure Finance main panel defaults to Fees
+  openFinanceMainTab('financeFees', document.getElementById('fmtFees'));
   loadFees();
   populateFeesDropdowns();
   populateStaffDropdowns(); // populate staff selects in Salary/Payslip tabs
@@ -11721,6 +11751,11 @@ function applyRoleBasedUI() {
   document.querySelectorAll('[data-s="fees"]').forEach(el => {
     if (isTeacher && !isClassTch) el.style.display = 'none';
     else el.style.display = '';
+  });
+
+  // ── People nav link — hide from all teachers ──
+  document.querySelectorAll('[data-s="people"]').forEach(el => {
+    el.style.display = isTeacher ? 'none' : '';
   });
 
   // ── Exams: hide Create Exam tab for teachers ──
@@ -17689,6 +17724,330 @@ function loadStaffDetails() {
 }
 function saveStaffDetailsStorage(data) {
   localStorage.setItem('charanas_staffDetails', JSON.stringify(data));
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PEOPLE SECTION  (Staff & BOM — s-people)
+// ══════════════════════════════════════════════════════════════
+
+const K_PEOPLE_STAFF = 'charanas_peopleStaff';
+const K_PEOPLE_BOM   = 'charanas_peopleBOM';
+
+function loadPeopleStaff() {
+  return JSON.parse(localStorage.getItem(K_PEOPLE_STAFF) || '[]');
+}
+function savePeopleStaff(arr) {
+  localStorage.setItem(K_PEOPLE_STAFF, JSON.stringify(arr));
+}
+function loadPeopleBOM() {
+  return JSON.parse(localStorage.getItem(K_PEOPLE_BOM) || '[]');
+}
+function savePeopleBOM(arr) {
+  localStorage.setItem(K_PEOPLE_BOM, JSON.stringify(arr));
+}
+
+function initPeopleSection() {
+  // Default to Staff panel
+  openPeopleTab('peopleStaffPanel', document.getElementById('pmtStaff'));
+  pstPopulateDeptFilter();
+  pstRenderList();
+  peopleRenderBOMTable();
+}
+
+function openPeopleTab(panelId, btn) {
+  document.querySelectorAll('.people-main-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.people-main-tab').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById(panelId);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+function openPeopleStaffTab(tabId, btn) {
+  document.querySelectorAll('#peopleStaffPanel .tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#peopleStaffTabBar .tb').forEach(b => b.classList.remove('active'));
+  const p = document.getElementById(tabId); if (p) p.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (tabId === 'pstList')  pstRenderList();
+  if (tabId === 'pstRoles') pstRenderRoles();
+}
+
+// ── Staff List ──
+
+function pstPopulateDeptFilter() {
+  const staff = loadPeopleStaff();
+  const depts = [...new Set(staff.map(s => s.dept).filter(Boolean))].sort();
+  const sel = document.getElementById('pstDeptFilter');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">All Departments</option>' +
+    depts.map(d => `<option value="${d}">${d}</option>`).join('');
+}
+
+function pstFilterStaff() {
+  pstRenderList();
+}
+
+function pstRenderList() {
+  const staff  = loadPeopleStaff();
+  const search = (document.getElementById('pstSearch')?.value || '').toLowerCase();
+  const dept   = document.getElementById('pstDeptFilter')?.value || '';
+  const body   = document.getElementById('pstBody');
+  if (!body) return;
+
+  const filtered = staff.filter(s => {
+    const matchSearch = !search ||
+      (s.name   || '').toLowerCase().includes(search) ||
+      (s.role   || '').toLowerCase().includes(search) ||
+      (s.dept   || '').toLowerCase().includes(search);
+    const matchDept = !dept || s.dept === dept;
+    return matchSearch && matchDept;
+  });
+
+  if (!filtered.length) {
+    body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">${staff.length ? 'No matches found.' : 'No staff records yet. Use Add/Edit tab to add staff.'}</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = filtered.map(s => `
+    <tr>
+      <td><strong>${s.name || '—'}</strong></td>
+      <td>${s.role || '—'}</td>
+      <td>${s.dept || '—'}</td>
+      <td>${s.phone || '—'}</td>
+      <td>${s.email || '—'}</td>
+      <td>${s.tsc || '—'}</td>
+      <td>
+        <button class="btn btn-outline btn-sm" onclick="pstEditStaff('${s.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-sm" style="background:#ef4444;color:#fff;margin-left:.3rem" onclick="pstDeleteStaff('${s.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function pstSaveStaff() {
+  const name  = document.getElementById('pstName')?.value.trim();
+  const role  = document.getElementById('pstRole')?.value;
+  const dept  = document.getElementById('pstDept')?.value;
+  const tsc   = document.getElementById('pstTSC')?.value.trim();
+  const phone = document.getElementById('pstPhone')?.value.trim();
+  const email = document.getElementById('pstEmail')?.value.trim();
+  const nid   = document.getElementById('pstNID')?.value.trim();
+  const doe   = document.getElementById('pstDOE')?.value;
+  const notes = document.getElementById('pstNotes')?.value.trim();
+  const editId= document.getElementById('pstEditId')?.value;
+
+  if (!name) { alert('Please enter the staff member\'s full name.'); return; }
+  if (!role) { alert('Please select a role.'); return; }
+
+  let staff = loadPeopleStaff();
+
+  if (editId) {
+    const idx = staff.findIndex(s => s.id === editId);
+    if (idx > -1) staff[idx] = { ...staff[idx], name, role, dept, tsc, phone, email, nid, doe, notes };
+  } else {
+    staff.push({ id: 'pst_' + Date.now(), name, role, dept, tsc, phone, email, nid, doe, notes });
+  }
+
+  savePeopleStaff(staff);
+  pstClearForm();
+  pstPopulateDeptFilter();
+  pstRenderList();
+  // Switch to list tab to show result
+  openPeopleStaffTab('pstList', document.querySelector('#peopleStaffTabBar .tb'));
+  showToast(editId ? 'Staff record updated.' : 'Staff member added.');
+}
+
+function pstClearForm() {
+  ['pstName','pstTSC','pstPhone','pstEmail','pstNID','pstNotes'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['pstRole','pstDept'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const doe = document.getElementById('pstDOE'); if (doe) doe.value = '';
+  const editId = document.getElementById('pstEditId'); if (editId) editId.value = '';
+  const title = document.getElementById('pstFormTitle');
+  if (title) title.innerHTML = '<i class="fa-solid fa-user-plus"></i> Add Staff Member';
+}
+
+function pstEditStaff(id) {
+  const staff = loadPeopleStaff();
+  const s = staff.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('pstEditId').value = id;
+  document.getElementById('pstName').value   = s.name  || '';
+  document.getElementById('pstRole').value   = s.role  || '';
+  document.getElementById('pstDept').value   = s.dept  || '';
+  document.getElementById('pstTSC').value    = s.tsc   || '';
+  document.getElementById('pstPhone').value  = s.phone || '';
+  document.getElementById('pstEmail').value  = s.email || '';
+  document.getElementById('pstNID').value    = s.nid   || '';
+  document.getElementById('pstDOE').value    = s.doe   || '';
+  document.getElementById('pstNotes').value  = s.notes || '';
+  const title = document.getElementById('pstFormTitle');
+  if (title) title.innerHTML = '<i class="fa-solid fa-pen"></i> Edit Staff Member';
+  // Switch to add/edit tab
+  const addBtn = document.querySelector('#peopleStaffTabBar .tb:nth-child(2)');
+  openPeopleStaffTab('pstAddEdit', addBtn);
+}
+
+function pstDeleteStaff(id) {
+  if (!confirm('Delete this staff record? This cannot be undone.')) return;
+  let staff = loadPeopleStaff().filter(s => s.id !== id);
+  savePeopleStaff(staff);
+  pstPopulateDeptFilter();
+  pstRenderList();
+  showToast('Staff record deleted.');
+}
+
+function pstExportCSV() {
+  const staff = loadPeopleStaff();
+  if (!staff.length) { alert('No staff records to export.'); return; }
+  const hdr = ['Name','Role','Department','TSC No.','Phone','Email','National ID','Date of Employment','Notes'];
+  const rows = staff.map(s => [s.name,s.role,s.dept,s.tsc,s.phone,s.email,s.nid,s.doe,s.notes].map(v => `"${(v||'').replace(/"/g,'""')}"`));
+  const csv = [hdr, ...rows].map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'staff_directory.csv';
+  a.click();
+}
+
+// ── Roles & Departments ──
+
+function pstRenderRoles() {
+  const staff   = loadPeopleStaff();
+  const el      = document.getElementById('pstRolesContent');
+  if (!el) return;
+  if (!staff.length) {
+    el.innerHTML = '<p style="color:var(--muted)">Add staff to see roles and department breakdown.</p>';
+    return;
+  }
+
+  // Count by role
+  const roleMap = {};
+  staff.forEach(s => { const r = s.role || 'Unassigned'; roleMap[r] = (roleMap[r]||0)+1; });
+  // Count by dept
+  const deptMap = {};
+  staff.forEach(s => { const d = s.dept || 'Unassigned'; deptMap[d] = (deptMap[d]||0)+1; });
+
+  const roleRows = Object.entries(roleMap).sort((a,b) => b[1]-a[1])
+    .map(([r,c]) => `<tr><td>${r}</td><td>${c}</td></tr>`).join('');
+  const deptRows = Object.entries(deptMap).sort((a,b) => b[1]-a[1])
+    .map(([d,c]) => `<tr><td>${d}</td><td>${c}</td></tr>`).join('');
+
+  el.innerHTML = `
+    <div class="frow c2" style="gap:1.5rem;align-items:flex-start">
+      <div>
+        <h4 style="margin-bottom:.75rem">By Role</h4>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr><th style="text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border)">Role</th><th style="text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border)">Count</th></tr></thead>
+          <tbody>${roleRows}</tbody>
+        </table>
+      </div>
+      <div>
+        <h4 style="margin-bottom:.75rem">By Department</h4>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr><th style="text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border)">Department</th><th style="text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border)">Count</th></tr></thead>
+          <tbody>${deptRows}</tbody>
+        </table>
+      </div>
+    </div>
+    <p style="margin-top:1.25rem;color:var(--muted);font-size:.85rem">Total staff: <strong>${staff.length}</strong></p>`;
+}
+
+// ── BOM Members ──
+
+function peopleSaveBOM() {
+  const name      = document.getElementById('bomName')?.value.trim();
+  const position  = document.getElementById('bomPosition')?.value;
+  const phone     = document.getElementById('bomPhone')?.value.trim();
+  const email     = document.getElementById('bomEmail')?.value.trim();
+  const termStart = document.getElementById('bomTermStart')?.value;
+  const termEnd   = document.getElementById('bomTermEnd')?.value;
+  const editId    = document.getElementById('bomEditId')?.value;
+
+  if (!name)     { alert('Please enter the BOM member\'s full name.'); return; }
+  if (!position) { alert('Please select a position.'); return; }
+
+  let bom = loadPeopleBOM();
+
+  if (editId) {
+    const idx = bom.findIndex(b => b.id === editId);
+    if (idx > -1) bom[idx] = { ...bom[idx], name, position, phone, email, termStart, termEnd };
+  } else {
+    bom.push({ id: 'bom_' + Date.now(), name, position, phone, email, termStart, termEnd });
+  }
+
+  savePeopleBOM(bom);
+  peopleClearBOMForm();
+  peopleRenderBOMTable();
+  showToast(editId ? 'BOM member updated.' : 'BOM member added.');
+}
+
+function peopleClearBOMForm() {
+  ['bomName','bomPhone','bomEmail','bomTermStart','bomTermEnd'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const pos = document.getElementById('bomPosition'); if (pos) pos.value = '';
+  const eid = document.getElementById('bomEditId'); if (eid) eid.value = '';
+  const title = document.getElementById('bomFormTitle');
+  if (title) title.innerHTML = '<i class="fa-solid fa-user-tie"></i> Add BOM Member';
+}
+
+function peopleRenderBOMTable() {
+  const bom  = loadPeopleBOM();
+  const body = document.getElementById('bomDirBody');
+  if (!body) return;
+  if (!bom.length) {
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">No BOM members added yet.</td></tr>';
+    return;
+  }
+  body.innerHTML = bom.map(b => `
+    <tr>
+      <td><strong>${b.name || '—'}</strong></td>
+      <td>${b.position || '—'}</td>
+      <td>${b.phone || '—'}</td>
+      <td>${b.email || '—'}</td>
+      <td>${b.termStart || '—'}</td>
+      <td>${b.termEnd || '—'}</td>
+      <td>
+        <button class="btn btn-outline btn-sm" onclick="peopleEditBOM('${b.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-sm" style="background:#ef4444;color:#fff;margin-left:.3rem" onclick="peopleDeleteBOM('${b.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function peopleEditBOM(id) {
+  const bom = loadPeopleBOM();
+  const b = bom.find(x => x.id === id);
+  if (!b) return;
+  document.getElementById('bomEditId').value    = id;
+  document.getElementById('bomName').value      = b.name      || '';
+  document.getElementById('bomPosition').value  = b.position  || '';
+  document.getElementById('bomPhone').value     = b.phone     || '';
+  document.getElementById('bomEmail').value     = b.email     || '';
+  document.getElementById('bomTermStart').value = b.termStart || '';
+  document.getElementById('bomTermEnd').value   = b.termEnd   || '';
+  const title = document.getElementById('bomFormTitle');
+  if (title) title.innerHTML = '<i class="fa-solid fa-pen"></i> Edit BOM Member';
+}
+
+function peopleDeleteBOM(id) {
+  if (!confirm('Remove this BOM member? This cannot be undone.')) return;
+  let bom = loadPeopleBOM().filter(b => b.id !== id);
+  savePeopleBOM(bom);
+  peopleRenderBOMTable();
+  showToast('BOM member removed.');
+}
+
+function peopleExportBOMCSV() {
+  const bom = loadPeopleBOM();
+  if (!bom.length) { alert('No BOM members to export.'); return; }
+  const hdr  = ['Name','Position','Phone','Email','Term Start','Term End'];
+  const rows = bom.map(b => [b.name,b.position,b.phone,b.email,b.termStart,b.termEnd].map(v => `"${(v||'').replace(/"/g,'""')}"`));
+  const csv  = [hdr, ...rows].map(r => r.join(',')).join('\n');
+  const a    = document.createElement('a');
+  a.href     = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'bom_directory.csv';
+  a.click();
 }
 
 // ── Sidebar Staff Details section ──────────────────────────────
