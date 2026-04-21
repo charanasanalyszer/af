@@ -347,6 +347,31 @@ function addGSBandRow() {
 
 
 // ═══════════════ PORTAL NAVIGATION ═══════════════
+function showUnifiedLogin() {
+  document.body.classList.add('login-active');
+  ['app'].forEach(id => { const el=document.getElementById(id); if(el) el.style.display='none'; });
+  // Hide fixed-position elements that escape parent display:none
+  const sb = document.getElementById('sidebar'); if (sb) sb.style.display = 'none';
+  const tb = document.getElementById('topbar'); if (tb) tb.style.display = 'none';
+  const mbn = document.getElementById('mobileBottomNav'); if (mbn) mbn.style.display = 'none';
+  const mbnR = document.getElementById('mbnRestoreTab'); if (mbnR) mbnR.style.display = 'none';
+  const ul = document.getElementById('unifiedLogin');
+  if (ul) { ul.style.display='flex'; }
+  const u=document.getElementById('uniUser'); const p=document.getElementById('uniPass');
+  const err=document.getElementById('uniErr'); if(err) err.style.display='none';
+  // Pre-fill saved credentials if "Remember me" was checked
+  try {
+    const saved = JSON.parse(localStorage.getItem('ei_saved_login') || 'null');
+    if (saved && saved.username) {
+      if(u) u.value = saved.username;
+      if(p) p.value = saved.password || '';
+      const rem = document.getElementById('uniRemember'); if(rem) rem.checked = true;
+    } else {
+      if(u) u.value=''; if(p) p.value='';
+    }
+  } catch(e) { if(u) u.value=''; if(p) p.value=''; }
+  setTimeout(()=>{ if(u && !u.value) u.focus(); else if(p && !p.value) p.focus(); else if(u) u.focus(); },100);
+}
 function showDualPortal() { showUnifiedLogin(); } // backward compat alias
 function showPlatformLogin() {
   document.getElementById('dualPortal').style.display = 'none';
@@ -11197,7 +11222,6 @@ function downloadFeeImportTemplate() {
 }
 
 
-function printFeeOverview() {
   loadFees();
   const filterClass = document.getElementById('fovClass')?.value || '';
   const filterTerm  = document.getElementById('fovTerm')?.value  || '';
@@ -11240,7 +11264,6 @@ function printFeeOverview() {
   </body></html>`);
   win.document.close();
   setTimeout(() => { win.focus(); }, 300);
-}
 
 // ═══════════════════════════════════════════
 // REPORT FORM INTEGRATION
@@ -12524,7 +12547,6 @@ function openPapersTab(tabId, btn) {
   const p = document.getElementById(tabId); if (p) p.classList.add('active');
   if (btn) btn.classList.add('active');
   if (tabId === 'tabTermlyExams') initTermlyExamsTab();
-  if (tabId === 'tabRevision') initRevisionTab();
 }
 
 // ── Init when section is entered ──
@@ -12918,6 +12940,17 @@ function initRevisionTab() {
 
   populatePlatformPaperFilters();
   renderPlatformPapers();
+}
+
+// Update openPapersTab to also call initRevisionTab
+const _origOpenPapersTab = window.openPapersTab;
+function openPapersTab(tabId, btn) {
+  document.querySelectorAll('#s-papers .tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#papersTabBar .tb').forEach(b => b.classList.remove('active'));
+  const p = document.getElementById(tabId); if (p) p.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (tabId === 'tabTermlyExams') initTermlyExamsTab();
+  if (tabId === 'tabRevision') initRevisionTab();
 }
 
 function populatePlatformPaperFilters() {
