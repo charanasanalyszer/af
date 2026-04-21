@@ -17725,11 +17725,20 @@ function deletePayslipHistory(id) {
 // STAFF DETAILS — shared data layer (used by sidebar + platform admin)
 // ══════════════════════════════════════════════════════════════════
 
+function staffDetailsKey() {
+  return (typeof schoolPrefix === 'function' ? schoolPrefix() : '') + 'charanas_staffDetails';
+}
+function staffDocsKey() {
+  return (typeof schoolPrefix === 'function' ? schoolPrefix() : '') + 'charanas_staffDocs';
+}
+function staffLeaveKey() {
+  return (typeof schoolPrefix === 'function' ? schoolPrefix() : '') + 'charanas_staffLeave';
+}
 function loadStaffDetails() {
-  return JSON.parse(localStorage.getItem('charanas_staffDetails') || '[]');
+  return JSON.parse(localStorage.getItem(staffDetailsKey()) || '[]');
 }
 function saveStaffDetailsStorage(data) {
-  localStorage.setItem('charanas_staffDetails', JSON.stringify(data));
+  localStorage.setItem(staffDetailsKey(), JSON.stringify(data));
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -18072,6 +18081,8 @@ function openSDTab(tabId, btn) {
   const panel = document.getElementById(tabId);
   if (panel) { panel.style.display = ''; panel.classList.add('active'); }
   if (btn) btn.classList.add('active');
+  if (tabId === 'sdpLeave') { sdpPopulateLeaveDropdowns(); sdpRenderLeaveList(); }
+  if (tabId === 'sdpDocs')  { sdpPopulateDocDropdownSchool(); sdpRenderDocsList(); }
 }
 
 function sdpRenderStats() {
@@ -18249,16 +18260,16 @@ function sdpHandleDocUpload(input) {
   const staffSel = document.getElementById('sdpdocStaff');
   const staffName = staffSel?.options[staffSel.selectedIndex]?.text || 'Unknown';
   const type = document.getElementById('sdpdocType')?.value || 'Other';
-  let docs = JSON.parse(localStorage.getItem('charanas_staffDocs')||'[]');
+  let docs = JSON.parse(localStorage.getItem(staffDocsKey())||'[]');
   docs.push({ id:'doc_'+Date.now(), staff:staffName, type, filename:file.name, size:(file.size/1024).toFixed(1)+' KB', uploaded:new Date().toLocaleDateString() });
-  localStorage.setItem('charanas_staffDocs', JSON.stringify(docs));
+  localStorage.setItem(staffDocsKey(), JSON.stringify(docs));
   sdpRenderDocsList(); platRenderDocsList();
   input.value = ''; showToast(`Document "${file.name}" recorded.`);
 }
 
 function sdpRenderDocsList() {
   const el = document.getElementById('sdpDocsList'); if (!el) return;
-  const docs = JSON.parse(localStorage.getItem('charanas_staffDocs')||'[]');
+  const docs = JSON.parse(localStorage.getItem(staffDocsKey())||'[]');
   if (!docs.length) { el.innerHTML = '<p style="color:var(--muted);font-size:.85rem;text-align:center;padding:1.5rem">No documents recorded yet.</p>'; return; }
   el.innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Staff</th><th>Type</th><th>Filename</th><th>Size</th><th>Date</th><th>Action</th></tr></thead>
   <tbody>${docs.map((d,i)=>`<tr><td>${i+1}</td><td>${d.staff}</td><td>${d.type}</td><td><i class="fa-solid fa-file"></i> ${d.filename}</td><td>${d.size}</td><td>${d.uploaded}</td>
@@ -18267,9 +18278,138 @@ function sdpRenderDocsList() {
 
 function sdpDeleteDoc(id) {
   if (!confirm('Remove this document record?')) return;
-  let docs = JSON.parse(localStorage.getItem('charanas_staffDocs')||'[]').filter(d=>d.id!==id);
-  localStorage.setItem('charanas_staffDocs', JSON.stringify(docs));
+  let docs = JSON.parse(localStorage.getItem(staffDocsKey())||'[]').filter(d=>d.id!==id);
+  localStorage.setItem(staffDocsKey(), JSON.stringify(docs));
   sdpRenderDocsList(); platRenderDocsList();
+}
+
+// ════════════════════════════════════════════════════════════════
+//  SCHOOL STAFF — LEAVE DETAILS
+// ════════════════════════════════════════════════════════════════
+
+function loadStaffLeave() {
+  return JSON.parse(localStorage.getItem(staffLeaveKey()) || '[]');
+}
+function saveStaffLeave(data) {
+  localStorage.setItem(staffLeaveKey(), JSON.stringify(data));
+}
+
+function sdpPopulateLeaveDropdowns() {
+  const staff = loadStaffDetails();
+  ['sdpLeaveStaff', 'sdpLeaveFilterStaff'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const first = id === 'sdpLeaveFilterStaff' ? '<option value="">All Staff</option>' : '<option value="">— Select Staff —</option>';
+    sel.innerHTML = first + staff.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  });
+}
+
+function sdpPopulateDocDropdownSchool() {
+  const staff = loadStaffDetails();
+  const sel = document.getElementById('sdpdocStaff');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Select Staff —</option>' + staff.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+/* Auto-calculate days when dates change */
+function sdpLeaveCalcDays() {
+  const s = document.getElementById('sdpLeaveStart')?.value;
+  const e = document.getElementById('sdpLeaveEnd')?.value;
+  if (s && e) {
+    const diff = Math.round((new Date(e) - new Date(s)) / 86400000) + 1;
+    const el = document.getElementById('sdpLeaveDays');
+    if (el) el.value = diff > 0 ? diff : '';
+  }
+}
+
+function sdpSaveLeave() {
+  const g = id => (document.getElementById(id)?.value || '').trim();
+  const staffId = g('sdpLeaveStaff');
+  const start   = g('sdpLeaveStart');
+  const end     = g('sdpLeaveEnd');
+  if (!staffId) { alert('Please select a staff member.'); return; }
+  if (!start)   { alert('Start date is required.'); return; }
+  if (!end)     { alert('End date is required.'); return; }
+  if (new Date(end) < new Date(start)) { alert('End date cannot be before start date.'); return; }
+  const staffList = loadStaffDetails();
+  const staffRec  = staffList.find(s => s.id === staffId);
+  const rec = {
+    staffId, staffName: staffRec ? staffRec.name : '—',
+    type:   document.getElementById('sdpLeaveType')?.value   || 'Annual Leave',
+    status: document.getElementById('sdpLeaveStatus')?.value || 'Pending',
+    start, end,
+    days:   document.getElementById('sdpLeaveDays')?.value   || '',
+    reason: g('sdpLeaveReason')
+  };
+  let data = loadStaffLeave();
+  const editId = g('sdpLeaveEditId');
+  if (editId) {
+    const idx = data.findIndex(r => r.id === editId);
+    if (idx > -1) data[idx] = { ...data[idx], ...rec };
+  } else {
+    data.push({ id: 'lv_' + Date.now(), ...rec });
+  }
+  saveStaffLeave(data);
+  sdpClearLeave();
+  sdpRenderLeaveList();
+  showToast('Leave record saved.');
+}
+
+function sdpClearLeave() {
+  ['sdpLeaveEditId','sdpLeaveStart','sdpLeaveEnd','sdpLeaveDays','sdpLeaveReason'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['sdpLeaveStaff','sdpLeaveType','sdpLeaveStatus'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.selectedIndex = 0;
+  });
+}
+
+function sdpEditLeave(id) {
+  const r = loadStaffLeave().find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('sdpLeaveEditId').value = id;
+  ['sdpLeaveStaff','sdpLeaveType','sdpLeaveStatus'].forEach(fid => {
+    const key = {sdpLeaveStaff:'staffId',sdpLeaveType:'type',sdpLeaveStatus:'status'}[fid];
+    const el = document.getElementById(fid); if (el && r[key]) el.value = r[key];
+  });
+  ['sdpLeaveStart','sdpLeaveEnd','sdpLeaveDays','sdpLeaveReason'].forEach(fid => {
+    const key = {sdpLeaveStart:'start',sdpLeaveEnd:'end',sdpLeaveDays:'days',sdpLeaveReason:'reason'}[fid];
+    const el = document.getElementById(fid); if (el) el.value = r[key] || '';
+  });
+  openSDTab('sdpLeave', document.getElementById('sdpbtLeave'));
+}
+
+function sdpDeleteLeave(id) {
+  if (!confirm('Delete this leave record?')) return;
+  saveStaffLeave(loadStaffLeave().filter(r => r.id !== id));
+  sdpRenderLeaveList();
+  showToast('Leave record deleted.');
+}
+
+function sdpRenderLeaveList() {
+  const el = document.getElementById('sdpLeaveList'); if (!el) return;
+  let data = loadStaffLeave();
+  const filterStaff  = document.getElementById('sdpLeaveFilterStaff')?.value  || '';
+  const filterStatus = document.getElementById('sdpLeaveFilterStatus')?.value || '';
+  if (filterStaff)  data = data.filter(r => r.staffId  === filterStaff);
+  if (filterStatus) data = data.filter(r => r.status   === filterStatus);
+  if (!data.length) {
+    el.innerHTML = '<p style="color:var(--muted);font-size:.85rem;text-align:center;padding:2rem">No leave records found.</p>';
+    return;
+  }
+  const sc = { Pending:'#f59e0b', Approved:'#16a34a', Rejected:'#ef4444', Completed:'#6b7280' };
+  el.innerHTML = `<div class="tbl-wrap"><table>
+    <thead><tr><th>#</th><th>Staff</th><th>Type</th><th>Start</th><th>End</th><th>Days</th><th>Status</th><th>Reason</th><th>Action</th></tr></thead>
+    <tbody>${data.map((r,i)=>`<tr>
+      <td>${i+1}</td><td><strong>${r.staffName}</strong></td><td>${r.type}</td>
+      <td>${r.start}</td><td>${r.end}</td><td>${r.days||'—'}</td>
+      <td><span class="badge" style="background:${sc[r.status]||'#6b7280'};color:#fff">${r.status}</span></td>
+      <td>${r.reason||'—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-outline btn-xs" onclick="sdpEditLeave('${r.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-danger btn-xs"  onclick="sdpDeleteLeave('${r.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('')}</tbody></table></div>`;
 }
 
 // ── Platform Admin → Staff Roles tab ────────────────────────────
@@ -18450,16 +18590,16 @@ function platHandleDocUpload(input) {
   const staffSel=document.getElementById('psdocStaff');
   const staffName=staffSel?.options[staffSel.selectedIndex]?.text||'Unknown';
   const type=document.getElementById('psdocType')?.value||'Other';
-  let docs=JSON.parse(localStorage.getItem('charanas_staffDocs')||'[]');
+  let docs=JSON.parse(localStorage.getItem(staffDocsKey())||'[]');
   docs.push({id:'doc_'+Date.now(),staff:staffName,type,filename:file.name,size:(file.size/1024).toFixed(1)+' KB',uploaded:new Date().toLocaleDateString()});
-  localStorage.setItem('charanas_staffDocs',JSON.stringify(docs));
+  localStorage.setItem(staffDocsKey(),JSON.stringify(docs));
   platRenderDocsList(); sdpRenderDocsList();
   input.value=''; showToast(`Document "${file.name}" recorded.`);
 }
 
 function platRenderDocsList() {
   const el=document.getElementById('platDocsList'); if(!el) return;
-  const docs=JSON.parse(localStorage.getItem('charanas_staffDocs')||'[]');
+  const docs=JSON.parse(localStorage.getItem(staffDocsKey())||'[]');
   if(!docs.length){el.innerHTML='<p style="color:var(--muted);font-size:.85rem;text-align:center;padding:1.5rem">No documents recorded yet.</p>';return;}
   el.innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Staff</th><th>Type</th><th>Filename</th><th>Size</th><th>Date</th><th>Action</th></tr></thead>
   <tbody>${docs.map((d,i)=>`<tr><td>${i+1}</td><td>${d.staff}</td><td>${d.type}</td><td><i class="fa-solid fa-file"></i> ${d.filename}</td><td>${d.size}</td><td>${d.uploaded}</td>
@@ -18468,8 +18608,8 @@ function platRenderDocsList() {
 
 function platDeleteDoc(id) {
   if(!confirm('Remove this document record?')) return;
-  let docs=JSON.parse(localStorage.getItem('charanas_staffDocs')||'[]').filter(d=>d.id!==id);
-  localStorage.setItem('charanas_staffDocs',JSON.stringify(docs));
+  let docs=JSON.parse(localStorage.getItem(staffDocsKey())||'[]').filter(d=>d.id!==id);
+  localStorage.setItem(staffDocsKey(),JSON.stringify(docs));
   platRenderDocsList(); sdpRenderDocsList();
 }
 
@@ -18760,7 +18900,7 @@ function platInitReports() {
   const staff   = loadStaffDetails();
   const pay     = loadPayrollData();
   const lv      = loadLeaveData();
-  const docs    = JSON.parse(localStorage.getItem('charanas_staffDocs')||'[]');
+  const docs    = JSON.parse(localStorage.getItem(staffDocsKey())||'[]');
 
   // ── KPIs ──
   const kpiEl = document.getElementById('platReportKPIs');

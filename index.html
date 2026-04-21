@@ -39,13 +39,6 @@
     <div class="form-group">
       <label>Username</label>
       <input type="text" id="uniUser" name="username" placeholder="Enter username" autocomplete="username"/>
-      <div style="font-size:.72rem;color:var(--muted);margin-top:.3rem;line-height:1.5">
-        <span style="display:block"><i class="fa-solid fa-circle-info" style="color:#7c3aed;margin-right:.25rem"></i>
-          <strong>Teacher:</strong> firstname@schoolcode &nbsp;·&nbsp;
-          <strong>School:</strong> adminname@school &nbsp;·&nbsp;
-          <strong>Student:</strong> admNo@schoolcode
-        </span>
-      </div>
     </div>
     <div class="form-group">
       <label>Password</label>
@@ -3004,6 +2997,7 @@
         <button class="tb"         id="sdpbtAdd"   onclick="openSDTab('sdpAdd',this)"><i class="fa-solid fa-plus"></i> Add / Edit Staff</button>
         <button class="tb"         id="sdpbtRoles" onclick="openSDTab('sdpRoles',this)"><i class="fa-solid fa-sitemap"></i> Roles &amp; Departments</button>
         <button class="tb"         id="sdpbtDocs"  onclick="openSDTab('sdpDocs',this)"><i class="fa-solid fa-folder-open"></i> Documents</button>
+        <button class="tb"         id="sdpbtLeave" onclick="openSDTab('sdpLeave',this)"><i class="fa-solid fa-calendar-days"></i> Leave Details</button>
       </div>
 
       <!-- ALL STAFF -->
@@ -3171,6 +3165,60 @@
         </div>
       </div>
 
+
+      <!-- LEAVE DETAILS -->
+      <div id="sdpLeave" class="tab-panel" style="display:none">
+        <div class="sec-stack">
+          <div class="card">
+            <h3><i class="fa-solid fa-calendar-plus"></i> Record Leave</h3>
+            <input type="hidden" id="sdpLeaveEditId"/>
+            <div class="frow c3">
+              <div class="fg"><label>Staff Member *</label>
+                <select id="sdpLeaveStaff"><option value="">— Select Staff —</option></select>
+              </div>
+              <div class="fg"><label>Leave Type *</label>
+                <select id="sdpLeaveType">
+                  <option>Annual Leave</option><option>Sick Leave</option><option>Maternity Leave</option>
+                  <option>Paternity Leave</option><option>Compassionate Leave</option><option>Study Leave</option>
+                  <option>Unpaid Leave</option><option>Other</option>
+                </select>
+              </div>
+              <div class="fg"><label>Status</label>
+                <select id="sdpLeaveStatus">
+                  <option>Pending</option><option>Approved</option><option>Rejected</option><option>Completed</option>
+                </select>
+              </div>
+            </div>
+            <div class="frow c3">
+              <div class="fg"><label>Start Date *</label><input type="date" id="sdpLeaveStart" onchange="sdpLeaveCalcDays()"/></div>
+              <div class="fg"><label>End Date *</label><input type="date" id="sdpLeaveEnd" onchange="sdpLeaveCalcDays()"/></div>
+              <div class="fg"><label>Days</label><input type="number" id="sdpLeaveDays" placeholder="Auto-calculated" min="1" readonly style="background:var(--bg)"/></div>
+            </div>
+            <div class="fg"><label>Reason / Notes</label><input type="text" id="sdpLeaveReason" placeholder="Brief reason for leave…"/></div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem">
+              <button class="btn btn-primary btn-sm" onclick="sdpSaveLeave()"><i class="fa-solid fa-floppy-disk"></i> Save Leave Record</button>
+              <button class="btn btn-outline btn-sm" onclick="sdpClearLeave()"><i class="fa-solid fa-xmark"></i> Clear</button>
+            </div>
+          </div>
+          <div class="card">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem">
+              <h3 style="margin:0"><i class="fa-solid fa-calendar-days"></i> Leave Records</h3>
+              <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+                <select id="sdpLeaveFilterStaff" onchange="sdpRenderLeaveList()" style="font-size:.82rem;padding:.3rem .6rem;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text)">
+                  <option value="">All Staff</option>
+                </select>
+                <select id="sdpLeaveFilterStatus" onchange="sdpRenderLeaveList()" style="font-size:.82rem;padding:.3rem .6rem;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text)">
+                  <option value="">All Statuses</option>
+                  <option>Pending</option><option>Approved</option><option>Rejected</option><option>Completed</option>
+                </select>
+              </div>
+            </div>
+            <div id="sdpLeaveList">
+              <p style="color:var(--muted);font-size:.85rem;text-align:center;padding:2rem">No leave records yet. Add one above.</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ════ PLATFORM ADMIN DASHBOARD ════ -->
@@ -3191,9 +3239,6 @@
           <button class="plat-tab-btn" onclick="openPlatTab('platTab-system',this)" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-gear"></i> System</button>
           <button class="plat-tab-btn" onclick="openPlatTab('platTab-contact',this)" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-phone"></i> Contact &amp; Chat</button>
           <button class="plat-tab-btn" id="bugDetectorTabBtn" onclick="openPlatTab('platTab-bugdetector',this); bugDetectorInit();" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-bug"></i> Bug Detector</button>
-          <button class="plat-tab-btn" id="staffRolesTabBtn" onclick="openPlatTab('platTab-staffroles',this);" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-id-card"></i> Staff Roles</button>
-          <button class="plat-tab-btn" id="hrPayrollTabBtn" onclick="openPlatTab('platTab-hrpayroll',this);platInitHRPayroll();" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-money-bill-wave"></i> HR &amp; Payroll</button>
-          <button class="plat-tab-btn" id="reportsTabBtn" onclick="openPlatTab('platTab-reports',this);platInitReports();" style="padding:.75rem 1.1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-chart-bar"></i> Reports</button>
         </div>
       </div>
 
@@ -3792,368 +3837,13 @@
       <!-- ══════════════════════════════════════════════ -->
       <!-- TAB: STAFF ROLES                              -->
       <!-- ══════════════════════════════════════════════ -->
-      <div id="platTab-staffroles" class="plat-tab-panel" style="display:none">
 
-        <!-- Stats bar -->
-        <div id="platStaffStats" class="fee-ov-stats" style="margin-bottom:1.25rem"></div>
-
-        <!-- Inner sub-tabs -->
-        <div class="tab-bar" id="platStaffTabBar" style="margin-bottom:1.25rem">
-          <button class="tb active" id="pstbList"   onclick="openPlatStaffTab('pstList',this)"><i class="fa-solid fa-list"></i> All Staff</button>
-          <button class="tb"         id="pstbAdd"    onclick="openPlatStaffTab('pstAdd',this)"><i class="fa-solid fa-plus"></i> Add / Edit Staff</button>
-          <button class="tb"         id="pstbRoles"  onclick="openPlatStaffTab('pstRoles',this)"><i class="fa-solid fa-sitemap"></i> Roles & Departments</button>
-          <button class="tb"         id="pstbDocs"   onclick="openPlatStaffTab('pstDocs',this)"><i class="fa-solid fa-folder-open"></i> Documents</button>
-        </div>
-
-        <!-- ─ ALL STAFF ─ -->
-        <div id="pstList" class="tab-panel active">
-          <div class="card" style="margin-bottom:1rem">
-            <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center">
-              <div class="search-box"><span><i class="fa-solid fa-magnifying-glass"></i></span>
-                <input type="text" id="psdSearch" placeholder="Name, role, staff ID…" oninput="platFilterStaff()"/>
-              </div>
-              <select id="psdFilterDept" onchange="platFilterStaff()" style="padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.82rem">
-                <option value="">All Departments</option>
-                <option>Teaching</option><option>Administration</option><option>Support</option><option>Management</option>
-              </select>
-              <select id="psdFilterStatus" onchange="platFilterStaff()" style="padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.82rem">
-                <option value="">All Status</option>
-                <option>Active</option><option>On Leave</option><option>Resigned</option><option>Retired</option>
-              </select>
-              <button class="btn btn-outline btn-sm" onclick="platExportStaffCSV()">⬇ Export CSV</button>
-              <button class="btn btn-primary btn-sm" onclick="openPlatStaffTab('pstAdd',document.getElementById('pstbAdd'))">
-                <i class="fa-solid fa-plus"></i> Add Staff
-              </button>
-            </div>
-          </div>
-          <div class="card">
-            <div class="tbl-wrap">
-              <table id="platStaffTbl">
-                <thead><tr>
-                  <th>#</th>
-                  <th onclick="sortTable('platStaffBody',1,'str')" class="sortable-th">Staff ID <span class="sort-ico">⇅</span></th>
-                  <th onclick="sortTable('platStaffBody',2,'str')" class="sortable-th">Full Name <span class="sort-ico">⇅</span></th>
-                  <th onclick="sortTable('platStaffBody',3,'str')" class="sortable-th">Role <span class="sort-ico">⇅</span></th>
-                  <th onclick="sortTable('platStaffBody',4,'str')" class="sortable-th">Department <span class="sort-ico">⇅</span></th>
-                  <th onclick="sortTable('platStaffBody',5,'str')" class="sortable-th">Phone <span class="sort-ico">⇅</span></th>
-                  <th onclick="sortTable('platStaffBody',6,'str')" class="sortable-th">Email <span class="sort-ico">⇅</span></th>
-                  <th onclick="sortTable('platStaffBody',7,'str')" class="sortable-th">Type <span class="sort-ico">⇅</span></th>
-                  <th onclick="sortTable('platStaffBody',8,'date')" class="sortable-th">Joined <span class="sort-ico">⇅</span></th>
-                  <th onclick="sortTable('platStaffBody',9,'str')" class="sortable-th">Status <span class="sort-ico">⇅</span></th>
-                  <th>Actions</th>
-                </tr></thead>
-                <tbody id="platStaffBody">
-                  <tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No staff records yet. Click <strong>Add Staff</strong> to get started.</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- ─ ADD / EDIT STAFF ─ -->
-        <div id="pstAdd" class="tab-panel" style="display:none">
-          <div class="card">
-            <h3 id="pstFormTitle"><i class="fa-solid fa-plus"></i> Add New Staff Member</h3>
-            <input type="hidden" id="psdEditId"/>
-
-            <h4 style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:.75rem 0 .5rem">Personal Information</h4>
-            <div class="frow c3">
-              <div class="fg"><label>Full Name *</label><input type="text" id="psdName" placeholder="e.g. Jane Wanjiku"/></div>
-              <div class="fg"><label>Staff ID / TSC No</label><input type="text" id="psdStaffId" placeholder="e.g. TSC/12345"/></div>
-              <div class="fg"><label>National ID No</label><input type="text" id="psdNatId" placeholder="e.g. 23456789"/></div>
-            </div>
-            <div class="frow c3">
-              <div class="fg"><label>Gender</label>
-                <select id="psdGender"><option value="">— Select —</option><option>Male</option><option>Female</option><option>Other</option></select>
-              </div>
-              <div class="fg"><label>Date of Birth</label><input type="date" id="psdDOB"/></div>
-              <div class="fg"><label>Phone *</label><input type="tel" id="psdPhone" placeholder="07XX XXX XXX"/></div>
-            </div>
-            <div class="frow c2">
-              <div class="fg"><label>Email</label><input type="email" id="psdEmail" placeholder="staff@school.ke"/></div>
-              <div class="fg"><label>Physical Address</label><input type="text" id="psdAddress" placeholder="e.g. Eldoret, Uasin Gishu"/></div>
-            </div>
-
-            <h4 style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:.75rem 0 .5rem">Employment Details</h4>
-            <div class="frow c3">
-              <div class="fg"><label>Role / Position *</label><input type="text" id="psdRole" placeholder="e.g. Class Teacher, Bursar"/></div>
-              <div class="fg"><label>Department *</label>
-                <select id="psdDept">
-                  <option value="">— Select —</option>
-                  <option>Teaching</option><option>Administration</option><option>Support</option><option>Management</option>
-                </select>
-              </div>
-              <div class="fg"><label>Employment Type</label>
-                <select id="psdEmpType">
-                  <option>Permanent</option><option>Contract</option><option>Part-Time</option><option>Volunteer</option>
-                </select>
-              </div>
-            </div>
-            <div class="frow c3">
-              <div class="fg"><label>Date Joined</label><input type="date" id="psdJoinDate"/></div>
-              <div class="fg"><label>Contract End Date</label><input type="date" id="psdContractEnd"/></div>
-              <div class="fg"><label>Status</label>
-                <select id="psdStatus">
-                  <option>Active</option><option>On Leave</option><option>Resigned</option><option>Retired</option>
-                </select>
-              </div>
-            </div>
-
-            <h4 style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:.75rem 0 .5rem">Qualifications & Emergency Contact</h4>
-            <div class="frow c2">
-              <div class="fg"><label>Highest Qualification</label><input type="text" id="psdQual" placeholder="e.g. B.Ed, Diploma in Education"/></div>
-              <div class="fg"><label>Subjects / Specialisation</label><input type="text" id="psdSubjects" placeholder="e.g. Maths, Science"/></div>
-            </div>
-            <div class="frow c2">
-              <div class="fg"><label>Emergency Contact Name</label><input type="text" id="psdECName" placeholder="e.g. John Kamau"/></div>
-              <div class="fg"><label>Emergency Contact Phone</label><input type="tel" id="psdECPhone" placeholder="07XX XXX XXX"/></div>
-            </div>
-            <div class="fg"><label>Notes / Remarks</label><input type="text" id="psdNotes" placeholder="Any additional notes…"/></div>
-
-            <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem">
-              <button class="btn btn-primary btn-sm" onclick="platSaveStaff()"><i class="fa-solid fa-floppy-disk"></i> Save Staff Record</button>
-              <button class="btn btn-outline btn-sm" onclick="platClearStaffForm()"><i class="fa-solid fa-xmark"></i> Clear</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- ─ ROLES & DEPARTMENTS ─ -->
-        <div id="pstRoles" class="tab-panel" style="display:none">
-          <div class="sec-stack">
-            <div class="card">
-              <h3><i class="fa-solid fa-plus"></i> Define a Role</h3>
-              <div class="frow c2">
-                <div class="fg"><label>Role Name *</label><input type="text" id="psrName" placeholder="e.g. Deputy Principal"/></div>
-                <div class="fg"><label>Department *</label>
-                  <select id="psrDept">
-                    <option>Teaching</option><option>Administration</option><option>Support</option><option>Management</option>
-                  </select>
-                </div>
-              </div>
-              <div class="fg"><label>Description</label><input type="text" id="psrDesc" placeholder="Brief role description…"/></div>
-              <button class="btn btn-primary btn-sm" style="margin-top:.5rem" onclick="platSaveRole()">
-                <i class="fa-solid fa-floppy-disk"></i> Save Role
-              </button>
-            </div>
-            <div class="card">
-              <h3><i class="fa-solid fa-clipboard-list"></i> Defined Roles</h3>
-              <div id="platRolesList"><p style="color:var(--muted);font-size:.85rem">No roles defined yet.</p></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ─ DOCUMENTS ─ -->
-        <div id="pstDocs" class="tab-panel" style="display:none">
-          <div class="card">
-            <h3><i class="fa-solid fa-folder-open"></i> Staff Documents</h3>
-            <p style="color:var(--muted);font-size:.85rem;margin-bottom:1rem">Record and track staff documents — contracts, certificates, ID copies.</p>
-            <div class="frow c2">
-              <div class="fg"><label>Staff Member</label>
-                <select id="psdocStaff"><option value="">— Select Staff —</option></select>
-              </div>
-              <div class="fg"><label>Document Type</label>
-                <select id="psdocType">
-                  <option>Employment Contract</option><option>ID Copy</option>
-                  <option>Academic Certificate</option><option>TSC Certificate</option><option>Other</option>
-                </select>
-              </div>
-            </div>
-            <div class="upload-zone" onclick="document.getElementById('psdocFile').click()" style="margin-top:.75rem">
-              <div class="uz-icon"><i class="fa-solid fa-file-arrow-up"></i></div>
-              <h4>Click to upload document</h4>
-              <p>PDF, JPG, PNG — max 5 MB</p>
-              <input type="file" id="psdocFile" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="platHandleDocUpload(this)"/>
-            </div>
-            <div id="platDocsList" style="margin-top:1rem">
-              <p style="color:var(--muted);font-size:.85rem;text-align:center;padding:1.5rem">No documents recorded yet.</p>
-            </div>
-          </div>
-        </div>
-
-      </div><!-- /platTab-staffroles -->
 
       <!-- ══════════════════════════════════════════════ -->
-      <!-- TAB: HR & PAYROLL                             -->
-      <!-- ══════════════════════════════════════════════ -->
-      <div id="platTab-hrpayroll" class="plat-tab-panel" style="display:none">
 
-        <!-- Stats bar -->
-        <div id="platHRStats" class="fee-ov-stats" style="margin-bottom:1.25rem"></div>
-
-        <!-- Sub-tabs -->
-        <div class="tab-bar" id="platHRTabBar" style="margin-bottom:1.25rem">
-          <button class="tb active" id="hrtbPayroll" onclick="openPlatHRTab('hrPayroll',this)"><i class="fa-solid fa-money-bill-wave"></i> Payroll</button>
-          <button class="tb"         id="hrtbLeave"   onclick="openPlatHRTab('hrLeave',this)"><i class="fa-solid fa-calendar-days"></i> Leave</button>
-          <button class="tb"         id="hrtbPayslip" onclick="openPlatHRTab('hrPayslip',this)"><i class="fa-solid fa-receipt"></i> Payslips</button>
-        </div>
-
-        <!-- ─ PAYROLL ─ -->
-        <div id="hrPayroll" class="tab-panel active">
-          <div class="card" style="margin-bottom:1rem">
-            <h3><i class="fa-solid fa-plus"></i> Add Payroll Record</h3>
-            <input type="hidden" id="hrpEditId"/>
-            <div class="frow c3">
-              <div class="fg"><label>Staff Member *</label>
-                <select id="hrpStaff"><option value="">— Select Staff —</option></select>
-              </div>
-              <div class="fg"><label>Pay Period * <span style="font-size:.72rem;color:var(--muted)">(YYYY-MM)</span></label>
-                <input type="month" id="hrpPeriod"/>
-              </div>
-              <div class="fg"><label>Basic Salary (KES) *</label>
-                <input type="number" id="hrpBasic" placeholder="e.g. 50000" min="0"/>
-              </div>
-            </div>
-            <div class="frow c3">
-              <div class="fg"><label>Allowances (KES)</label>
-                <input type="number" id="hrpAllowances" placeholder="0" min="0" value="0"/>
-              </div>
-              <div class="fg"><label>Deductions (KES)</label>
-                <input type="number" id="hrpDeductions" placeholder="0" min="0" value="0"/>
-              </div>
-              <div class="fg"><label>Payment Status</label>
-                <select id="hrpStatus"><option>Pending</option><option>Paid</option><option>On Hold</option></select>
-              </div>
-            </div>
-            <div class="fg" style="margin-bottom:.75rem">
-              <label>Notes</label>
-              <input type="text" id="hrpNotes" placeholder="Optional notes…"/>
-            </div>
-            <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
-              <button class="btn btn-primary btn-sm" onclick="platSavePayroll()"><i class="fa-solid fa-floppy-disk"></i> Save Payroll Record</button>
-              <button class="btn btn-outline btn-sm" onclick="platClearPayrollForm()"><i class="fa-solid fa-xmark"></i> Clear</button>
-              <span id="hrpMsg" style="font-size:.82rem;font-weight:600"></span>
-            </div>
-          </div>
-          <div class="card">
-            <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:.75rem">
-              <div class="search-box"><span><i class="fa-solid fa-magnifying-glass"></i></span>
-                <input type="text" id="hrpSearch" placeholder="Search name, period…" oninput="platRenderPayrollList()"/>
-              </div>
-              <select id="hrpFilterStatus" onchange="platRenderPayrollList()" style="padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.82rem">
-                <option value="">All Status</option><option>Paid</option><option>Pending</option><option>On Hold</option>
-              </select>
-              <button class="btn btn-outline btn-sm" onclick="platExportPayrollCSV()"><i class="fa-solid fa-download"></i> Export CSV</button>
-            </div>
-            <div class="tbl-wrap">
-              <table>
-                <thead><tr>
-                  <th>#</th><th>Staff Name</th><th>Period</th>
-                  <th>Basic (KES)</th><th>Allowances</th><th>Deductions</th><th>Net Pay (KES)</th>
-                  <th>Status</th><th>Actions</th>
-                </tr></thead>
-                <tbody id="hrPayrollBody">
-                  <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">No payroll records yet. Add one above.</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- ─ LEAVE ─ -->
-        <div id="hrLeave" class="tab-panel" style="display:none">
-          <div class="card" style="margin-bottom:1rem">
-            <h3><i class="fa-solid fa-plus"></i> Record Leave Application</h3>
-            <input type="hidden" id="hrlEditId"/>
-            <div class="frow c3">
-              <div class="fg"><label>Staff Member *</label>
-                <select id="hrlStaff"><option value="">— Select Staff —</option></select>
-              </div>
-              <div class="fg"><label>Leave Type *</label>
-                <select id="hrlType">
-                  <option>Annual Leave</option><option>Sick Leave</option><option>Maternity Leave</option>
-                  <option>Paternity Leave</option><option>Unpaid Leave</option><option>Study Leave</option><option>Other</option>
-                </select>
-              </div>
-              <div class="fg"><label>Status</label>
-                <select id="hrlStatus"><option>Pending</option><option>Approved</option><option>Rejected</option></select>
-              </div>
-            </div>
-            <div class="frow c2">
-              <div class="fg"><label>Start Date *</label><input type="date" id="hrlStart"/></div>
-              <div class="fg"><label>End Date *</label><input type="date" id="hrlEnd"/></div>
-            </div>
-            <div class="fg" style="margin-bottom:.75rem">
-              <label>Reason / Notes</label>
-              <input type="text" id="hrlReason" placeholder="Optional reason…"/>
-            </div>
-            <button class="btn btn-primary btn-sm" onclick="platSaveLeave()"><i class="fa-solid fa-floppy-disk"></i> Save Leave Record</button>
-            <span id="hrlMsg" style="font-size:.82rem;font-weight:600;margin-left:.75rem"></span>
-          </div>
-          <div class="card">
-            <div class="tbl-wrap">
-              <table>
-                <thead><tr><th>#</th><th>Staff</th><th>Leave Type</th><th>Start</th><th>End</th><th>Days</th><th>Status</th><th>Reason</th><th>Actions</th></tr></thead>
-                <tbody id="hrLeaveBody">
-                  <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">No leave records yet.</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- ─ PAYSLIPS ─ -->
-        <div id="hrPayslip" class="tab-panel" style="display:none">
-          <div class="card">
-            <h3><i class="fa-solid fa-receipt"></i> Generate Payslip</h3>
-            <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">Select a staff member and pay period to preview and print a payslip.</p>
-            <div class="frow c2" style="margin-bottom:.75rem">
-              <div class="fg"><label>Staff Member</label>
-                <select id="hrpsStaff"><option value="">— Select Staff —</option></select>
-              </div>
-              <div class="fg"><label>Pay Period</label>
-                <input type="month" id="hrpsPeriod"/>
-              </div>
-            </div>
-            <button class="btn btn-primary btn-sm" onclick="platGeneratePayslip()"><i class="fa-solid fa-eye"></i> Preview Payslip</button>
-            <div id="platPayslipOutput" style="margin-top:1.25rem"></div>
-          </div>
-        </div>
-
-      </div><!-- /platTab-hrpayroll -->
 
       <!-- ══════════════════════════════════════════════ -->
-      <!-- TAB: REPORTS                                  -->
-      <!-- ══════════════════════════════════════════════ -->
-      <div id="platTab-reports" class="plat-tab-panel" style="display:none">
 
-        <div style="display:flex;justify-content:flex-end;margin-bottom:1rem">
-          <button class="btn btn-outline btn-sm" onclick="platInitReports()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
-        </div>
-
-        <!-- KPI row -->
-        <div id="platReportKPIs" class="fee-ov-stats" style="margin-bottom:1.5rem"></div>
-
-        <!-- Row 1: Staff breakdown -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem">
-          <div class="card">
-            <h3 style="margin-bottom:1rem"><i class="fa-solid fa-users"></i> Staff by Department</h3>
-            <div id="rptStaffByDept"></div>
-          </div>
-          <div class="card">
-            <h3 style="margin-bottom:1rem"><i class="fa-solid fa-circle-half-stroke"></i> Staff by Status</h3>
-            <div id="rptStaffByStatus"></div>
-          </div>
-        </div>
-
-        <!-- Row 2: Payroll summary -->
-        <div class="card" style="margin-bottom:1.25rem">
-          <h3 style="margin-bottom:1rem"><i class="fa-solid fa-money-bill-trend-up"></i> Payroll Summary (Latest Period per Staff)</h3>
-          <div id="rptPayrollSummary"></div>
-        </div>
-
-        <!-- Row 3: Docs & Leave -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
-          <div class="card">
-            <h3 style="margin-bottom:1rem"><i class="fa-solid fa-folder-open"></i> Documents by Type</h3>
-            <div id="rptDocsByType"></div>
-          </div>
-          <div class="card">
-            <h3 style="margin-bottom:1rem"><i class="fa-solid fa-calendar-xmark"></i> Leave by Type</h3>
-            <div id="rptLeaveByType"></div>
-          </div>
-        </div>
-
-      </div><!-- /platTab-reports -->
 
       <!-- ── OVERLAYS (always rendered, outside tabs) ── -->
 
