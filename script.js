@@ -2202,19 +2202,21 @@ const K_LITE_MODE       = 'ei_platform_lite_mode';       // { enabled: bool, mod
 
 // Default modules visible in lite mode
 const LITE_MODE_DEFAULTS = {
-  dashboard:   true,
-  students:    true,
-  teachers:    true,
-  classes:     true,
-  subjects:    true,
-  timetable:   true,
-  exams:       true,
-  reports:     true,
-  fees:        true,
-  papers:      false,
-  exambuilder: false,
-  messaging:   false,
-  settings:    true,
+  dashboard:    true,
+  students:     true,
+  teachers:     true,
+  classes:      true,
+  subjects:     true,
+  timetable:    true,
+  exams:        true,
+  reports:      true,
+  fees:         true,
+  people:       true,
+  staffdetails: true,
+  papers:       false,
+  exambuilder:  false,
+  messaging:    false,
+  settings:     true,
 };
 
 function loadLiteMode() {
@@ -2387,6 +2389,8 @@ const NAV_CONFIG_SCHEMA = [
     { id:'tabFeeReminders',  label:'<i class="fa-solid fa-bell"></i> Reminders' },
     { id:'tabFeeReceipts',   label:'<i class="fa-solid fa-receipt"></i> Receipts' },
   ]},
+  { section:'people',       label:'<i class="fa-solid fa-users"></i> People',                 tabs:[] },
+  { section:'staffdetails', label:'<i class="fa-solid fa-id-card"></i> Staff Details',         tabs:[] },
   { section:'messaging',   label:'<i class="fa-solid fa-comments"></i> Messaging',          tabs:[] },
   { section:'settings',    label:'<i class="fa-solid fa-screwdriver-wrench"></i>️ Settings',            tabs:[] },
 ];
