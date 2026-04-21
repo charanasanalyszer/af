@@ -3300,3 +3300,266 @@ h3 { color:#dde4ff !important; }
 @keyframes fadeUp { from{opacity:0;transform:translateY(12px);} to{opacity:1;transform:translateY(0);} }
 .sec.active { animation:fadeUp .3s cubic-bezier(.22,1,.36,1); }
 
+
+
+/* ═══════════════════════════════════════════════════════════
+   GLASSMORPHISM — Lightweight, performance-safe
+   Applied ONLY to static/fixed elements (topbar, modal, cards,
+   login card). NOT applied to scrolling lists, tables, or any
+   element that repaints frequently.
+   Uses will-change sparingly and only on modal/overlay.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Topbar glass ── */
+.topbar {
+  background: rgba(255, 255, 255, 0.82) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid rgba(203, 213, 225, 0.55) !important;
+}
+body.dark .topbar {
+  background: rgba(15, 39, 68, 0.80) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+
+/* ── Stat cards — subtle glass ── */
+.stat-card {
+  background: rgba(255, 255, 255, 0.78) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(203, 213, 225, 0.5) !important;
+  box-shadow: 0 2px 12px rgba(124, 58, 237, 0.06), 0 1px 3px rgba(0,0,0,0.05) !important;
+}
+body.dark .stat-card {
+  background: rgba(19, 45, 80, 0.72) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25) !important;
+}
+
+/* ── Chart boxes — glass ── */
+.chart-box {
+  background: rgba(255, 255, 255, 0.78) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(203, 213, 225, 0.5) !important;
+  box-shadow: 0 2px 12px rgba(124, 58, 237, 0.05) !important;
+}
+body.dark .chart-box {
+  background: rgba(19, 45, 80, 0.72) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ── Section cards — very light glass ── */
+.card {
+  background: rgba(255, 255, 255, 0.82) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  border: 1px solid rgba(203, 213, 225, 0.48) !important;
+  box-shadow: 0 1px 8px rgba(0,0,0,0.04), 0 4px 16px rgba(124,58,237,0.04) !important;
+}
+body.dark .card {
+  background: rgba(19, 45, 80, 0.70) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3) !important;
+}
+
+/* ── Modal — glass with will-change (only shows briefly) ── */
+.modal {
+  background: rgba(255, 255, 255, 0.90) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(203, 213, 225, 0.6) !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.6) inset !important;
+  will-change: transform;
+}
+body.dark .modal {
+  background: rgba(15, 39, 68, 0.90) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.55) !important;
+}
+
+/* ── Login card — glass ── */
+.login-card {
+  background: rgba(255, 255, 255, 0.88) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.65) !important;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.22), 0 0 0 1px rgba(255,255,255,0.5) inset !important;
+}
+
+/* ── Mobile bottom nav — glass ── */
+.mobile-bottom-nav {
+  background: rgba(20, 10, 38, 0.88) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-top: 1px solid rgba(124, 58, 237, 0.30) !important;
+}
+
+/* ── Toast — glass ── */
+.toast {
+  background: rgba(9, 12, 38, 0.88) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   LIGHT MODE — TEXT READABILITY FIXES
+   Targets every place where text was too light on white/pale bg
+   ═══════════════════════════════════════════════════════════ */
+
+/* Form labels — too faint at #64748b on white */
+label {
+  color: #475569 !important;
+}
+body.dark label {
+  color: var(--muted) !important;
+}
+
+/* Table header text */
+th {
+  color: #475569 !important;
+}
+body.dark th {
+  color: var(--muted) !important;
+}
+
+/* Muted text — bump contrast */
+.muted, [class*="muted"] {
+  color: #4b5563 !important;
+}
+body.dark .muted,
+body.dark [class*="muted"] {
+  color: var(--muted) !important;
+}
+
+/* Stat card labels */
+.sc-lbl {
+  color: #475569 !important;
+}
+body.dark .sc-lbl {
+  color: var(--muted) !important;
+}
+
+/* Quick card text on light backgrounds */
+.qcard.blue  { color: #3730a3 !important; }
+.qcard.green { color: #166534 !important; }
+.qcard.teal  { color: #0f6960 !important; }
+.qcard.amber { color: #92400e !important; }
+.qc-label    { color: inherit !important; font-weight: 700; }
+
+/* Inactive tab text */
+.tb {
+  color: #4b5563 !important;
+}
+.tb:hover {
+  color: #1e293b !important;
+}
+.tb.active {
+  color: var(--primary) !important;
+}
+body.dark .tb       { color: var(--muted) !important; }
+body.dark .tb:hover { color: #e2e8f0 !important; }
+body.dark .tb.active { color: var(--primary) !important; }
+
+/* Nav item inactive */
+.sn {
+  color: rgba(255,255,255,0.72) !important;
+}
+body.dark .sn {
+  color: var(--sb-text) !important;
+}
+
+/* Sidebar child items */
+.sn-child {
+  color: rgba(255,255,255,0.60) !important;
+}
+
+/* Badge text — ensure readable on pale backgrounds */
+.b-blue   { color: #3730a3 !important; background: #ede9fe !important; }
+.b-green  { color: #166534 !important; }
+.b-teal   { color: #0f6960 !important; }
+.b-amber  { color: #92400e !important; }
+.b-orange { color: #9a3412 !important; }
+.b-red    { color: #991b1b !important; }
+.b-purple { color: #6b21a8 !important; }
+
+/* Analysis card labels */
+.an-lbl {
+  color: #475569 !important;
+}
+body.dark .an-lbl { color: var(--muted) !important; }
+
+/* Fee stat card labels */
+.fsc-lbl {
+  color: #475569 !important;
+}
+body.dark .fsc-lbl { color: var(--muted) !important; }
+
+/* topbar user pill — light mode */
+.tb-user {
+  color: #4c1d95 !important;
+  background: linear-gradient(135deg, #ede9fe, #dbeafe) !important;
+  border-color: #c4b5fd !important;
+}
+body.dark .tb-user {
+  color: var(--primary) !important;
+}
+
+/* Search box placeholder */
+.search-box input::placeholder {
+  color: #6b7280 !important;
+}
+
+/* Exam category desc text */
+.ecat-desc {
+  color: #4b5563 !important;
+}
+body.dark .ecat-desc { color: var(--muted) !important; }
+
+/* Section label in sidebar */
+.sb-section-lbl {
+  color: rgba(255,255,255,0.45) !important;
+}
+
+/* ctbar / filter area muted text */
+.ctbar h3 {
+  color: var(--text) !important;
+}
+
+/* Fee structure item muted spans */
+.fsi-breakdown {
+  color: #475569 !important;
+}
+body.dark .fsi-breakdown { color: var(--muted) !important; }
+
+/* Chart box headings in light mode */
+.chart-box h3 {
+  color: #1e293b !important;
+}
+body.dark .chart-box h3 { color: var(--text) !important; }
+
+/* Card headings */
+.card h3 {
+  color: #0f172a !important;
+}
+body.dark .card h3 { color: var(--text) !important; }
+
+/* Exam wizard step muted */
+.eb-step {
+  color: #4b5563 !important;
+}
+.eb-step.active { color: var(--primary) !important; }
+.eb-step.completed { color: #059669 !important; }
+body.dark .eb-step { color: var(--muted) !important; }
+
+/* Score bar track in light mode */
+.sbar {
+  background: #e2e8f0 !important;
+}
+body.dark .sbar { background: rgba(255,255,255,0.10) !important; }
+
+/* Paper price text */
+.paper-price-free { color: #166534 !important; }
+.paper-price-paid { color: #4c1d95 !important; }
