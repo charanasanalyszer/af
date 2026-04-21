@@ -17745,20 +17745,24 @@ function saveStaffDetailsStorage(data) {
 //  PEOPLE SECTION  (Staff & BOM — s-people)
 // ══════════════════════════════════════════════════════════════
 
-const K_PEOPLE_STAFF = 'charanas_peopleStaff';
-const K_PEOPLE_BOM   = 'charanas_peopleBOM';
+function peopleStaffKey() {
+  return (typeof schoolPrefix === 'function' ? schoolPrefix() : '') + 'charanas_peopleStaff';
+}
+function peopleBOMKey() {
+  return (typeof schoolPrefix === 'function' ? schoolPrefix() : '') + 'charanas_peopleBOM';
+}
 
 function loadPeopleStaff() {
-  return JSON.parse(localStorage.getItem(K_PEOPLE_STAFF) || '[]');
+  return JSON.parse(localStorage.getItem(peopleStaffKey()) || '[]');
 }
 function savePeopleStaff(arr) {
-  localStorage.setItem(K_PEOPLE_STAFF, JSON.stringify(arr));
+  localStorage.setItem(peopleStaffKey(), JSON.stringify(arr));
 }
 function loadPeopleBOM() {
-  return JSON.parse(localStorage.getItem(K_PEOPLE_BOM) || '[]');
+  return JSON.parse(localStorage.getItem(peopleBOMKey()) || '[]');
 }
 function savePeopleBOM(arr) {
-  localStorage.setItem(K_PEOPLE_BOM, JSON.stringify(arr));
+  localStorage.setItem(peopleBOMKey(), JSON.stringify(arr));
 }
 
 function initPeopleSection() {
@@ -17866,8 +17870,8 @@ function pstSaveStaff() {
   pstPopulateDeptFilter();
   pstRenderList();
   // Switch to list tab to show result
-  openPeopleStaffTab('pplStList', document.querySelector('#peopleStaffTabBar .tb'));
-  showToast(editId ? 'Staff record updated.' : 'Staff member added.');
+  openPeopleStaffTab('pplStList', document.getElementById('pstbList'));
+  showToast(editId ? 'Staff record updated.' : 'Staff member added successfully.');
 }
 
 function pstClearForm() {
@@ -17900,8 +17904,7 @@ function pstEditStaff(id) {
   const title = document.getElementById('pplStFormTitle');
   if (title) title.innerHTML = '<i class="fa-solid fa-pen"></i> Edit Staff Member';
   // Switch to add/edit tab
-  const addBtn = document.querySelector('#peopleStaffTabBar .tb:nth-child(2)');
-  openPeopleStaffTab('pplStAddEdit', addBtn);
+  openPeopleStaffTab('pplStAddEdit', document.getElementById('pstbAddEdit'));
 }
 
 function pstDeleteStaff(id) {
