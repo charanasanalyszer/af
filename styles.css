@@ -3563,3 +3563,12 @@ body.dark .sbar { background: rgba(255,255,255,0.10) !important; }
 /* Paper price text */
 .paper-price-free { color: #166534 !important; }
 .paper-price-paid { color: #4c1d95 !important; }
+
+/* ── New: btn-xs & badge-green for Finances / Staff sections ── */
+.btn-xs { padding:.2rem .5rem;font-size:.72rem;border-radius:5px;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--text);transition:all .15s; }
+.btn-xs:hover { opacity:.8; }
+.btn-xs.btn-danger,.btn-xs.btn-danger:hover { background:#ef4444;border-color:#ef4444;color:#fff; }
+.btn-xs.btn-primary { background:var(--primary);border-color:var(--primary);color:#fff; }
+.badge-green { background:#16a34a;color:#fff; }
+.fsc-label { font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem; }
+.fsc-val   { font-size:1.35rem;font-weight:800;color:var(--text); }

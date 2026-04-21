@@ -1346,7 +1346,7 @@ function enterPlatformDashboard() {
   const mbnRestore = document.getElementById('mbnRestoreTab');
   if (mbnRestore) mbnRestore.style.display = 'none';
   // Platform portal: hide school-specific nav, only show Platform Admin link
-  ['subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','messaging','settings'].forEach(s=>{
+  ['subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','staffdetails','messaging','settings'].forEach(s=>{
     const el=document.querySelector('[data-s="'+s+'"]'); if(el) el.style.display='none';
   });
   // Hide school-only exam tabs for platform admin
@@ -3168,7 +3168,7 @@ function doLogout() {
   if (mbnRestore) { mbnRestore.classList.remove('visible'); mbnRestore.style.display = 'none'; }
   document.body.classList.remove('mbn-hidden');
   // Restore ALL nav links in both sidebar AND mobile bottom nav for next login
-  ['dashboard','subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','messaging','settings'].forEach(s=>{
+  ['dashboard','subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','messaging','staffdetails','settings'].forEach(s=>{
     document.querySelectorAll('[data-s="'+s+'"]').forEach(el => el.style.display='');
   });
   // Also restore topbar user display
@@ -3254,7 +3254,7 @@ function launchApp() {
     const teacherAllowed = new Set(['dashboard','exambuilder','papers']);
     // Settings nav: only show if NOT restricted
     if (!settings.restrictTeacherSettings) teacherAllowed.add('settings');
-    const allSecs = ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','messaging','settings','exambuilder','papers'];
+    const allSecs = ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','staffdetails','messaging','settings','exambuilder','papers'];
     // Apply show/hide to BOTH sidebar AND mobile bottom nav via querySelectorAll
     allSecs.forEach(sec => {
       const show = teacherAllowed.has(sec);
@@ -9923,6 +9923,7 @@ function go(sec, el) {
   if (sec === 'reports')    { populateReportDropdowns(); }
   if (sec === 'messaging')  { loadMsgRecipients(); }
   if (sec === 'fees')       { initFeesSection(); }
+  if (sec === 'staffdetails') { initStaffDetailsSection(); }
   if (sec === 'papers')     { initPapersSection(); }
   if (sec === 'settings')   { renderTeacherPreferences(); }
   if (sec === 'platform')   { renderPlatformDashboard(); _navCfgMode='global'; navCfgSwitchMode('global'); platRenderNavConfig(); platRenderLiteModeConfig(); platLoadContactInputs(); themeRenderSwatches(); /* Activate first platform tab */ openPlatTab('platTab-schools', document.querySelector('#platTabBar .plat-tab-btn')); }
@@ -10273,6 +10274,9 @@ function populateFeesDropdowns() {
 function initFeesSection() {
   loadFees();
   populateFeesDropdowns();
+  populateStaffDropdowns(); // populate staff selects in Salary/Payslip tabs
+  renderStaffSalaryTable();
+  renderPayslipHistory();
 
   const role      = currentUser && currentUser.role;
   const isFullFees = role === 'superadmin' || role === 'admin' || role === 'principal' || role === 'bursar';
@@ -17207,3 +17211,566 @@ function bdSevBg(sev) {
   return sev==='critical'?'#fee2e2':sev==='high'?'#fef3c7':sev==='medium'?'#dbeafe':sev==='info'?'#d1fae5':'#f1f5f9';
 }
 
+
+// ══════════════════════════════════════════════════════════════════
+// FINANCES — Staff Salary, Payroll, Payslips
+// ══════════════════════════════════════════════════════════════════
+
+function calcNetSalary() {
+  const basic  = parseFloat(document.getElementById('ssBasic')?.value)       || 0;
+  const allow  = parseFloat(document.getElementById('ssAllowances')?.value)  || 0;
+  const deduct = parseFloat(document.getElementById('ssDeductions')?.value)  || 0;
+  const nhif   = parseFloat(document.getElementById('ssNHIF')?.value)        || 0;
+  const nssf   = parseFloat(document.getElementById('ssNSSF')?.value)        || 0;
+  const net    = basic + allow - deduct - nhif - nssf;
+  const netEl  = document.getElementById('ssNet');
+  if (netEl) netEl.value = net.toFixed(2);
+}
+
+function loadStaffSalaries() {
+  const data = JSON.parse(localStorage.getItem('charanas_staffSalaries') || '[]');
+  return data;
+}
+
+function saveStaffSalariesToStorage(data) {
+  localStorage.setItem('charanas_staffSalaries', JSON.stringify(data));
+}
+
+function saveStaffSalary() {
+  const staffSel = document.getElementById('ssStaff');
+  const name  = staffSel?.options[staffSel.selectedIndex]?.text || '';
+  const staffId = staffSel?.value || '';
+  const role  = (document.getElementById('ssRole')?.value || '').trim();
+  const type  = document.getElementById('ssType')?.value || '';
+  const basic = parseFloat(document.getElementById('ssBasic')?.value) || 0;
+  const allow = parseFloat(document.getElementById('ssAllowances')?.value) || 0;
+  const deduct= parseFloat(document.getElementById('ssDeductions')?.value) || 0;
+  const nhif  = parseFloat(document.getElementById('ssNHIF')?.value) || 0;
+  const nssf  = parseFloat(document.getElementById('ssNSSF')?.value) || 0;
+  const net   = basic + allow - deduct - nhif - nssf;
+  const notes = document.getElementById('ssNotes')?.value || '';
+
+  if (!staffId) { alert('Please select a staff member.'); return; }
+  if (!basic)   { alert('Please enter a basic salary amount.'); return; }
+
+  let data = loadStaffSalaries();
+  const editId = document.getElementById('ssEditId')?.value;
+  if (editId) {
+    const idx = data.findIndex(r => r.id === editId);
+    if (idx > -1) data[idx] = { ...data[idx], name, staffId, role, type, basic, allow, deduct, nhif, nssf, net, notes };
+  } else {
+    data.push({ id: 'ss_' + Date.now(), name, staffId, role, type, basic, allow, deduct, nhif, nssf, net, notes });
+  }
+  saveStaffSalariesToStorage(data);
+  clearSSForm();
+  renderStaffSalaryTable();
+  showToast('Salary record saved.');
+}
+
+function clearSSForm() {
+  ['ssStaff','ssRole','ssType','ssBasic','ssAllowances','ssDeductions','ssNHIF','ssNSSF','ssNet','ssNotes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.tagName === 'SELECT') el.selectedIndex = 0;
+    else el.value = '';
+  });
+  const editEl = document.getElementById('ssEditId');
+  if (editEl) editEl.value = '';
+}
+
+function renderStaffSalaryTable() {
+  const body = document.getElementById('ssBody');
+  if (!body) return;
+  const data = loadStaffSalaries();
+  if (!data.length) {
+    body.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No salary records yet. Add one above.</td></tr>';
+    return;
+  }
+  body.innerHTML = data.map((r, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${r.name}</td>
+      <td>${r.role || '—'}</td>
+      <td><span class="badge">${r.type}</span></td>
+      <td>KES ${Number(r.basic).toLocaleString()}</td>
+      <td>KES ${Number(r.allow).toLocaleString()}</td>
+      <td>KES ${Number(r.deduct).toLocaleString()}</td>
+      <td>KES ${Number(r.nhif).toLocaleString()}</td>
+      <td>KES ${Number(r.nssf).toLocaleString()}</td>
+      <td style="font-weight:700;color:var(--primary)">KES ${Number(r.net).toLocaleString()}</td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="editStaffSalary('${r.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-danger btn-xs" onclick="deleteStaffSalary('${r.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function editStaffSalary(id) {
+  const data = loadStaffSalaries();
+  const r = data.find(x => x.id === id);
+  if (!r) return;
+  const editEl = document.getElementById('ssEditId');
+  if (editEl) editEl.value = id;
+  const staffSel = document.getElementById('ssStaff');
+  if (staffSel) staffSel.value = r.staffId;
+  ['ssRole','ssBasic','ssAllowances','ssDeductions','ssNHIF','ssNSSF','ssNotes'].forEach(fid => {
+    const el = document.getElementById(fid);
+    if (!el) return;
+    const key = fid.replace('ss','').toLowerCase();
+    const map = { role: r.role, basic: r.basic, allowances: r.allow, deductions: r.deduct, nhif: r.nhif, nssf: r.nssf, notes: r.notes };
+    el.value = map[key] !== undefined ? map[key] : '';
+  });
+  const typeEl = document.getElementById('ssType');
+  if (typeEl) typeEl.value = r.type;
+  calcNetSalary();
+  openFeesTab('tabStaffSalary', document.getElementById('tbStaffSalary'));
+}
+
+function deleteStaffSalary(id) {
+  if (!confirm('Delete this salary record?')) return;
+  let data = loadStaffSalaries();
+  data = data.filter(r => r.id !== id);
+  saveStaffSalariesToStorage(data);
+  renderStaffSalaryTable();
+  showToast('Salary record deleted.');
+}
+
+function exportStaffSalaryCSV() {
+  const data = loadStaffSalaries();
+  if (!data.length) { alert('No salary records to export.'); return; }
+  const rows = [['Name','Role','Type','Basic','Allowances','Deductions','NHIF','NSSF','Net Salary']];
+  data.forEach(r => rows.push([r.name, r.role, r.type, r.basic, r.allow, r.deduct, r.nhif, r.nssf, r.net]));
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,' + encodeURIComponent(csv);
+  a.download = 'staff_salaries.csv';
+  a.click();
+}
+
+// ── Payroll ──
+
+function generatePayroll() {
+  const month = document.getElementById('prMonth')?.value || '';
+  const year  = document.getElementById('prYear')?.value  || '';
+  const salaries = loadStaffSalaries();
+  const body = document.getElementById('payrollBody');
+  const statsEl = document.getElementById('payrollSummaryStats');
+
+  if (!salaries.length) {
+    if (body) body.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No staff salary records found. Add salaries under <strong>Staff Salary</strong> tab first.</td></tr>';
+    return;
+  }
+
+  const totalNet = salaries.reduce((s, r) => s + Number(r.net), 0);
+  const totalBasic = salaries.reduce((s, r) => s + Number(r.basic), 0);
+
+  if (statsEl) {
+    statsEl.innerHTML = `
+      <div class="fee-stat-card"><div class="fsc-label">Total Staff</div><div class="fsc-val">${salaries.length}</div></div>
+      <div class="fee-stat-card"><div class="fsc-label">Total Basic (KES)</div><div class="fsc-val">${totalBasic.toLocaleString()}</div></div>
+      <div class="fee-stat-card" style="border-color:var(--primary)"><div class="fsc-label">Total Net Payroll (KES)</div><div class="fsc-val" style="color:var(--primary)">${totalNet.toLocaleString()}</div></div>
+      <div class="fee-stat-card"><div class="fsc-label">Period</div><div class="fsc-val" style="font-size:.9rem">${month} ${year}</div></div>`;
+  }
+
+  if (body) {
+    body.innerHTML = salaries.map((r, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${r.name}</td>
+        <td>${r.role || '—'}</td>
+        <td>KES ${Number(r.basic).toLocaleString()}</td>
+        <td>KES ${Number(r.allow).toLocaleString()}</td>
+        <td>KES ${Number(r.nhif).toLocaleString()}</td>
+        <td>KES ${Number(r.nssf).toLocaleString()}</td>
+        <td>KES ${Number(r.deduct).toLocaleString()}</td>
+        <td style="font-weight:700;color:var(--primary)">KES ${Number(r.net).toLocaleString()}</td>
+        <td><span class="badge badge-green">Pending</span></td>
+        <td><button class="btn btn-outline btn-xs" onclick="markPaid(this)">Mark Paid</button></td>
+      </tr>`).join('');
+  }
+  showToast(`Payroll generated for ${month} ${year}.`);
+}
+
+function markPaid(btn) {
+  const row = btn.closest('tr');
+  const statusCell = row.cells[9];
+  statusCell.innerHTML = '<span class="badge badge-green" style="background:#16a34a">Paid</span>';
+  btn.textContent = '✓ Paid';
+  btn.disabled = true;
+  btn.classList.add('btn-primary');
+}
+
+function printPayroll() {
+  const month = document.getElementById('prMonth')?.value || '';
+  const year  = document.getElementById('prYear')?.value  || '';
+  const rows  = document.getElementById('payrollBody')?.innerHTML || '';
+  if (!rows || rows.includes('No staff')) { alert('Generate payroll first.'); return; }
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Payroll — ${month} ${year}</title>
+  <style>body{font-family:Arial,sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;font-size:12px}th{background:#f5f5f5}</style>
+  </head><body><h2 style="text-align:center">Payroll — ${month} ${year}</h2>
+  <table><thead><tr><th>#</th><th>Name</th><th>Role</th><th>Basic</th><th>Allowances</th><th>NHIF</th><th>NSSF</th><th>Deductions</th><th>Net Pay</th><th>Status</th></tr></thead>
+  <tbody>${rows}</tbody></table></body></html>`);
+  win.document.close();
+  win.print();
+}
+
+// ── Payslips ──
+
+function onPsStaffChange() {
+  // Could pre-fill salary info when staff is selected
+}
+
+function previewPayslip() {
+  const staffSel = document.getElementById('psStaff');
+  const staffId = staffSel?.value;
+  const staffName = staffSel?.options[staffSel.selectedIndex]?.text || '';
+  const month = document.getElementById('psMonth')?.value || '';
+  const year  = document.getElementById('psYear')?.value  || '';
+  const area  = document.getElementById('payslipPreviewArea');
+  if (!area) return;
+
+  if (!staffId) { area.innerHTML = '<p style="color:var(--muted)">Please select a staff member.</p>'; return; }
+
+  const salaries = loadStaffSalaries();
+  const rec = salaries.find(r => r.staffId === staffId);
+  if (!rec) {
+    area.innerHTML = `<p style="color:var(--muted)">No salary record found for <strong>${staffName}</strong>. Please add their salary under the <strong>Staff Salary</strong> tab first.</p>`;
+    return;
+  }
+
+  const school = localStorage.getItem('charanas_schoolName') || 'School Name';
+  area.innerHTML = `
+    <div style="border:1px solid var(--border);border-radius:8px;padding:1.5rem;width:100%;font-size:.85rem">
+      <div style="text-align:center;margin-bottom:1rem;border-bottom:2px solid var(--primary);padding-bottom:.75rem">
+        <div style="font-size:1.1rem;font-weight:800;color:var(--primary)">${school}</div>
+        <div style="font-size:.9rem;font-weight:600;margin-top:.2rem">PAYSLIP — ${month.toUpperCase()} ${year}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:1rem">
+        <div><span style="color:var(--muted)">Employee:</span> <strong>${rec.name}</strong></div>
+        <div><span style="color:var(--muted)">Role:</span> ${rec.role || '—'}</div>
+        <div><span style="color:var(--muted)">Employment Type:</span> ${rec.type}</div>
+        <div><span style="color:var(--muted)">Pay Period:</span> ${month} ${year}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+        <thead><tr style="background:var(--bg-muted)"><th style="padding:.4rem .6rem;text-align:left;border:1px solid var(--border)">Description</th><th style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border)">Amount (KES)</th></tr></thead>
+        <tbody>
+          <tr><td style="padding:.4rem .6rem;border:1px solid var(--border)">Basic Salary</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border)">${Number(rec.basic).toLocaleString()}</td></tr>
+          <tr><td style="padding:.4rem .6rem;border:1px solid var(--border)">Allowances</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border)">${Number(rec.allow).toLocaleString()}</td></tr>
+          <tr style="background:#fef2f2"><td style="padding:.4rem .6rem;border:1px solid var(--border)">NHIF</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border);color:#ef4444">- ${Number(rec.nhif).toLocaleString()}</td></tr>
+          <tr style="background:#fef2f2"><td style="padding:.4rem .6rem;border:1px solid var(--border)">NSSF</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border);color:#ef4444">- ${Number(rec.nssf).toLocaleString()}</td></tr>
+          <tr style="background:#fef2f2"><td style="padding:.4rem .6rem;border:1px solid var(--border)">Other Deductions</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border);color:#ef4444">- ${Number(rec.deduct).toLocaleString()}</td></tr>
+          <tr style="background:var(--bg-muted);font-weight:700"><td style="padding:.4rem .6rem;border:1px solid var(--border)">NET PAY</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border);color:var(--primary);font-size:1rem">KES ${Number(rec.net).toLocaleString()}</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:1rem;font-size:.75rem;color:var(--muted);text-align:center">Generated by Charanas School Management System</div>
+    </div>`;
+
+  // Save to history
+  let history = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
+  const existing = history.find(h => h.staffId === staffId && h.month === month && h.year === year);
+  if (!existing) {
+    history.push({ id: 'ps_' + Date.now(), staffId, name: rec.name, role: rec.role || '', month, year, net: rec.net });
+    localStorage.setItem('charanas_payslipHistory', JSON.stringify(history));
+    renderPayslipHistory();
+  }
+}
+
+function printPayslip() {
+  const area = document.getElementById('payslipPreviewArea');
+  if (!area || area.innerHTML.includes('Select a staff')) { alert('Preview a payslip first.'); return; }
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Payslip</title>
+  <style>body{font-family:Arial,sans-serif;padding:30px;max-width:600px;margin:auto}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;font-size:12px}</style>
+  </head><body>${area.innerHTML}</body></html>`);
+  win.document.close();
+  win.print();
+}
+
+function renderPayslipHistory() {
+  const body = document.getElementById('payslipHistBody');
+  if (!body) return;
+  let history = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
+  const staffFilter = document.getElementById('psHistStaff')?.value || '';
+  const yearFilter  = document.getElementById('psHistYear')?.value  || '';
+  if (staffFilter) history = history.filter(h => h.staffId === staffFilter);
+  if (yearFilter)  history = history.filter(h => h.year === yearFilter);
+  if (!history.length) {
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">No payslips generated yet.</td></tr>';
+    return;
+  }
+  body.innerHTML = history.map((h, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${h.name}</td>
+      <td>${h.role || '—'}</td>
+      <td>${h.month}</td>
+      <td>${h.year}</td>
+      <td style="font-weight:700;color:var(--primary)">KES ${Number(h.net).toLocaleString()}</td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="reloadPayslip('${h.staffId}','${h.month}','${h.year}')"><i class="fa-solid fa-eye"></i> View</button>
+        <button class="btn btn-danger btn-xs" onclick="deletePayslipHistory('${h.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function reloadPayslip(staffId, month, year) {
+  const staffSel = document.getElementById('psStaff');
+  if (staffSel) staffSel.value = staffId;
+  const monthSel = document.getElementById('psMonth');
+  if (monthSel) monthSel.value = month;
+  const yearEl = document.getElementById('psYear');
+  if (yearEl) yearEl.value = year;
+  openFeesTab('tabPayslips', document.getElementById('tbPayslips'));
+  previewPayslip();
+}
+
+function deletePayslipHistory(id) {
+  if (!confirm('Remove this payslip from history?')) return;
+  let history = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
+  history = history.filter(h => h.id !== id);
+  localStorage.setItem('charanas_payslipHistory', JSON.stringify(history));
+  renderPayslipHistory();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// STAFF DETAILS SECTION
+// ══════════════════════════════════════════════════════════════════
+
+function initStaffDetailsSection() {
+  renderStaffList();
+  populateStaffDropdowns();
+}
+
+function openStaffTab(tabId, btn) {
+  document.querySelectorAll('#s-staffdetails .tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#staffTabBar .tb').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById(tabId);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+function loadStaffDetails() {
+  return JSON.parse(localStorage.getItem('charanas_staffDetails') || '[]');
+}
+
+function saveStaffDetailsToStorage(data) {
+  localStorage.setItem('charanas_staffDetails', JSON.stringify(data));
+}
+
+function saveStaffDetails() {
+  const name    = (document.getElementById('sdName')?.value     || '').trim();
+  const staffId = (document.getElementById('sdStaffId')?.value  || '').trim();
+  const natId   = (document.getElementById('sdNatId')?.value    || '').trim();
+  const gender  = document.getElementById('sdGender')?.value    || '';
+  const dob     = document.getElementById('sdDOB')?.value       || '';
+  const phone   = (document.getElementById('sdPhone')?.value    || '').trim();
+  const email   = (document.getElementById('sdEmail')?.value    || '').trim();
+  const address = (document.getElementById('sdAddress')?.value  || '').trim();
+  const role    = (document.getElementById('sdRole')?.value     || '').trim();
+  const dept    = document.getElementById('sdDept')?.value      || '';
+  const empType = document.getElementById('sdEmpType')?.value   || '';
+  const joinDate= document.getElementById('sdJoinDate')?.value  || '';
+  const contractEnd = document.getElementById('sdContractEnd')?.value || '';
+  const status  = document.getElementById('sdStatus')?.value    || 'Active';
+  const qual    = (document.getElementById('sdQualification')?.value || '').trim();
+  const subjects= (document.getElementById('sdSubjects')?.value || '').trim();
+  const ecName  = (document.getElementById('sdECName')?.value   || '').trim();
+  const ecPhone = (document.getElementById('sdECPhone')?.value  || '').trim();
+  const notes   = (document.getElementById('sdNotes')?.value    || '').trim();
+
+  if (!name)  { alert('Full name is required.'); return; }
+  if (!phone) { alert('Phone number is required.'); return; }
+  if (!role)  { alert('Role / Position is required.'); return; }
+  if (!dept)  { alert('Department is required.'); return; }
+
+  let data = loadStaffDetails();
+  const editId = document.getElementById('sdEditId')?.value;
+  const record = { name, staffId, natId, gender, dob, phone, email, address, role, dept, empType, joinDate, contractEnd, status, qual, subjects, ecName, ecPhone, notes };
+
+  if (editId) {
+    const idx = data.findIndex(r => r.id === editId);
+    if (idx > -1) data[idx] = { ...data[idx], ...record };
+  } else {
+    data.push({ id: 'sd_' + Date.now(), ...record });
+  }
+  saveStaffDetailsToStorage(data);
+  populateStaffDropdowns();
+  renderStaffList();
+  clearSDForm();
+  openStaffTab('tabStaffList', document.querySelector('#staffTabBar .tb'));
+  showToast('Staff record saved.');
+}
+
+function clearSDForm() {
+  const ids = ['sdEditId','sdName','sdStaffId','sdNatId','sdDOB','sdPhone','sdEmail','sdAddress','sdRole','sdJoinDate','sdContractEnd','sdQualification','sdSubjects','sdECName','sdECPhone','sdNotes'];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['sdGender','sdDept','sdEmpType','sdStatus'].forEach(id => { const el = document.getElementById(id); if (el) el.selectedIndex = 0; });
+  const title = document.getElementById('sdFormTitle');
+  if (title) title.innerHTML = '<i class="fa-solid fa-plus"></i> Add New Staff Member';
+}
+
+function renderStaffList() {
+  const body = document.getElementById('staffBody');
+  if (!body) return;
+  let data = loadStaffDetails();
+
+  const search = (document.getElementById('sdSearch')?.value || '').toLowerCase();
+  const dept   = document.getElementById('sdFilterDept')?.value   || '';
+  const status = document.getElementById('sdFilterStatus')?.value || '';
+
+  if (search) data = data.filter(r => (r.name + r.role + r.staffId).toLowerCase().includes(search));
+  if (dept)   data = data.filter(r => r.dept === dept);
+  if (status) data = data.filter(r => r.status === status);
+
+  // Stats
+  const all = loadStaffDetails();
+  const statsEl = document.getElementById('staffListStats');
+  if (statsEl) {
+    const depts = [...new Set(all.map(r => r.dept))];
+    statsEl.innerHTML = `
+      <div class="fee-stat-card"><div class="fsc-label">Total Staff</div><div class="fsc-val">${all.length}</div></div>
+      <div class="fee-stat-card"><div class="fsc-label">Active</div><div class="fsc-val" style="color:#16a34a">${all.filter(r=>r.status==='Active').length}</div></div>
+      <div class="fee-stat-card"><div class="fsc-label">On Leave</div><div class="fsc-val" style="color:#f59e0b">${all.filter(r=>r.status==='On Leave').length}</div></div>
+      <div class="fee-stat-card"><div class="fsc-label">Departments</div><div class="fsc-val">${depts.length}</div></div>`;
+  }
+
+  if (!data.length) {
+    body.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No staff records found.</td></tr>';
+    return;
+  }
+
+  const statusColor = { Active:'#16a34a', 'On Leave':'#f59e0b', Resigned:'#ef4444', Retired:'#6b7280' };
+  body.innerHTML = data.map((r, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${r.staffId || '—'}</td>
+      <td><strong>${r.name}</strong></td>
+      <td>${r.role}</td>
+      <td><span class="badge">${r.dept}</span></td>
+      <td>${r.phone}</td>
+      <td>${r.email || '—'}</td>
+      <td>${r.empType}</td>
+      <td>${r.joinDate || '—'}</td>
+      <td><span class="badge" style="background:${statusColor[r.status]||'#6b7280'};color:#fff">${r.status}</span></td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="editStaffDetails('${r.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-danger btn-xs" onclick="deleteStaffDetails('${r.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function filterStaffList() { renderStaffList(); }
+
+function editStaffDetails(id) {
+  const data = loadStaffDetails();
+  const r = data.find(x => x.id === id);
+  if (!r) return;
+  const fields = { sdEditId: id, sdName: r.name, sdStaffId: r.staffId, sdNatId: r.natId, sdDOB: r.dob, sdPhone: r.phone, sdEmail: r.email, sdAddress: r.address, sdRole: r.role, sdJoinDate: r.joinDate, sdContractEnd: r.contractEnd, sdQualification: r.qual, sdSubjects: r.subjects, sdECName: r.ecName, sdECPhone: r.ecPhone, sdNotes: r.notes };
+  Object.entries(fields).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val || ''; });
+  ['sdGender','sdDept','sdEmpType','sdStatus'].forEach(fid => {
+    const el = document.getElementById(fid);
+    const key = { sdGender:'gender', sdDept:'dept', sdEmpType:'empType', sdStatus:'status' }[fid];
+    if (el && r[key]) el.value = r[key];
+  });
+  const title = document.getElementById('sdFormTitle');
+  if (title) title.innerHTML = `<i class="fa-solid fa-pen"></i> Edit Staff — ${r.name}`;
+  openStaffTab('tabStaffAdd', document.getElementById('tbStaffAdd'));
+}
+
+function deleteStaffDetails(id) {
+  if (!confirm('Delete this staff record? This cannot be undone.')) return;
+  let data = loadStaffDetails();
+  data = data.filter(r => r.id !== id);
+  saveStaffDetailsToStorage(data);
+  populateStaffDropdowns();
+  renderStaffList();
+  showToast('Staff record deleted.');
+}
+
+function exportStaffCSV() {
+  const data = loadStaffDetails();
+  if (!data.length) { alert('No staff records to export.'); return; }
+  const cols = ['Name','Staff ID','Nat ID','Gender','DOB','Phone','Email','Address','Role','Dept','Employment Type','Date Joined','Contract End','Status','Qualification','Subjects','EC Name','EC Phone','Notes'];
+  const rows = [cols, ...data.map(r => [r.name,r.staffId,r.natId,r.gender,r.dob,r.phone,r.email,r.address,r.role,r.dept,r.empType,r.joinDate,r.contractEnd,r.status,r.qual,r.subjects,r.ecName,r.ecPhone,r.notes])];
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,' + encodeURIComponent(csv);
+  a.download = 'staff_details.csv';
+  a.click();
+}
+
+function saveStaffRole() {
+  const name = (document.getElementById('srName')?.value || '').trim();
+  const dept = document.getElementById('srDept')?.value || '';
+  const desc = (document.getElementById('srDesc')?.value || '').trim();
+  if (!name) { alert('Role name is required.'); return; }
+  let roles = JSON.parse(localStorage.getItem('charanas_staffRoles') || '[]');
+  roles.push({ id: 'sr_' + Date.now(), name, dept, desc });
+  localStorage.setItem('charanas_staffRoles', JSON.stringify(roles));
+  renderStaffRolesList();
+  document.getElementById('srName').value = '';
+  document.getElementById('srDesc').value = '';
+  showToast('Role saved.');
+}
+
+function renderStaffRolesList() {
+  const el = document.getElementById('staffRolesList');
+  if (!el) return;
+  const roles = JSON.parse(localStorage.getItem('charanas_staffRoles') || '[]');
+  if (!roles.length) { el.innerHTML = '<p style="color:var(--muted);font-size:.85rem">No custom roles added yet.</p>'; return; }
+  el.innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Role</th><th>Department</th><th>Description</th><th>Action</th></tr></thead>
+  <tbody>${roles.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${r.name}</strong></td><td>${r.dept}</td><td>${r.desc||'—'}</td><td><button class="btn btn-danger btn-xs" onclick="deleteStaffRole('${r.id}')"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function deleteStaffRole(id) {
+  if (!confirm('Delete this role?')) return;
+  let roles = JSON.parse(localStorage.getItem('charanas_staffRoles') || '[]');
+  roles = roles.filter(r => r.id !== id);
+  localStorage.setItem('charanas_staffRoles', JSON.stringify(roles));
+  renderStaffRolesList();
+}
+
+function handleStaffDocUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const staffSel = document.getElementById('sdocStaff');
+  const staffName = staffSel?.options[staffSel.selectedIndex]?.text || 'Unknown';
+  const type = document.getElementById('sdocType')?.value || 'Other';
+  let docs = JSON.parse(localStorage.getItem('charanas_staffDocs') || '[]');
+  docs.push({ id: 'doc_' + Date.now(), staff: staffName, type, filename: file.name, size: (file.size/1024).toFixed(1) + ' KB', uploaded: new Date().toLocaleDateString() });
+  localStorage.setItem('charanas_staffDocs', JSON.stringify(docs));
+  renderStaffDocsList();
+  input.value = '';
+  showToast(`Document "${file.name}" recorded.`);
+}
+
+function renderStaffDocsList() {
+  const el = document.getElementById('staffDocsList');
+  if (!el) return;
+  const docs = JSON.parse(localStorage.getItem('charanas_staffDocs') || '[]');
+  if (!docs.length) { el.innerHTML = '<p style="color:var(--muted);font-size:.85rem;text-align:center;padding:1.5rem">No documents uploaded yet.</p>'; return; }
+  el.innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Staff</th><th>Type</th><th>Filename</th><th>Size</th><th>Date</th><th>Action</th></tr></thead>
+  <tbody>${docs.map((d,i)=>`<tr><td>${i+1}</td><td>${d.staff}</td><td>${d.type}</td><td><i class="fa-solid fa-file"></i> ${d.filename}</td><td>${d.size}</td><td>${d.uploaded}</td><td><button class="btn btn-danger btn-xs" onclick="deleteStaffDoc('${d.id}')"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function deleteStaffDoc(id) {
+  if (!confirm('Remove this document record?')) return;
+  let docs = JSON.parse(localStorage.getItem('charanas_staffDocs') || '[]');
+  docs = docs.filter(d => d.id !== id);
+  localStorage.setItem('charanas_staffDocs', JSON.stringify(docs));
+  renderStaffDocsList();
+}
+
+function populateStaffDropdowns() {
+  const staff = loadStaffDetails();
+  const selectors = ['ssStaff','psStaff','psHistStaff','sdocStaff'];
+  selectors.forEach(selId => {
+    const sel = document.getElementById(selId);
+    if (!sel) return;
+    const current = sel.value;
+    const placeholder = selId === 'psHistStaff' ? '<option value="">All Staff</option>' : '<option value="">— Select Staff —</option>';
+    sel.innerHTML = placeholder + staff.map(s => `<option value="${s.id}">${s.name}${s.role ? ' — ' + s.role : ''}</option>`).join('');
+    if (current) sel.value = current;
+  });
+}
