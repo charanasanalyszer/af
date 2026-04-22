@@ -1771,17 +1771,22 @@
 
         /* ── Tabs ── */
         #tt-app .tt-tabs-row {
-          display:flex; gap:.25rem; background:var(--tt-card);
-          border:1px solid var(--tt-border); border-radius:9px;
-          padding:.25rem; margin-bottom:1rem;
+          display:flex; gap:.35rem; overflow-x:auto; -webkit-overflow-scrolling:touch;
+          padding:.0rem 0 .5rem 0; margin-bottom:.75rem;
+          scrollbar-width:none;
         }
+        #tt-app .tt-tabs-row::-webkit-scrollbar { display:none; }
         #tt-app .tt-tab-btn {
-          flex:1; padding:.45rem .65rem; border:none; border-radius:6px;
-          background:transparent; color:var(--tt-text2); font-family:inherit;
-          font-size:.78rem; font-weight:600; cursor:pointer; transition:all .15s;
+          flex-shrink:0; padding:.5rem 1.1rem; border:1.5px solid var(--tt-border2);
+          border-radius:999px; background:var(--tt-card);
+          color:var(--tt-text2); font-family:inherit;
+          font-size:.8rem; font-weight:600; cursor:pointer; transition:all .15s;
+          white-space:nowrap;
         }
+        #tt-app .tt-tab-btn:hover { border-color:var(--tt-gold); color:var(--tt-text); }
         #tt-app .tt-tab-btn.active {
-          background:var(--tt-card2); color:var(--tt-text); box-shadow:0 1px 4px rgba(0,0,0,.25);
+          background:var(--tt-gold-dim); border-color:var(--tt-gold);
+          color:var(--tt-gold); box-shadow:0 1px 4px rgba(0,0,0,.15);
         }
 
         /* ── Timetable Grid ── */
@@ -1928,6 +1933,49 @@
         #tt-app ::-webkit-scrollbar { width:4px; height:4px; }
         #tt-app ::-webkit-scrollbar-track { background:var(--tt-navy2); }
         #tt-app ::-webkit-scrollbar-thumb { background:var(--tt-navy3); border-radius:3px; }
+
+        /* ── Mobile tweaks ── */
+        @media (max-width: 640px) {
+          #tt-app .tt-header {
+            flex-direction: column; align-items: flex-start; gap: .5rem;
+          }
+          #tt-app .tt-header-actions {
+            width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;
+            display: flex; flex-wrap: nowrap; gap: .35rem; padding-bottom: .2rem;
+            scrollbar-width: none;
+          }
+          #tt-app .tt-header-actions::-webkit-scrollbar { display: none; }
+          #tt-app .tt-btn-sm { padding: .4rem .75rem; font-size: .76rem; flex-shrink: 0; }
+          #tt-app .tt-stats-row {
+            grid-template-columns: repeat(3, 1fr);
+          }
+          #tt-app .tt-stat-val { font-size: 1.2rem; }
+          #tt-app .tt-stat-lbl { font-size: .62rem; }
+          #tt-app .tt-frow { grid-template-columns: 1fr; }
+          #tt-app .tt-wrapper {
+            margin-left: -.5rem; margin-right: -.5rem;
+            border-radius: 0;
+          }
+          /* Timetable table: smaller font on mobile for readability */
+          #tt-app .tt-table { font-size: .7rem; min-width: 480px; }
+          #tt-app .tt-table th { padding: .45rem .4rem; font-size: .58rem; }
+          #tt-app .tt-table td { min-width: 72px; height: 56px; }
+          #tt-app .tt-lesson-subject { font-size: .68rem; }
+          #tt-app .tt-lesson-teacher { font-size: .58rem; }
+          /* Teacher map table */
+          #tt-app .tt-tm-table { min-width: 420px; }
+          /* Class chips horizontal scroll */
+          #tt-app .tt-class-chips {
+            flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+            padding-bottom: .25rem; scrollbar-width: none;
+          }
+          #tt-app .tt-class-chips::-webkit-scrollbar { display: none; }
+          #tt-app .tt-class-chip { flex-shrink: 0; }
+          /* Content area action bar stacks neatly */
+          #tt-app .tt-content > div:first-child > div:last-child {
+            flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+          }
+        }
       </style>
 
       <!-- ══════ TT-APP ══════ -->
@@ -2095,6 +2143,7 @@
                   <button class="tt-btn tt-btn-outline tt-btn-sm" onclick="tt_downloadPDF()" style="border-color:var(--tt-red);color:var(--tt-red)">⬇ PDF</button>
                 </div>
               </div>
+              <div style="display:none;font-size:.68rem;color:var(--tt-text3);margin-bottom:.35rem;text-align:right" id="tt_scrollHint">← scroll to see full table →</div>
               <div id="tt_ttOutput">
                 <div class="tt-empty">
                   <div class="tt-empty-icon">📅</div>
@@ -2887,6 +2936,9 @@
           });
           html += '</tbody></table></div>';
           document.getElementById('tt_ttOutput').innerHTML = html;
+          // Show scroll hint on mobile
+          var hint = document.getElementById('tt_scrollHint');
+          if (hint) hint.style.display = window.innerWidth < 640 ? 'block' : 'none';
         }
 
         /* ── Teacher map ── */
