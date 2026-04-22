@@ -1906,6 +1906,13 @@
           #tt-app .tt-wrapper { position:fixed; top:0; left:0; width:100%; padding:0; }
           * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
           @page { size:A4 landscape; margin:10mm; }
+          /* Tinted (softer/pastel) colors for print */
+          #tt-app .tt-lesson-cell { filter:saturate(0.6) brightness(1.15)!important; -webkit-filter:saturate(0.6) brightness(1.15)!important; }
+          #tt-app .tt-table th { background:#e8eef5!important; color:#2d4a6a!important; border-color:#c0d0e0!important; }
+          #tt-app .tt-table th.tt-day-col { background:#dde7f2!important; }
+          #tt-app .tt-break-cell { background:#f3f6f9!important; border-color:#dde7f2!important; }
+          #tt-app .tt-table td { border-color:#cddaea!important; }
+          #tt-app .tt-legend-item { color:#334155!important; }
         }
 
         /* ── Scrollbar ── */
@@ -1984,12 +1991,14 @@
                   </div>
                   <div class="tt-fg">
                     <label class="tt-lbl">Periods / Day</label>
-                    <input class="tt-input" type="number" id="tt_periodsPerDay" value="8" min="4" max="12"/>
+                    <input class="tt-input" type="number" id="tt_periodsPerDay" value="8" min="4" max="12" oninput="if(window.tt_renderBreakToggles)tt_renderBreakToggles()"/>
                   </div>
                 </div>
                 <div class="tt-fg">
-                  <label class="tt-lbl">Break After Period(s) <span style="font-size:.62rem;opacity:.6">(comma-separated)</span></label>
-                  <input class="tt-input" type="text" id="tt_breakPeriods" value="4,7" placeholder="e.g. 4,7"/>
+                  <label class="tt-lbl">Break Periods <span style="font-size:.6rem;opacity:.55">(click to toggle)</span></label>
+                  <div id="tt_breakToggles" style="display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.45rem;"></div>
+                  <input class="tt-input" type="text" id="tt_breakPeriods" value="4,7" placeholder="e.g. 4,7" oninput="if(window.tt_syncBreakToggles)tt_syncBreakToggles()" style="font-size:.72rem;"/>
+                  <div style="font-size:.6rem;opacity:.5;margin-top:.2rem">☕ = break &nbsp;|&nbsp; P = lesson period</div>
                 </div>
               </div>
             </div>
@@ -2074,6 +2083,7 @@
                 <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;">
                   <div id="tt_classChips" class="tt-class-chips"></div>
                   <button class="tt-btn tt-btn-outline tt-btn-sm" onclick="tt_printTimetable()">🖨 Print</button>
+                  <button class="tt-btn tt-btn-outline tt-btn-sm" onclick="tt_downloadPDF()" style="border-color:var(--tt-red);color:var(--tt-red)">⬇ PDF</button>
                 </div>
               </div>
               <div id="tt_ttOutput">
@@ -2181,6 +2191,9 @@
         window.tt_generate           = generate;
         window.tt_selectClass        = selectClass;
         window.tt_printTimetable     = printTimetable;
+        window.tt_downloadPDF        = downloadPDF;
+        window.tt_syncBreakToggles   = renderBreakToggles;
+        window.tt_renderBreakToggles = renderBreakToggles;
 
         /* ── Tabs ── */
         function showTab(tab, btn) {
@@ -2768,8 +2781,81 @@
         function ttShuffle(arr) { for(var i=arr.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=arr[i];arr[i]=arr[j];arr[j]=tmp;} return arr; }
         function escH(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+        /* ── Visual Break Toggles ── */
+        function renderBreakToggles() {
+          var periods = parseInt(document.getElementById('tt_periodsPerDay').value) || 8;
+          var bpInput = document.getElementById('tt_breakPeriods');
+          var bkSet   = new Set((bpInput.value||'').split(',').map(function(x){return parseInt(x.trim());}).filter(function(x){return !isNaN(x)&&x>0;}));
+          var el      = document.getElementById('tt_breakToggles');
+          if (!el) return;
+          el.innerHTML = '';
+          for (var i=1; i<=periods; i++) {
+            (function(p){
+              var isBreak = bkSet.has(p);
+              var btn = document.createElement('button');
+              btn.type      = 'button';
+              btn.className = 'tt-btn tt-btn-sm ' + (isBreak ? 'tt-btn-gold' : 'tt-btn-outline');
+              btn.innerHTML = (isBreak ? '☕' : '') + 'P' + p;
+              btn.title     = 'Period ' + p + (isBreak ? ' — break (click to make lesson)' : ' — lesson (click to make break)');
+              btn.style.cssText = 'min-width:32px;padding:.2rem .28rem;font-size:.65rem;';
+              btn.onclick = function(){
+                var cur = new Set((document.getElementById('tt_breakPeriods').value||'').split(',').map(function(x){return parseInt(x.trim());}).filter(function(x){return !isNaN(x)&&x>0;}));
+                if (cur.has(p)) cur.delete(p); else cur.add(p);
+                document.getElementById('tt_breakPeriods').value = Array.from(cur).sort(function(a,b){return a-b;}).join(',');
+                renderBreakToggles();
+              };
+              el.appendChild(btn);
+            })(i);
+          }
+        }
+
+        /* ── PDF Download ── */
+        function downloadPDF() {
+          if (!ttSelClass) { ttToast('Select a class first','warn'); return; }
+          var el = document.querySelector('#tt_ttOutput .tt-wrapper');
+          if (!el) { ttToast('Generate a timetable first','warn'); return; }
+          var jsPDF = window.jspdf && window.jspdf.jsPDF;
+          if (!jsPDF) { ttToast('PDF library not loaded — check internet connection','err'); return; }
+          if (!window.html2canvas) { ttToast('html2canvas not loaded','err'); return; }
+          var cls  = ttClasses.find(function(c){return c.id===ttSelClass;});
+          var school = (document.getElementById('tt_schoolName').value||'School').trim();
+          var fname  = (cls ? clsName(cls) : 'Timetable').replace(/[^a-zA-Z0-9]/g,'_') + '_Timetable.pdf';
+          ttToast('Generating PDF…','ok');
+          window.html2canvas(el, {
+            scale: 2.4,
+            useCORS: true,
+            backgroundColor: '#ffffff',
+            logging: false
+          }).then(function(canvas){
+            var imgData = canvas.toDataURL('image/png');
+            var pdf = new jsPDF({orientation:'landscape', unit:'mm', format:'a4'});
+            var pw = pdf.internal.pageSize.getWidth();
+            var ph = pdf.internal.pageSize.getHeight();
+            /* canvas was rendered at 2.4x — convert px→mm (96dpi) */
+            var cw = canvas.width  / 2.4 / 3.7795;
+            var ch = canvas.height / 2.4 / 3.7795;
+            var margin = 10;
+            var maxW = pw - margin * 2;
+            var maxH = ph - margin * 2 - 10; /* 10mm for title */
+            var ratio = Math.min(maxW / cw, maxH / ch);
+            var w = cw * ratio;
+            var h = ch * ratio;
+            /* Header */
+            pdf.setFontSize(9);
+            pdf.setTextColor(45, 74, 106);
+            pdf.text(school + '  ·  ' + (cls ? clsName(cls) : '') + ' Timetable', pw/2, margin + 3, {align:'center'});
+            /* Timetable image */
+            pdf.addImage(imgData, 'PNG', (pw - w)/2, margin + 8, w, h);
+            pdf.save(fname);
+            ttToast('PDF saved — ' + fname, 'ok');
+          }).catch(function(e){
+            ttToast('PDF error: ' + e.message, 'err');
+          });
+        }
+
         /* ── Init ── */
         renderSubjectList(); renderTeacherList(); renderClassList(); updateStats();
+        renderBreakToggles();
 
         /* Auto-sync when the timetable section is navigated to */
         document.addEventListener('tt_sectionVisible', function() { syncFromCharanas(); });
