@@ -7868,6 +7868,7 @@ function downloadAllReportsPDF() {
 const ES_DB_KEY = 'eduschedule_v1';
 
 const ES_DAY_NAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const ES_DAY_FULL  = ES_DAY_NAMES; // alias used by timetable view renderers
 
 let es_initialized = false;
 
@@ -8204,39 +8205,7 @@ function es_openSubjectModal() {
   es_buildColorPicker();
   const sel = document.getElementById('es_subjectGrades');
   sel.innerHTML = ES_GRADE_LIST.map(g => `<option value="${g}" selected>${g}</option>`).join('');
-  es_buildSubjectAvailGrid(null);
   es_openModal('subjectModal');
-}
-function es_buildSubjectAvailGrid(subject) {
-  const days    = parseInt(es_state.school.daysPerWeek) || 5;
-  const lessons = parseInt(es_state.school.lessonsPerDay) || 9;
-  const grid    = document.getElementById('es_subjectAvailGrid');
-  if (!grid) return;
-  let html = '<div class="avail-row"><div class="avail-day-label"></div>';
-  for (let p = 1; p <= lessons; p++) html += `<div class="avail-cell" style="background:var(--bg3);color:var(--text3);font-size:9px;font-weight:700;">${p}</div>`;
-  html += '</div>';
-  for (let d = 0; d < days; d++) {
-    html += `<div class="avail-row"><div class="avail-day-label">${ES_DAY_NAMES[d]}</div>`;
-    for (let p = 1; p <= lessons; p++) {
-      const avail = subject ? (subject.availability?.[d]?.[p] !== false) : true;
-      html += `<div class="avail-cell ${avail?'available':''}" data-day="${d}" data-period="${p}" onclick="es_toggleSubjectAvail(this)">${avail?'<i class="fa-solid fa-check"></i>':''}</div>`;
-    }
-    html += '</div>';
-  }
-  grid.innerHTML = html;
-}
-function es_toggleSubjectAvail(el) {
-  el.classList.toggle('available');
-  el.innerHTML = el.classList.contains('available') ? '<i class="fa-solid fa-check"></i>' : '';
-}
-function es_getSubjectAvailFromGrid() {
-  const avail = {};
-  document.querySelectorAll('#es_subjectAvailGrid .avail-cell[data-day]').forEach(el => {
-    const d = el.dataset.day, p = el.dataset.period;
-    if (!avail[d]) avail[d] = {};
-    avail[d][p] = el.classList.contains('available');
-  });
-  return avail;
 }
 function es_saveSubject() {
   const id           = document.getElementById('es_subjectEditId').value || es_uid();
@@ -8248,8 +8217,7 @@ function es_saveSubject() {
   const color        = es_getSelectedColor();
   const gradesEl     = document.getElementById('es_subjectGrades');
   const grades       = Array.from(gradesEl.selectedOptions).map(o => o.value);
-  const availability = es_getSubjectAvailFromGrid();
-  const obj = {id, name, lessonsPerWeek, priority, double: double_, color, grades, availability};
+  const obj = {id, name, lessonsPerWeek, priority, double: double_, color, grades};
   const idx = es_state.subjects.findIndex(s => s.id === id);
   if (idx >= 0) es_state.subjects[idx] = obj; else es_state.subjects.push(obj);
   es_closeModal('subjectModal');
@@ -8267,7 +8235,6 @@ function es_editSubject(id) {
   es_buildColorPicker(s.color);
   const sel = document.getElementById('es_subjectGrades');
   sel.innerHTML = ES_GRADE_LIST.map(g => `<option value="${g}" ${(s.grades||[]).includes(g)?'selected':''}>${g}</option>`).join('');
-  es_buildSubjectAvailGrid(s);
   es_openModal('subjectModal');
 }
 function es_deleteSubject(id) {
@@ -8334,11 +8301,9 @@ function es_toggleAvail(el) {
   el.classList.toggle('available');
   el.innerHTML = el.classList.contains('available') ? '<i class="fa-solid fa-check"></i>' : '';
 }
-// Global alias — avail grid cells use onclick="toggleAvail(this)"
-function toggleAvail(el) { es_toggleAvail(el); }
 function es_getAvailFromGrid() {
   const avail = {};
-  document.querySelectorAll('#es_teacherAvailGrid .avail-cell[data-day]').forEach(el => {
+  document.querySelectorAll('#teacherAvailGrid .avail-cell[data-day]').forEach(el => {
     const d = el.dataset.day, p = el.dataset.period;
     if (!avail[d]) avail[d] = {};
     avail[d][p] = el.classList.contains('available');
@@ -8596,31 +8561,31 @@ async function es_generateTimetable() {
     // Build lessons to schedule
     const lessons = [];
     es_state.subjects.forEach(sub => {
+      // Only filter by grade if grades array is non-empty
       if (sub.grades && sub.grades.length > 0 && !sub.grades.includes(cls.grade)) return;
-      const lpw = parseInt(sub.lessonsPerWeek) || 4;
+      const lpw = parseInt(sub.lessonsPerWeek) || 4; // default 4 if missing/zero
       const teacherIds = teacherForSubject[sub.id] || [];
+
+      // Also pull in stream-assigned teacher for this class (highest priority)
       const streamTeacher = es_getStreamAssignedTeacher(cls, sub.id);
       const mergedTeachers = streamTeacher
         ? [streamTeacher.id, ...teacherIds.filter(id => id !== streamTeacher.id)]
         : teacherIds;
       const teachers = mergedTeachers;
-
-      if (sub.double && lpw >= 2) {
-        const pairs   = Math.floor(lpw / 2);
-        const singles = lpw % 2;
-        for (let i = 0; i < pairs;   i++) lessons.push({ subjectId: sub.id, teachers, priority: sub.priority || 'core', isDouble: true });
-        for (let i = 0; i < singles; i++) lessons.push({ subjectId: sub.id, teachers, priority: sub.priority || 'core', isDouble: false });
-      } else {
-        for (let i = 0; i < lpw; i++) lessons.push({ subjectId: sub.id, teachers, priority: sub.priority || 'core', isDouble: false });
+      for (let i = 0; i < lpw; i++) {
+        lessons.push({
+          subjectId: sub.id,
+          teachers,
+          priority: sub.priority || 'core',
+          isDouble: sub.double && (i % 2 === 1)
+        });
       }
     });
 
-    // Sort: core first, doubles before singles (harder to place)
+    // Sort: core first
     lessons.sort((a, b) => {
       if (a.priority === 'core' && b.priority !== 'core') return -1;
       if (b.priority === 'core' && a.priority !== 'core') return 1;
-      if (a.isDouble && !b.isDouble) return -1;
-      if (b.isDouble && !a.isDouble) return 1;
       return 0;
     });
 
@@ -8634,72 +8599,29 @@ async function es_generateTimetable() {
       }
     }
 
+    // Sort slots based on strategy
     if (prioritize === 'morning') {
+      // Core subjects → earlier periods; optional → spread
       slots.sort((a, b) => a.period !== b.period ? a.period - b.period : a.day - b.day);
     } else {
+      // Spread evenly: interleave by day
       slots.sort((a, b) => a.day !== b.day ? a.day - b.day : a.period - b.period);
     }
 
-    // Helpers
-    const isSlotFree = (day, period) => {
-      const s = es_state.timetable[classId][day]?.[period];
-      return !s || !s.subjectId;
-    };
-    const isSubjectAvail = (sub, day, period) => {
-      if (!sub.availability || Object.keys(sub.availability).length === 0) return true;
-      return sub.availability?.[day]?.[String(period + 1)] !== false;
-    };
-    const pickTeacher = (lesson, day, period, extraPeriod) => {
-      const shuffled = [...lesson.teachers].sort(() => Math.random() - .5);
-      for (const tid of shuffled) {
-        const t = es_state.teachers.find(x => x.id === tid);
-        if (!t) continue;
-        if (t.availability?.[day]?.[String(period + 1)] === false) continue;
-        if (extraPeriod !== undefined && t.availability?.[day]?.[String(extraPeriod + 1)] === false) continue;
-        if (teacherUsage[tid]?.[day]?.[period]) continue;
-        if (extraPeriod !== undefined && teacherUsage[tid]?.[day]?.[extraPeriod]) continue;
-        const dayLoad = Object.values(teacherUsage[tid]?.[day] || {}).filter(Boolean).length;
-        const needed  = extraPeriod !== undefined ? 2 : 1;
-        if (dayLoad + needed > t.maxPerDay) continue;
-        const weekLoad = Object.values(teacherUsage[tid] || {})
-          .reduce((s, dObj) => s + Object.values(dObj).filter(Boolean).length, 0);
-        if (weekLoad + needed > t.maxPerWeek) continue;
-        return tid;
-      }
-      return null;
-    };
-    const pickRoom = (sid, day, period, extraPeriod) => {
-      const compatRooms = es_state.rooms.filter(r => (r.subjects || []).includes(sid));
-      for (const r of compatRooms) {
-        if (roomUsage[r.id]?.[day]?.[period]) continue;
-        if (extraPeriod !== undefined && roomUsage[r.id]?.[day]?.[extraPeriod]) continue;
-        return r.id;
-      }
-      return null;
-    };
-    const commitSlot = (day, period, sid, teacherId, roomId) => {
-      es_state.timetable[classId][day][period] = { subjectId: sid, teacherId, roomId, locked: false };
-      if (teacherId) {
-        if (!teacherUsage[teacherId][day]) teacherUsage[teacherId][day] = {};
-        teacherUsage[teacherId][day][period] = classId;
-      }
-      if (roomId) {
-        if (!roomUsage[roomId][day]) roomUsage[roomId][day] = {};
-        roomUsage[roomId][day][period] = true;
-      }
-    };
+    // Even distribution: shuffle so we don't cluster subject on one day
+    // Track subject-per-day used
+    const subDayCount = {}; // subjectId -> {day: count}
 
-    const subDayCount = {};
     let placed = 0;
 
     for (const lesson of lessons) {
       const sid = lesson.subjectId;
-      const sub = es_state.subjects.find(s => s.id === sid);
       if (!subDayCount[sid]) subDayCount[sid] = {};
 
       let scheduled = false;
       let triedSlots = [...slots];
 
+      // If even distribution, prefer days where this subject has fewest lessons
       if (evenDist) {
         triedSlots.sort((a, b) => {
           const ca = subDayCount[sid][a.day] || 0;
@@ -8708,64 +8630,71 @@ async function es_generateTimetable() {
           return a.period - b.period;
         });
       }
+
+      // For core+morning prioritize, put them in early periods
       if (prioritize === 'morning' && lesson.priority === 'core') {
         triedSlots.sort((a, b) => a.period !== b.period ? a.period - b.period : a.day - b.day);
       }
 
-      if (lesson.isDouble) {
-        // ── DOUBLE: find two consecutive free periods on same day ──
-        for (const slot of triedSlots) {
-          const {day, period} = slot;
-          const p2 = period + 1;
-          if (p2 >= periods) continue;
-          if (!isSlotFree(day, period) || !isSlotFree(day, p2)) continue;
-          if (!isSubjectAvail(sub, day, period) || !isSubjectAvail(sub, day, p2)) continue;
-          if (evenDist && (subDayCount[sid][day] || 0) > 0) {
-            const freeDays = Array.from({length: days}, (_, d) => d).filter(d => !(subDayCount[sid][d] > 0));
-            if (freeDays.length > 0 && !freeDays.includes(day)) continue;
-          }
-          const teacherId = pickTeacher(lesson, day, period, p2);
-          const roomId    = pickRoom(sid, day, period, p2);
-          commitSlot(day, period, sid, teacherId, roomId);
-          commitSlot(day, p2,     sid, teacherId, roomId);
-          subDayCount[sid][day] = (subDayCount[sid][day] || 0) + 2;
-          placed += 2; scheduled = true;
-          break;
+      for (const slot of triedSlots) {
+        const {day, period} = slot;
+        const existing = es_state.timetable[classId][day]?.[period];
+        if (existing && existing.subjectId) continue; // slot taken
+
+        // Avoid putting same subject twice on same day unless needed
+        if (evenDist && (subDayCount[sid][day] || 0) > 0) {
+          // Only allow if no other day available
+          const daysWithoutThisSubject = Array.from({length: days}, (_,d) => d)
+            .filter(d => !(subDayCount[sid][d] > 0));
+          if (daysWithoutThisSubject.length > 0 && daysWithoutThisSubject.includes(day) === false) continue;
         }
-        if (!scheduled) {
-          // Fallback: place two singles
-          let fb = 0;
-          for (const slot of triedSlots) {
-            if (fb >= 2) break;
-            const {day, period} = slot;
-            if (!isSlotFree(day, period) || !isSubjectAvail(sub, day, period)) continue;
-            const teacherId = pickTeacher(lesson, day, period);
-            const roomId    = pickRoom(sid, day, period);
-            commitSlot(day, period, sid, teacherId, roomId);
-            subDayCount[sid][day] = (subDayCount[sid][day] || 0) + 1;
-            placed++; fb++; scheduled = true;
-          }
+
+        // Find available teacher
+        let teacherId = null;
+        const shuffledTeachers = [...lesson.teachers].sort(() => Math.random() - .5);
+        for (const tid of shuffledTeachers) {
+          const t = es_state.teachers.find(x => x.id === tid);
+          if (!t) continue;
+          if (t.availability?.[day]?.[String(period+1)] === false) continue;
+          if (teacherUsage[tid]?.[day]?.[period]) continue;
+          const dayLoad  = Object.values(teacherUsage[tid]?.[day] || {}).filter(Boolean).length;
+          if (dayLoad >= t.maxPerDay) continue;
+          const weekLoad = Object.values(teacherUsage[tid]||{})
+            .reduce((s, dObj) => s + Object.values(dObj).filter(Boolean).length, 0);
+          if (weekLoad >= t.maxPerWeek) continue;
+          teacherId = tid; break;
         }
-      } else {
-        // ── SINGLE ──
-        for (const slot of triedSlots) {
-          const {day, period} = slot;
-          if (!isSlotFree(day, period)) continue;
-          if (!isSubjectAvail(sub, day, period)) continue;
-          if (evenDist && (subDayCount[sid][day] || 0) > 0) {
-            const freeDays = Array.from({length: days}, (_, d) => d).filter(d => !(subDayCount[sid][d] > 0));
-            if (freeDays.length > 0 && !freeDays.includes(day)) continue;
-          }
-          const teacherId = pickTeacher(lesson, day, period);
-          const roomId    = pickRoom(sid, day, period);
-          commitSlot(day, period, sid, teacherId, roomId);
-          subDayCount[sid][day] = (subDayCount[sid][day] || 0) + 1;
-          placed++; scheduled = true;
-          break;
+
+        // Find room
+        let roomId = null;
+        const compatRooms = es_state.rooms.filter(r => (r.subjects||[]).includes(sid));
+        for (const r of compatRooms) {
+          if (!roomUsage[r.id]?.[day]?.[period]) { roomId = r.id; break; }
         }
+
+        // Place lesson
+        es_state.timetable[classId][day][period] = {
+          subjectId: sid, teacherId, roomId, locked: false
+        };
+
+        // Mark teacher usage
+        if (teacherId) {
+          if (!teacherUsage[teacherId]) teacherUsage[teacherId] = {};
+          if (!teacherUsage[teacherId][day]) teacherUsage[teacherId][day] = {};
+          teacherUsage[teacherId][day][period] = classId;
+        }
+        if (roomId) {
+          if (!roomUsage[roomId][day]) roomUsage[roomId][day] = {};
+          roomUsage[roomId][day][period] = true;
+        }
+
+        subDayCount[sid][day] = (subDayCount[sid][day] || 0) + 1;
+        placed++; scheduled = true;
+        break;
       }
 
       if (!scheduled) {
+        const sub = es_state.subjects.find(s => s.id === sid);
         es_genLog(`<i class="fa-solid fa-triangle-exclamation"></i>️ Could not place: ${sub?.name||'Unknown'} for ${cls.grade}${cls.stream?' '+cls.stream:''}`);
       }
     }
