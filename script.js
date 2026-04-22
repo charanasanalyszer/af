@@ -10444,6 +10444,35 @@ function populateFeesDropdowns() {
   });
 }
 
+// ── Populate Staff Dropdowns (Finances: Salary, Payslips) ──────────
+// This is called whenever staff records are added/edited/deleted so
+// that the Salary and Payslip selects always reflect current staff.
+function populateStaffDropdowns() {
+  const staff = loadStaffDetails();
+  const opts  = '<option value="">— Select Staff —</option>' +
+    staff.map(s => `<option value="${s.id}">${s.name}${s.role ? ' — ' + s.role : ''}</option>`).join('');
+
+  // Finances > Staff Salary select
+  const ss = document.getElementById('ssStaff');
+  if (ss) { const v = ss.value; ss.innerHTML = opts; if (v) ss.value = v; }
+
+  // Finances > Payslips > generate select
+  const ps = document.getElementById('psStaff');
+  if (ps) { const v = ps.value; ps.innerHTML = opts; if (v) ps.value = v; }
+
+  // Finances > Payslips > history filter select
+  const ph = document.getElementById('psHistStaff');
+  if (ph) {
+    const allOpt = '<option value="">All Staff</option>';
+    const v = ph.value;
+    ph.innerHTML = allOpt + staff.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    if (v) ph.value = v;
+  }
+
+  // Also keep Staff Details salary dropdown in sync
+  if (typeof sdpPopulateSalaryStaffDropdown === 'function') sdpPopulateSalaryStaffDropdown();
+}
+
 // ── Init Fees Section ──
 function initFeesSection() {
   // Ensure Finance main panel defaults to Fees
