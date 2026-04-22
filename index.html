@@ -1561,1100 +1561,1222 @@
       </div>
     </section>
 
-    <!-- ════ TIMETABLE ════ -->
+<!-- ════ TIMETABLE ════ -->
     <section id="s-timetable" class="sec">
       <div class="ph">
-        <h2><i class="fa-solid fa-clock"></i> Timetable Generator</h2>
-        <p>Full CBC smart timetable — setup, auto-schedule, drag-and-drop editing, PDF &amp; Excel export.</p>
+        <h2><i class="fa-solid fa-clock"></i> Smart Timetable Generator</h2>
+        <p>Constraint-based CBC timetable — auto-schedule, conflict detection, teacher map &amp; PDF print.</p>
       </div>
 
-      <!-- ── EduSchedule Timetable Sub-App ─────────────────────── -->
+      <!-- ── Scoped styles for the timetable sub-app ────────── -->
       <style>
-
-        /* Light mode CSS var fallbacks for EduSchedule inside Charanas */
-        #es-app {
-          --bg: #f8fafc;
-          --bg2: #ffffff;
-          --bg3: #f1f5f9;
-          --surface: #ffffff;
-          --border: #e2e8f0;
-          --accent: #1a6fb5;
-          --accent2: #7c3aed;
-          --accent3: #06b6d4;
-          --success: #10b981;
-          --warning: #f59e0b;
-          --danger: #ef4444;
-          --text: #0f172a;
-          --text2: #475569;
-          --text3: #94a3b8;
-          --radius: 12px;
-          --radius-sm: 8px;
-          --shadow: 0 4px 24px rgba(0,0,0,.08);
+        /* ── Root vars scoped to #tt-app ── */
+        #tt-app {
+          --tt-navy: #0b1526;
+          --tt-navy2: #111f35;
+          --tt-navy3: #18304d;
+          --tt-gold: #e8b84b;
+          --tt-gold2: #f5d27a;
+          --tt-gold-dim: rgba(232,184,75,0.12);
+          --tt-teal: #21c9a4;
+          --tt-teal-dim: rgba(33,201,164,0.12);
+          --tt-red: #f2617a;
+          --tt-red-dim: rgba(242,97,122,0.12);
+          --tt-sky: #4fa3e0;
+          --tt-sky-dim: rgba(79,163,224,0.12);
+          --tt-border: rgba(255,255,255,0.08);
+          --tt-border2: rgba(255,255,255,0.14);
+          --tt-text: #e8f0f8;
+          --tt-text2: #8fa8c4;
+          --tt-text3: #4a6480;
+          --tt-surface: #0e1a2d;
+          --tt-card: #13213a;
+          --tt-card2: #172a45;
+          --tt-radius: 12px;
+          --tt-shadow: 0 8px 32px rgba(0,0,0,0.4);
+          font-family: 'Outfit', 'DM Sans', sans-serif;
+          color: var(--tt-text);
+          border-radius: 14px;
+          overflow: hidden;
         }
 
-#es-app{font-family:'Plus Jakarta Sans','DM Sans',sans-serif}
-#es-app .page{display:none}
-#es-app .page.active{display:block}
-/* ===== CARDS ===== */
-#es-app .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
-#es-app .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-#es-app .card-title{font-size:15px;font-weight:700;color:var(--text)}
-
-/* ===== STATS ===== */
-#es-app .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:16px;margin-bottom:24px}
-#es-app .stat-card{
-  background:var(--bg2);border:1px solid var(--border);
-  border-radius:var(--radius);padding:18px;position:relative;overflow:hidden;
-}
-#es-app .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent-color,var(--accent))}
-#es-app .stat-card .stat-icon{font-size:24px;margin-bottom:8px}
-#es-app .stat-card .stat-value{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--text)}
-#es-app .stat-card .stat-label{font-size:12px;color:var(--text2);margin-top:2px}
-
-/* ===== BUTTONS ===== */
-#es-app .btn{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:9px 16px;border-radius:var(--radius-sm);
-  font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;
-  cursor:pointer;border:none;transition:all .15s;white-space:nowrap;
-}
-#es-app .btn-primary{background:var(--accent);color:#fff}
-#es-app .btn-primary:hover{background:#3d6aee;transform:translateY(-1px)}
-#es-app .btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border)}
-#es-app .btn-secondary:hover{background:var(--bg3)}
-#es-app .btn-success{background:var(--success);color:#fff}
-#es-app .btn-success:hover{background:#0da271}
-#es-app .btn-warning{background:var(--warning);color:#000}
-#es-app .btn-warning:hover{opacity:.9}
-#es-app .btn-danger{background:var(--danger);color:#fff}
-#es-app .btn-danger:hover{background:#dc2626}
-#es-app .btn-sm{padding:6px 10px;font-size:12px}
-#es-app .btn-icon{padding:8px;border-radius:6px;background:var(--surface);border:1px solid var(--border);color:var(--text2);cursor:pointer;transition:all .15s}
-#es-app .btn-icon:hover{background:var(--bg3);color:var(--text)}
-#es-app .btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important}
-
-/* ===== FORMS ===== */
-#es-app .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
-#es-app .form-group{display:flex;flex-direction:column;gap:6px}
-#es-app .form-label{font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
-#es-app .form-control{
-  background:var(--bg3);border:1px solid var(--border);
-  border-radius:var(--radius-sm);padding:10px 12px;
-  color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;
-  transition:border-color .15s;width:100%;
-}
-#es-app .form-control:focus{outline:none;border-color:var(--accent)}
-#es-app .form-control::placeholder{color:var(--text3)}
-#es-app select.form-control option{background:var(--bg3)}
-#es-app .form-hint{font-size:11px;color:var(--text3);margin-top:2px}
-
-/* ===== TABLES ===== */
-#es-app .table-wrapper{overflow-x:auto}
-#es-app table{width:100%;border-collapse:collapse;font-size:13px}
-#es-app thead th{
-  background:var(--bg3);padding:10px 14px;text-align:left;
-  font-size:11px;font-weight:700;text-transform:uppercase;
-  letter-spacing:.8px;color:var(--text2);border-bottom:1px solid var(--border);
-}
-#es-app tbody tr{border-bottom:1px solid rgba(46,52,72,.5);transition:background .1s}
-#es-app tbody tr:hover{background:var(--bg3)}
-#es-app tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
-#es-app .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600}
-.badge-blue{background:rgba(79,124,255,.15);color:var(--accent)}
-.badge-green{background:rgba(16,185,129,.15);color:var(--success)}
-.badge-orange{background:rgba(245,158,11,.15);color:var(--warning)}
-.badge-red{background:rgba(239,68,68,.15);color:var(--danger)}
-.badge-purple{background:rgba(124,58,237,.15);color:var(--accent2)}
-.badge-cyan{background:rgba(6,182,212,.15);color:var(--accent3)}
-
-/* ===== MODAL ===== */
-#es-app .modal-overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,.7);
-  backdrop-filter:blur(4px);z-index:200;
-  display:none;align-items:center;justify-content:center;padding:20px;
-}
-#es-app .modal-overlay.open{display:flex}
-#es-app .modal{
-  background:var(--bg2);border:1px solid var(--border);border-radius:16px;
-  width:100%;max-width:540px;max-height:90vh;overflow-y:auto;
-  animation:modalIn .25s ease;
-}
-@keyframes modalIn{from{transform:translateY(20px) scale(.97);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
-#es-app .modal-header{padding:20px 24px 0;display:flex;align-items:center;justify-content:space-between}
-#es-app .modal-title{font-size:18px;font-weight:800}
-#es-app .modal-close{
-  background:var(--surface);border:1px solid var(--border);border-radius:6px;
-  color:var(--text2);cursor:pointer;padding:4px 8px;font-size:16px;line-height:1;transition:all .15s;
-}
-#es-app .modal-close:hover{background:var(--danger);color:#fff;border-color:var(--danger)}
-#es-app .modal-body{padding:20px 24px}
-#es-app .modal-footer{padding:16px 24px 20px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid var(--border)}
-
-/* ===== TIMETABLE GRID ===== */
-.timetable-container{overflow-x:auto}
-.tt-grid { border: 2.5px solid var(--border, #94a3b8); }
-.tt-cell{
-  border:2.5px solid var(--border, #94a3b8);padding:0;
-  font-size:12px;min-height:68px;min-width:108px;
-  position:relative;transition:background .1s;vertical-align:top;
-  box-sizing:border-box;
-}
-.tt-cell-header{
-  background:var(--bg3);font-weight:700;font-size:11px;
-  text-transform:uppercase;letter-spacing:.8px;color:var(--text2);
-  padding:10px 8px;min-height:auto;text-align:center;
-  border-bottom: 2.5px solid var(--border, #94a3b8);
-}
-.tt-day-label{
-  background:var(--bg3);font-weight:700;font-size:11px;
-  color:var(--text2);display:flex;align-items:center;justify-content:center;
-  text-transform:uppercase;letter-spacing:.8px;padding:8px;text-align:center;min-width:72px;
-  border-right: 2.5px solid var(--border, #94a3b8);
-}
-
-/* Break column header */
-.tt-break-col-hdr {
-  background: #fef3c7;
-  color: #92400e;
-  font-size: 10px;
-  font-weight: 700;
-  text-align: center;
-  padding: 6px 3px;
-  min-height: auto;
-  line-height: 1.4;
-  border-left: 2.5px solid #fbbf24 !important;
-  border-right: 2.5px solid #fbbf24 !important;
-  min-width: 52px;
-}
-.tt-lunch-hdr {
-  background: #d1fae5;
-  color: #065f46;
-  border-left: 2.5px solid #10b981 !important;
-  border-right: 2.5px solid #10b981 !important;
-}
-
-/* Break column cells */
-.tt-break-col {
-  background: repeating-linear-gradient(
-    45deg,
-    rgba(251,191,36,.10),
-    rgba(251,191,36,.10) 5px,
-    rgba(254,243,199,.35) 5px,
-    rgba(254,243,199,.35) 12px
-  );
-  border-left: 2.5px solid #fbbf24 !important;
-  border-right: 2.5px solid #fbbf24 !important;
-  min-width: 52px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.tt-lunch-col {
-  background: repeating-linear-gradient(
-    45deg,
-    rgba(16,185,129,.10),
-    rgba(16,185,129,.10) 5px,
-    rgba(209,250,229,.35) 5px,
-    rgba(209,250,229,.35) 12px
-  );
-  border-left: 2.5px solid #10b981 !important;
-  border-right: 2.5px solid #10b981 !important;
-}
-.tt-break-inner {
-  font-size: 1.3rem;
-  opacity: .55;
-  pointer-events: none;
-}
-
-.tt-lesson{
-  background:var(--lesson-color,var(--accent));
-  border-radius:6px;margin:3px;padding:6px 8px;
-  font-size:11px;font-weight:600;color:#fff;cursor:grab;
-  position:relative;min-height:58px;
-  display:flex;flex-direction:column;justify-content:center;
-  transition:opacity .15s,transform .15s;
-}
-.tt-lesson:active{cursor:grabbing;opacity:.8;transform:scale(.98)}
-.tt-lesson .lesson-subject{font-size:12px;font-weight:700;line-height:1.2}
-.tt-lesson .lesson-teacher{font-size:10px;opacity:.8;margin-top:2px}
-.tt-lesson .lesson-room{font-size:9px;opacity:.65;margin-top:1px}
-.tt-lesson .lesson-actions{position:absolute;top:3px;right:3px;display:none;gap:2px}
-.tt-lesson:hover .lesson-actions{display:flex}
-.lesson-action-btn{
-  background:rgba(0,0,0,.35);border:none;border-radius:4px;
-  color:#fff;cursor:pointer;font-size:10px;padding:2px 4px;line-height:1;
-  transition:background .1s;
-}
-.lesson-action-btn:hover{background:rgba(0,0,0,.6)}
-.tt-break{
-  background:repeating-linear-gradient(45deg,rgba(46,52,72,.3),rgba(46,52,72,.3) 4px,transparent 4px,transparent 12px);
-  display:flex;align-items:center;justify-content:center;
-  font-size:10px;color:var(--text3);text-transform:uppercase;
-  letter-spacing:1px;font-weight:600;min-height:68px;
-}
-.tt-empty{cursor:pointer;transition:background .15s;background:transparent}
-.tt-empty:hover{background:rgba(79,124,255,.05)}
-.tt-empty-inner{color:var(--text3);font-size:11px;text-align:center;padding:14px 4px;line-height:1.5}
-.tt-locked{border:2.5px solid var(--warning)!important}
-.tt-locked::after{content:'<i class="fa-solid fa-lock"></i>';position:absolute;bottom:3px;right:4px;font-size:9px}
-.drag-over{background:rgba(79,124,255,.12)!important;border:2.5px dashed var(--accent)!important}
-
-/* ===== ALERTS ===== */
-#es-app .alert{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:10px}
-.alert-warning{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:var(--warning)}
-.alert-danger{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--danger)}
-.alert-success{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--success)}
-.alert-info{background:rgba(79,124,255,.1);border:1px solid rgba(79,124,255,.3);color:var(--accent)}
-
-/* ===== TABS ===== */
-#es-app .tabs{display:flex;gap:4px;background:var(--bg3);padding:4px;border-radius:var(--radius-sm);margin-bottom:20px;flex-wrap:wrap}
-#es-app .tab-btn{
-  padding:8px 14px;border-radius:6px;border:none;background:none;
-  color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif;
-  font-size:13px;font-weight:600;transition:all .15s;white-space:nowrap;
-}
-#es-app .tab-btn.active{background:var(--bg2);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.3)}
-
-/* ===== AVAILABILITY GRID ===== */
-#es-app .avail-grid{display:grid;gap:4px;margin-top:8px}
-#es-app .avail-row{display:flex;gap:4px;align-items:center}
-.avail-day-label{font-size:11px;color:var(--text2);width:32px;flex-shrink:0}
-#es-app .avail-cell{
-  width:28px;height:28px;border-radius:4px;background:var(--bg3);
-  border:1px solid var(--border);cursor:pointer;transition:all .1s;
-  display:flex;align-items:center;justify-content:center;
-  font-size:10px;color:var(--text3);user-select:none;
-}
-#es-app .avail-cell.available{background:rgba(16,185,129,.2);border-color:var(--success);color:var(--success)}
-
-/* ===== PROGRESS ===== */
-#es-app .progress-bar{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-top:6px}
-#es-app .progress-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent3));transition:width .5s ease}
-
-/* ===== GENERATE PAGE ===== */
-#es-app .generate-panel{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px}
-#es-app .class-selector{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-#es-app .class-chip{
-  padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;
-  cursor:pointer;border:1px solid var(--border);background:var(--bg3);
-  color:var(--text2);transition:all .15s;user-select:none;
-}
-#es-app .class-chip.selected{background:rgba(79,124,255,.15);border-color:var(--accent);color:var(--accent)}
-
-/* ===== COLORS ===== */
-#es-app .color-dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0}
-#es-app .subject-color-picker{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-#es-app .color-swatch{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:border-color .15s}
-#es-app .color-swatch.selected{border-color:#fff;transform:scale(1.1)}
-
-/* ===== TOAST ===== */
-#es-app .toast-container{position:fixed;bottom:24px;right:24px;z-index:999;display:flex;flex-direction:column;gap:8px}
-#es-app .toast{
-  background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);
-  padding:12px 16px;font-size:13px;max-width:340px;
-  animation:toastIn .3s ease;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow);
-}
-@keyframes toastIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
-#es-app .toast.fading{animation:toastOut .3s ease forwards}
-@keyframes toastOut{to{transform:translateX(100%);opacity:0}}
-
-/* ===== SECTION HEADER ===== */
-#es-app .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
-#es-app .section-title{font-size:22px;font-weight:800}
-#es-app .section-sub{font-size:13px;color:var(--text2);margin-top:3px}
-
-/* ===== SIDEBAR OVERLAY ===== */
-#es-app .sidebar-overlay{display:none;position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.5)}
-#es-app .sidebar-overlay.open{display:block}
-
-/* ===== EMPTY STATE ===== */
-#es-app .empty-state{text-align:center;padding:48px 24px;color:var(--text3)}
-#es-app .empty-state .empty-icon{font-size:48px;margin-bottom:12px}
-#es-app .empty-state h3{font-size:16px;color:var(--text2);margin-bottom:6px}
-#es-app .empty-state p{font-size:13px}
-
-/* ===== SETUP ===== */
-#es-app .setup-card{max-width:720px;margin:0 auto}
-#es-app .break-list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
-#es-app .break-item{
-  display:flex;align-items:center;gap:8px;
-  background:var(--bg3);border:1px solid var(--border);
-  border-radius:var(--radius-sm);padding:8px 12px;font-size:13px;
-}
-#es-app .break-item #es-app .break-label{flex:1;color:var(--text2)}
-
-/* ===== LEGEND ===== */
-#es-app .legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:4px}
-.legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)}
-.legend-color{width:12px;height:12px;border-radius:3px;flex-shrink:0}
-
-/* ===== GEN LOG ===== */
-#es-app #genLog{
-  font-size:12px;color:var(--text2);font-family:monospace;
-  min-height:50px;max-height:180px;overflow-y:auto;line-height:1.7;
-}
-#es-app #genLog > div{padding:1px 0;border-bottom:1px solid rgba(46,52,72,.3)}
-
-
-/* Step cards */
-#es-app .step-card{
-  cursor:pointer;padding:14px;background:var(--bg3);
-  border:1px solid var(--border);border-radius:var(--radius-sm);
-  transition:all .15s;
-}
-#es-app .step-card:hover{border-color:var(--accent);background:rgba(79,124,255,.05);transform:translateY(-1px)}
-
-        /* Dark mode — syncs with Charanas dark mode toggle */
-        body.dark #es-app {
-          --bg: #0f1117;
-          --bg2: #161922;
-          --bg3: #1e2230;
-          --surface: #252a3a;
-          --border: #2e3448;
-          --accent: #4f7cff;
-          --accent2: #7c3aed;
-          --accent3: #06b6d4;
-          --success: #10b981;
-          --warning: #f59e0b;
-          --danger: #ef4444;
-          --text: #e8eaf0;
-          --text2: #8892aa;
-          --text3: #555f7a;
+        /* Light mode overrides when body is NOT dark */
+        body:not(.dark) #tt-app {
+          --tt-navy:  #f1f5f9;
+          --tt-navy2: #ffffff;
+          --tt-navy3: #e8f0f8;
+          --tt-gold:  #c8820a;
+          --tt-gold2: #e8a820;
+          --tt-gold-dim: rgba(200,130,10,0.10);
+          --tt-teal:  #0d9488;
+          --tt-teal-dim: rgba(13,148,136,0.10);
+          --tt-red:   #dc2626;
+          --tt-red-dim: rgba(220,38,38,0.10);
+          --tt-sky:   #2563eb;
+          --tt-sky-dim: rgba(37,99,235,0.10);
+          --tt-border: rgba(0,0,0,0.10);
+          --tt-border2: rgba(0,0,0,0.16);
+          --tt-text:  #0f172a;
+          --tt-text2: #475569;
+          --tt-text3: #94a3b8;
+          --tt-surface: #f8fafc;
+          --tt-card:  #ffffff;
+          --tt-card2: #f1f5f9;
+          --tt-shadow: 0 4px 24px rgba(0,0,0,0.08);
         }
 
-        /* EduSchedule inner nav */
-#es-app .es-topbar{background:var(--surface);border:1px solid var(--border-lt);border-radius:10px;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
-#es-app .es-topbar-title{font-size:14px;font-weight:700;color:var(--text)}
-#es-app .es-nav{display:flex;flex-wrap:wrap;gap:4px;background:var(--bg-muted,#f1f5f9);padding:6px;border-radius:10px;margin-bottom:20px}
-#es-app .nav-item{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:7px;cursor:pointer;transition:all .15s;color:var(--muted);font-size:13px;font-weight:500;white-space:nowrap;border:none;background:transparent}
-#es-app .nav-item:hover{background:var(--surface);color:var(--text)}
-#es-app .nav-item.active{background:var(--primary);color:#fff}
-#es-app .nav-badge{margin-left:4px;background:var(--primary);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:10px;min-width:18px;text-align:center}
-#es-app .nav-badge.red{background:#ef4444}
-/* Scoped modal for EduSchedule */
-#es-app .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:1100;display:none;align-items:center;justify-content:center;padding:20px}
-#es-app .modal-overlay.open{display:flex}
-#es-app .modal{background:var(--surface);border:1px solid var(--border-lt);border-radius:16px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto;animation:es_modalIn .25s ease}
-@keyframes es_modalIn{from{transform:translateY(20px) scale(.97);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
-#es-app .modal-header{padding:20px 24px 0;display:flex;align-items:center;justify-content:space-between}
-#es-app .modal-title{font-size:18px;font-weight:800;color:var(--text)}
-#es-app .modal-close{background:var(--bg-muted,#f1f5f9);border:1px solid var(--border-lt);border-radius:6px;color:var(--muted);cursor:pointer;padding:4px 8px;font-size:16px;line-height:1;transition:all .15s}
-#es-app .modal-close:hover{background:#ef4444;color:#fff;border-color:#ef4444}
-#es-app .modal-body{padding:20px 24px}
-#es-app .modal-footer{padding:16px 24px 20px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid var(--border-lt)}
-/* EduSchedule toast (scoped) */
-#es-app .toast-container{position:fixed;bottom:24px;right:24px;z-index:1200;display:flex;flex-direction:column;gap:8px}
-#es-app .toast{background:var(--surface);border:1px solid var(--border-lt);border-radius:8px;padding:12px 16px;font-size:13px;max-width:340px;animation:es_toastIn .3s ease;display:flex;align-items:center;gap:10px;box-shadow:0 4px 24px rgba(0,0,0,.15)}
-@keyframes es_toastIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
-#es-app .toast.fading{animation:es_toastOut .3s ease forwards}
-@keyframes es_toastOut{to{transform:translateX(100%);opacity:0}}
-/* Dark mode compat vars */
-[data-theme="dark"] #es-app,body.dark #es-app{
-  --bg:#0f1117;--bg2:#161922;--bg3:#1e2230;--surface:#252a3a;
-  --border:#2e3448;--accent:#4f7cff;--accent2:#7c3aed;--accent3:#06b6d4;
-  --success:#10b981;--warning:#f59e0b;--danger:#ef4444;
-  --text:#e8eaf0;--text2:#8892aa;--text3:#555f7a;
-}
+        /* ── Inner header ── */
+        #tt-app .tt-header {
+          display:flex; align-items:center; justify-content:space-between;
+          padding:.9rem 1.25rem; background:var(--tt-card2);
+          border:1px solid var(--tt-border); border-radius:10px;
+          margin-bottom:1rem; flex-wrap:wrap; gap:.6rem;
+        }
+        #tt-app .tt-header-title {
+          font-size:.95rem; font-weight:700; color:var(--tt-text);
+          display:flex; align-items:center; gap:.5rem;
+        }
+        #tt-app .tt-header-actions { display:flex; gap:.45rem; flex-wrap:wrap; align-items:center; }
+        #tt-app .tt-status-dot {
+          width:8px; height:8px; border-radius:50%; background:var(--tt-teal);
+          animation:tt_pulse 2s infinite; flex-shrink:0;
+        }
+        @keyframes tt_pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
-/* ===== PRINT STYLES — Timetable ===== */
-@media print {
-  /* Hide everything except the timetable view container */
-  body * { visibility: hidden !important; }
-  #es_timetableViewContainer,
-  #es_timetableViewContainer *,
-  #es_printHeader,
-  #es_printHeader * { visibility: visible !important; }
+        /* ── Main grid ── */
+        #tt-app .tt-main {
+          display:grid; grid-template-columns:330px 1fr;
+          gap:1rem; min-height:520px;
+        }
+        @media(max-width:900px){ #tt-app .tt-main{grid-template-columns:1fr} }
 
-  body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
-  @page { size: A4 landscape; margin: 10mm 8mm; }
+        /* ── Sidebar ── */
+        #tt-app .tt-sidebar {
+          display:flex; flex-direction:column; gap:.85rem;
+          overflow-y:auto; max-height:75vh;
+        }
 
-  #es_timetableViewContainer {
-    position: fixed !important;
-    top: 0 !important; left: 0 !important;
-    width: 100% !important;
-    padding: 0 !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
+        /* ── Panel ── */
+        #tt-app .tt-panel {
+          background:var(--tt-card); border:1px solid var(--tt-border);
+          border-radius:var(--tt-radius); overflow:hidden;
+        }
+        #tt-app .tt-panel-hdr {
+          padding:.6rem .9rem; background:var(--tt-card2);
+          border-bottom:1px solid var(--tt-border);
+          display:flex; align-items:center; justify-content:space-between;
+        }
+        #tt-app .tt-panel-title {
+          font-size:.73rem; font-weight:700; text-transform:uppercase;
+          letter-spacing:.07em; color:var(--tt-text2);
+        }
+        #tt-app .tt-panel-body { padding:.85rem; }
 
-  /* Force color printing */
-  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+        /* ── Forms ── */
+        #tt-app label.tt-lbl {
+          display:block; font-size:.68rem; font-weight:600;
+          text-transform:uppercase; letter-spacing:.05em;
+          color:var(--tt-text2); margin-bottom:.3rem;
+        }
+        #tt-app .tt-input, #tt-app .tt-select, #tt-app .tt-textarea {
+          width:100%; background:var(--tt-navy3); border:1px solid var(--tt-border2);
+          border-radius:7px; padding:.45rem .65rem; color:var(--tt-text);
+          font-family:inherit; font-size:.82rem; outline:none;
+          transition:border-color .15s;
+        }
+        #tt-app .tt-input:focus, #tt-app .tt-select:focus { border-color:var(--tt-gold); }
+        #tt-app .tt-select option { background:var(--tt-navy2); }
+        #tt-app .tt-fg { margin-bottom:.65rem; }
+        #tt-app .tt-frow { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
 
-  /* Timetable grid print sizing */
-  .tt-grid { font-size: 8pt !important; border: 1.5pt solid #334 !important; width: 100% !important; }
-  .tt-cell { min-height: 48pt !important; min-width: 0 !important; border: 1pt solid #aab !important; padding: 0 !important; }
-  .tt-cell-header { background: #1e2230 !important; color: #e8eaf0 !important; font-size: 7pt !important; padding: 5pt 3pt !important; }
-  .tt-day-label { background: #1e2230 !important; color: #b4c3dc !important; font-size: 8pt !important; min-width: 22pt !important; font-weight: 700 !important; }
-  .tt-lesson { margin: 2pt !important; padding: 3pt 4pt !important; border-radius: 3pt !important; min-height: 40pt !important; }
-  .tt-lesson .lesson-subject { font-size: 8pt !important; font-weight: 700 !important; }
-  .tt-lesson .lesson-teacher { font-size: 6.5pt !important; }
-  .tt-lesson .lesson-room { font-size: 5.5pt !important; }
-  .tt-lesson .lesson-actions { display: none !important; }
-  .tt-break-col, .tt-lunch-col { min-width: 16pt !important; }
-  .tt-break-col-hdr { min-width: 16pt !important; font-size: 5.5pt !important; }
-  .tt-empty { background: #f8fafc !important; }
-  .tt-empty-inner { display: none !important; }
+        /* ── Buttons ── */
+        #tt-app .tt-btn {
+          display:inline-flex; align-items:center; gap:.4rem;
+          padding:.45rem .9rem; border-radius:7px; cursor:pointer; border:none;
+          font-family:inherit; font-size:.78rem; font-weight:600;
+          transition:all .15s; white-space:nowrap;
+        }
+        #tt-app .tt-btn-gold {
+          background:linear-gradient(135deg,var(--tt-gold),#c8952a); color:var(--tt-navy);
+        }
+        #tt-app .tt-btn-gold:hover { transform:translateY(-1px); box-shadow:0 4px 14px rgba(232,184,75,.3); }
+        #tt-app .tt-btn-teal {
+          background:var(--tt-teal-dim); color:var(--tt-teal);
+          border:1px solid rgba(33,201,164,.3);
+        }
+        #tt-app .tt-btn-teal:hover { background:rgba(33,201,164,.2); }
+        #tt-app .tt-btn-outline {
+          background:transparent; color:var(--tt-text2); border:1px solid var(--tt-border2);
+        }
+        #tt-app .tt-btn-outline:hover { border-color:var(--tt-text); color:var(--tt-text); }
+        #tt-app .tt-btn-sm { padding:.28rem .55rem; font-size:.7rem; }
+        #tt-app .tt-btn-danger {
+          background:var(--tt-red-dim); color:var(--tt-red); border:1px solid rgba(242,97,122,.3);
+        }
+        #tt-app .tt-btn:disabled { opacity:.4; cursor:not-allowed; transform:none!important; }
+        #tt-app .tt-btn-generate {
+          width:100%; padding:.75rem; font-size:.88rem; justify-content:center;
+          background:linear-gradient(135deg,var(--tt-gold),var(--tt-gold2),#c8952a);
+          color:var(--tt-navy); border-radius:9px; font-weight:800; letter-spacing:.03em;
+          position:relative; overflow:hidden;
+        }
+        #tt-app .tt-btn-generate::before {
+          content:''; position:absolute; top:0; left:-100%; width:100%; height:100%;
+          background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);
+          transition:left .5s;
+        }
+        #tt-app .tt-btn-generate:hover::before { left:100%; }
+        #tt-app .tt-btn-generate:hover { transform:translateY(-2px); box-shadow:0 5px 20px rgba(232,184,75,.4); }
 
-  /* Print title shown above grid */
-  .es-print-title { display: block !important; font-size: 12pt; font-weight: 800; margin-bottom: 4pt; color: #0f172a; }
-  .es-print-meta  { display: block !important; font-size: 7.5pt; color: #475569; margin-bottom: 6pt; }
-  .es-print-legend { display: flex !important; flex-wrap: wrap; gap: 4pt; margin-bottom: 6pt; }
-  .es-print-legend-item { display: flex; align-items: center; gap: 3pt; font-size: 6.5pt; color: #334; }
-  .es-print-legend-dot { width: 8pt; height: 8pt; border-radius: 2pt; display: inline-block; }
-  .timetable-container { overflow: visible !important; }
+        /* ── Tags ── */
+        #tt-app .tt-tag {
+          display:inline-flex; align-items:center; gap:.3rem;
+          padding:.2rem .55rem; background:var(--tt-navy3);
+          border:1px solid var(--tt-border2); border-radius:20px;
+          font-size:.72rem; color:var(--tt-text);
+        }
+        #tt-app .tt-tag-remove {
+          cursor:pointer; color:var(--tt-text3); font-size:.75rem;
+          background:none; border:none; transition:color .1s;
+        }
+        #tt-app .tt-tag-remove:hover { color:var(--tt-red); }
 
-  /* Legend card on print */
-  #es_viewLegendCard { display: none !important; }
+        /* ── Stats ── */
+        #tt-app .tt-stats-row {
+          display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:.6rem;
+          margin-bottom:1rem;
+        }
+        #tt-app .tt-stat-card {
+          background:var(--tt-card); border:1px solid var(--tt-border);
+          border-radius:var(--tt-radius); padding:.7rem .85rem;
+          position:relative; overflow:hidden;
+        }
+        #tt-app .tt-stat-card::before {
+          content:''; position:absolute; top:0; left:0; right:0; height:2px;
+          background:var(--tt-acc, var(--tt-gold));
+        }
+        #tt-app .tt-stat-val {
+          font-size:1.5rem; font-weight:800; color:var(--tt-text); line-height:1;
+        }
+        #tt-app .tt-stat-lbl { font-size:.68rem; color:var(--tt-text2); margin-top:.25rem; }
 
-  /* Hide nav, buttons, sidebar etc */
-  .es-topbar, .es-nav, #es_viewLegendCard, button, select { display: none !important; }
-  .section-header { display: none !important; }
-}
+        /* ── Tabs ── */
+        #tt-app .tt-tabs-row {
+          display:flex; gap:.25rem; background:var(--tt-card);
+          border:1px solid var(--tt-border); border-radius:9px;
+          padding:.25rem; margin-bottom:1rem;
+        }
+        #tt-app .tt-tab-btn {
+          flex:1; padding:.45rem .65rem; border:none; border-radius:6px;
+          background:transparent; color:var(--tt-text2); font-family:inherit;
+          font-size:.78rem; font-weight:600; cursor:pointer; transition:all .15s;
+        }
+        #tt-app .tt-tab-btn.active {
+          background:var(--tt-card2); color:var(--tt-text); box-shadow:0 1px 4px rgba(0,0,0,.25);
+        }
+
+        /* ── Timetable Grid ── */
+        #tt-app .tt-wrapper { overflow-x:auto; margin-bottom:1.25rem; }
+        #tt-app .tt-table {
+          width:100%; border-collapse:collapse; font-size:.78rem; min-width:740px;
+        }
+        #tt-app .tt-table th {
+          background:var(--tt-card2); padding:.6rem .75rem; text-align:center;
+          font-size:.64rem; font-weight:700; text-transform:uppercase;
+          letter-spacing:.06em; color:var(--tt-text2); border:1px solid var(--tt-border);
+          white-space:nowrap;
+        }
+        #tt-app .tt-table th.tt-day-col { width:70px; text-align:left; background:var(--tt-navy3); }
+        #tt-app .tt-table td {
+          border:1px solid var(--tt-border); padding:0;
+          vertical-align:top; min-width:100px; height:68px;
+        }
+        #tt-app .tt-lesson-cell {
+          padding:.4rem .5rem; height:100%; border-radius:4px; margin:2px;
+          display:flex; flex-direction:column; justify-content:center;
+          cursor:pointer; transition:opacity .15s;
+        }
+        #tt-app .tt-lesson-cell:hover { opacity:.82; }
+        #tt-app .tt-lesson-subject { font-weight:700; font-size:.74rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2; }
+        #tt-app .tt-lesson-teacher { font-size:.65rem; opacity:.72; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        #tt-app .tt-cell-empty {
+          width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+          color:var(--tt-text3); font-size:.65rem; transition:background .1s;
+        }
+        #tt-app .tt-cell-empty:hover { background:rgba(255,255,255,.03); }
+        #tt-app .tt-break-cell {
+          background:repeating-linear-gradient(45deg,rgba(255,255,255,.02),rgba(255,255,255,.02) 4px,transparent 4px,transparent 12px);
+          text-align:center; vertical-align:middle;
+        }
+
+        /* ── Teacher map ── */
+        #tt-app .tt-teacher-map { background:var(--tt-card); border:1px solid var(--tt-border); border-radius:var(--tt-radius); overflow:hidden; margin-bottom:1rem; }
+        #tt-app .tt-tm-hdr { padding:.6rem .9rem; background:var(--tt-card2); border-bottom:1px solid var(--tt-border); font-size:.73rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--tt-text2); display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+        #tt-app .tt-tm-table { width:100%; border-collapse:collapse; font-size:.72rem; min-width:650px; }
+        #tt-app .tt-tm-table th { background:var(--tt-navy3); padding:.5rem .6rem; font-size:.62rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--tt-text2); border:1px solid var(--tt-border); text-align:center; }
+        #tt-app .tt-tm-table td { border:1px solid var(--tt-border); padding:.28rem .45rem; text-align:center; font-size:.66rem; min-width:65px; }
+        #tt-app .tt-tm-free { color:var(--tt-text3); font-size:.58rem; }
+        #tt-app .tt-tm-busy { background:var(--tt-gold-dim); color:var(--tt-gold); border-radius:4px; padding:.12rem .35rem; font-size:.62rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:78px; display:inline-block; }
+
+        /* ── Log box ── */
+        #tt-app .tt-log-box {
+          background:var(--tt-card); border:1px solid var(--tt-border); border-radius:var(--tt-radius);
+          padding:.75rem; font-family:'JetBrains Mono',monospace; font-size:.68rem;
+          color:var(--tt-text2); max-height:140px; overflow-y:auto; line-height:1.65;
+        }
+        #tt-app .tt-log-line { padding:1px 0; border-bottom:1px solid rgba(255,255,255,.03); }
+        #tt-app .log-ok  { color:var(--tt-teal); }
+        #tt-app .log-warn{ color:var(--tt-gold); }
+        #tt-app .log-err { color:var(--tt-red);  }
+        #tt-app .log-info{ color:var(--tt-sky);  }
+
+        /* ── Progress bar ── */
+        #tt-app .tt-progress-bar { height:4px; background:var(--tt-navy3); border-radius:3px; overflow:hidden; margin-top:.6rem; }
+        #tt-app .tt-progress-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--tt-gold),var(--tt-teal)); transition:width .4s ease; }
+
+        /* ── Empty state ── */
+        #tt-app .tt-empty { text-align:center; padding:3rem 1.5rem; color:var(--tt-text3); }
+        #tt-app .tt-empty-icon { font-size:2.5rem; margin-bottom:.75rem; opacity:.35; }
+        #tt-app .tt-empty-title { font-size:1rem; font-weight:700; color:var(--tt-text2); }
+        #tt-app .tt-empty-sub { font-size:.78rem; margin-top:.3rem; }
+
+        /* ── Class chips ── */
+        #tt-app .tt-class-chips { display:flex; flex-wrap:wrap; gap:.4rem; }
+        #tt-app .tt-class-chip {
+          padding:.3rem .65rem; border-radius:20px; font-size:.73rem; font-weight:600;
+          cursor:pointer; border:1px solid var(--tt-border2); background:var(--tt-navy3);
+          color:var(--tt-text2); transition:all .15s;
+        }
+        #tt-app .tt-class-chip.active { background:var(--tt-gold-dim); border-color:var(--tt-gold); color:var(--tt-gold); }
+
+        /* ── Conflict badge ── */
+        #tt-app .tt-conflict-badge {
+          display:inline-flex; align-items:center; gap:.25rem;
+          padding:.18rem .55rem; background:var(--tt-red-dim);
+          border:1px solid rgba(242,97,122,.3); border-radius:20px;
+          font-size:.7rem; color:var(--tt-red); font-weight:700;
+        }
+
+        /* ── Legend ── */
+        #tt-app .tt-legend { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:.75rem; }
+        #tt-app .tt-legend-item { display:flex; align-items:center; gap:.35rem; font-size:.68rem; color:var(--tt-text2); }
+        #tt-app .tt-legend-dot { width:9px; height:9px; border-radius:2px; flex-shrink:0; }
+
+        /* ── Content area ── */
+        #tt-app .tt-content { min-width:0; overflow:hidden; }
+
+        /* ── Toast ── */
+        #tt-app .tt-toast-container { position:fixed; bottom:1.25rem; right:1.25rem; z-index:9999; display:flex; flex-direction:column; gap:.4rem; pointer-events:none; }
+        #tt-app .tt-toast {
+          background:var(--tt-card2); border:1px solid var(--tt-border2); border-radius:9px;
+          padding:.55rem .9rem; font-size:.78rem; max-width:300px;
+          display:flex; align-items:center; gap:.5rem;
+          animation:tt_toastIn .3s ease; box-shadow:var(--tt-shadow); pointer-events:all;
+        }
+        @keyframes tt_toastIn  { from{transform:translateX(100%);opacity:0} }
+        @keyframes tt_toastOut { to  {transform:translateX(100%);opacity:0} }
+        #tt-app .tt-toast.fading { animation:tt_toastOut .3s ease forwards; }
+        #tt-app .tt-toast-ok   { border-left:3px solid var(--tt-teal); }
+        #tt-app .tt-toast-warn { border-left:3px solid var(--tt-gold); }
+        #tt-app .tt-toast-err  { border-left:3px solid var(--tt-red);  }
+
+        /* ── Modal ── */
+        #tt-teacherModal {
+          display:none; position:fixed; inset:0;
+          background:rgba(0,0,0,.65); backdrop-filter:blur(4px);
+          z-index:2000; align-items:center; justify-content:center; padding:1.25rem;
+        }
+        #tt-teacherModal .tt-modal-box {
+          background:var(--tt-card); border:1px solid var(--tt-border2); border-radius:14px;
+          width:min(500px,100%); max-height:85vh; overflow-y:auto; box-shadow:var(--tt-shadow);
+        }
+        #tt-teacherModal .tt-modal-hdr {
+          padding:.85rem 1.1rem; border-bottom:1px solid var(--tt-border);
+          display:flex; align-items:center; justify-content:space-between;
+        }
+        #tt-teacherModal .tt-modal-title { font-size:.95rem; font-weight:700; color:var(--tt-text); }
+        #tt-teacherModal .tt-modal-close { background:none; border:none; color:var(--tt-text2); font-size:1.1rem; cursor:pointer; padding:.15rem .35rem; }
+        #tt-teacherModal .tt-modal-body { padding:1.1rem; }
+        #tt-teacherModal .tt-modal-footer { padding:.75rem 1.1rem; border-top:1px solid var(--tt-border); display:flex; gap:.4rem; justify-content:flex-end; }
+
+        /* ── Print ── */
+        @media print {
+          body * { visibility:hidden!important; }
+          #tt-app .tt-wrapper, #tt-app .tt-wrapper * { visibility:visible!important; }
+          #tt-app .tt-wrapper { position:fixed; top:0; left:0; width:100%; padding:0; }
+          * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
+          @page { size:A4 landscape; margin:10mm; }
+        }
+
+        /* ── Scrollbar ── */
+        #tt-app ::-webkit-scrollbar { width:4px; height:4px; }
+        #tt-app ::-webkit-scrollbar-track { background:var(--tt-navy2); }
+        #tt-app ::-webkit-scrollbar-thumb { background:var(--tt-navy3); border-radius:3px; }
       </style>
 
-      <div id="es-app">
-        <!-- EduSchedule Top Bar -->
-        <div class="es-topbar">
-          <div class="es-topbar-title" id="es_topbarTitle"><i class="fa-solid fa-calendar-days"></i> Dashboard</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="btn btn-success btn-sm" onclick="es_syncFromCharanas()" title="Import classes, teachers & subjects from your school data"><i class="fa-solid fa-rotate"></i> Sync School Data</button>
-            <button class="btn btn-outline btn-sm" onclick="es_exportData()"><i class="fa-solid fa-floppy-disk"></i> Backup</button>
-            <button class="btn btn-outline btn-sm" onclick="es_importDataPrompt()"><i class="fa-solid fa-folder-open"></i> Restore</button>
-            <button class="btn btn-primary btn-sm" onclick="es_loadSampleData()"><i class="fa-solid fa-box"></i> Demo Data</button>
+      <!-- ══════ TT-APP ══════ -->
+      <div id="tt-app">
+
+        <!-- Header -->
+        <div class="tt-header">
+          <div class="tt-header-title">
+            <div class="tt-status-dot" id="tt_statusDot"></div>
+            <span id="tt_statusText">Ready</span>
+          </div>
+          <div class="tt-header-actions">
+            <button class="tt-btn tt-btn-teal tt-btn-sm" onclick="tt_syncFromCharanas()" title="Pull classes, teachers &amp; subjects from your school data">
+              <i class="fa-solid fa-rotate"></i> Sync School Data
+            </button>
+            <button class="tt-btn tt-btn-outline tt-btn-sm" onclick="tt_loadDemoData()">
+              <i class="fa-solid fa-box"></i> Demo Data
+            </button>
+            <button class="tt-btn tt-btn-outline tt-btn-sm" onclick="tt_resetAll()">
+              <i class="fa-solid fa-trash"></i> Reset
+            </button>
           </div>
         </div>
 
-        <!-- EduSchedule Nav -->
-        <div class="es-nav" id="es-nav">
-          <button class="nav-item active" onclick="es_showPage('dashboard',this)"><i class="fa-solid fa-house"></i> Dashboard</button>
-          <button class="nav-item" onclick="es_showPage('setup',this)"><i class="fa-solid fa-gear"></i> School Setup</button>
-          <button class="nav-item" onclick="es_showPage('classes',this)"><i class="fa-solid fa-school"></i> Classes <span class="nav-badge" id="es_badge-classes">0</span></button>
-          <button class="nav-item" onclick="es_showPage('subjects',this)"><i class="fa-solid fa-book"></i> Subjects <span class="nav-badge" id="es_badge-subjects">0</span></button>
-          <button class="nav-item" onclick="es_showPage('teachers',this)"><i class="fa-solid fa-person"></i>‍<i class="fa-solid fa-school"></i> Teachers <span class="nav-badge" id="es_badge-teachers">0</span></button>
-          <button class="nav-item" onclick="es_showPage('rooms',this)"><i class="fa-solid fa-arrow-right-from-bracket"></i> Rooms <span class="nav-badge" id="es_badge-rooms">0</span></button>
-          <button class="nav-item" onclick="es_showPage('generate',this)"><i class="fa-solid fa-bolt"></i> Generate</button>
-          <button class="nav-item" onclick="es_showPage('view',this)"><i class="fa-solid fa-calendar-days"></i> View</button>
-          <button class="nav-item" onclick="es_showPage('allclass',this)"><i class="fa-solid fa-calendar"></i> All Classes</button>
-          <button class="nav-item" onclick="es_showPage('conflicts',this)"><i class="fa-solid fa-triangle-exclamation"></i> Conflicts <span class="nav-badge red" id="es_badge-conflicts">0</span></button>
-        </div>
-
-        <!-- EduSchedule Pages -->
-        <div id="es-pages">
-
-
-    <!-- ========== DASHBOARD ========== -->
-    <div class="page active" id="page-dashboard">
-      <div class="section-header">
-        <div>
-          <div class="section-title">Dashboard</div>
-          <div class="section-sub">Overview of your CBC timetable setup</div>
-        </div>
-        <button class="btn btn-primary" onclick="es_showPage('generate')"><i class="fa-solid fa-bolt"></i> Generate Timetable</button>
-      </div>
-
-      <div class="stats-grid">
-        <div class="stat-card" style="--accent-color:var(--accent)">
-          <div class="stat-icon"><i class="fa-solid fa-school"></i></div>
-          <div class="stat-value" id="es_stat-classes">0</div>
-          <div class="stat-label">Classes</div>
-        </div>
-        <div class="stat-card" style="--accent-color:var(--success)">
-          <div class="stat-icon"><i class="fa-solid fa-book"></i></div>
-          <div class="stat-value" id="es_stat-subjects">0</div>
-          <div class="stat-label">Subjects</div>
-        </div>
-        <div class="stat-card" style="--accent-color:var(--accent2)">
-          <div class="stat-icon"><i class="fa-solid fa-person"></i>‍<i class="fa-solid fa-school"></i></div>
-          <div class="stat-value" id="es_stat-teachers">0</div>
-          <div class="stat-label">Teachers</div>
-        </div>
-        <div class="stat-card" style="--accent-color:var(--accent3)">
-          <div class="stat-icon"><i class="fa-solid fa-arrow-right-from-bracket"></i></div>
-          <div class="stat-value" id="es_stat-rooms">0</div>
-          <div class="stat-label">Rooms</div>
-        </div>
-        <div class="stat-card" style="--accent-color:var(--danger)">
-          <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
-          <div class="stat-value" id="es_stat-conflicts">0</div>
-          <div class="stat-label">Conflicts</div>
-        </div>
-        <div class="stat-card" style="--accent-color:var(--success)">
-          <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
-          <div class="stat-value" id="es_stat-generated">No</div>
-          <div class="stat-label">Generated</div>
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;" id="dash-grid">
-        <div class="card">
-          <div class="card-header"><div class="card-title"><i class="fa-solid fa-school"></i> School Configuration</div></div>
-          <div id="es_dash-school-info" style="font-size:13px;color:var(--text2);line-height:2;">
-            <em style="color:var(--text3)">No school configured. Go to School Setup.</em>
+        <!-- Stats row -->
+        <div class="tt-stats-row">
+          <div class="tt-stat-card" style="--tt-acc:var(--tt-gold)">
+            <div class="tt-stat-val" id="tt_statClasses">0</div>
+            <div class="tt-stat-lbl">Classes</div>
+          </div>
+          <div class="tt-stat-card" style="--tt-acc:var(--tt-teal)">
+            <div class="tt-stat-val" id="tt_statTeachers">0</div>
+            <div class="tt-stat-lbl">Teachers</div>
+          </div>
+          <div class="tt-stat-card" style="--tt-acc:var(--tt-sky)">
+            <div class="tt-stat-val" id="tt_statSubjects">0</div>
+            <div class="tt-stat-lbl">Subjects</div>
+          </div>
+          <div class="tt-stat-card" style="--tt-acc:var(--tt-red)">
+            <div class="tt-stat-val" id="tt_statConflicts">—</div>
+            <div class="tt-stat-lbl">Conflicts</div>
+          </div>
+          <div class="tt-stat-card" style="--tt-acc:var(--tt-teal)">
+            <div class="tt-stat-val" id="tt_statFill">—</div>
+            <div class="tt-stat-lbl">Fill Rate</div>
           </div>
         </div>
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title"><i class="fa-solid fa-triangle-exclamation"></i> Quick Warnings</div>
-            <button class="btn btn-sm btn-secondary" onclick="es_showPage('conflicts')">View All</button>
+
+        <!-- Main layout -->
+        <div class="tt-main">
+
+          <!-- ═══ SIDEBAR ═══ -->
+          <div class="tt-sidebar">
+
+            <!-- School Setup -->
+            <div class="tt-panel">
+              <div class="tt-panel-hdr"><span class="tt-panel-title">⚙ School Setup</span></div>
+              <div class="tt-panel-body">
+                <div class="tt-fg">
+                  <label class="tt-lbl">School Name</label>
+                  <input class="tt-input" id="tt_schoolName" type="text" value="Eldoret Academy"/>
+                </div>
+                <div class="tt-frow">
+                  <div class="tt-fg">
+                    <label class="tt-lbl">Days / Week</label>
+                    <select class="tt-select" id="tt_daysPerWeek">
+                      <option value="5" selected>5 (Mon–Fri)</option>
+                      <option value="6">6 (Mon–Sat)</option>
+                    </select>
+                  </div>
+                  <div class="tt-fg">
+                    <label class="tt-lbl">Periods / Day</label>
+                    <input class="tt-input" type="number" id="tt_periodsPerDay" value="8" min="4" max="12"/>
+                  </div>
+                </div>
+                <div class="tt-fg">
+                  <label class="tt-lbl">Break After Period(s) <span style="font-size:.62rem;opacity:.6">(comma-separated)</span></label>
+                  <input class="tt-input" type="text" id="tt_breakPeriods" value="4,7" placeholder="e.g. 4,7"/>
+                </div>
+              </div>
+            </div>
+
+            <!-- Teachers -->
+            <div class="tt-panel">
+              <div class="tt-panel-hdr">
+                <span class="tt-panel-title">👤 Teachers</span>
+                <button class="tt-btn tt-btn-sm tt-btn-teal" onclick="tt_openTeacherModal()">+ Add</button>
+              </div>
+              <div class="tt-panel-body">
+                <div id="tt_teacherList" style="max-height:150px;overflow-y:auto;">
+                  <div class="tt-empty" style="padding:.75rem"><div class="tt-empty-sub">No teachers added</div></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Subjects -->
+            <div class="tt-panel">
+              <div class="tt-panel-hdr">
+                <span class="tt-panel-title">📚 Subjects</span>
+                <button class="tt-btn tt-btn-sm tt-btn-teal" onclick="tt_addSubjectRow()">+ Add</button>
+              </div>
+              <div class="tt-panel-body">
+                <div id="tt_subjectList" style="max-height:190px;overflow-y:auto;display:flex;flex-direction:column;gap:.35rem;"></div>
+              </div>
+            </div>
+
+            <!-- Classes -->
+            <div class="tt-panel">
+              <div class="tt-panel-hdr">
+                <span class="tt-panel-title">🏫 Classes &amp; Streams</span>
+                <button class="tt-btn tt-btn-sm tt-btn-teal" onclick="tt_addClassRow()">+ Add</button>
+              </div>
+              <div class="tt-panel-body">
+                <div id="tt_classList" style="max-height:170px;overflow-y:auto;display:flex;flex-direction:column;gap:.35rem;"></div>
+              </div>
+            </div>
+
+            <!-- Generate -->
+            <div class="tt-panel">
+              <div class="tt-panel-hdr"><span class="tt-panel-title">⚡ Generate</span></div>
+              <div class="tt-panel-body">
+                <div class="tt-fg">
+                  <label class="tt-lbl">Strategy</label>
+                  <select class="tt-select" id="tt_strategy">
+                    <option value="morning">Core subjects in morning</option>
+                    <option value="spread">Spread evenly</option>
+                    <option value="random">Full random</option>
+                  </select>
+                </div>
+                <div class="tt-fg">
+                  <label class="tt-lbl">Max Retry Attempts</label>
+                  <input class="tt-input" type="number" id="tt_maxRetries" value="500" min="50" max="2000"/>
+                </div>
+                <button class="tt-btn tt-btn-generate" onclick="tt_generate()">
+                  ⚡ Generate Timetable
+                </button>
+                <div class="tt-progress-bar"><div class="tt-progress-fill" id="tt_progressFill" style="width:0%"></div></div>
+                <div id="tt_genLog" class="tt-log-box" style="margin-top:.65rem;min-height:55px;"></div>
+              </div>
+            </div>
+
+          </div><!-- /sidebar -->
+
+          <!-- ═══ CONTENT ═══ -->
+          <div class="tt-content">
+
+            <!-- Tabs -->
+            <div class="tt-tabs-row">
+              <button class="tt-tab-btn active" onclick="tt_showTab('timetable',this)">📅 Timetables</button>
+              <button class="tt-tab-btn" onclick="tt_showTab('teachermap',this)">🗺 Teacher Map</button>
+              <button class="tt-tab-btn" onclick="tt_showTab('conflicts',this)">⚠ Conflicts</button>
+            </div>
+
+            <!-- TAB: Timetables -->
+            <div id="tt_tab-timetable">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem;flex-wrap:wrap;gap:.6rem;">
+                <div style="font-size:.95rem;font-weight:700;color:var(--tt-text);display:flex;align-items:center;gap:.5rem;">
+                  Class Timetables <span id="tt_ttSubtitle" style="font-size:.73rem;font-weight:400;color:var(--tt-text2)"></span>
+                </div>
+                <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;">
+                  <div id="tt_classChips" class="tt-class-chips"></div>
+                  <button class="tt-btn tt-btn-outline tt-btn-sm" onclick="tt_printTimetable()">🖨 Print</button>
+                </div>
+              </div>
+              <div id="tt_ttOutput">
+                <div class="tt-empty">
+                  <div class="tt-empty-icon">📅</div>
+                  <div class="tt-empty-title">No timetable yet</div>
+                  <div class="tt-empty-sub">Click <strong>Sync School Data</strong> then <strong>Generate Timetable</strong></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB: Teacher Map -->
+            <div id="tt_tab-teachermap" style="display:none">
+              <div style="font-size:.95rem;font-weight:700;color:var(--tt-text);margin-bottom:.85rem;">Teacher Schedule Map</div>
+              <div id="tt_tmOutput">
+                <div class="tt-empty">
+                  <div class="tt-empty-icon">🗺</div>
+                  <div class="tt-empty-title">Generate a timetable first</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB: Conflicts -->
+            <div id="tt_tab-conflicts" style="display:none">
+              <div style="font-size:.95rem;font-weight:700;color:var(--tt-text);margin-bottom:.85rem;">Conflict Report</div>
+              <div id="tt_conflictOutput">
+                <div class="tt-empty">
+                  <div class="tt-empty-icon">✅</div>
+                  <div class="tt-empty-title">No conflicts detected</div>
+                  <div class="tt-empty-sub">Generate a timetable to check for conflicts</div>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /content -->
+        </div><!-- /tt-main -->
+
+        <!-- Toast container -->
+        <div class="tt-toast-container" id="tt_toastContainer"></div>
+
+      </div><!-- /#tt-app -->
+
+      <!-- Teacher Modal (outside #tt-app so it overlays full viewport) -->
+      <div id="tt-teacherModal">
+        <div class="tt-modal-box">
+          <div class="tt-modal-hdr">
+            <div class="tt-modal-title" id="tt_modalTitle">Add Teacher</div>
+            <button class="tt-modal-close" onclick="tt_closeTeacherModal()">✕</button>
           </div>
-          <div id="es_dash-warnings">
-            <div class="empty-state" style="padding:16px;">
-              <div class="empty-icon" style="font-size:24px;"><i class="fa-solid fa-circle-check"></i></div>
-              <p>No warnings</p>
+          <div class="tt-modal-body">
+            <input type="hidden" id="tt_teacherEditId"/>
+            <div class="tt-fg">
+              <label class="tt-lbl">Teacher Name *</label>
+              <input class="tt-input" type="text" id="tt_tchName" placeholder="e.g. Mr. John Kamau"/>
+            </div>
+            <div class="tt-fg">
+              <label class="tt-lbl">Subjects (hold Ctrl/Cmd for multiple)</label>
+              <select class="tt-select" id="tt_tchSubjects" multiple style="height:90px;"></select>
+            </div>
+            <div class="tt-frow">
+              <div class="tt-fg">
+                <label class="tt-lbl">Max Lessons / Day</label>
+                <input class="tt-input" type="number" id="tt_tchMaxDay" value="6" min="1" max="12"/>
+              </div>
+              <div class="tt-fg">
+                <label class="tt-lbl">Max Lessons / Week</label>
+                <input class="tt-input" type="number" id="tt_tchMaxWeek" value="25" min="1" max="45"/>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header"><div class="card-title"><i class="fa-solid fa-rocket"></i> Getting Started — CBC Setup Flow</div></div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">
-          <div onclick="es_showPage('setup')" class="step-card">
-            <div style="font-size:20px;margin-bottom:6px;">1️⃣</div>
-            <div style="font-size:13px;font-weight:600;">School Setup</div>
-            <div style="font-size:11px;color:var(--text2);margin-top:3px;">Days, periods &amp; breaks</div>
-          </div>
-          <div onclick="es_showPage('classes')" class="step-card">
-            <div style="font-size:20px;margin-bottom:6px;">2️⃣</div>
-            <div style="font-size:13px;font-weight:600;">Add Classes</div>
-            <div style="font-size:11px;color:var(--text2);margin-top:3px;">Grade 7, 8, 9 + streams</div>
-          </div>
-          <div onclick="es_showPage('subjects')" class="step-card">
-            <div style="font-size:20px;margin-bottom:6px;">3️⃣</div>
-            <div style="font-size:13px;font-weight:600;">Add Subjects</div>
-            <div style="font-size:11px;color:var(--text2);margin-top:3px;">Lessons/week &amp; priority</div>
-          </div>
-          <div onclick="es_showPage('teachers')" class="step-card">
-            <div style="font-size:20px;margin-bottom:6px;">4️⃣</div>
-            <div style="font-size:13px;font-weight:600;">Add Teachers</div>
-            <div style="font-size:11px;color:var(--text2);margin-top:3px;">Availability &amp; load</div>
-          </div>
-          <div onclick="es_showPage('rooms')" class="step-card">
-            <div style="font-size:20px;margin-bottom:6px;">5️⃣</div>
-            <div style="font-size:13px;font-weight:600;">Add Rooms</div>
-            <div style="font-size:11px;color:var(--text2);margin-top:3px;">Labs &amp; special rooms</div>
-          </div>
-          <div onclick="es_showPage('generate')" class="step-card">
-            <div style="font-size:20px;margin-bottom:6px;">6️⃣</div>
-            <div style="font-size:13px;font-weight:600;">Generate!</div>
-            <div style="font-size:11px;color:var(--text2);margin-top:3px;">Auto-schedule &amp; export</div>
+          <div class="tt-modal-footer">
+            <button class="tt-btn tt-btn-outline" onclick="tt_closeTeacherModal()">Cancel</button>
+            <button class="tt-btn tt-btn-gold" onclick="tt_saveTeacher()">Save Teacher</button>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- ========== SCHOOL SETUP ========== -->
-    <div class="page" id="page-setup">
-      <div class="section-header">
-        <div>
-          <div class="section-title">School Setup</div>
-          <div class="section-sub">Configure your school's basic schedule structure</div>
-        </div>
-      </div>
-      <div class="card setup-card">
-        <div class="form-grid">
-          <div class="form-group" style="grid-column:1/-1">
-            <label class="form-label">School Name</label>
-            <input class="form-control" id="es_schoolName" placeholder="e.g. Eldoret High School"/>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Days per Week</label>
-            <select class="form-control" id="es_daysPerWeek" onchange="es_updateSetupUI()">
-              <option value="5" selected>5 (Mon–Fri)</option>
-              <option value="6">6 (Mon–Sat)</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Lessons per Day</label>
-            <input class="form-control" type="number" id="es_lessonsPerDay" value="9" min="4" max="12" onchange="es_updateSetupUI()"/>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Lesson Duration (min)</label>
-            <input class="form-control" type="number" id="es_lessonDuration" value="40" min="30" max="60"/>
-          </div>
-          <div class="form-group">
-            <label class="form-label">School Start Time</label>
-            <input class="form-control" type="time" id="es_schoolStart" value="07:30"/>
-          </div>
-        </div>
-        <div style="margin-top:20px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-            <label class="form-label">Break Periods <span style="font-weight:400;color:var(--text3);font-size:10px;text-transform:none;letter-spacing:0;">(fully customisable — no defaults)</span></label>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="btn btn-sm btn-danger" onclick="es_clearAllBreaks()" title="Remove all breaks"><i class="fa-solid fa-trash"></i> Clear All</button>
-              <button class="btn btn-sm btn-secondary" onclick="es_addBreak()">+ Custom Break</button>
-            </div>
-          </div>
-          <!-- Quick-add presets -->
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
-            <span style="font-size:11px;color:var(--text3);align-self:center;font-weight:600;">Quick add:</span>
-            <button class="btn btn-sm" style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);color:#b45309;font-size:11px;" onclick="es_quickBreak(3,10,'Tea Break')"> Tea Break (P3, 10min)</button>
-            <button class="btn btn-sm" style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);color:#b45309;font-size:11px;" onclick="es_quickBreak(4,20,'Short Break')"> Short Break (P4, 20min)</button>
-            <button class="btn btn-sm" style="background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.35);color:#065f46;font-size:11px;" onclick="es_quickBreak(6,30,'Lunch Break')"><i class="fa-solid fa-utensils"></i> Lunch Break (P6, 30min)</button>
-            <button class="btn btn-sm" style="background:rgba(79,124,255,.12);border:1px solid rgba(79,124,255,.35);color:#2563eb;font-size:11px;" onclick="es_quickBreak(7,20,'Afternoon Break')"> Afternoon Break (P7, 20min)</button>
-          </div>
-          <div class="break-list" id="es_breakList"></div>
-        </div>
-        <div style="margin-top:20px;padding:16px;background:var(--bg3);border-radius:var(--radius-sm);border:1px solid var(--border);">
-          <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;"><i class="fa-solid fa-clipboard-list"></i> Period Preview</div>
-          <div id="es_periodPreview" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
-        </div>
-        <div style="margin-top:24px;">
-          <button class="btn btn-primary" onclick="es_saveSetup()"><i class="fa-solid fa-floppy-disk"></i> Save Setup</button>
-        </div>
-      </div>
-    </div>
+      <!-- ═══ TIMETABLE JAVASCRIPT (IIFE-scoped to avoid conflicts) ═══ -->
+      <script>
+      (function() {
+        /* ── State ── */
+        var ttTeachers  = [];
+        var ttSubjects  = [];
+        var ttClasses   = [];
+        var ttTimetable = {};
+        var ttTchrMap   = {};
+        var ttSelClass  = null;
 
-    <!-- ========== CLASSES ========== -->
-    <div class="page" id="page-classes">
-      <div class="section-header">
-        <div>
-          <div class="section-title">Classes &amp; Streams</div>
-          <div class="section-sub">Manage CBC Grade 7–9 classes and streams</div>
-        </div>
-        <button class="btn btn-primary" onclick="es_openClassModal()">+ Add Class</button>
-      </div>
-      <div class="card">
-        <div class="table-wrapper">
-          <table>
-            <thead><tr><th>Grade</th><th>Stream</th><th>Full Name</th><th>Students</th><th>Timetable</th><th>Actions</th></tr></thead>
-            <tbody id="es_classTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+        var TT_COLORS = ['#4fa3e0','#21c9a4','#e8b84b','#f2617a','#9b72cf','#f4854a','#4ecdc4','#ffd166','#06d6a0','#e63946','#118ab2','#3a86ff','#fb8500','#8338ec','#2dc653'];
+        var TT_DAYS   = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
-    <!-- ========== SUBJECTS ========== -->
-    <div class="page" id="page-subjects">
-      <div class="section-header">
-        <div>
-          <div class="section-title">Subjects</div>
-          <div class="section-sub">Define subjects, lesson counts and constraints</div>
-        </div>
-        <button class="btn btn-primary" onclick="es_openSubjectModal()">+ Add Subject</button>
-      </div>
-      <div class="card">
-        <div class="table-wrapper">
-          <table>
-            <thead><tr><th>Color</th><th>Name</th><th>Lessons/Week</th><th>Priority</th><th>Double</th><th>Grades</th><th>Actions</th></tr></thead>
-            <tbody id="es_subjectTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+        /* ── Expose functions globally (needed for onclick attrs) ── */
+        window.tt_showTab            = showTab;
+        window.tt_syncFromCharanas   = syncFromCharanas;
+        window.tt_loadDemoData       = loadDemoData;
+        window.tt_resetAll           = resetAll;
+        window.tt_openTeacherModal   = openTeacherModal;
+        window.tt_closeTeacherModal  = closeTeacherModal;
+        window.tt_saveTeacher        = saveTeacher;
+        window.tt_deleteTeacher      = deleteTeacher;
+        window.tt_addSubjectRow      = addSubjectRow;
+        window.tt_deleteSubject      = deleteSubject;
+        window.tt_addClassRow        = addClassRow;
+        window.tt_deleteClass        = deleteClass;
+        window.tt_generate           = generate;
+        window.tt_selectClass        = selectClass;
+        window.tt_printTimetable     = printTimetable;
 
-    <!-- ========== TEACHERS ========== -->
-    <div class="page" id="page-teachers">
-      <div class="section-header">
-        <div>
-          <div class="section-title">Teachers</div>
-          <div class="section-sub">Manage teachers, subjects and availability</div>
-        </div>
-        <button class="btn btn-primary" onclick="es_openTeacherModal()">+ Add Teacher</button>
-      </div>
-      <div class="card">
-        <div class="table-wrapper">
-          <table>
-            <thead><tr><th>Name</th><th>Subjects</th><th>Max/Day</th><th>Max/Week</th><th>Load</th><th>Actions</th></tr></thead>
-            <tbody id="es_teacherTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+        /* ── Tabs ── */
+        function showTab(tab, btn) {
+          ['timetable','teachermap','conflicts'].forEach(function(t) {
+            document.getElementById('tt_tab-'+t).style.display = (t === tab ? 'block' : 'none');
+          });
+          document.querySelectorAll('#tt-app .tt-tab-btn').forEach(function(b){ b.classList.remove('active'); });
+          if (btn) btn.classList.add('active');
+        }
 
-    <!-- ========== ROOMS ========== -->
-    <div class="page" id="page-rooms">
-      <div class="section-header">
-        <div>
-          <div class="section-title">Rooms &amp; Labs</div>
-          <div class="section-sub">Assign rooms to subjects for scheduling</div>
-        </div>
-        <button class="btn btn-primary" onclick="es_openRoomModal()">+ Add Room</button>
-      </div>
-      <div class="card">
-        <div class="table-wrapper">
-          <table>
-            <thead><tr><th>Name</th><th>Type</th><th>Capacity</th><th>Subjects</th><th>Actions</th></tr></thead>
-            <tbody id="es_roomTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+        /* ── SYNC FROM CHARANAS ── */
+        function syncFromCharanas() {
+          /* Read Charanas data using the host system's helpers */
+          var chTeachers, chSubjects, chClasses, chStreams, chSA = [], chSettings;
+          try {
+            var pfx = (typeof schoolPrefix === 'function') ? schoolPrefix() : '';
+            var loadFn = (typeof load === 'function') ? load : function(k){ try{ return JSON.parse(localStorage.getItem(k))||[]; }catch(e){ return []; } };
+            var K_teachers = pfx + 'ei_teachers';
+            var K_subjects = pfx + 'ei_subjects';
+            var K_classes  = pfx + 'ei_classes';
+            var K_streams  = pfx + 'ei_streams';
+            var K_settings = pfx + 'ei_settings';
+            chTeachers = loadFn(K_teachers);
+            chSubjects = loadFn(K_subjects);
+            chClasses  = loadFn(K_classes);
+            chStreams   = loadFn(K_streams);
+            var settingsArr = loadFn(K_settings);
+            chSettings = (Array.isArray(settingsArr) ? settingsArr[0] : settingsArr) || {};
+            try { chSA = JSON.parse(localStorage.getItem(pfx + 'ei_streamassign')) || []; } catch(e){}
+            if (!chSA.length) { try { chSA = JSON.parse(localStorage.getItem('ei_streamassign')) || []; } catch(e){} }
+          } catch(e) {
+            ttToast('Could not read school data — are you logged in?', 'err');
+            return;
+          }
 
-    <!-- ========== GENERATE ========== -->
-    <div class="page" id="page-generate">
-      <div class="section-header">
-        <div>
-          <div class="section-title">Generate Timetable</div>
-          <div class="section-sub">Auto-schedule using greedy constraint satisfaction</div>
-        </div>
-      </div>
-      <div class="generate-panel">
-        <div class="card">
-          <div class="card-header"><div class="card-title"><i class="fa-solid fa-gear"></i> Generation Options</div></div>
-          <div style="display:flex;flex-direction:column;gap:14px;">
-            <div class="form-group">
-              <label class="form-label">Core Subject Placement</label>
-              <select class="form-control" id="es_genPrioritize">
-                <option value="morning">Prioritize morning periods</option>
-                <option value="spread">Spread evenly across day</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Double Lessons</label>
-              <select class="form-control" id="genDouble">
-                <option value="avoid_monday">Avoid Mon 1st period</option>
-                <option value="any">Allow anywhere</option>
-              </select>
-            </div>
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-              <input type="checkbox" id="es_genRespectLocked" checked style="accent-color:var(--accent);"/>
-              <span>Respect locked lessons</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-              <input type="checkbox" id="es_genEvenDist" checked style="accent-color:var(--accent);"/>
-              <span>Distribute subjects evenly</span>
-            </label>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title"><i class="fa-solid fa-school"></i> Select Classes to Generate</div>
-            <div style="display:flex;gap:6px;">
-              <button class="btn btn-sm btn-secondary" onclick="es_selectAllClasses()">All</button>
-              <button class="btn btn-sm btn-secondary" onclick="es_deselectAllClasses()">None</button>
-            </div>
-          </div>
-          <div class="class-selector" id="es_genClassSelector">
-            <div style="color:var(--text3);font-size:13px;">No classes added yet</div>
-          </div>
-        </div>
-      </div>
-      <div class="card" style="margin-bottom:20px;">
-        <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Generation Log</div>
-        <div id="es_genLog">Ready to generate. Configure options and click Generate.</div>
-        <div class="progress-bar" style="margin-top:12px;"><div class="progress-fill" id="es_genProgress" style="width:0%"></div></div>
-      </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button class="btn btn-primary" onclick="es_generateTimetable()" id="es_genBtn" style="font-size:15px;padding:12px 24px;"><i class="fa-solid fa-bolt"></i> Generate Timetable</button>
-        <button class="btn btn-secondary" onclick="es_clearTimetable()"><i class="fa-solid fa-trash"></i> Clear All</button>
-        <button class="btn btn-success" onclick="es_showPage('view')"><i class="fa-solid fa-calendar-days"></i> View Result</button>
-      </div>
-    </div>
+          if (!chTeachers.length && !chSubjects.length && !chClasses.length) {
+            ttToast('No school data found. Add classes, teachers & subjects first.', 'warn');
+            return;
+          }
 
-    <!-- ========== VIEW TIMETABLE ========== -->
-    <div class="page" id="page-view">
-      <div class="section-header">
-        <div>
-          <div class="section-title">View Timetable</div>
-          <div class="section-sub">Interactive grid — drag to rearrange, click to edit, lock to pin</div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-          <select class="form-control" id="es_viewClassSelect" onchange="es_renderTimetableView()" style="width:auto;">
-            <option value="">Select class...</option>
-          </select>
-          <select class="form-control" id="es_viewTeacherSelect" onchange="es_renderTeacherView()" style="width:auto;">
-            <option value="">Teacher view...</option>
-          </select>
-          <button class="btn btn-sm btn-secondary" onclick="es_exportPDF()"><i class="fa-solid fa-file-lines"></i> PDF</button>
-          <button class="btn btn-sm btn-secondary" onclick="es_exportExcel()"><i class="fa-solid fa-file-excel" style="margin-right:.3rem"></i>Excel</button>
-          <button class="btn btn-sm btn-secondary" onclick="window.print()"><i class="fa-solid fa-print" style="margin-right:.3rem"></i>Print</button>
-        </div>
-      </div>
-      <div class="card" id="es_viewLegendCard" style="margin-bottom:16px;display:none;">
-        <div class="legend" id="es_subjectLegend"></div>
-      </div>
-      <!-- Print-only header (hidden on screen, shown on print) -->
-      <div id="es_printHeader" style="display:none;"></div>
-      <div class="card" id="es_timetableViewContainer">
-        <div class="empty-state">
-          <div class="empty-icon"><i class="fa-solid fa-calendar-days"></i></div>
-          <h3>No timetable generated</h3>
-          <p>Generate a timetable first, then select a class or teacher above</p>
-        </div>
-      </div>
-    </div>
+          /* Update school name */
+          if (chSettings && chSettings.schoolName) {
+            document.getElementById('tt_schoolName').value = chSettings.schoolName;
+          } else if (typeof settings !== 'undefined' && settings.schoolName) {
+            document.getElementById('tt_schoolName').value = settings.schoolName;
+          }
 
-    <!-- ========== ALL CLASSES VIEW ========== -->
-    <div class="page" id="page-allclass">
-      <div class="section-header">
-        <div>
-          <div class="section-title">All Classes Overview</div>
-          <div class="section-sub">Browse all class timetables at a glance</div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-          <button class="btn btn-sm btn-secondary" onclick="es_renderAllClassView()"><i class="fa-solid fa-rotate"></i> Refresh</button>
-          <button class="btn btn-sm btn-secondary" onclick="es_printAllStreams()"><i class="fa-solid fa-print"></i> Print All Streams</button>
-          <button class="btn btn-sm btn-primary" onclick="es_exportAllStreamsPDF()"><i class="fa-solid fa-file-lines"></i> PDF All Streams</button>
-        </div>
-      </div>
-      <div id="es_allClassContainer">
-        <div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-calendar"></i></div><h3>No timetables generated</h3></div>
-      </div>
-    </div>
+          /* Build teacher→subject map from stream assignments */
+          var tchSubMap = {};
+          chSA.forEach(function(a) {
+            if (!a.teacherId) return;
+            if (!tchSubMap[a.teacherId]) tchSubMap[a.teacherId] = {};
+            tchSubMap[a.teacherId][a.subjectId] = true;
+          });
+          /* Also honour subject.teacherId */
+          chSubjects.forEach(function(s) {
+            if (!s.teacherId) return;
+            if (!tchSubMap[s.teacherId]) tchSubMap[s.teacherId] = {};
+            tchSubMap[s.teacherId][s.id] = true;
+          });
 
-    <!-- ========== CONFLICTS ========== -->
-    <div class="page" id="page-conflicts">
-      <div class="section-header">
-        <div>
-          <div class="section-title">Conflict Detection</div>
-          <div class="section-sub">Automated warnings and scheduling issues</div>
-        </div>
-        <button class="btn btn-secondary" onclick="es_runConflictCheck()"><i class="fa-solid fa-rotate"></i> Recheck</button>
-      </div>
-      <div id="es_conflictList">
-        <div class="empty-state" style="padding:48px;">
-          <div class="empty-icon"><i class="fa-solid fa-circle-check"></i></div>
-          <h3>No conflicts detected</h3>
-          <p>Generate a timetable first to check for conflicts</p>
-        </div>
-      </div>
-    </div>
+          /* Map subjects */
+          var colIdx = 0;
+          ttSubjects = chSubjects.map(function(s) {
+            var existing = ttSubjects.find(function(x){ return x.id === s.id; });
+            return {
+              id: s.id,
+              name: s.name || 'Subject',
+              code: s.code || (s.name||'').slice(0,3).toUpperCase(),
+              lessonsPerWeek: existing ? existing.lessonsPerWeek : (s.lessonsPerWeek || 5),
+              color: existing ? existing.color : TT_COLORS[(colIdx++) % TT_COLORS.length]
+            };
+          });
 
-  
-        </div>
+          /* Map teachers */
+          ttTeachers = chTeachers.map(function(t) {
+            var existing = ttTeachers.find(function(x){ return x.id === t.id; });
+            var subIds = Object.keys(tchSubMap[t.id] || {});
+            return {
+              id: t.id,
+              name: t.name || 'Teacher',
+              subjects: subIds,
+              maxDay:  existing ? existing.maxDay  : (t.maxPerDay  || 6),
+              maxWeek: existing ? existing.maxWeek : (t.maxPerWeek || 25)
+            };
+          });
 
-        <!-- EduSchedule Modals -->
-<!-- ===================== MODALS ===================== -->
+          /* Map classes — each stream becomes a row */
+          if (chStreams.length > 0) {
+            ttClasses = chStreams.map(function(str) {
+              var parent = chClasses.find(function(c){ return c.id === str.classId; });
+              return {
+                id: str.id,
+                grade: parent ? parent.name : 'Class',
+                stream: str.name || ''
+              };
+            });
+          } else {
+            ttClasses = chClasses.map(function(c) {
+              return { id: c.id, grade: c.name || 'Class', stream: '' };
+            });
+          }
 
-<!-- CLASS MODAL -->
-<div class="modal-overlay" id="classModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="es_classModalTitle">Add Class</div>
-      <button class="modal-close" onclick="es_closeModal('classModal')"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="es_classEditId"/>
-      <div class="form-grid">
-        <div class="form-group">
-          <label class="form-label">Grade</label>
-          <select class="form-control" id="es_classGrade">
-            <option>Grade 7</option><option>Grade 8</option><option>Grade 9</option>
-            <option>Form 1</option><option>Form 2</option><option>Form 3</option><option>Form 4</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Stream</label>
-          <input class="form-control" id="es_classStream" placeholder="e.g. East, West, A, B"/>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Number of Students</label>
-          <input class="form-control" type="number" id="es_classStudents" value="40" min="1" max="60"/>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="es_closeModal('classModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="es_saveClass()">Save Class</button>
-    </div>
-  </div>
-</div>
+          renderSubjectList();
+          renderTeacherList();
+          renderClassList();
+          updateStats();
+          ttToast('Synced: ' + ttClasses.length + ' classes, ' + ttTeachers.length + ' teachers, ' + ttSubjects.length + ' subjects', 'ok');
+        }
 
-<!-- SUBJECT MODAL -->
-<div class="modal-overlay" id="subjectModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="es_subjectModalTitle">Add Subject</div>
-      <button class="modal-close" onclick="es_closeModal('subjectModal')"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="es_subjectEditId"/>
-      <div class="form-grid">
-        <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label">Subject Name</label>
-          <input class="form-control" id="es_subjectName" placeholder="e.g. Mathematics"/>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Lessons per Week</label>
-          <input class="form-control" type="number" id="es_subjectLessons" value="5" min="1" max="20"/>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Priority</label>
-          <select class="form-control" id="es_subjectPriority">
-            <option value="core">Core</option>
-            <option value="optional">Optional</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Allow Double Lessons?</label>
-          <select class="form-control" id="es_subjectDouble">
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Applies to Grades</label>
-          <select class="form-control" id="es_subjectGrades" multiple style="height:80px;" title="Hold Ctrl/Cmd to select multiple"></select>
-          <span class="form-hint">Hold Ctrl/Cmd to select multiple</span>
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label">Color</label>
-          <div class="subject-color-picker" id="es_colorPicker"></div>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="es_closeModal('subjectModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="es_saveSubject()">Save Subject</button>
-    </div>
-  </div>
-</div>
+        /* ── Teachers ── */
+        function openTeacherModal(id) {
+          document.getElementById('tt_teacherEditId').value = id || '';
+          document.getElementById('tt_modalTitle').textContent = id ? 'Edit Teacher' : 'Add Teacher';
+          var sel = document.getElementById('tt_tchSubjects');
+          sel.innerHTML = ttSubjects.map(function(s){ return '<option value="'+s.id+'">'+s.name+'</option>'; }).join('');
+          if (id) {
+            var t = ttTeachers.find(function(x){ return x.id === id; });
+            if (t) {
+              document.getElementById('tt_tchName').value    = t.name;
+              document.getElementById('tt_tchMaxDay').value  = t.maxDay;
+              document.getElementById('tt_tchMaxWeek').value = t.maxWeek;
+              Array.from(sel.options).forEach(function(o){ o.selected = t.subjects.indexOf(o.value) >= 0; });
+            }
+          } else {
+            document.getElementById('tt_tchName').value    = '';
+            document.getElementById('tt_tchMaxDay').value  = 6;
+            document.getElementById('tt_tchMaxWeek').value = 25;
+            Array.from(sel.options).forEach(function(o){ o.selected = false; });
+          }
+          document.getElementById('tt-teacherModal').style.display = 'flex';
+        }
+        function closeTeacherModal() { document.getElementById('tt-teacherModal').style.display = 'none'; }
+        function saveTeacher() {
+          var name = document.getElementById('tt_tchName').value.trim();
+          if (!name) { ttToast('Teacher name required','err'); return; }
+          var sel = document.getElementById('tt_tchSubjects');
+          var subIds = Array.from(sel.selectedOptions).map(function(o){ return o.value; });
+          var maxDay  = parseInt(document.getElementById('tt_tchMaxDay').value) || 6;
+          var maxWeek = parseInt(document.getElementById('tt_tchMaxWeek').value) || 25;
+          var editId  = document.getElementById('tt_teacherEditId').value;
+          if (editId) {
+            var t = ttTeachers.find(function(x){ return x.id === editId; });
+            if (t) { t.name = name; t.subjects = subIds; t.maxDay = maxDay; t.maxWeek = maxWeek; }
+          } else {
+            ttTeachers.push({ id: ttUid(), name: name, subjects: subIds, maxDay: maxDay, maxWeek: maxWeek });
+          }
+          closeTeacherModal(); renderTeacherList(); updateStats();
+          ttToast('Teacher saved','ok');
+        }
+        function deleteTeacher(id) {
+          ttTeachers = ttTeachers.filter(function(t){ return t.id !== id; });
+          renderTeacherList(); updateStats();
+        }
+        function renderTeacherList() {
+          var el = document.getElementById('tt_teacherList');
+          if (!ttTeachers.length) {
+            el.innerHTML = '<div class="tt-empty" style="padding:.75rem"><div class="tt-empty-sub">No teachers added</div></div>'; return;
+          }
+          el.innerHTML = ttTeachers.map(function(t) {
+            var subs = t.subjects.map(function(sid){ var s=ttSubjects.find(function(x){return x.id===sid;}); return s?s.name:'?'; }).join(', ') || 'No subjects';
+            return '<div style="display:flex;align-items:center;gap:.4rem;padding:.4rem .45rem;border-radius:6px;background:var(--tt-navy3);margin-bottom:.25rem;">'
+              +'<div style="flex:1;min-width:0"><div style="font-size:.76rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tt-text)">'+t.name+'</div>'
+              +'<div style="font-size:.63rem;color:var(--tt-text3);margin-top:1px">'+subs+'</div></div>'
+              +'<button class="tt-btn tt-btn-sm tt-btn-outline" style="padding:.18rem .42rem;font-size:.65rem" onclick="tt_openTeacherModal(\''+t.id+'\')">✏</button>'
+              +'<button class="tt-btn tt-btn-sm tt-btn-danger" style="padding:.18rem .42rem;font-size:.65rem" onclick="tt_deleteTeacher(\''+t.id+'\')">🗑</button>'
+              +'</div>';
+          }).join('');
+        }
 
-<!-- TEACHER MODAL -->
-<div class="modal-overlay" id="teacherModal">
-  <div class="modal" style="max-width:620px;">
-    <div class="modal-header">
-      <div class="modal-title" id="es_teacherModalTitle">Add Teacher</div>
-      <button class="modal-close" onclick="es_closeModal('teacherModal')"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="es_teacherEditId"/>
-      <div class="form-grid" style="margin-bottom:16px;">
-        <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label">Full Name</label>
-          <input class="form-control" id="es_teacherName" placeholder="e.g. Mr. John Kamau"/>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Max Lessons/Day</label>
-          <input class="form-control" type="number" id="es_teacherMaxDay" value="6" min="1" max="12"/>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Max Lessons/Week</label>
-          <input class="form-control" type="number" id="es_teacherMaxWeek" value="25" min="1" max="40"/>
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label">Subjects (hold Ctrl/Cmd for multi)</label>
-          <select class="form-control" id="es_teacherSubjects" multiple style="height:90px;"></select>
-        </div>
-      </div>
-      <div>
-        <label class="form-label">Availability (click to toggle — <span style="color:#16a34a">●</span> = available)</label>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Click cells to mark unavailable periods</div>
-        <div class="avail-grid" id="es_teacherAvailGrid"></div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="es_closeModal('teacherModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="es_saveTeacher()">Save Teacher</button>
-    </div>
-  </div>
-</div>
+        /* ── Subjects ── */
+        function addSubjectRow() {
+          var colIdx = ttSubjects.length % TT_COLORS.length;
+          ttSubjects.push({ id: ttUid(), name:'', code:'', lessonsPerWeek:5, color: TT_COLORS[colIdx] });
+          renderSubjectList();
+        }
+        function renderSubjectList() {
+          var el = document.getElementById('tt_subjectList');
+          if (!ttSubjects.length) {
+            el.innerHTML = '<div style="font-size:.72rem;color:var(--tt-text3);text-align:center;padding:.5rem">No subjects added</div>'; return;
+          }
+          el.innerHTML = ttSubjects.map(function(s, i) {
+            return '<div style="background:var(--tt-navy3);border-radius:6px;padding:.45rem .6rem;display:flex;align-items:center;gap:.4rem;">'
+              +'<div style="width:9px;height:9px;border-radius:50%;background:'+s.color+';flex-shrink:0"></div>'
+              +'<input type="text" value="'+escH(s.name)+'" placeholder="Subject name" '
+              +'style="flex:1;background:transparent;border:none;color:var(--tt-text);font-size:.75rem;padding:0;outline:none;min-width:0;font-family:inherit" '
+              +'oninput="ttSubjectsProxy['+i+'].name=this.value;tt_updateStats()" />'
+              +'<input type="text" value="'+escH(s.code)+'" placeholder="Code" '
+              +'style="width:38px;background:transparent;border:none;color:var(--tt-text2);font-size:.68rem;padding:0;outline:none;text-align:center;font-family:inherit" '
+              +'oninput="ttSubjectsProxy['+i+'].code=this.value" />'
+              +'<input type="number" value="'+s.lessonsPerWeek+'" min="1" max="20" title="Lessons/week" '
+              +'style="width:30px;background:transparent;border:none;color:var(--tt-gold);font-size:.68rem;padding:0;outline:none;text-align:center;font-family:inherit" '
+              +'oninput="ttSubjectsProxy['+i+'].lessonsPerWeek=parseInt(this.value)||1" />'
+              +'<button style="background:none;border:none;color:var(--tt-text3);cursor:pointer;font-size:.72rem" onclick="tt_deleteSubject(\''+s.id+'\')">✕</button>'
+              +'</div>';
+          }).join('');
+        }
+        function deleteSubject(id) {
+          ttSubjects = ttSubjects.filter(function(s){ return s.id !== id; });
+          ttTeachers.forEach(function(t){ t.subjects = t.subjects.filter(function(sid){ return sid !== id; }); });
+          renderSubjectList(); renderTeacherList(); updateStats();
+        }
 
-<!-- ROOM MODAL -->
-<div class="modal-overlay" id="roomModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="es_roomModalTitle">Add Room / Lab</div>
-      <button class="modal-close" onclick="es_closeModal('roomModal')"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="es_roomEditId"/>
-      <div class="form-grid">
-        <div class="form-group">
-          <label class="form-label">Room Name</label>
-          <input class="form-control" id="es_roomName" placeholder="e.g. Lab 1, Room 201"/>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Type</label>
-          <select class="form-control" id="es_roomType">
-            <option>Classroom</option><option>Science Lab</option><option>Computer Lab</option>
-            <option>Library</option><option>Hall</option><option>Agriculture Plot</option><option>Other</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Capacity</label>
-          <input class="form-control" type="number" id="es_roomCapacity" value="40" min="1"/>
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label">Subjects that use this room</label>
-          <select class="form-control" id="es_roomSubjects" multiple style="height:80px;"></select>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="es_closeModal('roomModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="es_saveRoom()">Save Room</button>
-    </div>
-  </div>
-</div>
+        /* ── Classes ── */
+        function addClassRow() {
+          ttClasses.push({ id: ttUid(), grade:'Grade 9', stream:'East' });
+          renderClassList(); updateStats();
+        }
+        function renderClassList() {
+          var el = document.getElementById('tt_classList');
+          if (!ttClasses.length) {
+            el.innerHTML = '<div style="font-size:.72rem;color:var(--tt-text3);text-align:center;padding:.5rem">No classes added</div>'; return;
+          }
+          el.innerHTML = ttClasses.map(function(c, i) {
+            return '<div style="background:var(--tt-navy3);border-radius:6px;padding:.45rem .6rem;display:flex;align-items:center;gap:.4rem;">'
+              +'<input type="text" value="'+escH(c.grade)+'" placeholder="Grade" '
+              +'style="flex:1;background:transparent;border:none;color:var(--tt-text);font-size:.75rem;padding:0;outline:none;min-width:0;font-family:inherit" '
+              +'oninput="ttClassesProxy['+i+'].grade=this.value;tt_updateStats()" />'
+              +'<span style="color:var(--tt-text3);font-size:.66rem">|</span>'
+              +'<input type="text" value="'+escH(c.stream)+'" placeholder="Stream" '
+              +'style="flex:1;background:transparent;border:none;color:var(--tt-text2);font-size:.75rem;padding:0;outline:none;min-width:0;font-family:inherit" '
+              +'oninput="ttClassesProxy['+i+'].stream=this.value;tt_updateStats()" />'
+              +'<button style="background:none;border:none;color:var(--tt-text3);cursor:pointer;font-size:.72rem" onclick="tt_deleteClass(\''+c.id+'\')">✕</button>'
+              +'</div>';
+          }).join('');
+        }
+        function deleteClass(id) {
+          ttClasses = ttClasses.filter(function(c){ return c.id !== id; });
+          delete ttTimetable[id];
+          renderClassList(); updateStats();
+        }
+        function clsName(c) { return (c.grade + (c.stream ? ' ' + c.stream : '')).trim(); }
 
-<!-- LESSON EDIT MODAL -->
-<div class="modal-overlay" id="lessonEditModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">Edit Lesson Slot</div>
-      <button class="modal-close" onclick="es_closeModal('lessonEditModal')"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="es_lessonEditClass"/>
-      <input type="hidden" id="es_lessonEditDay"/>
-      <input type="hidden" id="es_lessonEditPeriod"/>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;padding:8px 12px;background:var(--bg3);border-radius:6px;" id="es_lessonEditMeta"></div>
-      <div class="form-grid">
-        <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label">Subject</label>
-          <select class="form-control" id="es_lessonEditSubject"></select>
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label">Teacher</label>
-          <select class="form-control" id="es_lessonEditTeacher"></select>
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label">Room (optional)</label>
-          <select class="form-control" id="es_lessonEditRoom"></select>
-        </div>
-      </div>
-      <div style="margin-top:14px;display:flex;align-items:center;gap:10px;">
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-          <input type="checkbox" id="es_lessonEditLocked" style="accent-color:var(--warning);"/>
-          <span><i class="fa-solid fa-lock"></i> Lock this lesson (won't be moved on regenerate)</span>
-        </label>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-danger btn-sm" onclick="es_clearLesson()"><i class="fa-solid fa-trash"></i> Clear Slot</button>
-      <button class="btn btn-secondary" onclick="es_closeModal('lessonEditModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="es_saveLessonEdit()">Save</button>
-    </div>
-  </div>
-</div>
+        /* ── Proxy objects so inline oninput can mutate the arrays ── */
+        /* We expose them on window for the inline handlers */
+        window.ttSubjectsProxy = ttSubjects;
+        window.ttClassesProxy  = ttClasses;
+        window.tt_updateStats  = updateStats;
 
-<!-- ADD BREAK MODAL -->
-<div class="modal-overlay" id="breakModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">Add Break Period</div>
-      <button class="modal-close" onclick="es_closeModal('breakModal')"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body">
-      <div class="form-grid">
-        <div class="form-group">
-          <label class="form-label">Insert After Period</label>
-          <input class="form-control" type="number" id="es_breakAfter" value="3" min="1" max="12"/>
-          <span class="form-hint">e.g. 3 = break after period 3</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Duration (minutes)</label>
-          <input class="form-control" type="number" id="es_breakDuration" value="20" min="5" max="60"/>
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label">Label</label>
-          <input class="form-control" id="es_breakLabel" placeholder="e.g. Short Break, Lunch Break"/>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="es_closeModal('breakModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="es_saveBreak()">Add Break</button>
-    </div>
-  </div>
-</div>
+        /* ── GENERATE ── */
+        function generate() {
+          if (!ttClasses.length)  { ttToast('Add at least one class','err'); return; }
+          if (!ttSubjects.length) { ttToast('Add at least one subject','err'); return; }
+          if (!ttTeachers.length) { ttToast('Add at least one teacher','err'); return; }
 
+          clearLog();
+          addLog('Starting constraint-based allocation…','info');
+          setProgress(0);
+          document.getElementById('tt_statusText').textContent = 'Generating…';
 
-        <!-- EduSchedule Toasts -->
-        <div class="toast-container" id="es_toastContainer"></div>
-      </div><!-- /#es-app -->
+          var days       = parseInt(document.getElementById('tt_daysPerWeek').value);
+          var periods    = parseInt(document.getElementById('tt_periodsPerDay').value);
+          var maxRetries = parseInt(document.getElementById('tt_maxRetries').value);
+          var strategy   = document.getElementById('tt_strategy').value;
+          var breakSet   = new Set(
+            document.getElementById('tt_breakPeriods').value
+              .split(',').map(function(x){ return parseInt(x.trim()); }).filter(function(x){ return !isNaN(x); })
+          );
+
+          ttTimetable = {}; ttTchrMap = {};
+
+          ttClasses.forEach(function(cls) {
+            ttTimetable[cls.id] = {};
+            for (var d=0; d<days; d++) {
+              ttTimetable[cls.id][d] = {};
+              for (var p=1; p<=periods; p++) { if (!breakSet.has(p)) ttTimetable[cls.id][d][p] = null; }
+            }
+          });
+          ttTeachers.forEach(function(t) {
+            ttTchrMap[t.id] = {};
+            for (var d=0; d<days; d++) {
+              ttTchrMap[t.id][d] = {};
+              for (var p=1; p<=periods; p++) ttTchrMap[t.id][d][p] = null;
+            }
+          });
+
+          /* Build queue */
+          var queue = [];
+          ttClasses.forEach(function(cls) {
+            ttSubjects.forEach(function(sub) {
+              var cnt = sub.lessonsPerWeek || 5;
+              for (var i=0; i<cnt; i++) queue.push({ classId: cls.id, subjectId: sub.id });
+            });
+          });
+
+          addLog('Total lesson slots to fill: '+queue.length,'info');
+          ttShuffle(queue);
+          if (strategy === 'morning') {
+            queue.sort(function(a,b){ var sa=ttSubjects.find(function(s){return s.id===a.subjectId;}),sb=ttSubjects.find(function(s){return s.id===b.subjectId;}); return (sb?sb.lessonsPerWeek:0)-(sa?sa.lessonsPerWeek:0); });
+          }
+
+          var assigned=0, failed=0;
+          var tchDayLoad={}, tchWeekLoad={};
+          ttTeachers.forEach(function(t){
+            tchDayLoad[t.id]={};
+            for(var d=0;d<days;d++) tchDayLoad[t.id][d]=0;
+            tchWeekLoad[t.id]=0;
+          });
+
+          var total = queue.length;
+          for (var qi=0; qi<queue.length; qi++) {
+            var item = queue[qi];
+            var sub = ttSubjects.find(function(s){ return s.id === item.subjectId; });
+            var eligible = ttTeachers.filter(function(t){ return t.subjects.indexOf(item.subjectId) >= 0; });
+
+            var slots = [];
+            for (var d=0; d<days; d++) {
+              for (var p=1; p<=periods; p++) {
+                if (!breakSet.has(p) && ttTimetable[item.classId][d][p] === null) slots.push({d:d,p:p});
+              }
+            }
+            if (!slots.length) { failed++; addLog('⚠ No free slot for '+clsName(ttClasses.find(function(c){return c.id===item.classId;}))+' – '+(sub?sub.name:'?'),'warn'); continue; }
+
+            var orderedSlots;
+            if (strategy==='morning') {
+              orderedSlots = slots.slice().sort(function(a,b){ return a.p-b.p || a.d-b.d; });
+            } else if (strategy==='spread') {
+              var sdc={};
+              for (var d=0;d<days;d++) { sdc[d]=Object.values(ttTimetable[item.classId][d]).filter(function(v){return v&&v.subjectId===item.subjectId;}).length; }
+              orderedSlots = slots.slice().sort(function(a,b){ return sdc[a.d]-sdc[b.d]; });
+            } else {
+              orderedSlots = ttShuffle(slots.slice());
+            }
+
+            var placed = false;
+            for (var si=0; si<orderedSlots.length && !placed; si++) {
+              var slot = orderedSlots[si];
+              var shuffledT = ttShuffle(eligible.slice());
+              for (var ti=0; ti<shuffledT.length && !placed; ti++) {
+                var teacher = shuffledT[ti];
+                if (ttTchrMap[teacher.id][slot.d][slot.p] !== null) continue;
+                if (tchDayLoad[teacher.id][slot.d] >= teacher.maxDay) continue;
+                if (tchWeekLoad[teacher.id] >= teacher.maxWeek) continue;
+                var sameDayCount = Object.values(ttTimetable[item.classId][slot.d]).filter(function(v){return v&&v.subjectId===item.subjectId;}).length;
+                if (strategy!=='random' && sameDayCount>0 && (sub&&sub.lessonsPerWeek<=days)) continue;
+                ttTimetable[item.classId][slot.d][slot.p] = { subjectId: item.subjectId, teacherId: teacher.id };
+                ttTchrMap[teacher.id][slot.d][slot.p] = item.classId;
+                tchDayLoad[teacher.id][slot.d]++;
+                tchWeekLoad[teacher.id]++;
+                assigned++; placed = true;
+              }
+            }
+            if (!placed) { failed++; if (failed<=5) addLog('⚠ Could not place: '+(sub?sub.name:'?')+' for '+clsName(ttClasses.find(function(c){return c.id===item.classId;})),'warn'); }
+            if (qi%20===0) setProgress(Math.floor((qi/total)*85));
+          }
+
+          setProgress(100);
+          addLog('✅ Done — '+assigned+' placed, '+failed+' unplaced', failed>0?'warn':'ok');
+          document.getElementById('tt_statusText').textContent = 'Generated';
+          updateStats();
+          renderAllTimetables();
+          renderTeacherMapView();
+          renderConflicts();
+          ttToast('Generated — '+assigned+'/'+total+' slots filled', failed===0?'ok':'warn');
+        }
+
+        /* ── Render timetable ── */
+        function renderAllTimetables() {
+          var days    = parseInt(document.getElementById('tt_daysPerWeek').value);
+          var periods = parseInt(document.getElementById('tt_periodsPerDay').value);
+          var bpRaw   = document.getElementById('tt_breakPeriods').value;
+          var bkSet   = new Set(bpRaw.split(',').map(function(x){return parseInt(x.trim());}).filter(function(x){return !isNaN(x);}));
+          var chipsEl = document.getElementById('tt_classChips');
+          chipsEl.innerHTML = ttClasses.map(function(c,i){
+            return '<div class="tt-class-chip'+(i===0?' active':'')+'" onclick="tt_selectClass(\''+c.id+'\',this)">'+clsName(c)+'</div>';
+          }).join('');
+          ttSelClass = ttClasses[0] ? ttClasses[0].id : null;
+          if (ttSelClass) renderClassTimetable(ttSelClass);
+          document.getElementById('tt_ttSubtitle').textContent = ttClasses.length ? '('+ttClasses.length+' class'+(ttClasses.length>1?'es':'')+')' : '';
+        }
+
+        function selectClass(id, el) {
+          ttSelClass = id;
+          document.querySelectorAll('#tt-app .tt-class-chip').forEach(function(c){ c.classList.remove('active'); });
+          if (el) el.classList.add('active');
+          renderClassTimetable(id);
+        }
+
+        function renderClassTimetable(classId) {
+          var days    = parseInt(document.getElementById('tt_daysPerWeek').value);
+          var periods = parseInt(document.getElementById('tt_periodsPerDay').value);
+          var bpRaw   = document.getElementById('tt_breakPeriods').value;
+          var bkSet   = new Set(bpRaw.split(',').map(function(x){return parseInt(x.trim());}).filter(function(x){return !isNaN(x);}));
+          var dayNames = TT_DAYS.slice(0,days);
+          var cls = ttClasses.find(function(c){ return c.id === classId; });
+          if (!cls) return;
+
+          var allP = []; for(var p=1;p<=periods;p++) allP.push(p);
+
+          var html = '<div class="tt-wrapper"><div class="tt-legend">'
+            + ttSubjects.map(function(s){ return '<div class="tt-legend-item"><div class="tt-legend-dot" style="background:'+s.color+'"></div>'+s.name+'</div>'; }).join('')
+            + '</div><table class="tt-table"><thead><tr><th class="tt-day-col">Day</th>'
+            + allP.map(function(p){ return bkSet.has(p) ? '<th style="background:rgba(255,255,255,.03);color:var(--tt-text3);font-size:.58rem">☕</th>' : '<th>P'+p+'</th>'; }).join('')
+            + '</tr></thead><tbody>';
+
+          dayNames.forEach(function(day, di) {
+            html += '<tr><td style="padding:.55rem .7rem;background:var(--tt-navy3);font-size:.74rem;font-weight:700;color:var(--tt-text2);white-space:nowrap;border:1px solid var(--tt-border)">'+day.slice(0,3)+'</td>';
+            allP.forEach(function(p) {
+              if (bkSet.has(p)) { html += '<td class="tt-break-cell"><div style="font-size:.6rem;color:var(--tt-text3);text-transform:uppercase;letter-spacing:.07em">Break</div></td>'; return; }
+              var slot = ttTimetable[classId] && ttTimetable[classId][di] && ttTimetable[classId][di][p];
+              if (slot) {
+                var sub = ttSubjects.find(function(s){ return s.id === slot.subjectId; });
+                var tch = ttTeachers.find(function(t){ return t.id === slot.teacherId; });
+                var bg  = sub ? sub.color : '#4fa3e0';
+                html += '<td><div class="tt-lesson-cell" style="background:'+bg+'22;border-left:3px solid '+bg+'">'
+                  +'<div class="tt-lesson-subject" style="color:'+bg+'">'+(sub?sub.code||sub.name:'?')+'</div>'
+                  +'<div class="tt-lesson-teacher">'+(tch?tch.name:'?')+'</div>'
+                  +'</div></td>';
+              } else {
+                html += '<td><div class="tt-cell-empty">—</div></td>';
+              }
+            });
+            html += '</tr>';
+          });
+          html += '</tbody></table></div>';
+          document.getElementById('tt_ttOutput').innerHTML = html;
+        }
+
+        /* ── Teacher map ── */
+        function renderTeacherMapView() {
+          var days    = parseInt(document.getElementById('tt_daysPerWeek').value);
+          var periods = parseInt(document.getElementById('tt_periodsPerDay').value);
+          var bpRaw   = document.getElementById('tt_breakPeriods').value;
+          var bkSet   = new Set(bpRaw.split(',').map(function(x){return parseInt(x.trim());}).filter(function(x){return !isNaN(x);}));
+          var dayNames= TT_DAYS.slice(0,days);
+          var allP = []; for(var p=1;p<=periods;p++) if (!bkSet.has(p)) allP.push(p);
+          if (!ttTeachers.length) return;
+
+          var html = '';
+          ttTeachers.forEach(function(teacher) {
+            var weekly = 0;
+            Object.values(ttTchrMap[teacher.id]||{}).forEach(function(day){ weekly += Object.values(day).filter(function(v){return v!==null;}).length; });
+            html += '<div class="tt-teacher-map"><div class="tt-tm-hdr"><span>👤 '+teacher.name+'</span>'
+              + '<span style="font-size:.67rem;color:var(--tt-text3);margin-left:.3rem">'+weekly+' lessons/wk</span></div>'
+              + '<div style="overflow-x:auto"><table class="tt-tm-table"><thead><tr><th>Day</th>'
+              + allP.map(function(p){ return '<th>P'+p+'</th>'; }).join('')
+              + '</tr></thead><tbody>';
+            dayNames.forEach(function(day, di) {
+              html += '<tr><td style="font-weight:700;color:var(--tt-text2);font-size:.68rem;background:var(--tt-navy3)">'+day.slice(0,3)+'</td>';
+              allP.forEach(function(p) {
+                var busyCls = ttTchrMap[teacher.id] && ttTchrMap[teacher.id][di] && ttTchrMap[teacher.id][di][p];
+                if (busyCls) {
+                  var cls = ttClasses.find(function(c){ return c.id===busyCls; });
+                  var sl  = ttTimetable[busyCls] && ttTimetable[busyCls][di] && ttTimetable[busyCls][di][p];
+                  var sub = ttSubjects.find(function(s){ return sl && s.id===sl.subjectId; });
+                  var bg  = sub ? sub.color : 'var(--tt-gold)';
+                  html += '<td><div class="tt-tm-busy" style="background:'+bg+'22;color:'+bg+';border:1px solid '+bg+'44">'+(cls?clsName(cls):'?')+'</div></td>';
+                } else {
+                  html += '<td><span class="tt-tm-free">·</span></td>';
+                }
+              });
+              html += '</tr>';
+            });
+            html += '</tbody></table></div></div>';
+          });
+          document.getElementById('tt_tmOutput').innerHTML = html;
+        }
+
+        /* ── Conflict detection ── */
+        function renderConflicts() {
+          var days    = parseInt(document.getElementById('tt_daysPerWeek').value);
+          var periods = parseInt(document.getElementById('tt_periodsPerDay').value);
+          var conflicts = [];
+          for (var d=0; d<days; d++) {
+            for (var p=1; p<=periods; p++) {
+              var tchClsMap = {};
+              ttClasses.forEach(function(cls) {
+                var slot = ttTimetable[cls.id] && ttTimetable[cls.id][d] && ttTimetable[cls.id][d][p];
+                if (slot && slot.teacherId) {
+                  if (tchClsMap[slot.teacherId]) {
+                    var tch = ttTeachers.find(function(t){ return t.id===slot.teacherId; });
+                    conflicts.push({ message: (tch?tch.name:'Teacher')+' is assigned to both "'+clsName(cls)+'" and "'+clsName(ttClasses.find(function(c){return c.id===tchClsMap[slot.teacherId];}))+'" on '+TT_DAYS[d]+' Period '+p });
+                  }
+                  tchClsMap[slot.teacherId] = cls.id;
+                }
+              });
+            }
+          }
+          document.getElementById('tt_statConflicts').textContent = conflicts.length;
+          if (!conflicts.length) {
+            document.getElementById('tt_conflictOutput').innerHTML = '<div class="tt-empty"><div class="tt-empty-icon">✅</div><div class="tt-empty-title">No conflicts!</div><div class="tt-empty-sub">All teacher assignments are collision-free</div></div>';
+            return;
+          }
+          var html = '<div style="margin-bottom:.75rem"><div class="tt-conflict-badge">⚠ '+conflicts.length+' conflict'+(conflicts.length>1?'s':'')+'</div></div>';
+          conflicts.forEach(function(c, i) {
+            html += '<div style="background:var(--tt-red-dim);border:1px solid rgba(242,97,122,.25);border-radius:9px;padding:.75rem .9rem;margin-bottom:.55rem;">'
+              +'<div style="font-weight:700;font-size:.78rem;color:var(--tt-red)">⚠ Conflict #'+(i+1)+'</div>'
+              +'<div style="font-size:.74rem;color:var(--tt-text2);margin-top:.25rem">'+c.message+'</div>'
+              +'</div>';
+          });
+          document.getElementById('tt_conflictOutput').innerHTML = html;
+        }
+
+        /* ── Stats ── */
+        function updateStats() {
+          document.getElementById('tt_statClasses').textContent  = ttClasses.length;
+          document.getElementById('tt_statTeachers').textContent = ttTeachers.length;
+          document.getElementById('tt_statSubjects').textContent = ttSubjects.length;
+          if (Object.keys(ttTimetable).length) {
+            var total=0, filled=0;
+            Object.values(ttTimetable).forEach(function(cls){ Object.values(cls).forEach(function(day){ Object.values(day).forEach(function(slot){ total++; if(slot) filled++; }); }); });
+            document.getElementById('tt_statFill').textContent = total ? Math.round(filled/total*100)+'%' : '—';
+          }
+        }
+
+        /* ── Demo data ── */
+        function loadDemoData() {
+          resetAll();
+          ttSubjects = [
+            {id:ttUid(),name:'Mathematics',code:'MAT',lessonsPerWeek:6,color:'#4fa3e0'},
+            {id:ttUid(),name:'English',code:'ENG',lessonsPerWeek:5,color:'#21c9a4'},
+            {id:ttUid(),name:'Science',code:'SCI',lessonsPerWeek:5,color:'#e8b84b'},
+            {id:ttUid(),name:'Social Studies',code:'SST',lessonsPerWeek:4,color:'#f2617a'},
+            {id:ttUid(),name:'Kiswahili',code:'KSW',lessonsPerWeek:5,color:'#9b72cf'},
+            {id:ttUid(),name:'CRE',code:'CRE',lessonsPerWeek:3,color:'#f4854a'},
+            {id:ttUid(),name:'Computer',code:'ICT',lessonsPerWeek:3,color:'#4ecdc4'},
+            {id:ttUid(),name:'PE',code:'PE',lessonsPerWeek:3,color:'#fb8500'},
+          ];
+          var sids = ttSubjects.map(function(s){ return s.id; });
+          ttTeachers = [
+            {id:ttUid(),name:'Mr. Kamau',subjects:[sids[0],sids[2]],maxDay:6,maxWeek:28},
+            {id:ttUid(),name:'Ms. Wanjiku',subjects:[sids[1],sids[4]],maxDay:6,maxWeek:28},
+            {id:ttUid(),name:'Mr. Ochieng',subjects:[sids[3],sids[5]],maxDay:6,maxWeek:25},
+            {id:ttUid(),name:'Ms. Rotich',subjects:[sids[6],sids[7]],maxDay:5,maxWeek:22},
+            {id:ttUid(),name:'Mr. Mutua',subjects:[sids[0],sids[1]],maxDay:6,maxWeek:28},
+            {id:ttUid(),name:'Ms. Kiprop',subjects:[sids[2],sids[3]],maxDay:6,maxWeek:26},
+          ];
+          ttClasses = [
+            {id:ttUid(),grade:'Grade 7',stream:'East'},
+            {id:ttUid(),grade:'Grade 7',stream:'West'},
+            {id:ttUid(),grade:'Grade 8',stream:'North'},
+            {id:ttUid(),grade:'Grade 8',stream:'South'},
+          ];
+          /* Keep proxies in sync */
+          window.ttSubjectsProxy = ttSubjects;
+          window.ttClassesProxy  = ttClasses;
+          renderSubjectList(); renderTeacherList(); renderClassList(); updateStats();
+          ttToast('Demo data loaded — click Generate!','ok');
+        }
+
+        function resetAll() {
+          ttTeachers=[]; ttSubjects=[]; ttClasses=[]; ttTimetable={}; ttTchrMap={}; ttSelClass=null;
+          window.ttSubjectsProxy = ttSubjects;
+          window.ttClassesProxy  = ttClasses;
+          renderSubjectList(); renderTeacherList(); renderClassList(); updateStats();
+          document.getElementById('tt_ttOutput').innerHTML = '<div class="tt-empty"><div class="tt-empty-icon">📅</div><div class="tt-empty-title">No timetable yet</div><div class="tt-empty-sub">Click <strong>Sync School Data</strong> then <strong>Generate Timetable</strong></div></div>';
+          document.getElementById('tt_tmOutput').innerHTML = '<div class="tt-empty"><div class="tt-empty-icon">🗺</div><div class="tt-empty-title">Generate a timetable first</div></div>';
+          document.getElementById('tt_conflictOutput').innerHTML = '<div class="tt-empty"><div class="tt-empty-icon">✅</div><div class="tt-empty-title">No conflicts detected</div></div>';
+          document.getElementById('tt_classChips').innerHTML = '';
+          document.getElementById('tt_statConflicts').textContent = '—';
+          document.getElementById('tt_statFill').textContent = '—';
+          clearLog(); setProgress(0);
+        }
+
+        function printTimetable() {
+          if (!ttSelClass) { ttToast('Select a class first','warn'); return; }
+          window.print();
+        }
+
+        /* ── Log helpers ── */
+        function clearLog() { document.getElementById('tt_genLog').innerHTML = ''; }
+        function addLog(msg, type) {
+          var el = document.getElementById('tt_genLog');
+          var d = document.createElement('div');
+          d.className = 'tt-log-line log-'+(type||'info');
+          d.textContent = msg;
+          el.appendChild(d);
+          el.scrollTop = el.scrollHeight;
+        }
+        function setProgress(pct) { document.getElementById('tt_progressFill').style.width = pct+'%'; }
+
+        /* ── Toast ── */
+        function ttToast(msg, type) {
+          var ct = document.getElementById('tt_toastContainer');
+          var el = document.createElement('div');
+          el.className = 'tt-toast tt-toast-'+(type||'ok');
+          var icon = type==='ok'?'✅':type==='warn'?'⚠':'❌';
+          el.innerHTML = '<span>'+icon+'</span><span>'+escH(msg)+'</span>';
+          ct.appendChild(el);
+          setTimeout(function(){ el.classList.add('fading'); setTimeout(function(){ el.remove(); },300); }, 3200);
+        }
+
+        /* ── Utilities ── */
+        function ttUid() { return Math.random().toString(36).slice(2,9); }
+        function ttShuffle(arr) { for(var i=arr.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=arr[i];arr[i]=arr[j];arr[j]=tmp;} return arr; }
+        function escH(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+        /* ── Init ── */
+        renderSubjectList(); renderTeacherList(); renderClassList(); updateStats();
+
+        /* Auto-sync when the timetable section is navigated to */
+        document.addEventListener('tt_sectionVisible', function() { syncFromCharanas(); });
+
+      })();
+      </script>
+
     </section>
 
     <!-- ════ MESSAGING ════ -->
