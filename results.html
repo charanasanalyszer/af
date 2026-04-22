@@ -52,7 +52,7 @@
     /* ── Hero header ── */
     .hero {
       text-align: center;
-      padding: 1.5rem 1.25rem 1.25rem;
+      padding: 3rem 1.5rem 2rem;
     }
     .hero-badge {
       display: inline-flex;
@@ -67,32 +67,32 @@
       text-transform: uppercase;
       padding: .35rem .9rem;
       border-radius: 99px;
-      margin-bottom: .65rem;
+      margin-bottom: 1.2rem;
     }
     .hero-badge::before { content: '●'; color: #3b82f6; font-size: .55rem; animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
 
     .hero h1 {
-      font-size: clamp(1.5rem, 4vw, 2.2rem);
+      font-size: clamp(1.8rem, 5vw, 3rem);
       font-weight: 800;
       letter-spacing: -.02em;
-      line-height: 1.15;
+      line-height: 1.1;
       background: linear-gradient(135deg, #f1f5f9 0%, #93c5fd 50%, #6ee7b7 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      margin-bottom: .4rem;
+      margin-bottom: .6rem;
     }
     .hero p {
       color: var(--muted);
-      font-size: .88rem;
+      font-size: .95rem;
       font-weight: 300;
     }
 
     /* ── Search card ── */
     .search-card {
       max-width: 520px;
-      margin: 0 auto 1.25rem;
+      margin: 0 auto 2.5rem;
       padding: 0 1.25rem;
     }
     .search-box {
@@ -494,14 +494,14 @@
       border-top-color: var(--accent);
       border-radius: 50%;
       animation: spin .8s linear infinite;
-      margin: 1.25rem auto;
+      margin: 2rem auto;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* Footer */
     footer {
       text-align: center;
-      padding: 1.25rem;
+      padding: 2rem;
       color: var(--muted);
       font-size: .75rem;
       border-top: 1px solid var(--border);
@@ -625,7 +625,7 @@
 
   <!-- HERO -->
   <div class="hero">
-    <div class="hero-badge"><i class="fa-solid fa-user-graduate"></i> Live Results Access</div>
+    <div class="hero-badge">🎓 Live Results Access</div>
     <h1>Student Results<br>Portal</h1>
     <p>Enter your admission number to instantly view your academic report</p>
   </div>
@@ -658,7 +658,7 @@
 <!-- QR MODAL -->
 <div class="modal-bg" id="qrModal">
   <div class="modal">
-    <h3><i class="fa-solid fa-mobile-screen"></i> Scan to Access Results</h3>
+    <h3>📱 Scan to Access Results</h3>
     <p id="qrDesc">Share this QR code so anyone can quickly access these results</p>
     <div id="qrCanvas"></div>
     <br>
@@ -827,7 +827,7 @@ function renderResults(stu, forcedExamId = null) {
   });
 
   if (!stuExams.length) {
-    inner.innerHTML = `<div class="empty-state"><div class="icon"><i class="fa-solid fa-clipboard-list"></i></div><h3>No results found</h3><p>No exam results have been entered for this student yet.</p></div>`;
+    inner.innerHTML = `<div class="empty-state"><div class="icon">📋</div><h3>No results found</h3><p>No exam results have been entered for this student yet.</p></div>`;
     wrap.scrollIntoView({behavior:'smooth'});
     return;
   }
@@ -862,9 +862,9 @@ function renderResults(stu, forcedExamId = null) {
 
     <!-- ACTIONS -->
     <div class="actions-bar">
-      <button class="btn btn-primary" onclick="window.print()"><i class="fa-solid fa-print"></i> Print Report</button>
-      <button class="btn btn-outline" onclick="showQR()"><i class="fa-solid fa-mobile-screen"></i> Get QR Code</button>
-      <button class="btn btn-outline" onclick="copyLink()"><i class="fa-solid fa-link"></i> Copy Link</button>
+      <button class="btn btn-primary" onclick="window.print()">🖨 Print Report</button>
+      <button class="btn btn-outline" onclick="showQR()">📱 Get QR Code</button>
+      <button class="btn btn-outline" onclick="copyLink()">🔗 Copy Link</button>
     </div>
 
     <!-- EXAM TABS -->
@@ -903,7 +903,7 @@ function switchExam(examId) {
 // ─── Build report content ────────────────────────────────────
 function buildReportContent(stu, examId) {
   const d = getStudentReport(stu.id, examId);
-  if (!d) return `<div class="empty-state"><div class="icon"><i class="fa-solid fa-triangle-exclamation"></i>️</div><h3>No data for this exam</h3></div>`;
+  if (!d) return `<div class="empty-state"><div class="icon">⚠️</div><h3>No data for this exam</h3></div>`;
 
   const ctComment  = generateCTComment(d.mean, d.mGrade.grade, stu.gender, stu.name, d.streamRank, students.length);
   const prComment  = generatePrincipalComment(d.mean, d.mGrade.grade, d.overallRank, students.length);
@@ -943,7 +943,7 @@ function buildReportContent(stu, examId) {
 
   // MARKS TABLE
   html += `<div class="marks-wrap">
-    <div class="marks-head"><i class="fa-solid fa-book"></i> Subject Performance — ${d.exam.name}</div>
+    <div class="marks-head">📚 Subject Performance — ${d.exam.name}</div>
     <table class="marks-table">
       <thead>
         <tr>
@@ -981,11 +981,11 @@ function buildReportContent(stu, examId) {
   // REMARKS
   html += `<div class="remarks-row">
     <div class="remark-box">
-      <div class="remark-title"><i class="fa-solid fa-person"></i>‍<i class="fa-solid fa-school"></i> Class Teacher's Remarks</div>
+      <div class="remark-title">🧑‍🏫 Class Teacher's Remarks</div>
       <div class="remark-text">${ctComment}</div>
     </div>
     <div class="remark-box">
-      <div class="remark-title"><i class="fa-solid fa-school"></i> Principal's Remarks</div>
+      <div class="remark-title">🏫 Principal's Remarks</div>
       <div class="remark-text">${prComment}</div>
     </div>
   </div>`;
@@ -1001,7 +1001,7 @@ function buildReportContent(stu, examId) {
   // TREND CHART (if more than 1 exam)
   if (d.history && d.history.length > 1) {
     html += `<div class="trend-wrap">
-      <div class="trend-title"><i class="fa-solid fa-chart-line"></i> Performance Trend</div>
+      <div class="trend-title">📈 Performance Trend</div>
       <canvas id="trendChart" height="80"></canvas>
     </div>`;
   }
@@ -1089,7 +1089,7 @@ function buildFeeStatement(stu, exam) {
   const isCleared = balance <= 0;
   const isPartial  = !isCleared && totalPaid > 0;
   const statusClass = isCleared ? 'cleared' : (isPartial ? 'partial' : 'owing');
-  const statusIcon  = isCleared ? '<i class="fa-solid fa-circle-check"></i>' : (isPartial ? '<i class="fa-solid fa-triangle-exclamation"></i>️' : '<span style="color:#ef4444">●</span>');
+  const statusIcon  = isCleared ? '✅' : (isPartial ? '⚠️' : '🔴');
   const statusText  = isCleared ? 'Fees Fully Cleared' : (isPartial ? `Balance Outstanding: KES ${Math.abs(balance).toLocaleString()}` : `Unpaid: KES ${Math.abs(balance).toLocaleString()}`);
 
   // Next term fee
@@ -1101,7 +1101,7 @@ function buildFeeStatement(stu, exam) {
 
   let html = `<div class="fee-statement">
     <div class="fee-header">
-      <div class="fee-header-icon"><i class="fa-solid fa-coins"></i></div>
+      <div class="fee-header-icon">💰</div>
       <div>
         <div class="fee-header-title">Fee Statement</div>
         <div class="fee-header-sub">${latestRec.term} ${latestRec.year} — ${stu.name}</div>
@@ -1154,7 +1154,7 @@ function buildFeeStatement(stu, exam) {
         </table>
       </div>` : ''}
       ${!isCleared ? `<div style="margin-top:1rem;font-size:.78rem;color:var(--muted);padding:.65rem .9rem;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);border-radius:8px">
-        <i class="fa-solid fa-triangle-exclamation"></i>️ Please clear outstanding balance with the school bursar before next term.
+        ⚠️ Please clear outstanding balance with the school bursar before next term.
       </div>` : ''}
     </div>
   </div>`;
@@ -1174,10 +1174,10 @@ function buildPapersList() {
 
   const fileIcon = name => {
     const ext = (name||'').split('.').pop().toLowerCase();
-    if (['pdf'].includes(ext)) return '<i class="fa-solid fa-file-lines"></i>';
-    if (['doc','docx'].includes(ext)) return '<i class="fa-solid fa-file-pen"></i>';
-    if (['jpg','jpeg','png'].includes(ext)) return '<i class="fa-regular fa-image"></i>️';
-    return '<i class="fa-solid fa-folder-open"></i>';
+    if (['pdf'].includes(ext)) return '📄';
+    if (['doc','docx'].includes(ext)) return '📝';
+    if (['jpg','jpeg','png'].includes(ext)) return '🖼️';
+    return '📂';
   };
 
   const rows = all.map(p => {
@@ -1194,13 +1194,13 @@ function buildPapersList() {
           ${!isFree ? ` • <span style="color:#f59e0b;font-weight:600">KES ${parseFloat(p.price).toLocaleString()}</span>` : ' • <span style="color:#10b981;font-weight:600">Free</span>'}
         </div>
       </div>
-      ${canDl && p.fileData ? `<button class="btn-dl" onclick="downloadPaper('${p.id}')">⬇ Download</button>` : (canDl ? '' : `<span style="font-size:.75rem;color:var(--muted)"><i class="fa-solid fa-lock"></i> Paid</span>`)}
+      ${canDl && p.fileData ? `<button class="btn-dl" onclick="downloadPaper('${p.id}')">⬇ Download</button>` : (canDl ? '' : `<span style="font-size:.75rem;color:var(--muted)">🔒 Paid</span>`)}
     </div>`;
   }).join('');
 
   return `<div class="papers-section">
     <div class="papers-hdr">
-      <div style="font-size:1.4rem"><i class="fa-solid fa-book"></i></div>
+      <div style="font-size:1.4rem">📚</div>
       <div>
         <div style="font-size:.95rem;font-weight:700;color:var(--text)">Revision Papers &amp; Resources</div>
         <div style="font-size:.75rem;color:var(--muted);margin-top:.1rem">${all.length} paper${all.length!==1?'s':''} available</div>
