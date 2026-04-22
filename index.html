@@ -1936,6 +1936,18 @@
 
         /* ── Mobile tweaks ── */
         @media (max-width: 640px) {
+          /* Remove sidebar max-height on mobile — it stacks vertically, no need to constrain */
+          #tt-app .tt-sidebar {
+            max-height: none;
+            overflow-y: visible;
+          }
+          /* Let inner panel lists expand fully on mobile instead of scrolling within a constrained sidebar */
+          #tt-app #tt_teacherList,
+          #tt-app #tt_subjectList,
+          #tt-app #tt_classList {
+            max-height: none !important;
+            overflow-y: visible;
+          }
           #tt-app .tt-header {
             flex-direction: column; align-items: flex-start; gap: .5rem;
           }
@@ -2053,7 +2065,7 @@
                 </div>
                 <div class="tt-fg">
                   <label class="tt-lbl">Break Periods <span style="font-size:.6rem;opacity:.55">(click to toggle)</span></label>
-                  <div id="tt_breakToggles" style="display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.45rem;"></div>
+                  <div id="tt_breakToggles" style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.55rem;"></div>
                   <input class="tt-input" type="text" id="tt_breakPeriods" value="4,7" placeholder="e.g. 4,7" oninput="if(window.tt_syncBreakToggles)tt_syncBreakToggles()" style="font-size:.72rem;"/>
                   <div style="font-size:.6rem;opacity:.5;margin-top:.2rem">☕ = break &nbsp;|&nbsp; P = lesson period</div>
                 </div>
@@ -3126,7 +3138,7 @@
               btn.className = 'tt-btn tt-btn-sm ' + (isBreak ? 'tt-btn-gold' : 'tt-btn-outline');
               btn.innerHTML = (isBreak ? '☕' : '') + 'P' + p;
               btn.title     = 'Period ' + p + (isBreak ? ' — break (click to make lesson)' : ' — lesson (click to make break)');
-              btn.style.cssText = 'min-width:32px;padding:.2rem .28rem;font-size:.65rem;';
+              btn.style.cssText = 'min-width:38px;padding:.3rem .45rem;font-size:.7rem;';
               btn.onclick = function(){
                 var cur = new Set((document.getElementById('tt_breakPeriods').value||'').split(',').map(function(x){return parseInt(x.trim());}).filter(function(x){return !isNaN(x)&&x>0;}));
                 if (cur.has(p)) cur.delete(p); else cur.add(p);
