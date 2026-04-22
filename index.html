@@ -2116,6 +2116,49 @@
 
       </div><!-- /#tt-app -->
 
+      <!-- Subject Settings Modal -->
+      <div id="tt-subjectModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:2001;align-items:center;justify-content:center;padding:1.25rem;">
+        <div style="background:var(--tt-card);border:1px solid var(--tt-border2);border-radius:14px;width:min(520px,100%);max-height:88vh;overflow-y:auto;box-shadow:var(--tt-shadow);">
+          <div style="padding:.85rem 1.1rem;border-bottom:1px solid var(--tt-border);display:flex;align-items:center;justify-content:space-between;">
+            <div style="font-size:.95rem;font-weight:700;color:var(--tt-text)" id="tt_subModalTitle">Subject Settings</div>
+            <button style="background:none;border:none;color:var(--tt-text2);font-size:1.1rem;cursor:pointer;padding:.15rem .35rem" onclick="tt_closeSubjectModal()">✕</button>
+          </div>
+          <div style="padding:1.1rem;">
+            <input type="hidden" id="tt_subModalId"/>
+            <div style="font-size:.8rem;font-weight:700;color:var(--tt-text);margin-bottom:1rem;" id="tt_subModalName"></div>
+
+            <!-- Double lesson -->
+            <div class="tt-fg">
+              <label class="tt-lbl">Double Lessons</label>
+              <div style="display:flex;align-items:center;gap:.75rem;margin-top:.3rem;">
+                <label style="display:flex;align-items:center;gap:.45rem;cursor:pointer;font-size:.82rem;color:var(--tt-text);">
+                  <input type="checkbox" id="tt_subDouble" style="accent-color:var(--tt-gold);width:16px;height:16px;cursor:pointer"/>
+                  Schedule this subject in consecutive double periods
+                </label>
+              </div>
+              <div style="font-size:.68rem;color:var(--tt-text3);margin-top:.3rem;">When enabled, pairs of lessons will be placed back-to-back in the same day.</div>
+            </div>
+
+            <!-- Lessons per week (mirrored here for convenience) -->
+            <div class="tt-fg">
+              <label class="tt-lbl">Lessons / Week</label>
+              <input class="tt-input" type="number" id="tt_subLpw" value="5" min="1" max="20" style="max-width:100px;"/>
+              <div style="font-size:.68rem;color:var(--tt-text3);margin-top:.25rem;">Total lessons per week (doubles count as 2 each).</div>
+            </div>
+
+            <!-- Unavailable periods -->
+            <div class="tt-fg">
+              <label class="tt-lbl">Unavailable Slots <span style="font-size:.62rem;opacity:.6;text-transform:none;letter-spacing:0">(click a cell to block — subject won't be placed there)</span></label>
+              <div id="tt_subUnavailGrid" style="margin-top:.5rem;overflow-x:auto;"></div>
+            </div>
+          </div>
+          <div style="padding:.75rem 1.1rem;border-top:1px solid var(--tt-border);display:flex;gap:.4rem;justify-content:flex-end;">
+            <button class="tt-btn tt-btn-outline" onclick="tt_closeSubjectModal()">Cancel</button>
+            <button class="tt-btn tt-btn-gold" onclick="tt_saveSubjectSettings()">Save Settings</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Teacher Modal (outside #tt-app so it overlays full viewport) -->
       <div id="tt-teacherModal">
         <div class="tt-modal-box">
@@ -2142,6 +2185,14 @@
                 <label class="tt-lbl">Max Lessons / Week</label>
                 <input class="tt-input" type="number" id="tt_tchMaxWeek" value="25" min="1" max="45"/>
               </div>
+            </div>
+            <div class="tt-fg">
+              <label class="tt-lbl">Days Off <span style="font-size:.62rem;opacity:.6;text-transform:none;letter-spacing:0">(teacher is unavailable these whole days)</span></label>
+              <div id="tt_tchDaysOff" style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.3rem;"></div>
+            </div>
+            <div class="tt-fg">
+              <label class="tt-lbl">Period Unavailability <span style="font-size:.62rem;opacity:.6;text-transform:none;letter-spacing:0">(click to block specific periods)</span></label>
+              <div id="tt_tchPeriodGrid" style="margin-top:.3rem;overflow-x:auto;"></div>
             </div>
           </div>
           <div class="tt-modal-footer">
@@ -2181,6 +2232,11 @@
         window.tt_generate           = generate;
         window.tt_selectClass        = selectClass;
         window.tt_printTimetable     = printTimetable;
+        window.tt_openSubjectModal   = openSubjectModal;
+        window.tt_closeSubjectModal  = closeSubjectModal;
+        window.tt_saveSubjectSettings= saveSubjectSettings;
+        window.tt_toggleSubUnavail   = toggleSubUnavail;
+        window.tt_toggleTchPeriod    = toggleTchPeriod;
 
         /* ── Tabs ── */
         function showTab(tab, btn) {
@@ -2251,7 +2307,9 @@
               name: s.name || 'Subject',
               code: s.code || (s.name||'').slice(0,3).toUpperCase(),
               lessonsPerWeek: existing ? existing.lessonsPerWeek : (s.lessonsPerWeek || 5),
-              color: existing ? existing.color : TT_COLORS[(colIdx++) % TT_COLORS.length]
+              color: existing ? existing.color : TT_COLORS[(colIdx++) % TT_COLORS.length],
+              double: existing ? (existing.double || false) : false,
+              unavailable: existing ? (existing.unavailable || []) : []
             };
           });
 
@@ -2263,8 +2321,10 @@
               id: t.id,
               name: t.name || 'Teacher',
               subjects: subIds,
-              maxDay:  existing ? existing.maxDay  : (t.maxPerDay  || 6),
-              maxWeek: existing ? existing.maxWeek : (t.maxPerWeek || 25)
+              maxDay:     existing ? existing.maxDay     : (t.maxPerDay  || 6),
+              maxWeek:    existing ? existing.maxWeek    : (t.maxPerWeek || 25),
+              daysOff:    existing ? (existing.daysOff    || []) : [],
+              periodsOff: existing ? (existing.periodsOff || []) : []
             };
           });
 
@@ -2292,41 +2352,108 @@
         }
 
         /* ── Teachers ── */
+        function buildTchDaysOffUI(teacher) {
+          var days = parseInt(document.getElementById('tt_daysPerWeek').value) || 5;
+          var el   = document.getElementById('tt_tchDaysOff');
+          var off  = (teacher && teacher.daysOff) ? teacher.daysOff : [];
+          el.innerHTML = TT_DAYS.slice(0, days).map(function(d, i) {
+            var active = off.indexOf(i) >= 0;
+            return '<div data-day="'+i+'" onclick="tt_toggleTchDay(this)" style="cursor:pointer;padding:.28rem .65rem;border-radius:20px;font-size:.71rem;font-weight:600;border:1px solid '+(active?'var(--tt-red)':'var(--tt-border2)')+';background:'+(active?'var(--tt-red-dim)':'var(--tt-navy3)')+';color:'+(active?'var(--tt-red)':'var(--tt-text2)')+'" title="Click to toggle day off">'+d.slice(0,3)+'</div>';
+          }).join('');
+        }
+        window.tt_toggleTchDay = function(el) {
+          var i = parseInt(el.dataset.day);
+          var active = el.style.color.indexOf('red') >= 0 || el.style.color === 'var(--tt-red)';
+          el.style.borderColor = active ? 'var(--tt-border2)' : 'var(--tt-red)';
+          el.style.background  = active ? 'var(--tt-navy3)' : 'var(--tt-red-dim)';
+          el.style.color       = active ? 'var(--tt-text2)' : 'var(--tt-red)';
+        };
+        function getTchDaysOff() {
+          var result = [];
+          document.querySelectorAll('#tt_tchDaysOff > div').forEach(function(el) {
+            if (el.style.color === 'var(--tt-red)') result.push(parseInt(el.dataset.day));
+          });
+          return result;
+        }
+        function buildTchPeriodGrid(teacher) {
+          var days    = parseInt(document.getElementById('tt_daysPerWeek').value) || 5;
+          var periods = parseInt(document.getElementById('tt_periodsPerDay').value) || 8;
+          var bpRaw   = document.getElementById('tt_breakPeriods').value;
+          var bkSet   = new Set(bpRaw.split(',').map(function(x){return parseInt(x.trim());}).filter(function(x){return !isNaN(x);}));
+          var off     = (teacher && teacher.periodsOff) ? teacher.periodsOff : [];
+          var el      = document.getElementById('tt_tchPeriodGrid');
+          var html = '<table style="border-collapse:collapse;font-size:.66rem;">';
+          html += '<thead><tr><th style="padding:.25rem .4rem;color:var(--tt-text3);font-weight:600;background:var(--tt-navy3);border:1px solid var(--tt-border)"></th>';
+          for (var p = 1; p <= periods; p++) {
+            if (!bkSet.has(p)) html += '<th style="padding:.25rem .4rem;color:var(--tt-text3);font-weight:600;background:var(--tt-navy3);border:1px solid var(--tt-border);min-width:28px;text-align:center">P'+p+'</th>';
+          }
+          html += '</tr></thead><tbody>';
+          for (var d = 0; d < days; d++) {
+            html += '<tr><td style="padding:.25rem .45rem;font-weight:600;color:var(--tt-text2);background:var(--tt-navy3);border:1px solid var(--tt-border);white-space:nowrap">'+TT_DAYS[d].slice(0,3)+'</td>';
+            for (var p2 = 1; p2 <= periods; p2++) {
+              if (bkSet.has(p2)) continue;
+              var key = d+','+p2;
+              var blocked = off.indexOf(key) >= 0;
+              html += '<td style="border:1px solid var(--tt-border);padding:1px;text-align:center;cursor:pointer">'
+                + '<div data-key="'+key+'" onclick="tt_toggleTchPeriod(this)" style="width:24px;height:22px;margin:auto;border-radius:4px;cursor:pointer;background:'+(blocked?'var(--tt-red-dim)':'transparent')+';border:1px solid '+(blocked?'var(--tt-red)':'transparent')+';display:flex;align-items:center;justify-content:center;font-size:.6rem;color:'+(blocked?'var(--tt-red)':'var(--tt-text3)');'+"\" title=\""+(blocked?'Blocked':'Available')+"\">"+(blocked?'✕':'')+'</div></td>';
+            }
+            html += '</tr>';
+          }
+          html += '</tbody></table><div style="font-size:.63rem;color:var(--tt-text3);margin-top:.4rem">Click a cell to block that period — teacher won\'t be scheduled there.</div>';
+          el.innerHTML = html;
+        }
+        function getTchPeriodsOff() {
+          var result = [];
+          document.querySelectorAll('#tt_tchPeriodGrid [data-key]').forEach(function(el) {
+            if (el.style.background === 'var(--tt-red-dim)') result.push(el.dataset.key);
+          });
+          return result;
+        }
+        function toggleTchPeriod(el) {
+          var blocked = el.style.background === 'var(--tt-red-dim)';
+          el.style.background = blocked ? 'transparent' : 'var(--tt-red-dim)';
+          el.style.border     = blocked ? '1px solid transparent' : '1px solid var(--tt-red)';
+          el.style.color      = blocked ? 'var(--tt-text3)' : 'var(--tt-red)';
+          el.textContent      = blocked ? '' : '✕';
+          el.title            = blocked ? 'Available' : 'Blocked';
+        }
         function openTeacherModal(id) {
           document.getElementById('tt_teacherEditId').value = id || '';
           document.getElementById('tt_modalTitle').textContent = id ? 'Edit Teacher' : 'Add Teacher';
           var sel = document.getElementById('tt_tchSubjects');
           sel.innerHTML = ttSubjects.map(function(s){ return '<option value="'+s.id+'">'+s.name+'</option>'; }).join('');
-          if (id) {
-            var t = ttTeachers.find(function(x){ return x.id === id; });
-            if (t) {
-              document.getElementById('tt_tchName').value    = t.name;
-              document.getElementById('tt_tchMaxDay').value  = t.maxDay;
-              document.getElementById('tt_tchMaxWeek').value = t.maxWeek;
-              Array.from(sel.options).forEach(function(o){ o.selected = t.subjects.indexOf(o.value) >= 0; });
-            }
+          var teacher = id ? ttTeachers.find(function(x){ return x.id === id; }) : null;
+          if (teacher) {
+            document.getElementById('tt_tchName').value    = teacher.name;
+            document.getElementById('tt_tchMaxDay').value  = teacher.maxDay;
+            document.getElementById('tt_tchMaxWeek').value = teacher.maxWeek;
+            Array.from(sel.options).forEach(function(o){ o.selected = teacher.subjects.indexOf(o.value) >= 0; });
           } else {
             document.getElementById('tt_tchName').value    = '';
             document.getElementById('tt_tchMaxDay').value  = 6;
             document.getElementById('tt_tchMaxWeek').value = 25;
             Array.from(sel.options).forEach(function(o){ o.selected = false; });
           }
+          buildTchDaysOffUI(teacher);
+          buildTchPeriodGrid(teacher);
           document.getElementById('tt-teacherModal').style.display = 'flex';
         }
         function closeTeacherModal() { document.getElementById('tt-teacherModal').style.display = 'none'; }
         function saveTeacher() {
           var name = document.getElementById('tt_tchName').value.trim();
           if (!name) { ttToast('Teacher name required','err'); return; }
-          var sel = document.getElementById('tt_tchSubjects');
-          var subIds = Array.from(sel.selectedOptions).map(function(o){ return o.value; });
+          var sel     = document.getElementById('tt_tchSubjects');
+          var subIds  = Array.from(sel.selectedOptions).map(function(o){ return o.value; });
           var maxDay  = parseInt(document.getElementById('tt_tchMaxDay').value) || 6;
           var maxWeek = parseInt(document.getElementById('tt_tchMaxWeek').value) || 25;
+          var daysOff    = getTchDaysOff();
+          var periodsOff = getTchPeriodsOff();
           var editId  = document.getElementById('tt_teacherEditId').value;
           if (editId) {
             var t = ttTeachers.find(function(x){ return x.id === editId; });
-            if (t) { t.name = name; t.subjects = subIds; t.maxDay = maxDay; t.maxWeek = maxWeek; }
+            if (t) { t.name = name; t.subjects = subIds; t.maxDay = maxDay; t.maxWeek = maxWeek; t.daysOff = daysOff; t.periodsOff = periodsOff; }
           } else {
-            ttTeachers.push({ id: ttUid(), name: name, subjects: subIds, maxDay: maxDay, maxWeek: maxWeek });
+            ttTeachers.push({ id: ttUid(), name: name, subjects: subIds, maxDay: maxDay, maxWeek: maxWeek, daysOff: daysOff, periodsOff: periodsOff });
           }
           closeTeacherModal(); renderTeacherList(); updateStats();
           ttToast('Teacher saved','ok');
@@ -2341,10 +2468,12 @@
             el.innerHTML = '<div class="tt-empty" style="padding:.75rem"><div class="tt-empty-sub">No teachers added</div></div>'; return;
           }
           el.innerHTML = ttTeachers.map(function(t) {
-            var subs = t.subjects.map(function(sid){ var s=ttSubjects.find(function(x){return x.id===sid;}); return s?s.name:'?'; }).join(', ') || 'No subjects';
+            var subs    = t.subjects.map(function(sid){ var s=ttSubjects.find(function(x){return x.id===sid;}); return s?s.name:'?'; }).join(', ') || 'No subjects';
+            var offInfo = (t.daysOff && t.daysOff.length) ? ' · 🚫 '+t.daysOff.map(function(d){return TT_DAYS[d].slice(0,3);}).join(',') : '';
+            var perInfo = (t.periodsOff && t.periodsOff.length) ? ' · '+t.periodsOff.length+' period(s) off' : '';
             return '<div style="display:flex;align-items:center;gap:.4rem;padding:.4rem .45rem;border-radius:6px;background:var(--tt-navy3);margin-bottom:.25rem;">'
               +'<div style="flex:1;min-width:0"><div style="font-size:.76rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tt-text)">'+t.name+'</div>'
-              +'<div style="font-size:.63rem;color:var(--tt-text3);margin-top:1px">'+subs+'</div></div>'
+              +'<div style="font-size:.63rem;color:var(--tt-text3);margin-top:1px">'+subs+offInfo+perInfo+'</div></div>'
               +'<button class="tt-btn tt-btn-sm tt-btn-outline" style="padding:.18rem .42rem;font-size:.65rem" onclick="tt_openTeacherModal(\''+t.id+'\')">✏</button>'
               +'<button class="tt-btn tt-btn-sm tt-btn-danger" style="padding:.18rem .42rem;font-size:.65rem" onclick="tt_deleteTeacher(\''+t.id+'\')">🗑</button>'
               +'</div>';
@@ -2354,7 +2483,7 @@
         /* ── Subjects ── */
         function addSubjectRow() {
           var colIdx = ttSubjects.length % TT_COLORS.length;
-          ttSubjects.push({ id: ttUid(), name:'', code:'', lessonsPerWeek:5, color: TT_COLORS[colIdx] });
+          ttSubjects.push({ id: ttUid(), name:'', code:'', lessonsPerWeek:5, color: TT_COLORS[colIdx], double: false, unavailable: [] });
           renderSubjectList();
         }
         function renderSubjectList() {
@@ -2363,6 +2492,8 @@
             el.innerHTML = '<div style="font-size:.72rem;color:var(--tt-text3);text-align:center;padding:.5rem">No subjects added</div>'; return;
           }
           el.innerHTML = ttSubjects.map(function(s, i) {
+            var dblBadge = s.double ? '<span title="Double lessons" style="font-size:.58rem;background:var(--tt-teal-dim);color:var(--tt-teal);border:1px solid rgba(33,201,164,.3);border-radius:10px;padding:.1rem .35rem;white-space:nowrap;flex-shrink:0">×2</span>' : '';
+            var offBadge = (s.unavailable && s.unavailable.length) ? '<span title="Has unavailable slots" style="font-size:.58rem;background:var(--tt-red-dim);color:var(--tt-red);border:1px solid rgba(242,97,122,.3);border-radius:10px;padding:.1rem .35rem;white-space:nowrap;flex-shrink:0">🚫'+s.unavailable.length+'</span>' : '';
             return '<div style="background:var(--tt-navy3);border-radius:6px;padding:.45rem .6rem;display:flex;align-items:center;gap:.4rem;">'
               +'<div style="width:9px;height:9px;border-radius:50%;background:'+s.color+';flex-shrink:0"></div>'
               +'<input type="text" value="'+escH(s.name)+'" placeholder="Subject name" '
@@ -2374,6 +2505,8 @@
               +'<input type="number" value="'+s.lessonsPerWeek+'" min="1" max="20" title="Lessons/week" '
               +'style="width:30px;background:transparent;border:none;color:var(--tt-gold);font-size:.68rem;padding:0;outline:none;text-align:center;font-family:inherit" '
               +'oninput="ttSubjectsProxy['+i+'].lessonsPerWeek=parseInt(this.value)||1" />'
+              + dblBadge + offBadge
+              +'<button title="Settings (double lessons, time off)" style="background:none;border:none;color:var(--tt-sky);cursor:pointer;font-size:.72rem;padding:0 .15rem" onclick="tt_openSubjectModal(\''+s.id+'\')">⚙</button>'
               +'<button style="background:none;border:none;color:var(--tt-text3);cursor:pointer;font-size:.72rem" onclick="tt_deleteSubject(\''+s.id+'\')">✕</button>'
               +'</div>';
           }).join('');
@@ -2382,6 +2515,71 @@
           ttSubjects = ttSubjects.filter(function(s){ return s.id !== id; });
           ttTeachers.forEach(function(t){ t.subjects = t.subjects.filter(function(sid){ return sid !== id; }); });
           renderSubjectList(); renderTeacherList(); updateStats();
+        }
+
+        /* ── Subject Settings Modal ── */
+        function openSubjectModal(id) {
+          var s = ttSubjects.find(function(x){ return x.id === id; });
+          if (!s) return;
+          document.getElementById('tt_subModalId').value   = id;
+          document.getElementById('tt_subModalTitle').textContent = 'Settings — ' + (s.name || 'Subject');
+          document.getElementById('tt_subModalName').textContent  = s.name || 'Subject';
+          document.getElementById('tt_subDouble').checked  = !!s.double;
+          document.getElementById('tt_subLpw').value       = s.lessonsPerWeek || 5;
+          buildSubUnavailGrid(s);
+          document.getElementById('tt-subjectModal').style.display = 'flex';
+        }
+        function closeSubjectModal() { document.getElementById('tt-subjectModal').style.display = 'none'; }
+        function buildSubUnavailGrid(s) {
+          var days    = parseInt(document.getElementById('tt_daysPerWeek').value) || 5;
+          var periods = parseInt(document.getElementById('tt_periodsPerDay').value) || 8;
+          var bpRaw   = document.getElementById('tt_breakPeriods').value;
+          var bkSet   = new Set(bpRaw.split(',').map(function(x){return parseInt(x.trim());}).filter(function(x){return !isNaN(x);}));
+          var off     = (s && s.unavailable) ? s.unavailable : [];
+          var el      = document.getElementById('tt_subUnavailGrid');
+          var html = '<table style="border-collapse:collapse;font-size:.66rem;">';
+          html += '<thead><tr><th style="padding:.25rem .5rem;color:var(--tt-text3);font-weight:600;background:var(--tt-navy3);border:1px solid var(--tt-border)"></th>';
+          for (var p = 1; p <= periods; p++) {
+            if (!bkSet.has(p)) html += '<th style="padding:.25rem .4rem;color:var(--tt-text3);font-weight:600;background:var(--tt-navy3);border:1px solid var(--tt-border);min-width:28px;text-align:center">P'+p+'</th>';
+          }
+          html += '</tr></thead><tbody>';
+          for (var d = 0; d < days; d++) {
+            html += '<tr><td style="padding:.25rem .5rem;font-weight:600;color:var(--tt-text2);background:var(--tt-navy3);border:1px solid var(--tt-border);white-space:nowrap">'+TT_DAYS[d].slice(0,3)+'</td>';
+            for (var p2 = 1; p2 <= periods; p2++) {
+              if (bkSet.has(p2)) continue;
+              var key     = d+','+p2;
+              var blocked = off.indexOf(key) >= 0;
+              html += '<td style="border:1px solid var(--tt-border);padding:1px;text-align:center;cursor:pointer">'
+                + '<div data-key="'+key+'" onclick="tt_toggleSubUnavail(this)" style="width:24px;height:22px;margin:auto;border-radius:4px;cursor:pointer;background:'+(blocked?'var(--tt-red-dim)':'transparent')+';border:1px solid '+(blocked?'var(--tt-red)':'transparent')+';display:flex;align-items:center;justify-content:center;font-size:.6rem;color:'+(blocked?'var(--tt-red)':'var(--tt-text3)')+';" title="'+(blocked?'Blocked':'Available')+'">'+(blocked?'✕':'')+'</div></td>';
+            }
+            html += '</tr>';
+          }
+          html += '</tbody></table><div style="font-size:.63rem;color:var(--tt-text3);margin-top:.4rem">Red cells = subject blocked from being scheduled in that slot.</div>';
+          el.innerHTML = html;
+        }
+        function toggleSubUnavail(el) {
+          var blocked = el.style.background === 'var(--tt-red-dim)';
+          el.style.background = blocked ? 'transparent' : 'var(--tt-red-dim)';
+          el.style.border     = blocked ? '1px solid transparent' : '1px solid var(--tt-red)';
+          el.style.color      = blocked ? 'var(--tt-text3)' : 'var(--tt-red)';
+          el.textContent      = blocked ? '' : '✕';
+          el.title            = blocked ? 'Available' : 'Blocked';
+        }
+        function saveSubjectSettings() {
+          var id = document.getElementById('tt_subModalId').value;
+          var s  = ttSubjects.find(function(x){ return x.id === id; });
+          if (!s) return;
+          s.double         = document.getElementById('tt_subDouble').checked;
+          s.lessonsPerWeek = parseInt(document.getElementById('tt_subLpw').value) || 5;
+          // Collect unavailable
+          var unavail = [];
+          document.querySelectorAll('#tt_subUnavailGrid [data-key]').forEach(function(el) {
+            if (el.style.background === 'var(--tt-red-dim)') unavail.push(el.dataset.key);
+          });
+          s.unavailable = unavail;
+          closeSubjectModal();
+          renderSubjectList();
+          ttToast('Subject settings saved','ok');
         }
 
         /* ── Classes ── */
@@ -2457,20 +2655,55 @@
             }
           });
 
-          /* Build queue */
+          /* ── Helper: check if teacher is available at slot ── */
+          function teacherAvailable(teacher, d, p) {
+            if (teacher.daysOff && teacher.daysOff.indexOf(d) >= 0) return false;
+            if (teacher.periodsOff && teacher.periodsOff.indexOf(d+','+p) >= 0) return false;
+            return true;
+          }
+          /* ── Helper: check if subject is allowed at slot ── */
+          function subjectAllowed(sub, d, p) {
+            if (sub.unavailable && sub.unavailable.indexOf(d+','+p) >= 0) return false;
+            return true;
+          }
+          /* ── Helper: place a single lesson at (d,p) for a class/subject/teacher ── */
+          function placeLesson(classId, subjectId, teacherId, d, p) {
+            ttTimetable[classId][d][p] = { subjectId: subjectId, teacherId: teacherId, isDouble: false };
+            ttTchrMap[teacherId][d][p] = classId;
+            tchDayLoad[teacherId][d]++;
+            tchWeekLoad[teacherId]++;
+          }
+
+          /* Build queue — doubles come in pairs */
           var queue = [];
           ttClasses.forEach(function(cls) {
             ttSubjects.forEach(function(sub) {
-              var cnt = sub.lessonsPerWeek || 5;
-              for (var i=0; i<cnt; i++) queue.push({ classId: cls.id, subjectId: sub.id });
+              var cnt  = sub.lessonsPerWeek || 5;
+              var dbl  = !!sub.double;
+              if (dbl) {
+                /* Pair lessons: every 2 become one double-item */
+                var pairs = Math.floor(cnt / 2);
+                var singles = cnt % 2;
+                for (var i = 0; i < pairs; i++)   queue.push({ classId: cls.id, subjectId: sub.id, double: true });
+                for (var j = 0; j < singles; j++) queue.push({ classId: cls.id, subjectId: sub.id, double: false });
+              } else {
+                for (var k = 0; k < cnt; k++) queue.push({ classId: cls.id, subjectId: sub.id, double: false });
+              }
             });
           });
 
-          addLog('Total lesson slots to fill: '+queue.length,'info');
-          ttShuffle(queue);
-          if (strategy === 'morning') {
-            queue.sort(function(a,b){ var sa=ttSubjects.find(function(s){return s.id===a.subjectId;}),sb=ttSubjects.find(function(s){return s.id===b.subjectId;}); return (sb?sb.lessonsPerWeek:0)-(sa?sa.lessonsPerWeek:0); });
-          }
+          addLog('Total lesson items to schedule: '+queue.length+' (includes doubles)','info');
+          // Sort: doubles first so they get priority slots; then by lessonsPerWeek desc for morning strategy
+          queue.sort(function(a,b){
+            if (a.double && !b.double) return -1;
+            if (!a.double && b.double) return 1;
+            if (strategy === 'morning') {
+              var sa=ttSubjects.find(function(s){return s.id===a.subjectId;}),sb=ttSubjects.find(function(s){return s.id===b.subjectId;});
+              return (sb?sb.lessonsPerWeek:0)-(sa?sa.lessonsPerWeek:0);
+            }
+            return 0;
+          });
+          if (strategy === 'random') ttShuffle(queue);
 
           var assigned=0, failed=0;
           var tchDayLoad={}, tchWeekLoad={};
@@ -2482,14 +2715,68 @@
 
           var total = queue.length;
           for (var qi=0; qi<queue.length; qi++) {
-            var item = queue[qi];
-            var sub = ttSubjects.find(function(s){ return s.id === item.subjectId; });
+            var item    = queue[qi];
+            var sub     = ttSubjects.find(function(s){ return s.id === item.subjectId; });
             var eligible = ttTeachers.filter(function(t){ return t.subjects.indexOf(item.subjectId) >= 0; });
 
+            /* ── Attempt double placement ── */
+            if (item.double) {
+              var dblPlaced = false;
+              // Build candidate (d, p) where p and p+1 are both free (non-break, non-null)
+              var dblSlots = [];
+              for (var d=0; d<days; d++) {
+                for (var p=1; p<periods; p++) {
+                  var p2 = p+1;
+                  if (breakSet.has(p) || breakSet.has(p2)) continue;
+                  if (ttTimetable[item.classId][d][p] !== null) continue;
+                  if (ttTimetable[item.classId][d][p2] !== null) continue;
+                  if (!subjectAllowed(sub, d, p) || !subjectAllowed(sub, d, p2)) continue;
+                  dblSlots.push({d:d, p:p, p2:p2});
+                }
+              }
+              if (strategy==='morning') dblSlots.sort(function(a,b){ return a.p-b.p || a.d-b.d; });
+              else if (strategy==='spread') {
+                var sdc={};
+                for (var da=0;da<days;da++) { sdc[da]=Object.values(ttTimetable[item.classId][da]).filter(function(v){return v&&v.subjectId===item.subjectId;}).length; }
+                dblSlots.sort(function(a,b){ return sdc[a.d]-sdc[b.d]; });
+              } else ttShuffle(dblSlots);
+
+              for (var dsi=0; dsi<dblSlots.length && !dblPlaced; dsi++) {
+                var ds    = dblSlots[dsi];
+                var shufT = ttShuffle(eligible.slice());
+                for (var ti=0; ti<shufT.length && !dblPlaced; ti++) {
+                  var teacher = shufT[ti];
+                  if (!teacherAvailable(teacher, ds.d, ds.p))  continue;
+                  if (!teacherAvailable(teacher, ds.d, ds.p2)) continue;
+                  if (ttTchrMap[teacher.id][ds.d][ds.p]  !== null) continue;
+                  if (ttTchrMap[teacher.id][ds.d][ds.p2] !== null) continue;
+                  if (tchDayLoad[teacher.id][ds.d] + 2 > teacher.maxDay) continue;
+                  if (tchWeekLoad[teacher.id] + 2 > teacher.maxWeek) continue;
+                  // Place both slots
+                  ttTimetable[item.classId][ds.d][ds.p]  = { subjectId: item.subjectId, teacherId: teacher.id, isDouble: true, doubleStart: true };
+                  ttTimetable[item.classId][ds.d][ds.p2] = { subjectId: item.subjectId, teacherId: teacher.id, isDouble: true, doubleEnd: true };
+                  ttTchrMap[teacher.id][ds.d][ds.p]  = item.classId;
+                  ttTchrMap[teacher.id][ds.d][ds.p2] = item.classId;
+                  tchDayLoad[teacher.id][ds.d]  += 2;
+                  tchWeekLoad[teacher.id]        += 2;
+                  assigned += 2; dblPlaced = true;
+                }
+              }
+              if (!dblPlaced) {
+                // Fall back to single placement for both lessons
+                queue.push({ classId: item.classId, subjectId: item.subjectId, double: false });
+                queue.push({ classId: item.classId, subjectId: item.subjectId, double: false });
+                addLog('⚠ Double not possible for '+(sub?sub.name:'?')+' — falling back to singles','warn');
+              }
+              if (qi%20===0) setProgress(Math.floor((qi/total)*85));
+              continue;
+            }
+
+            /* ── Single lesson placement ── */
             var slots = [];
             for (var d=0; d<days; d++) {
               for (var p=1; p<=periods; p++) {
-                if (!breakSet.has(p) && ttTimetable[item.classId][d][p] === null) slots.push({d:d,p:p});
+                if (!breakSet.has(p) && ttTimetable[item.classId][d][p] === null && subjectAllowed(sub, d, p)) slots.push({d:d,p:p});
               }
             }
             if (!slots.length) { failed++; addLog('⚠ No free slot for '+clsName(ttClasses.find(function(c){return c.id===item.classId;}))+' – '+(sub?sub.name:'?'),'warn'); continue; }
@@ -2498,9 +2785,9 @@
             if (strategy==='morning') {
               orderedSlots = slots.slice().sort(function(a,b){ return a.p-b.p || a.d-b.d; });
             } else if (strategy==='spread') {
-              var sdc={};
-              for (var d=0;d<days;d++) { sdc[d]=Object.values(ttTimetable[item.classId][d]).filter(function(v){return v&&v.subjectId===item.subjectId;}).length; }
-              orderedSlots = slots.slice().sort(function(a,b){ return sdc[a.d]-sdc[b.d]; });
+              var sdc2={};
+              for (var d2=0;d2<days;d2++) { sdc2[d2]=Object.values(ttTimetable[item.classId][d2]).filter(function(v){return v&&v.subjectId===item.subjectId;}).length; }
+              orderedSlots = slots.slice().sort(function(a,b){ return sdc2[a.d]-sdc2[b.d]; });
             } else {
               orderedSlots = ttShuffle(slots.slice());
             }
@@ -2509,17 +2796,18 @@
             for (var si=0; si<orderedSlots.length && !placed; si++) {
               var slot = orderedSlots[si];
               var shuffledT = ttShuffle(eligible.slice());
-              for (var ti=0; ti<shuffledT.length && !placed; ti++) {
-                var teacher = shuffledT[ti];
-                if (ttTchrMap[teacher.id][slot.d][slot.p] !== null) continue;
-                if (tchDayLoad[teacher.id][slot.d] >= teacher.maxDay) continue;
-                if (tchWeekLoad[teacher.id] >= teacher.maxWeek) continue;
+              for (var tii=0; tii<shuffledT.length && !placed; tii++) {
+                var t2 = shuffledT[tii];
+                if (!teacherAvailable(t2, slot.d, slot.p)) continue;
+                if (ttTchrMap[t2.id][slot.d][slot.p] !== null) continue;
+                if (tchDayLoad[t2.id][slot.d] >= t2.maxDay) continue;
+                if (tchWeekLoad[t2.id] >= t2.maxWeek) continue;
                 var sameDayCount = Object.values(ttTimetable[item.classId][slot.d]).filter(function(v){return v&&v.subjectId===item.subjectId;}).length;
                 if (strategy!=='random' && sameDayCount>0 && (sub&&sub.lessonsPerWeek<=days)) continue;
-                ttTimetable[item.classId][slot.d][slot.p] = { subjectId: item.subjectId, teacherId: teacher.id };
-                ttTchrMap[teacher.id][slot.d][slot.p] = item.classId;
-                tchDayLoad[teacher.id][slot.d]++;
-                tchWeekLoad[teacher.id]++;
+                ttTimetable[item.classId][slot.d][slot.p] = { subjectId: item.subjectId, teacherId: t2.id };
+                ttTchrMap[t2.id][slot.d][slot.p] = item.classId;
+                tchDayLoad[t2.id][slot.d]++;
+                tchWeekLoad[t2.id]++;
                 assigned++; placed = true;
               }
             }
@@ -2528,13 +2816,13 @@
           }
 
           setProgress(100);
-          addLog('✅ Done — '+assigned+' placed, '+failed+' unplaced', failed>0?'warn':'ok');
+          addLog('✅ Done — '+assigned+' lessons placed, '+failed+' unplaced', failed>0?'warn':'ok');
           document.getElementById('tt_statusText').textContent = 'Generated';
           updateStats();
           renderAllTimetables();
           renderTeacherMapView();
           renderConflicts();
-          ttToast('Generated — '+assigned+'/'+total+' slots filled', failed===0?'ok':'warn');
+          ttToast('Generated — '+assigned+'/'+(assigned+failed)+' slots filled', failed===0?'ok':'warn');
         }
 
         /* ── Render timetable ── */
@@ -2585,8 +2873,12 @@
                 var sub = ttSubjects.find(function(s){ return s.id === slot.subjectId; });
                 var tch = ttTeachers.find(function(t){ return t.id === slot.teacherId; });
                 var bg  = sub ? sub.color : '#4fa3e0';
-                html += '<td><div class="tt-lesson-cell" style="background:'+bg+'22;border-left:3px solid '+bg+'">'
-                  +'<div class="tt-lesson-subject" style="color:'+bg+'">'+(sub?sub.code||sub.name:'?')+'</div>'
+                var dblTag = slot.doubleStart ? '<span style="font-size:.55rem;font-weight:700;background:'+bg+'44;border-radius:3px;padding:.05rem .28rem;margin-left:.2rem;opacity:.85">×2▶</span>'
+                           : slot.doubleEnd   ? '<span style="font-size:.55rem;font-weight:700;background:'+bg+'44;border-radius:3px;padding:.05rem .28rem;margin-left:.2rem;opacity:.85">◀×2</span>'
+                           : '';
+                var dblBorder = slot.isDouble ? 'border-left:3px solid '+bg+';border-right:2px dashed '+bg+'55' : 'border-left:3px solid '+bg;
+                html += '<td><div class="tt-lesson-cell" style="background:'+bg+'22;'+dblBorder+'">'
+                  +'<div class="tt-lesson-subject" style="color:'+bg+';display:flex;align-items:center">'+(sub?sub.code||sub.name:'?')+dblTag+'</div>'
                   +'<div class="tt-lesson-teacher">'+(tch?tch.name:'?')+'</div>'
                   +'</div></td>';
               } else {
@@ -2690,23 +2982,23 @@
         function loadDemoData() {
           resetAll();
           ttSubjects = [
-            {id:ttUid(),name:'Mathematics',code:'MAT',lessonsPerWeek:6,color:'#4fa3e0'},
-            {id:ttUid(),name:'English',code:'ENG',lessonsPerWeek:5,color:'#21c9a4'},
-            {id:ttUid(),name:'Science',code:'SCI',lessonsPerWeek:5,color:'#e8b84b'},
-            {id:ttUid(),name:'Social Studies',code:'SST',lessonsPerWeek:4,color:'#f2617a'},
-            {id:ttUid(),name:'Kiswahili',code:'KSW',lessonsPerWeek:5,color:'#9b72cf'},
-            {id:ttUid(),name:'CRE',code:'CRE',lessonsPerWeek:3,color:'#f4854a'},
-            {id:ttUid(),name:'Computer',code:'ICT',lessonsPerWeek:3,color:'#4ecdc4'},
-            {id:ttUid(),name:'PE',code:'PE',lessonsPerWeek:3,color:'#fb8500'},
+            {id:ttUid(),name:'Mathematics',code:'MAT',lessonsPerWeek:6,color:'#4fa3e0',double:true,  unavailable:[]},
+            {id:ttUid(),name:'English',    code:'ENG',lessonsPerWeek:5,color:'#21c9a4',double:false, unavailable:[]},
+            {id:ttUid(),name:'Science',    code:'SCI',lessonsPerWeek:5,color:'#e8b84b',double:true,  unavailable:['0,7','1,7']},
+            {id:ttUid(),name:'Social Studies',code:'SST',lessonsPerWeek:4,color:'#f2617a',double:false,unavailable:[]},
+            {id:ttUid(),name:'Kiswahili',  code:'KSW',lessonsPerWeek:5,color:'#9b72cf',double:false, unavailable:[]},
+            {id:ttUid(),name:'CRE',        code:'CRE',lessonsPerWeek:3,color:'#f4854a',double:false, unavailable:['4,1','4,2']},
+            {id:ttUid(),name:'Computer',   code:'ICT',lessonsPerWeek:3,color:'#4ecdc4',double:false, unavailable:[]},
+            {id:ttUid(),name:'PE',         code:'PE', lessonsPerWeek:3,color:'#fb8500',double:false, unavailable:['0,1','1,1','2,1']},
           ];
           var sids = ttSubjects.map(function(s){ return s.id; });
           ttTeachers = [
-            {id:ttUid(),name:'Mr. Kamau',subjects:[sids[0],sids[2]],maxDay:6,maxWeek:28},
-            {id:ttUid(),name:'Ms. Wanjiku',subjects:[sids[1],sids[4]],maxDay:6,maxWeek:28},
-            {id:ttUid(),name:'Mr. Ochieng',subjects:[sids[3],sids[5]],maxDay:6,maxWeek:25},
-            {id:ttUid(),name:'Ms. Rotich',subjects:[sids[6],sids[7]],maxDay:5,maxWeek:22},
-            {id:ttUid(),name:'Mr. Mutua',subjects:[sids[0],sids[1]],maxDay:6,maxWeek:28},
-            {id:ttUid(),name:'Ms. Kiprop',subjects:[sids[2],sids[3]],maxDay:6,maxWeek:26},
+            {id:ttUid(),name:'Mr. Kamau',  subjects:[sids[0],sids[2]],maxDay:6,maxWeek:28,daysOff:[],    periodsOff:[]},
+            {id:ttUid(),name:'Ms. Wanjiku',subjects:[sids[1],sids[4]],maxDay:6,maxWeek:28,daysOff:[4],   periodsOff:[]},
+            {id:ttUid(),name:'Mr. Ochieng',subjects:[sids[3],sids[5]],maxDay:6,maxWeek:25,daysOff:[],    periodsOff:['2,8']},
+            {id:ttUid(),name:'Ms. Rotich', subjects:[sids[6],sids[7]],maxDay:5,maxWeek:22,daysOff:[],    periodsOff:[]},
+            {id:ttUid(),name:'Mr. Mutua',  subjects:[sids[0],sids[1]],maxDay:6,maxWeek:28,daysOff:[],    periodsOff:[]},
+            {id:ttUid(),name:'Ms. Kiprop', subjects:[sids[2],sids[3]],maxDay:6,maxWeek:26,daysOff:[3,4], periodsOff:[]},
           ];
           ttClasses = [
             {id:ttUid(),grade:'Grade 7',stream:'East'},
