@@ -4052,7 +4052,8 @@ function onRpClassChange() {
   onRpStudentChange();
 }
 
-
+// Called when exam selection changes — update term/year and stream dropdowns
+function onRpExamChange() {
   const examId = document.getElementById('rpExam')?.value;
   const exam   = examId ? exams.find(e => e.id === examId) : null;
   const rpTerm = document.getElementById('rpTerm');
@@ -4073,6 +4074,7 @@ function onRpClassChange() {
     const relevantStreams = exam?.classId ? streams.filter(s=>s.classId===exam.classId) : streams;
     rpStream.innerHTML = '<option value="">— All Streams —</option>' + relevantStreams.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
   }
+}
 
 // Called when student changes
 function onRpStudentChange() {
@@ -17738,6 +17740,7 @@ function deletePayslipHistory(id) {
   history = history.filter(h => h.id !== id);
   localStorage.setItem('charanas_payslipHistory', JSON.stringify(history));
   renderPayslipHistory();
+}
 
 // ══════════════════════════════════════════════════════════════════
 // STAFF DETAILS — shared data layer (used by sidebar + platform admin)
@@ -19259,7 +19262,4 @@ function rptBarChart(obj, total, defaultColor, colorMap) {
       </div>
     </div>`;
   }).join('');
-}
-
-
 }
