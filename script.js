@@ -9953,8 +9953,8 @@ function go(sec, el) {
   if (sec === 'livechat')   { initLiveChatSection(); }
   if (sec === 'exambuilder') { /* handled by EB module DOMContentLoaded wrapper */ }
   if (sec === 'timetable')  {
-    // Initialize EduSchedule timetable sub-app
-    if (typeof es_initApp === 'function') es_initApp();
+    // Fire auto-sync event so the timetable pulls latest school data
+    document.dispatchEvent(new CustomEvent('tt_sectionVisible'));
   }
 }
 
