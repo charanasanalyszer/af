@@ -17105,9 +17105,6 @@ if (_origOpenPlatTab) {
         rbacSelectRole('teacher', document.getElementById('rbacRoleTab-teacher'));
       }, 0);
     }
-    if (tabId === 'platTab-staffroles') {
-      platInitStaffRolesTab();
-    }
     if (tabId === 'platTab-hrpayroll') {
       platInitHRPayroll();
     }
@@ -17936,8 +17933,7 @@ function pstSaveStaff() {
 
     saveStaffDetailsStorage(data);
     populateStaffDropdowns();
-    platRenderStaffList();
-    if (typeof sdpRenderList === 'function') sdpRenderList();
+      if (typeof sdpRenderList === 'function') sdpRenderList();
     pstClearForm();
     pstPopulateDeptFilter();
     pstRenderList();
@@ -17988,7 +17984,6 @@ function pstDeleteStaff(id) {
   let data = loadStaffDetails().filter(s => s.id !== id);
   saveStaffDetailsStorage(data);
   populateStaffDropdowns();
-  platRenderStaffList();
   if (typeof sdpRenderList === 'function') sdpRenderList();
   pstPopulateDeptFilter();
   pstRenderList();
@@ -18257,7 +18252,6 @@ function sdpSaveStaff() {
   sdpRenderList();
   sdpPopulateDropdowns();
   populateStaffDropdowns();      // keep Finances salary dropdowns in sync
-  platRenderStaffList();         // keep Platform Admin table in sync
   pstPopulateDeptFilter(); pstRenderList(); // keep People list in sync
   openSDTab('sdpList', document.getElementById('sdpbtList'));
   showToast('Staff record saved.');
@@ -18302,7 +18296,7 @@ function sdpDeleteStaff(id) {
   if (!confirm('Delete this staff record? This cannot be undone.')) return;
   let data = loadStaffDetails().filter(r => r.id !== id);
   saveStaffDetailsStorage(data);
-  sdpRenderList(); sdpPopulateDropdowns(); populateStaffDropdowns(); platRenderStaffList();
+  sdpRenderList(); sdpPopulateDropdowns(); populateStaffDropdowns();
   pstPopulateDeptFilter(); pstRenderList(); // keep People list in sync
   showToast('Staff record deleted.');
 }
@@ -18521,7 +18515,7 @@ function sdpSaveRole() {
   let roles = JSON.parse(localStorage.getItem('charanas_staffRoles')||'[]');
   roles.push({ id:'sr_'+Date.now(), name, dept, desc });
   localStorage.setItem('charanas_staffRoles', JSON.stringify(roles));
-  sdpRenderRolesList(); platRenderRolesList();
+  sdpRenderRolesList();
   document.getElementById('sdprName').value = '';
   document.getElementById('sdprDesc').value = '';
   showToast('Role saved.');
@@ -18541,7 +18535,7 @@ function sdpDeleteRole(id) {
   if (!confirm('Delete this role?')) return;
   let roles = JSON.parse(localStorage.getItem('charanas_staffRoles')||'[]').filter(r=>r.id!==id);
   localStorage.setItem('charanas_staffRoles', JSON.stringify(roles));
-  sdpRenderRolesList(); platRenderRolesList();
+  sdpRenderRolesList();
 }
 
 // Documents
@@ -18564,8 +18558,7 @@ function sdpHandleDocUpload(input) {
   let docs = JSON.parse(localStorage.getItem(staffDocsKey())||'[]');
   docs.push({ id:'doc_'+Date.now(), staff:staffName, type, filename:file.name, size:(file.size/1024).toFixed(1)+' KB', uploaded:new Date().toLocaleDateString() });
   localStorage.setItem(staffDocsKey(), JSON.stringify(docs));
-  sdpRenderDocsList(); platRenderDocsList();
-  input.value = ''; showToast(`Document "${file.name}" recorded.`);
+  sdpRenderDocsList();  input.value = ''; showToast(`Document "${file.name}" recorded.`);
 }
 
 function sdpRenderDocsList() {
@@ -18581,8 +18574,7 @@ function sdpDeleteDoc(id) {
   if (!confirm('Remove this document record?')) return;
   let docs = JSON.parse(localStorage.getItem(staffDocsKey())||'[]').filter(d=>d.id!==id);
   localStorage.setItem(staffDocsKey(), JSON.stringify(docs));
-  sdpRenderDocsList(); platRenderDocsList();
-}
+  sdpRenderDocsList();}
 
 // ════════════════════════════════════════════════════════════════
 //  SCHOOL STAFF — LEAVE DETAILS
@@ -18713,28 +18705,1075 @@ function sdpRenderLeaveList() {
     </tr>`).join('')}</tbody></table></div>`;
 }
 
-// ── Platform Admin → Staff Roles tab ────────────────────────────
 
-function openPlatStaffTab(tabId, btn) {
-  document.querySelectorAll('#platTab-staffroles .tab-panel').forEach(p => { p.style.display='none'; p.classList.remove('active'); });
-  document.querySelectorAll('#platStaffTabBar .tb').forEach(b => b.classList.remove('active'));
-  const panel = document.getElementById(tabId);
-  if (panel) { panel.style.display=''; panel.classList.add('active'); }
+// ═══════════════════════════════════════════════════════════════
+//  BUG DETECTOR & TROUBLESHOOTER — Platform Admin Module
+//  Accessible via Platform Admin → Bug Detector tab
+// ═══════════════════════════════════════════════════════════════
+
+let _bdCurrentTab = 'checks';
+let _bdLastResults = [];
+
+function bugDetectorInit() {
+  // Reset to idle state when tab opens
+  const content = document.getElementById('bdContent');
+  if (content && !_bdLastResults.length) {
+    content.innerHTML = `
+      <div style="text-align:center;padding:2.5rem 1rem;color:var(--muted)">
+        <i class="fa-solid fa-bug" style="font-size:2.2rem;opacity:.25;margin-bottom:.75rem;display:block"></i>
+        <div style="font-size:.85rem">Click <strong>Run Diagnostics</strong> to scan your platform for bugs, security issues and misconfigurations.</div>
+      </div>`;
+  }
+}
+
+function bdSwitchTab(tab, btn) {
+  _bdCurrentTab = tab;
+  document.querySelectorAll('#platTab-bugdetector [id^="bdSubTab-"]').forEach(b => {
+    b.style.borderBottom = '3px solid transparent';
+    b.style.color = 'var(--text)';
+    b.style.fontWeight = '500';
+  });
+  if (btn) {
+    btn.style.borderBottom = '3px solid var(--primary,#4f7cff)';
+    btn.style.color = 'var(--primary,#4f7cff)';
+    btn.style.fontWeight = '700';
+  }
+  if (_bdLastResults.length) bdRenderResults(_bdLastResults);
+}
+
+function bugDetectorRunAll() {
+  const btn = document.getElementById('bdRunBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scanning…'; }
+
+  setTimeout(() => {
+    const results = bdRunChecks();
+    _bdLastResults = results;
+    bdUpdateSummary(results);
+    bdRenderResults(results);
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Re-run'; }
+    const fails = results.filter(r => r.sev === 'critical' || r.sev === 'high').length;
+    showToast(fails ? `<i class="fa-solid fa-triangle-exclamation"></i> ${fails} critical/high issue${fails>1?'s':''} found` : '<i class="fa-solid fa-circle-check"></i> Diagnostics complete — no critical issues', fails ? 'error' : 'success');
+  }, 600);
+}
+
+function bdRunChecks() {
+  const checks = [];
+  const ls = window.localStorage;
+
+  // ── HELPER ──
+  function chk(id, label, cat, sev, pass, note, fix) {
+    checks.push({ id, label, cat, sev, pass, note, fix: fix || null });
+  }
+
+  // ── SECURITY CHECKS ──
+  const creds = (() => { try { return JSON.parse(ls.getItem('ei_platform_creds')); } catch { return null; } })();
+  const savedLogin = (() => { try { return JSON.parse(ls.getItem('ei_saved_login')); } catch { return null; } })();
+
+  chk('pwd_rememberme', 'Remember Me does not persist plain-text password', 'security', 'high',
+    !(savedLogin && savedLogin.password),
+    savedLogin && savedLogin.password
+      ? 'ei_saved_login contains the user\'s password in plain text. Anyone with localStorage access can read it.'
+      : 'ei_saved_login contains only the username — password not persisted.',
+    'Remove the password field from maybeSaveCreds() in doUnifiedLogin().');
+
+  chk('pwd_platform', 'Platform admin password hashing', 'security', 'high',
+    false, // Always warn — plain text by design in this architecture
+    'Platform credentials stored as plain JSON in localStorage. Consider SHA-256 via Web Crypto API.',
+    'Use crypto.subtle.digest("SHA-256", ...) before saving and comparing passwords.');
+
+  const schools = (() => { try { return JSON.parse(ls.getItem('ei_platform_schools')) || []; } catch { return []; } })();
+  const weakPassSchools = schools.filter(s => s.password && s.password.length < 6);
+  chk('pwd_school_weak', 'No school accounts have passwords shorter than 6 characters', 'security', 'medium',
+    weakPassSchools.length === 0,
+    weakPassSchools.length ? `${weakPassSchools.length} school(s) with short passwords: ${weakPassSchools.map(s=>s.name).join(', ')}` : 'All school passwords meet minimum length.',
+    'Enforce minimum 6-character passwords in platAddSchool() and addSchoolFromSettings().');
+
+  chk('backdoor_superadmin', 'Hardcoded superadmin backdoor removed', 'security', 'critical',
+    typeof doUnifiedLogin === 'function'
+      ? !doUnifiedLogin.toString().includes("'superadmin'")
+      : false,
+    doUnifiedLogin && doUnifiedLogin.toString().includes("'superadmin'")
+      ? 'Code still contains: if (u===\'superadmin\' && p===\'super123\'). Anyone who views the JS source gains full access.'
+      : 'Backdoor not detected in source.',
+    'Delete lines 756-764 in script.js — use enterSchoolAsPlatformAdmin() from the dashboard instead.');
+
+  chk('xss_deactivation', 'School deactivation message HTML-escaped before injection', 'security', 'high',
+    typeof doUnifiedLogin === 'function'
+      ? doUnifiedLogin.toString().includes('escHtml(') || doUnifiedLogin.toString().includes('escapeHtml(')
+      : false,
+    'deactivationMessage is concatenated into err.innerHTML without escaping. XSS via admin-entered suspension message is possible.',
+    'Add escHtml() helper and wrap msg: err.innerHTML = \'...\' + escHtml(msg);');
+
+  chk('lockout_bruteforce', 'Login brute-force lockout active', 'security', 'medium',
+    typeof checkLoginLock === 'function',
+    typeof checkLoginLock === 'function'
+      ? 'checkLoginLock() found — lockout is active.'
+      : 'No attempt counter or lockout on login functions. Unlimited password guessing is possible.',
+    'Add checkLoginLock() / recordFailedAttempt() helpers and call them at the top of doPlatformLogin().');
+
+  // ── RBAC CHECKS ──
+  chk('rbac_schema_present', 'RBAC_SCHEMA defined with all 3 roles', 'rbac', 'critical',
+    typeof RBAC_SCHEMA !== 'undefined' && RBAC_SCHEMA.teacher && RBAC_SCHEMA.student && RBAC_SCHEMA.guest,
+    typeof RBAC_SCHEMA !== 'undefined' ? 'RBAC_SCHEMA present with roles: ' + Object.keys(RBAC_SCHEMA).join(', ') : 'RBAC_SCHEMA is undefined!',
+    'Check that the RBAC section at line 16258 of script.js was not accidentally deleted.');
+
+  chk('rbac_defaults_fn', 'rbacDefaults() function available', 'rbac', 'critical',
+    typeof rbacDefaults === 'function',
+    typeof rbacDefaults === 'function' ? 'rbacDefaults() is defined.' : 'rbacDefaults() is missing — RBAC will not initialise.',
+    'Ensure rbacDefaults() is present in script.js.');
+
+  chk('rbac_effective_fn', 'rbacEffective() falls back to global when no school override', 'rbac', 'high',
+    (() => { try { const r = rbacEffective('teacher', 'nonexistent_school_id_test'); return typeof r === 'object' && r !== null; } catch { return false; } })(),
+    'rbacEffective() tested with unknown school ID — should return global defaults.',
+    'Verify rbacEffective() returns globalCfg when schoolFull[role] is empty.');
+
+  const globalRbac = (() => { try { return JSON.parse(ls.getItem('ei_rbac_global')) || {}; } catch { return {}; } })();
+  chk('rbac_global_saved', 'Global RBAC config has been saved at least once', 'rbac', 'medium',
+    Object.keys(globalRbac).length > 0,
+    Object.keys(globalRbac).length > 0 ? 'Global RBAC config found for roles: ' + Object.keys(globalRbac).join(', ') : 'No global RBAC config saved yet. Default permissions apply to all schools.',
+    'Open Platform Admin → Access Control and click "Save Role Permissions" for each role.');
+
+  chk('rbac_plattab_access', 'platTab-access panel present in DOM', 'rbac', 'critical',
+    !!document.getElementById('platTab-access'),
+    document.getElementById('platTab-access') ? 'platTab-access panel found in DOM.' : 'platTab-access element missing from DOM — RBAC UI will not render.',
+    'Ensure the <div id="platTab-access"> block is present in index.html.');
+
+  chk('rbac_patch_fn', 'openPlatTab patched to init RBAC on Access Control tab', 'rbac', 'high',
+    window.openPlatTab && window.openPlatTab.toString().includes('platTab-access'),
+    window.openPlatTab && window.openPlatTab.toString().includes('platTab-access')
+      ? 'openPlatTab is patched — RBAC initialises when Access Control tab is opened.'
+      : 'openPlatTab patch missing or incomplete — RBAC may not initialise on tab open.',
+    'Apply PATCH 3 from the Auto-Fix tab.');
+
+  // ── STORAGE / DATA INTEGRITY ──
+  chk('storage_available', 'localStorage is available and writable', 'storage', 'critical',
+    (() => { try { ls.setItem('_bd_test','1'); ls.removeItem('_bd_test'); return true; } catch { return false; } })(),
+    'localStorage read/write test passed.',
+    'If this fails, the browser may be in private/incognito mode or storage is full.');
+
+  const storageUsed = (() => {
+    try {
+      let total = 0;
+      for (let k in ls) { if (ls.hasOwnProperty(k)) total += (ls[k]||'').length + k.length; }
+      return Math.round(total / 1024);
+    } catch { return 0; }
+  })();
+  chk('storage_quota', 'localStorage usage is under 4MB', 'storage', 'medium',
+    storageUsed < 4096,
+    `Current localStorage usage: ~${storageUsed} KB / ~5120 KB available.`,
+    'Archive old exam data or export school data to free up space.');
+
+  chk('platform_creds_exist', 'Platform admin account created', 'storage', 'critical',
+    !!creds && !!creds.username,
+    creds ? `Platform admin account exists: username="${creds.username}"` : 'No platform credentials found. First-time setup not yet completed.',
+    'Navigate to the login screen and create a platform admin account.');
+
+  chk('schools_exist', 'At least one school registered', 'storage', 'high',
+    schools.length > 0,
+    schools.length > 0 ? `${schools.length} school(s) registered.` : 'No schools found. Login will redirect to platform setup.',
+    'Add a school from Platform Admin → Schools tab.');
+
+  const activeSchools = schools.filter(s => s.active !== false);
+  chk('schools_active', 'All schools have active status defined', 'storage', 'medium',
+    schools.every(s => s.active !== undefined),
+    schools.every(s => s.active !== undefined) ? 'All schools have active field set.' : `${schools.filter(s=>s.active===undefined).length} school(s) missing active field — may behave unexpectedly on login.`,
+    'Run: platformSchools.forEach(s => { if(s.active===undefined) s.active=true; }); savePlatform();');
+
+  const examDlFee = getExamDlFee ? getExamDlFee() : 0;
+  chk('exam_dl_fee', 'Exam download fee configured', 'storage', 'info',
+    true,
+    `Exam download fee: KES ${examDlFee || 0} (${examDlFee > 0 ? 'paid access enabled' : 'free for all schools'}).`,
+    null);
+
+  // ── JS LOGIC / FUNCTION CHECKS ──
+  const dupFns = [];
+  if (showUnifiedLogin && typeof showUnifiedLogin === 'function') {
+    // Can't detect dupes at runtime (last wins), but check for the guard
+    const fnSrc = showUnifiedLogin.toString();
+    if (!fnSrc.includes('platformSchools.length')) dupFns.push('showUnifiedLogin missing empty-school guard');
+  }
+  chk('fn_showUnifiedLogin', 'showUnifiedLogin() contains empty-school guard', 'checks', 'critical',
+    showUnifiedLogin && showUnifiedLogin.toString().includes('platformSchools.length'),
+    showUnifiedLogin && showUnifiedLogin.toString().includes('platformSchools.length')
+      ? 'showUnifiedLogin() has the empty-school guard — will redirect to platform setup when no schools exist.'
+      : 'showUnifiedLogin() is missing the empty-school guard (duplicate declaration bug). First-time setup redirect is broken.',
+    'Apply PATCH 1: merge the empty-school guard from line 350 into the line-406 definition.');
+
+  chk('fn_openPapersTab_revision', 'openPapersTab() initialises Revision tab', 'checks', 'critical',
+    typeof openPapersTab === 'function' && openPapersTab.toString().includes('initRevisionTab'),
+    typeof openPapersTab === 'function' && openPapersTab.toString().includes('initRevisionTab')
+      ? 'openPapersTab() calls initRevisionTab() — Revision tab will load correctly.'
+      : 'openPapersTab() does NOT call initRevisionTab() — Revision tab loads blank (duplicate function bug).',
+    'Apply PATCH 2: add if (tabId === \'tabRevision\') initRevisionTab(); to the winning openPapersTab() definition.');
+
+  chk('fn_showToast', 'showToast() utility present', 'checks', 'info',
+    typeof showToast === 'function',
+    typeof showToast === 'function' ? 'showToast() defined at line 7203.' : 'showToast() is missing.',
+    null);
+
+  chk('fn_applyRbacPermissions', 'applyRbacPermissions() present', 'checks', 'high',
+    typeof applyRbacPermissions === 'function',
+    typeof applyRbacPermissions === 'function' ? 'applyRbacPermissions() defined — applied after login.' : 'applyRbacPermissions() is missing — RBAC restrictions will not be applied at login.',
+    null);
+
+  chk('fn_enterPlatformDashboard', 'enterPlatformDashboard() sets correct user role', 'checks', 'high',
+    typeof enterPlatformDashboard === 'function' && enterPlatformDashboard.toString().includes("role:'platform_admin'"),
+    typeof enterPlatformDashboard === 'function' && enterPlatformDashboard.toString().includes("role:'platform_admin'")
+      ? 'enterPlatformDashboard() correctly sets role to platform_admin.'
+      : 'enterPlatformDashboard() may not set correct role.',
+    null);
+
+  chk('fn_gsNameNullSafe', 'saveNewGradingSystem() null-safe gsNewName clear', 'checks', 'medium',
+    (() => {
+      try {
+        const src = saveNewGradingSystem.toString();
+        // Check if the .value='' call is wrapped (guarded) or uses optional chaining
+        return src.includes('gsNameEl') || src.includes('?.value') || src.includes("getElementById('gsNewName')?.") ;
+      } catch { return false; }
+    })(),
+    'saveNewGradingSystem() — checking if gsNewName clear is null-safe.',
+    'Apply PATCH 7: wrap the getElementById(\'gsNewName\').value=\'\' in a null check.');
+
+  return checks;
+}
+
+function bdUpdateSummary(results) {
+  const counts = { critical:0, high:0, warning:0, pass:0 };
+  results.forEach(r => {
+    if (r.pass) { counts.pass++; }
+    else if (r.sev === 'critical') { counts.critical++; }
+    else if (r.sev === 'high') { counts.high++; }
+    else { counts.warning++; }
+  });
+  const el = id => document.getElementById(id);
+  if (el('bdCritCount')) el('bdCritCount').textContent = counts.critical;
+  if (el('bdHighCount')) el('bdHighCount').textContent = counts.high;
+  if (el('bdWarnCount')) el('bdWarnCount').textContent = counts.warning;
+  if (el('bdPassCount')) el('bdPassCount').textContent = counts.pass;
+}
+
+function bdRenderResults(results) {
+  const tab = _bdCurrentTab;
+  const filtered = tab === 'checks' ? results
+    : tab === 'security' ? results.filter(r => r.cat === 'security')
+    : tab === 'rbac'     ? results.filter(r => r.cat === 'rbac')
+    : tab === 'storage'  ? results.filter(r => r.cat === 'storage')
+    : tab === 'fixes'    ? results.filter(r => !r.pass && r.fix)
+    : results;
+
+  if (tab === 'fixes') {
+    const content = document.getElementById('bdContent');
+    if (!content) return;
+    const fixes = filtered;
+    if (!fixes.length) {
+      content.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--muted)"><i class="fa-solid fa-circle-check" style="color:#10b981;font-size:1.5rem;margin-bottom:.5rem;display:block"></i><div style="font-size:.85rem">No issues with available fixes found.</div></div>`;
+      return;
+    }
+    content.innerHTML = fixes.map((r,i) => `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:.75rem;padding:1rem 1.1rem">
+        <div style="display:flex;align-items:center;gap:.65rem;margin-bottom:.5rem">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${bdSevColor(r.sev)};flex-shrink:0"></span>
+          <div style="font-size:.85rem;font-weight:600;color:var(--text);flex:1">${r.label}</div>
+          <span style="font-size:.7rem;padding:2px 8px;border-radius:99px;font-weight:600;background:${bdSevBg(r.sev)};color:${bdSevColor(r.sev)}">${r.sev}</span>
+        </div>
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:.6rem;line-height:1.5">${r.note}</div>
+        <div style="background:var(--input-bg,#f8fafc);border:1px solid var(--border);border-left:3px solid ${bdSevColor(r.sev)};border-radius:6px;padding:.5rem .75rem;font-size:.76rem;color:var(--text);font-family:monospace">${r.fix}</div>
+      </div>
+    `).join('');
+    return;
+  }
+
+  const sevOrder = { critical:0, high:1, medium:2, info:3 };
+  const sorted = [...filtered].sort((a,b) => {
+    if (!a.pass && b.pass) return -1;
+    if (a.pass && !b.pass) return 1;
+    return (sevOrder[a.sev]||9) - (sevOrder[b.sev]||9);
+  });
+
+  const content = document.getElementById('bdContent');
+  if (!content) return;
+
+  content.innerHTML = sorted.length ? `
+    <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
+      ${sorted.map(r => `
+        <div style="display:flex;align-items:flex-start;gap:.75rem;padding:.8rem 1rem;border-bottom:1px solid var(--border);background:${r.pass?'transparent':'rgba(239,68,68,.03)'}">
+          <div style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex-shrink:0;margin-top:1px;background:${r.pass?'#dcfce7':'#fee2e2'};color:${r.pass?'#15803d':'#dc2626'}">
+            ${r.pass?'✓':'✗'}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.82rem;font-weight:600;color:var(--text)">${r.label}</div>
+            <div style="font-size:.76rem;color:var(--muted);margin-top:2px;line-height:1.45">${r.note}</div>
+            ${!r.pass && r.fix ? `<div style="font-size:.74rem;color:#6366f1;margin-top:.35rem"><i class="fa-solid fa-wrench" style="font-size:.65rem"></i> <em>${r.fix}</em></div>` : ''}
+          </div>
+          <span style="font-size:.68rem;padding:2px 7px;border-radius:99px;font-weight:600;background:${bdSevBg(r.sev)};color:${bdSevColor(r.sev)};flex-shrink:0;margin-top:2px">${r.sev}</span>
+        </div>
+      `).join('')}
+    </div>
+    <div style="margin-top:.75rem;font-size:.76rem;color:var(--muted);text-align:right">${sorted.length} checks shown · ${sorted.filter(r=>r.pass).length} passed · ${sorted.filter(r=>!r.pass).length} failed</div>
+  ` : `<div style="text-align:center;padding:2rem;color:var(--muted);font-size:.85rem">No checks in this category.</div>`;
+}
+
+function bdSevColor(sev) {
+  return sev==='critical'?'#ef4444':sev==='high'?'#f59e0b':sev==='medium'?'#3b82f6':sev==='info'?'#10b981':'#64748b';
+}
+function bdSevBg(sev) {
+  return sev==='critical'?'#fee2e2':sev==='high'?'#fef3c7':sev==='medium'?'#dbeafe':sev==='info'?'#d1fae5':'#f1f5f9';
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// FINANCES — Staff Salary, Payroll, Payslips
+// ══════════════════════════════════════════════════════════════════
+
+function calcNetSalary() {
+  const basic  = parseFloat(document.getElementById('ssBasic')?.value)       || 0;
+  const allow  = parseFloat(document.getElementById('ssAllowances')?.value)  || 0;
+  const deduct = parseFloat(document.getElementById('ssDeductions')?.value)  || 0;
+  const nhif   = parseFloat(document.getElementById('ssNHIF')?.value)        || 0;
+  const nssf   = parseFloat(document.getElementById('ssNSSF')?.value)        || 0;
+  const net    = basic + allow - deduct - nhif - nssf;
+  const netEl  = document.getElementById('ssNet');
+  if (netEl) netEl.value = net.toFixed(2);
+}
+
+function loadStaffSalaries() {
+  const data = JSON.parse(localStorage.getItem('charanas_staffSalaries') || '[]');
+  return data;
+}
+
+function saveStaffSalariesToStorage(data) {
+  localStorage.setItem('charanas_staffSalaries', JSON.stringify(data));
+}
+
+function saveStaffSalary() {
+  const staffSel = document.getElementById('ssStaff');
+  const name  = staffSel?.options[staffSel.selectedIndex]?.text || '';
+  const staffId = staffSel?.value || '';
+  const role  = (document.getElementById('ssRole')?.value || '').trim();
+  const type  = document.getElementById('ssType')?.value || '';
+  const basic = parseFloat(document.getElementById('ssBasic')?.value) || 0;
+  const allow = parseFloat(document.getElementById('ssAllowances')?.value) || 0;
+  const deduct= parseFloat(document.getElementById('ssDeductions')?.value) || 0;
+  const nhif  = parseFloat(document.getElementById('ssNHIF')?.value) || 0;
+  const nssf  = parseFloat(document.getElementById('ssNSSF')?.value) || 0;
+  const net   = basic + allow - deduct - nhif - nssf;
+  const notes = document.getElementById('ssNotes')?.value || '';
+
+  if (!staffId) { alert('Please select a staff member.'); return; }
+  if (!basic)   { alert('Please enter a basic salary amount.'); return; }
+
+  let data = loadStaffSalaries();
+  const editId = document.getElementById('ssEditId')?.value;
+  if (editId) {
+    const idx = data.findIndex(r => r.id === editId);
+    if (idx > -1) data[idx] = { ...data[idx], name, staffId, role, type, basic, allow, deduct, nhif, nssf, net, notes };
+  } else {
+    data.push({ id: 'ss_' + Date.now(), name, staffId, role, type, basic, allow, deduct, nhif, nssf, net, notes });
+  }
+  saveStaffSalariesToStorage(data);
+  clearSSForm();
+  renderStaffSalaryTable();
+  showToast('Salary record saved.');
+}
+
+function clearSSForm() {
+  ['ssStaff','ssRole','ssType','ssBasic','ssAllowances','ssDeductions','ssNHIF','ssNSSF','ssNet','ssNotes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.tagName === 'SELECT') el.selectedIndex = 0;
+    else el.value = '';
+  });
+  const editEl = document.getElementById('ssEditId');
+  if (editEl) editEl.value = '';
+}
+
+function renderStaffSalaryTable() {
+  const body = document.getElementById('ssBody');
+  if (!body) return;
+  const data = loadStaffSalaries();
+  if (!data.length) {
+    body.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No salary records yet. Add one above.</td></tr>';
+    return;
+  }
+  body.innerHTML = data.map((r, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${r.name}</td>
+      <td>${r.role || '—'}</td>
+      <td><span class="badge">${r.type}</span></td>
+      <td>KES ${Number(r.basic).toLocaleString()}</td>
+      <td>KES ${Number(r.allow).toLocaleString()}</td>
+      <td>KES ${Number(r.deduct).toLocaleString()}</td>
+      <td>KES ${Number(r.nhif).toLocaleString()}</td>
+      <td>KES ${Number(r.nssf).toLocaleString()}</td>
+      <td style="font-weight:700;color:var(--primary)">KES ${Number(r.net).toLocaleString()}</td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="editStaffSalary('${r.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-danger btn-xs" onclick="deleteStaffSalary('${r.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function editStaffSalary(id) {
+  const data = loadStaffSalaries();
+  const r = data.find(x => x.id === id);
+  if (!r) return;
+  const editEl = document.getElementById('ssEditId');
+  if (editEl) editEl.value = id;
+  const staffSel = document.getElementById('ssStaff');
+  if (staffSel) staffSel.value = r.staffId;
+  ['ssRole','ssBasic','ssAllowances','ssDeductions','ssNHIF','ssNSSF','ssNotes'].forEach(fid => {
+    const el = document.getElementById(fid);
+    if (!el) return;
+    const key = fid.replace('ss','').toLowerCase();
+    const map = { role: r.role, basic: r.basic, allowances: r.allow, deductions: r.deduct, nhif: r.nhif, nssf: r.nssf, notes: r.notes };
+    el.value = map[key] !== undefined ? map[key] : '';
+  });
+  const typeEl = document.getElementById('ssType');
+  if (typeEl) typeEl.value = r.type;
+  calcNetSalary();
+  openFeesTab('tabStaffSalary', document.getElementById('tbStaffSalary'));
+}
+
+function deleteStaffSalary(id) {
+  if (!confirm('Delete this salary record?')) return;
+  let data = loadStaffSalaries();
+  data = data.filter(r => r.id !== id);
+  saveStaffSalariesToStorage(data);
+  renderStaffSalaryTable();
+  showToast('Salary record deleted.');
+}
+
+function exportStaffSalaryCSV() {
+  const data = loadStaffSalaries();
+  if (!data.length) { alert('No salary records to export.'); return; }
+  const rows = [['Name','Role','Type','Basic','Allowances','Deductions','SHA','NSSF','Net Salary']];
+  data.forEach(r => rows.push([r.name, r.role, r.type, r.basic, r.allow, r.deduct, r.nhif, r.nssf, r.net]));
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,' + encodeURIComponent(csv);
+  a.download = 'staff_salaries.csv';
+  a.click();
+}
+
+// ── Payroll ──
+
+function generatePayroll() {
+  const month = document.getElementById('prMonth')?.value || '';
+  const year  = document.getElementById('prYear')?.value  || '';
+  const salaries = loadStaffSalaries();
+  const body = document.getElementById('payrollBody');
+  const statsEl = document.getElementById('payrollSummaryStats');
+
+  if (!salaries.length) {
+    if (body) body.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No staff salary records found. Add salaries under <strong>Staff Salary</strong> tab first.</td></tr>';
+    return;
+  }
+
+  const totalNet = salaries.reduce((s, r) => s + Number(r.net), 0);
+  const totalBasic = salaries.reduce((s, r) => s + Number(r.basic), 0);
+
+  if (statsEl) {
+    statsEl.innerHTML = `
+      <div class="fee-stat-card"><div class="fsc-label">Total Staff</div><div class="fsc-val">${salaries.length}</div></div>
+      <div class="fee-stat-card"><div class="fsc-label">Total Basic (KES)</div><div class="fsc-val">${totalBasic.toLocaleString()}</div></div>
+      <div class="fee-stat-card" style="border-color:var(--primary)"><div class="fsc-label">Total Net Payroll (KES)</div><div class="fsc-val" style="color:var(--primary)">${totalNet.toLocaleString()}</div></div>
+      <div class="fee-stat-card"><div class="fsc-label">Period</div><div class="fsc-val" style="font-size:.9rem">${month} ${year}</div></div>`;
+  }
+
+  if (body) {
+    body.innerHTML = salaries.map((r, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${r.name}</td>
+        <td>${r.role || '—'}</td>
+        <td>KES ${Number(r.basic).toLocaleString()}</td>
+        <td>KES ${Number(r.allow).toLocaleString()}</td>
+        <td>KES ${Number(r.nhif).toLocaleString()}</td>
+        <td>KES ${Number(r.nssf).toLocaleString()}</td>
+        <td>KES ${Number(r.deduct).toLocaleString()}</td>
+        <td style="font-weight:700;color:var(--primary)">KES ${Number(r.net).toLocaleString()}</td>
+        <td><span class="badge badge-green">Pending</span></td>
+        <td><button class="btn btn-outline btn-xs" onclick="markPaid(this)">Mark Paid</button></td>
+      </tr>`).join('');
+  }
+  showToast(`Payroll generated for ${month} ${year}.`);
+}
+
+function markPaid(btn) {
+  const row = btn.closest('tr');
+  const statusCell = row.cells[9];
+  statusCell.innerHTML = '<span class="badge badge-green" style="background:#16a34a">Paid</span>';
+  btn.textContent = '✓ Paid';
+  btn.disabled = true;
+  btn.classList.add('btn-primary');
+}
+
+function printPayroll() {
+  const month = document.getElementById('prMonth')?.value || '';
+  const year  = document.getElementById('prYear')?.value  || '';
+  const rows  = document.getElementById('payrollBody')?.innerHTML || '';
+  if (!rows || rows.includes('No staff')) { alert('Generate payroll first.'); return; }
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Payroll — ${month} ${year}</title>
+  <style>body{font-family:Arial,sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;font-size:12px}th{background:#f5f5f5}</style>
+  </head><body><h2 style="text-align:center">Payroll — ${month} ${year}</h2>
+  <table><thead><tr><th>#</th><th>Name</th><th>Role</th><th>Basic</th><th>Allowances</th><th>SHA</th><th>NSSF</th><th>Deductions</th><th>Net Pay</th><th>Status</th></tr></thead>
+  <tbody>${rows}</tbody></table></body></html>`);
+  win.document.close();
+  win.print();
+}
+
+// ── Payslips ──
+
+function onPsStaffChange() {
+  // Could pre-fill salary info when staff is selected
+}
+
+function previewPayslip() {
+  const staffSel = document.getElementById('psStaff');
+  const staffId = staffSel?.value;
+  const staffName = staffSel?.options[staffSel.selectedIndex]?.text || '';
+  const month = document.getElementById('psMonth')?.value || '';
+  const year  = document.getElementById('psYear')?.value  || '';
+  const area  = document.getElementById('payslipPreviewArea');
+  if (!area) return;
+
+  if (!staffId) { area.innerHTML = '<p style="color:var(--muted)">Please select a staff member.</p>'; return; }
+
+  const salaries = loadStaffSalaries();
+  const rec = salaries.find(r => r.staffId === staffId);
+  if (!rec) {
+    area.innerHTML = `<p style="color:var(--muted)">No salary record found for <strong>${staffName}</strong>. Please add their salary under the <strong>Staff Salary</strong> tab first.</p>`;
+    return;
+  }
+
+  const school = localStorage.getItem('charanas_schoolName') || 'School Name';
+  area.innerHTML = `
+    <div style="border:1px solid var(--border);border-radius:8px;padding:1.5rem;width:100%;font-size:.85rem">
+      <div style="text-align:center;margin-bottom:1rem;border-bottom:2px solid var(--primary);padding-bottom:.75rem">
+        <div style="font-size:1.1rem;font-weight:800;color:var(--primary)">${school}</div>
+        <div style="font-size:.9rem;font-weight:600;margin-top:.2rem">PAYSLIP — ${month.toUpperCase()} ${year}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:1rem">
+        <div><span style="color:var(--muted)">Employee:</span> <strong>${rec.name}</strong></div>
+        <div><span style="color:var(--muted)">Role:</span> ${rec.role || '—'}</div>
+        <div><span style="color:var(--muted)">Employment Type:</span> ${rec.type}</div>
+        <div><span style="color:var(--muted)">Pay Period:</span> ${month} ${year}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+        <thead><tr style="background:var(--bg-muted)"><th style="padding:.4rem .6rem;text-align:left;border:1px solid var(--border)">Description</th><th style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border)">Amount (KES)</th></tr></thead>
+        <tbody>
+          <tr><td style="padding:.4rem .6rem;border:1px solid var(--border)">Basic Salary</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border)">${Number(rec.basic).toLocaleString()}</td></tr>
+          <tr><td style="padding:.4rem .6rem;border:1px solid var(--border)">Allowances</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border)">${Number(rec.allow).toLocaleString()}</td></tr>
+          <tr style="background:#fef2f2"><td style="padding:.4rem .6rem;border:1px solid var(--border)">SHA</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border);color:#ef4444">- ${Number(rec.nhif).toLocaleString()}</td></tr>
+          <tr style="background:#fef2f2"><td style="padding:.4rem .6rem;border:1px solid var(--border)">NSSF</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border);color:#ef4444">- ${Number(rec.nssf).toLocaleString()}</td></tr>
+          <tr style="background:#fef2f2"><td style="padding:.4rem .6rem;border:1px solid var(--border)">Other Deductions</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border);color:#ef4444">- ${Number(rec.deduct).toLocaleString()}</td></tr>
+          <tr style="background:var(--bg-muted);font-weight:700"><td style="padding:.4rem .6rem;border:1px solid var(--border)">NET PAY</td><td style="padding:.4rem .6rem;text-align:right;border:1px solid var(--border);color:var(--primary);font-size:1rem">KES ${Number(rec.net).toLocaleString()}</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:1rem;font-size:.75rem;color:var(--muted);text-align:center">Generated by Charanas School Management System</div>
+    </div>`;
+
+  // Save to history
+  let history = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
+  const existing = history.find(h => h.staffId === staffId && h.month === month && h.year === year);
+  if (!existing) {
+    history.push({ id: 'ps_' + Date.now(), staffId, name: rec.name, role: rec.role || '', month, year, net: rec.net });
+    localStorage.setItem('charanas_payslipHistory', JSON.stringify(history));
+    renderPayslipHistory();
+  }
+}
+
+function printPayslip() {
+  const area = document.getElementById('payslipPreviewArea');
+  if (!area || area.innerHTML.includes('Select a staff')) { alert('Preview a payslip first.'); return; }
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Payslip</title>
+  <style>body{font-family:Arial,sans-serif;padding:30px;max-width:600px;margin:auto}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;font-size:12px}</style>
+  </head><body>${area.innerHTML}</body></html>`);
+  win.document.close();
+  win.print();
+}
+
+function renderPayslipHistory() {
+  const body = document.getElementById('payslipHistBody');
+  if (!body) return;
+  let history = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
+  const staffFilter = document.getElementById('psHistStaff')?.value || '';
+  const yearFilter  = document.getElementById('psHistYear')?.value  || '';
+  if (staffFilter) history = history.filter(h => h.staffId === staffFilter);
+  if (yearFilter)  history = history.filter(h => h.year === yearFilter);
+  if (!history.length) {
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">No payslips generated yet.</td></tr>';
+    return;
+  }
+  body.innerHTML = history.map((h, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${h.name}</td>
+      <td>${h.role || '—'}</td>
+      <td>${h.month}</td>
+      <td>${h.year}</td>
+      <td style="font-weight:700;color:var(--primary)">KES ${Number(h.net).toLocaleString()}</td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="reloadPayslip('${h.staffId}','${h.month}','${h.year}')"><i class="fa-solid fa-eye"></i> View</button>
+        <button class="btn btn-danger btn-xs" onclick="deletePayslipHistory('${h.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function reloadPayslip(staffId, month, year) {
+  const staffSel = document.getElementById('psStaff');
+  if (staffSel) staffSel.value = staffId;
+  const monthSel = document.getElementById('psMonth');
+  if (monthSel) monthSel.value = month;
+  const yearEl = document.getElementById('psYear');
+  if (yearEl) yearEl.value = year;
+  openFeesTab('tabPayslips', document.getElementById('tbPayslips'));
+  previewPayslip();
+}
+
+function deletePayslipHistory(id) {
+  if (!confirm('Remove this payslip from history?')) return;
+  let history = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
+  history = history.filter(h => h.id !== id);
+  localStorage.setItem('charanas_payslipHistory', JSON.stringify(history));
+  renderPayslipHistory();
+
+// ══════════════════════════════════════════════════════════════════
+// STAFF DETAILS — shared data layer (used by sidebar + platform admin)
+// ══════════════════════════════════════════════════════════════════
+
+function staffDetailsKey() {
+  return (typeof schoolPrefix === 'function' ? schoolPrefix() : '') + 'charanas_staffDetails';
+}
+function staffDocsKey() {
+  return (typeof schoolPrefix === 'function' ? schoolPrefix() : '') + 'charanas_staffDocs';
+}
+function staffLeaveKey() {
+  return (typeof schoolPrefix === 'function' ? schoolPrefix() : '') + 'charanas_staffLeave';
+}
+function loadStaffDetails() {
+  return JSON.parse(localStorage.getItem(staffDetailsKey()) || '[]');
+}
+function saveStaffDetailsStorage(data) {
+  localStorage.setItem(staffDetailsKey(), JSON.stringify(data));
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PEOPLE SECTION  (Staff & BOM — s-people)
+// ══════════════════════════════════════════════════════════════
+
+function peopleStaffKey() {
+  return (typeof schoolPrefix === 'function' ? schoolPrefix() : '') + 'charanas_peopleStaff';
+}
+function peopleBOMKey() {
+  return (typeof schoolPrefix === 'function' ? schoolPrefix() : '') + 'charanas_peopleBOM';
+}
+
+function loadPeopleStaff() {
+  return JSON.parse(localStorage.getItem(peopleStaffKey()) || '[]');
+}
+function savePeopleStaff(arr) {
+  localStorage.setItem(peopleStaffKey(), JSON.stringify(arr));
+}
+function loadPeopleBOM() {
+  return JSON.parse(localStorage.getItem(peopleBOMKey()) || '[]');
+}
+function savePeopleBOM(arr) {
+  localStorage.setItem(peopleBOMKey(), JSON.stringify(arr));
+}
+
+function initPeopleSection() {
+  // Temporarily show BOM panel so peopleRenderBOMTable can find its tbody
+  var bomPanel = document.getElementById('peopleBOMPanel');
+  if (bomPanel) bomPanel.style.display = 'block';
+  peopleRenderBOMTable();
+  if (bomPanel) bomPanel.style.display = '';
+
+  // Default to Staff panel, reset sub-tabs to list view
+  openPeopleTab('peopleStaffPanel', document.getElementById('pmtStaff'));
+  // Always start on the Staff List sub-tab
+  openPeopleStaffTab('pplStList', document.getElementById('pstbList'));
+  pstPopulateDeptFilter();
+  pstRenderList();
+}
+
+function openPeopleTab(panelId, btn) {
+  document.querySelectorAll('.people-main-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.people-main-tab').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById(panelId);
+  if (panel) panel.classList.add('active');
   if (btn) btn.classList.add('active');
+  if (panelId === 'peopleBOMPanel') peopleRenderBOMTable();
+  if (panelId === 'peopleStaffPanel') { pstPopulateDeptFilter(); pstRenderList(); }
 }
 
-function platInitStaffRolesTab() {
-  platRenderStaffStats();
-  platRenderStaffList();
-  platPopulateDocDropdown();
-  platRenderRolesList();
-  platRenderDocsList();
+function openPeopleStaffTab(tabId, btn) {
+  document.querySelectorAll('#peopleStaffPanel .tab-panel').forEach(function(panel) {
+    panel.style.display = 'none';
+    panel.classList.remove('active');
+  });
+  document.querySelectorAll('#peopleStaffTabBar .tb').forEach(function(b) { b.classList.remove('active'); });
+  var tabPanel = document.getElementById(tabId);
+  if (tabPanel) { tabPanel.style.display = 'block'; tabPanel.classList.add('active'); }
+  if (btn) btn.classList.add('active');
+  if (tabId === 'pplStList')  pstRenderList();
+  if (tabId === 'pplStRoles') pstRenderRoles();
 }
 
-function platRenderStaffStats() {
+// ── Staff List ──
+
+function pstPopulateDeptFilter() {
+  // Read from unified staffDetails store
+  const staff = loadStaffDetails();
+  const depts = [...new Set(staff.map(s => s.dept).filter(Boolean))].sort();
+  const sel = document.getElementById('pstDeptFilter');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">All Departments</option>' +
+    depts.map(d => `<option value="${d}">${d}</option>`).join('');
+}
+
+function pstFilterStaff() {
+  pstRenderList();
+}
+
+function pstRenderList() {
+  // Use unified staffDetails store so People & Staff Details stay in sync
+  const staff  = loadStaffDetails();
+  const search = (document.getElementById('pstSearch')?.value || '').toLowerCase();
+  const dept   = document.getElementById('pstDeptFilter')?.value || '';
+  const body   = document.getElementById('pstBody');
+  if (!body) return;
+
+  const filtered = staff.filter(s => {
+    const matchSearch = !search ||
+      (s.name    || '').toLowerCase().includes(search) ||
+      (s.role    || '').toLowerCase().includes(search) ||
+      (s.dept    || '').toLowerCase().includes(search) ||
+      (s.staffId || '').toLowerCase().includes(search);
+    const matchDept = !dept || s.dept === dept;
+    return matchSearch && matchDept;
+  });
+
+  if (!filtered.length) {
+    body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">${staff.length ? 'No matches found.' : 'No staff records yet. Click <strong>Add New Staff</strong> to get started.'}</td></tr>`;
+    return;
+  }
+
+  const statusColour = { Active:'#16a34a', 'On Leave':'#f59e0b', Resigned:'#ef4444', Retired:'#6b7280' };
+  body.innerHTML = filtered.map((s,i) => {
+    const sc = statusColour[s.status] || '#6b7280';
+    const statusBadge = s.status ? `<span class="badge" style="background:${sc};color:#fff;font-size:.7rem">${s.status}</span>` : '—';
+    return `
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${s.name || '—'}</strong></td>
+      <td>${s.role || '—'}</td>
+      <td>${s.dept ? `<span class="badge">${s.dept}</span>` : '—'}</td>
+      <td>${s.phone || '—'}</td>
+      <td>${s.email || '—'}</td>
+      <td>${s.staffId || '—'}</td>
+      <td>${statusBadge}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-outline btn-xs" onclick="pstEditStaff('${s.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-danger btn-xs" onclick="pstDeleteStaff('${s.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function pstSaveStaff() {
+  try {
+    const g = id => { const el = document.getElementById(id); return el ? (el.value || '').trim() : ''; };
+    const name     = g('pstName');
+    const role     = g('pstRole');
+    const dept     = g('pstDept');
+    const staffId  = g('pstTSC');
+    const phone    = g('pstPhone');
+    const email    = g('pstEmail');
+    const natId    = g('pstNID');
+    const joinDate = g('pstDOE');
+    const notes    = g('pstNotes');
+    const editId   = g('pstEditId');
+
+    if (!name) { alert('Full name is required.'); return; }
+    if (!role) { alert('Please select a role.'); return; }
+
+    // Save to the shared staffDetails store so it is visible in Staff Details,
+    // salary dropdowns, Platform Admin, etc.
+    let data = loadStaffDetails();
+
+    if (editId) {
+      const idx = data.findIndex(r => r.id === editId);
+      if (idx > -1) {
+        data[idx] = { ...data[idx], name, role, dept, staffId, phone, email, natId, joinDate, notes };
+      } else {
+        data.push({ id: editId, name, role, dept, staffId, phone, email, natId, joinDate, notes,
+          gender:'', dob:'', address:'', empType:'Permanent', contractEnd:'', status:'Active',
+          qual:'', subjects:'', ecName:'', ecPhone:'' });
+      }
+    } else {
+      data.push({
+        id: 'pst_' + Date.now(),
+        name, role, dept, staffId, phone, email, natId, joinDate, notes,
+        gender:'', dob:'', address:'', empType:'Permanent', contractEnd:'', status:'Active',
+        qual:'', subjects:'', ecName:'', ecPhone:''
+      });
+    }
+
+    saveStaffDetailsStorage(data);
+    populateStaffDropdowns();
+      if (typeof sdpRenderList === 'function') sdpRenderList();
+    pstClearForm();
+    pstPopulateDeptFilter();
+    pstRenderList();
+    openPeopleStaffTab('pplStList', document.getElementById('pstbList'));
+    const msg = document.getElementById('pstSaveMsg');
+    if (msg) { msg.textContent = editId ? '✓ Updated!' : '✓ Saved!'; setTimeout(()=>{ msg.textContent=''; }, 3000); }
+    showToast(editId ? 'Staff record updated.' : 'Staff member added.');
+  } catch(e) {
+    console.error('pstSaveStaff error:', e);
+    alert('Error saving staff record: ' + e.message);
+  }
+}
+
+function pstClearForm() {
+  ['pstName','pstTSC','pstPhone','pstEmail','pstNID','pstNotes'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['pstRole','pstDept'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const doe = document.getElementById('pstDOE'); if (doe) doe.value = '';
+  const editId = document.getElementById('pstEditId'); if (editId) editId.value = '';
+  const title = document.getElementById('pplStFormTitle');
+  if (title) title.innerHTML = '<i class="fa-solid fa-user-plus"></i> Add Staff Member';
+}
+
+function pstEditStaff(id) {
+  // Read from unified staffDetails store
+  const s = loadStaffDetails().find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('pstEditId').value = id;
+  document.getElementById('pstName').value   = s.name     || '';
+  document.getElementById('pstRole').value   = s.role     || '';
+  document.getElementById('pstDept').value   = s.dept     || '';
+  document.getElementById('pstTSC').value    = s.staffId  || '';
+  document.getElementById('pstPhone').value  = s.phone    || '';
+  document.getElementById('pstEmail').value  = s.email    || '';
+  document.getElementById('pstNID').value    = s.natId    || '';
+  document.getElementById('pstDOE').value    = s.joinDate || '';
+  document.getElementById('pstNotes').value  = s.notes    || '';
+  const title = document.getElementById('pplStFormTitle');
+  if (title) title.innerHTML = '<i class="fa-solid fa-pen"></i> Edit Staff Member';
+  openPeopleStaffTab('pplStAddEdit', document.getElementById('pstbAddEdit'));
+}
+
+function pstDeleteStaff(id) {
+  if (!confirm('Delete this staff record? This cannot be undone.')) return;
+  let data = loadStaffDetails().filter(s => s.id !== id);
+  saveStaffDetailsStorage(data);
+  populateStaffDropdowns();
+  if (typeof sdpRenderList === 'function') sdpRenderList();
+  pstPopulateDeptFilter();
+  pstRenderList();
+  showToast('Staff record deleted.');
+}
+
+function pstExportCSV() {
+  const staff = loadStaffDetails();
+  if (!staff.length) { alert('No staff records to export.'); return; }
+  const hdr = ['Name','Role','Department','Staff ID / TSC','Phone','Email','National ID','Date Joined','Status','Notes'];
+  const rows = staff.map(s => [s.name,s.role,s.dept,s.staffId,s.phone,s.email,s.natId,s.joinDate,s.status,s.notes]
+    .map(v => `"${(v||'').replace(/"/g,'""')}"`));
+  const csv = [hdr, ...rows].map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'staff_directory.csv';
+  a.click();
+}
+
+
+// ── Roles & Departments ──
+
+function pstRenderRoles() {
+  const staff   = loadStaffDetails();
+  const el      = document.getElementById('pstRolesContent');
+  if (!el) return;
+  if (!staff.length) {
+    el.innerHTML = '<p style="color:var(--muted)">Add staff to see roles and department breakdown.</p>';
+    return;
+  }
+
+  // Count by role
+  const roleMap = {};
+  staff.forEach(s => { const r = s.role || 'Unassigned'; roleMap[r] = (roleMap[r]||0)+1; });
+  // Count by dept
+  const deptMap = {};
+  staff.forEach(s => { const d = s.dept || 'Unassigned'; deptMap[d] = (deptMap[d]||0)+1; });
+
+  const roleRows = Object.entries(roleMap).sort((a,b) => b[1]-a[1])
+    .map(([r,c]) => `<tr><td>${r}</td><td>${c}</td></tr>`).join('');
+  const deptRows = Object.entries(deptMap).sort((a,b) => b[1]-a[1])
+    .map(([d,c]) => `<tr><td>${d}</td><td>${c}</td></tr>`).join('');
+
+  el.innerHTML = `
+    <div class="frow c2" style="gap:1.5rem;align-items:flex-start">
+      <div>
+        <h4 style="margin-bottom:.75rem">By Role</h4>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr><th style="text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border)">Role</th><th style="text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border)">Count</th></tr></thead>
+          <tbody>${roleRows}</tbody>
+        </table>
+      </div>
+      <div>
+        <h4 style="margin-bottom:.75rem">By Department</h4>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr><th style="text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border)">Department</th><th style="text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border)">Count</th></tr></thead>
+          <tbody>${deptRows}</tbody>
+        </table>
+      </div>
+    </div>
+    <p style="margin-top:1.25rem;color:var(--muted);font-size:.85rem">Total staff: <strong>${staff.length}</strong></p>`;
+}
+
+// ── BOM Members ──
+
+function peopleSaveBOM() {
+  try {
+    const g = id => { const el = document.getElementById(id); return el ? (el.value || '').trim() : ''; };
+    const name      = g('pplBomName');
+    const position  = g('pplBomPosition');
+    const phone     = g('pplBomPhone');
+    const email     = g('pplBomEmail');
+    const termStart = g('pplBomTermStart');
+    const termEnd   = g('pplBomTermEnd');
+    const editId    = g('pplBomEditId');
+
+    if (!name)     { alert('Full name is required.'); return; }
+    if (!position) { alert('Please select a position.'); return; }
+
+    let bom = loadPeopleBOM();
+
+    if (editId) {
+      const idx = bom.findIndex(b => b.id === editId);
+      if (idx > -1) bom[idx] = { ...bom[idx], name, position, phone, email, termStart, termEnd };
+      else bom.push({ id: editId, name, position, phone, email, termStart, termEnd });
+    } else {
+      bom.push({ id: 'bom_' + Date.now(), name, position, phone, email, termStart, termEnd });
+    }
+
+    savePeopleBOM(bom);
+    peopleClearBOMForm();
+    peopleRenderBOMTable();
+    const bomMsg = document.getElementById('bomSaveMsg');
+    if (bomMsg) { bomMsg.textContent = editId ? '✓ Updated!' : '✓ Saved!'; setTimeout(()=>{ bomMsg.textContent=''; }, 3000); }
+    showToast(editId ? 'BOM member updated.' : 'BOM member added.');
+  } catch(e) {
+    console.error('peopleSaveBOM error:', e);
+    alert('Error saving BOM member: ' + e.message);
+  }
+}
+
+function peopleClearBOMForm() {
+  ['pplBomName','pplBomPhone','pplBomEmail','pplBomTermStart','pplBomTermEnd'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const pos = document.getElementById('pplBomPosition'); if (pos) pos.value = '';
+  const eid = document.getElementById('pplBomEditId'); if (eid) eid.value = '';
+  const title = document.getElementById('pplBomFormTitle');
+  if (title) title.innerHTML = '<i class="fa-solid fa-user-tie"></i> Add BOM Member';
+}
+
+function peopleRenderBOMTable() {
+  const bom  = loadPeopleBOM();
+  const body = document.getElementById('pplBomDirBody');
+  if (!body) return;
+  if (!bom.length) {
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">No BOM members added yet. Fill the form on the left and click Save BOM Member.</td></tr>';
+    return;
+  }
+  body.innerHTML = bom.map((b,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${b.name || '—'}</strong></td>
+      <td>${b.position || '—'}</td>
+      <td>${b.phone || '—'}</td>
+      <td>${b.email || '—'}</td>
+      <td>${b.termStart || '—'}</td>
+      <td>${b.termEnd || '—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-outline btn-xs" onclick="peopleEditBOM('${b.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-danger btn-xs" onclick="peopleDeleteBOM('${b.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function peopleEditBOM(id) {
+  const bom = loadPeopleBOM();
+  const b = bom.find(x => x.id === id);
+  if (!b) return;
+  document.getElementById('pplBomEditId').value    = id;
+  document.getElementById('pplBomName').value      = b.name      || '';
+  document.getElementById('pplBomPosition').value  = b.position  || '';
+  document.getElementById('pplBomPhone').value     = b.phone     || '';
+  document.getElementById('pplBomEmail').value     = b.email     || '';
+  document.getElementById('pplBomTermStart').value = b.termStart || '';
+  document.getElementById('pplBomTermEnd').value   = b.termEnd   || '';
+  const title = document.getElementById('pplBomFormTitle');
+  if (title) title.innerHTML = '<i class="fa-solid fa-pen"></i> Edit BOM Member';
+}
+
+function peopleDeleteBOM(id) {
+  if (!confirm('Remove this BOM member? This cannot be undone.')) return;
+  let bom = loadPeopleBOM().filter(b => b.id !== id);
+  savePeopleBOM(bom);
+  peopleRenderBOMTable();
+  showToast('BOM member removed.');
+}
+
+function peopleExportBOMCSV() {
+  const bom = loadPeopleBOM();
+  if (!bom.length) { alert('No BOM members to export.'); return; }
+  const hdr  = ['Name','Position','Phone','Email','Term Start','Term End'];
+  const rows = bom.map(b => [b.name,b.position,b.phone,b.email,b.termStart,b.termEnd].map(v => `"${(v||'').replace(/"/g,'""')}"`));
+  const csv  = [hdr, ...rows].map(r => r.join(',')).join('\n');
+  const a    = document.createElement('a');
+  a.href     = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'bom_directory.csv';
+  a.click();
+}
+
+// ── Sidebar Staff Details section ──────────────────────────────
+
+function initStaffDetailsSection() {
+  sdpRenderStats();
+  sdpRenderList();
+  sdpPopulateDropdowns();
+  sdpRenderRolesList();
+  sdpRenderDocsList();
+  sdpPopulateSalaryStaffDropdown();
+  sdpRenderSalaryTable();
+}
+
+function openSDTab(tabId, btn) {
+  document.querySelectorAll('#s-staffdetails .tab-panel').forEach(p => { p.style.display = 'none'; p.classList.remove('active'); });
+  document.querySelectorAll('#sdProxyTabBar .tb').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById(tabId);
+  if (panel) { panel.style.display = ''; panel.classList.add('active'); }
+  if (btn) btn.classList.add('active');
+  if (tabId === 'sdpLeave')  { sdpPopulateLeaveDropdowns(); sdpRenderLeaveList(); }
+  if (tabId === 'sdpDocs')   { sdpPopulateDocDropdownSchool(); sdpRenderDocsList(); }
+  if (tabId === 'sdpSalary') { sdpPopulateSalaryStaffDropdown(); sdpRenderSalaryTable(); }
+}
+
+function sdpRenderStats() {
   const all = loadStaffDetails();
-  const el = document.getElementById('platStaffStats'); if (!el) return;
-  const depts = [...new Set(all.map(r=>r.dept))];
+  const el = document.getElementById('sdProxyStats');
+  if (!el) return;
+  const depts = [...new Set(all.map(r => r.dept))];
   el.innerHTML = `
     <div class="fee-stat-card"><div class="fsc-label">Total Staff</div><div class="fsc-val">${all.length}</div></div>
     <div class="fee-stat-card"><div class="fsc-label">Active</div><div class="fsc-val" style="color:#16a34a">${all.filter(r=>r.status==='Active').length}</div></div>
@@ -18742,179 +19781,521 @@ function platRenderStaffStats() {
     <div class="fee-stat-card"><div class="fsc-label">Departments</div><div class="fsc-val">${depts.length}</div></div>`;
 }
 
-function platFilterStaff() { platRenderStaffList(); }
+function sdpFilterStaff() { sdpRenderList(); }
 
-function platRenderStaffList() {
-  const body = document.getElementById('platStaffBody'); if (!body) return;
+function sdpRenderList() {
+  const body = document.getElementById('sdpStaffBody');
+  if (!body) return;
   let data = loadStaffDetails();
-  const search = (document.getElementById('psdSearch')?.value||'').toLowerCase();
-  const dept   = document.getElementById('psdFilterDept')?.value||'';
-  const status = document.getElementById('psdFilterStatus')?.value||'';
-  if (search) data = data.filter(r=>(r.name+r.role+r.staffId).toLowerCase().includes(search));
-  if (dept)   data = data.filter(r=>r.dept===dept);
-  if (status) data = data.filter(r=>r.status===status);
-  platRenderStaffStats();
+  const search = (document.getElementById('sdpSearch')?.value || '').toLowerCase();
+  const dept   = document.getElementById('sdpFilterDept')?.value   || '';
+  const status = document.getElementById('sdpFilterStatus')?.value || '';
+  if (search) data = data.filter(r => (r.name+r.role+r.staffId).toLowerCase().includes(search));
+  if (dept)   data = data.filter(r => r.dept === dept);
+  if (status) data = data.filter(r => r.status === status);
+  sdpRenderStats();
   if (!data.length) {
-    body.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No staff records found. Click <strong>Add Staff</strong> to get started.</td></tr>';
+    body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">No staff records found. Click <strong>Add Staff</strong> to get started.</td></tr>';
     return;
   }
   const sc = { Active:'#16a34a','On Leave':'#f59e0b',Resigned:'#ef4444',Retired:'#6b7280' };
-  body.innerHTML = data.map((r,i)=>`
+  body.innerHTML = data.map((r,i) => `
     <tr>
-      <td>${i+1}</td><td>${r.staffId||'—'}</td><td><strong>${r.name}</strong></td>
-      <td>${r.role}</td><td><span class="badge">${r.dept}</span></td>
-      <td>${r.phone}</td><td>${r.email||'—'}</td><td>${r.empType}</td>
+      <td>${i+1}</td><td><strong>${r.name}</strong></td>
+      <td>${r.role||'—'}</td><td>${r.dept ? `<span class="badge">${r.dept}</span>` : '—'}</td>
+      <td>${r.phone||'—'}</td><td>${r.email||'—'}</td>
+      <td><span class="badge" style="background:${sc[r.status]||'#6b7280'};color:#fff">${r.status||'Active'}</span></td>
       <td>${r.joinDate||'—'}</td>
-      <td><span class="badge" style="background:${sc[r.status]||'#6b7280'};color:#fff">${r.status}</span></td>
       <td>
-        <button class="btn btn-outline btn-xs" onclick="platEditStaff('${r.id}')"><i class="fa-solid fa-pen"></i></button>
-        <button class="btn btn-danger btn-xs"  onclick="platDeleteStaff('${r.id}')"><i class="fa-solid fa-trash"></i></button>
+        <button class="btn btn-outline btn-xs" onclick="sdpEditStaff('${r.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-danger btn-xs"  onclick="sdpDeleteStaff('${r.id}')"><i class="fa-solid fa-trash"></i></button>
       </td>
     </tr>`).join('');
 }
 
-function platSaveStaff() {
-  const g = id => (document.getElementById(id)?.value||'').trim();
-  const name = g('psdName'), phone = g('psdPhone'), role = g('psdRole');
-  const dept = document.getElementById('psdDept')?.value||'';
+function sdpSaveStaff() {
+  const g = id => (document.getElementById(id)?.value || '').trim();
+  const name = g('sdpName'); const phone = g('sdpPhone'); const role = g('sdpRole');
+  const dept = document.getElementById('sdpDept')?.value || '';
   if (!name)  { alert('Full name is required.'); return; }
   if (!phone) { alert('Phone number is required.'); return; }
   if (!role)  { alert('Role / Position is required.'); return; }
   if (!dept)  { alert('Department is required.'); return; }
   const rec = {
-    name, staffId:g('psdStaffId'), natId:g('psdNatId'),
-    gender:document.getElementById('psdGender')?.value||'',
-    dob:g('psdDOB'), phone, email:g('psdEmail'), address:g('psdAddress'),
-    role, dept, empType:document.getElementById('psdEmpType')?.value||'Permanent',
-    joinDate:g('psdJoinDate'), contractEnd:g('psdContractEnd'),
-    status:document.getElementById('psdStatus')?.value||'Active',
-    qual:g('psdQual'), subjects:g('psdSubjects'),
-    ecName:g('psdECName'), ecPhone:g('psdECPhone'), notes:g('psdNotes')
+    name, staffId: g('sdpStaffId'), natId: g('sdpNatId'),
+    gender: document.getElementById('sdpGender')?.value||'',
+    dob: g('sdpDOB'), phone, email: g('sdpEmail'), address: g('sdpAddress'),
+    role, dept, empType: document.getElementById('sdpEmpType')?.value||'Permanent',
+    joinDate: g('sdpJoinDate'), contractEnd: g('sdpContractEnd'),
+    status: document.getElementById('sdpStatus')?.value||'Active',
+    qual: g('sdpQual'), subjects: g('sdpSubjects'),
+    ecName: g('sdpECName'), ecPhone: g('sdpECPhone'), notes: g('sdpNotes')
   };
   let data = loadStaffDetails();
-  const editId = document.getElementById('psdEditId')?.value;
+  const editId = document.getElementById('sdpEditId')?.value;
   if (editId) {
-    const idx = data.findIndex(r=>r.id===editId);
-    if (idx>-1) data[idx] = { ...data[idx], ...rec };
+    const idx = data.findIndex(r => r.id === editId);
+    if (idx > -1) data[idx] = { ...data[idx], ...rec };
   } else {
-    data.push({ id:'sd_'+Date.now(), ...rec });
+    data.push({ id: 'sd_' + Date.now(), ...rec });
   }
   saveStaffDetailsStorage(data);
-  platClearStaffForm();
-  platRenderStaffList();
-  platPopulateDocDropdown();
-  sdpRenderList();              // keep sidebar in sync
+  sdpClearForm();
+  sdpRenderList();
   sdpPopulateDropdowns();
-  populateStaffDropdowns();     // keep Finances salary dropdowns in sync
-  openPlatStaffTab('pstList', document.getElementById('pstbList'));
+  populateStaffDropdowns();      // keep Finances salary dropdowns in sync
+  pstPopulateDeptFilter(); pstRenderList(); // keep People list in sync
+  openSDTab('sdpList', document.getElementById('sdpbtList'));
   showToast('Staff record saved.');
 }
 
-function platClearStaffForm() {
-  ['psdEditId','psdName','psdStaffId','psdNatId','psdDOB','psdPhone','psdEmail',
-   'psdAddress','psdRole','psdJoinDate','psdContractEnd','psdQual','psdSubjects','psdECName','psdECPhone','psdNotes']
-    .forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
-  ['psdGender','psdDept','psdEmpType','psdStatus'].forEach(id => {
-    const el=document.getElementById(id); if(el) el.selectedIndex=0;
+function sdpClearForm() {
+  ['sdpEditId','sdpName','sdpStaffId','sdpNatId','sdpDOB','sdpPhone','sdpEmail',
+   'sdpAddress','sdpRole','sdpJoinDate','sdpContractEnd','sdpQual','sdpSubjects','sdpECName','sdpECPhone','sdpNotes']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['sdpGender','sdpDept','sdpEmpType','sdpStatus'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.selectedIndex = 0;
   });
-  const t=document.getElementById('pstFormTitle');
-  if(t) t.innerHTML='<i class="fa-solid fa-plus"></i> Add New Staff Member';
+  const t = document.getElementById('sdpFormTitle');
+  if (t) t.innerHTML = '<i class="fa-solid fa-plus"></i> Add New Staff Member';
 }
 
-function platEditStaff(id) {
-  const r = loadStaffDetails().find(x=>x.id===id); if(!r) return;
-  const map = { psdEditId:id, psdName:r.name, psdStaffId:r.staffId, psdNatId:r.natId,
-    psdDOB:r.dob, psdPhone:r.phone, psdEmail:r.email, psdAddress:r.address,
-    psdRole:r.role, psdJoinDate:r.joinDate, psdContractEnd:r.contractEnd,
-    psdQual:r.qual, psdSubjects:r.subjects, psdECName:r.ecName, psdECPhone:r.ecPhone, psdNotes:r.notes };
-  Object.entries(map).forEach(([k,v])=>{ const el=document.getElementById(k); if(el) el.value=v||''; });
-  ['psdGender','psdDept','psdEmpType','psdStatus'].forEach(fid=>{
-    const el=document.getElementById(fid);
-    const key={psdGender:'gender',psdDept:'dept',psdEmpType:'empType',psdStatus:'status'}[fid];
-    if(el && r[key]) el.value=r[key];
+function sdpEditStaff(id) {
+  const s = loadStaffDetails().find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('sdpEditId').value = id;
+  ['sdpName','sdpStaffId','sdpNatId','sdpDOB','sdpPhone','sdpEmail','sdpAddress',
+   'sdpRole','sdpJoinDate','sdpContractEnd','sdpQual','sdpSubjects','sdpECName','sdpECPhone','sdpNotes']
+    .forEach(fid => {
+      const keyMap = {sdpName:'name',sdpStaffId:'staffId',sdpNatId:'natId',sdpDOB:'dob',
+        sdpPhone:'phone',sdpEmail:'email',sdpAddress:'address',sdpRole:'role',
+        sdpJoinDate:'joinDate',sdpContractEnd:'contractEnd',sdpQual:'qual',
+        sdpSubjects:'subjects',sdpECName:'ecName',sdpECPhone:'ecPhone',sdpNotes:'notes'};
+      const el = document.getElementById(fid);
+      if (el) el.value = s[keyMap[fid]] || '';
+    });
+  ['sdpGender','sdpDept','sdpEmpType','sdpStatus'].forEach(fid => {
+    const keyMap = {sdpGender:'gender',sdpDept:'dept',sdpEmpType:'empType',sdpStatus:'status'};
+    const el = document.getElementById(fid);
+    if (el && s[keyMap[fid]]) el.value = s[keyMap[fid]];
   });
-  const t=document.getElementById('pstFormTitle');
-  if(t) t.innerHTML=`<i class="fa-solid fa-pen"></i> Edit — ${r.name}`;
-  openPlatStaffTab('pstAdd', document.getElementById('pstbAdd'));
+  const t = document.getElementById('sdpFormTitle');
+  if (t) t.innerHTML = '<i class="fa-solid fa-pen"></i> Edit Staff Member';
+  openSDTab('sdpAddEdit', document.getElementById('sdpbtAddEdit'));
 }
 
-function platDeleteStaff(id) {
-  if(!confirm('Delete this staff record? This cannot be undone.')) return;
-  let data = loadStaffDetails().filter(r=>r.id!==id);
+function sdpDeleteStaff(id) {
+  if (!confirm('Delete this staff record? This cannot be undone.')) return;
+  let data = loadStaffDetails().filter(r => r.id !== id);
   saveStaffDetailsStorage(data);
-  platRenderStaffList(); platPopulateDocDropdown();
   sdpRenderList(); sdpPopulateDropdowns(); populateStaffDropdowns();
+  pstPopulateDeptFilter(); pstRenderList(); // keep People list in sync
   showToast('Staff record deleted.');
 }
 
-function platSaveRole() {
-  const name=(document.getElementById('psrName')?.value||'').trim();
-  const dept=document.getElementById('psrDept')?.value||'';
-  const desc=(document.getElementById('psrDesc')?.value||'').trim();
-  if(!name){alert('Role name is required.');return;}
-  let roles=JSON.parse(localStorage.getItem('charanas_staffRoles')||'[]');
-  roles.push({id:'sr_'+Date.now(),name,dept,desc});
-  localStorage.setItem('charanas_staffRoles',JSON.stringify(roles));
-  platRenderRolesList(); sdpRenderRolesList();
-  document.getElementById('psrName').value='';
-  document.getElementById('psrDesc').value='';
+
+
+// ══════════════════════════════════════════════════════════════════
+// STAFF DETAILS — Salary Tab
+// Reads/writes the same charanas_staffSalaries key as Finances,
+// so changes here instantly reflect in Finances → Staff Salary.
+// ══════════════════════════════════════════════════════════════════
+
+function sdpPopulateSalaryStaffDropdown() {
+  const sel = document.getElementById('sdpSalStaff');
+  if (!sel) return;
+  const staff = loadStaffDetails();
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Select Staff —</option>';
+  staff.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name + (s.role ? ' (' + s.role + ')' : '');
+    sel.appendChild(opt);
+  });
+  if (cur) sel.value = cur;
+}
+
+function sdpSalOnStaffChange() {
+  const sel  = document.getElementById('sdpSalStaff');
+  const staffId = sel?.value || '';
+  const roleEl  = document.getElementById('sdpSalRole');
+
+  // Auto-fill role from staff profile
+  if (staffId && roleEl) {
+    const s = loadStaffDetails().find(x => x.id === staffId);
+    if (s && s.role) roleEl.value = s.role;
+  }
+
+  // If this staff already has a saved salary record, pre-fill the form
+  const existing = loadStaffSalaries().find(r => r.staffId === staffId);
+  if (existing) {
+    sdpFillSalaryForm(existing);
+    const t = document.getElementById('sdpSalaryFormTitle');
+    if (t) t.innerHTML = '<i class="fa-solid fa-pen"></i> Update Salary Record';
+  } else {
+    // Clear numeric fields but keep the role we just set
+    ['sdpSalBasic','sdpSalAllow','sdpSalDeduct','sdpSalNHIF','sdpSalNSSF','sdpSalNet','sdpSalNotes'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && id !== 'sdpSalRole') el.value = id.endsWith('Net') ? '' : (id.endsWith('Notes') ? '' : '0');
+    });
+    document.getElementById('sdpSalBasic').value = '';
+    document.getElementById('sdpSalNet').value = '';
+    document.getElementById('sdpSalNotes').value = '';
+    document.getElementById('sdpSalaryEditId').value = '';
+    const t = document.getElementById('sdpSalaryFormTitle');
+    if (t) t.innerHTML = '<i class="fa-solid fa-money-bill-wave"></i> Set / Update Staff Salary';
+  }
+}
+
+function sdpFillSalaryForm(r) {
+  document.getElementById('sdpSalaryEditId').value = r.id || '';
+  const sel = document.getElementById('sdpSalStaff');
+  if (sel) sel.value = r.staffId || '';
+  document.getElementById('sdpSalRole').value    = r.role    || '';
+  document.getElementById('sdpSalBasic').value   = r.basic   || '';
+  document.getElementById('sdpSalAllow').value   = r.allow   || 0;
+  document.getElementById('sdpSalDeduct').value  = r.deduct  || 0;
+  document.getElementById('sdpSalNHIF').value    = r.nhif    || 0;
+  document.getElementById('sdpSalNSSF').value    = r.nssf    || 0;
+  document.getElementById('sdpSalNet').value     = r.net     || '';
+  document.getElementById('sdpSalNotes').value   = r.notes   || '';
+  const typeEl = document.getElementById('sdpSalType');
+  if (typeEl && r.type) typeEl.value = r.type;
+}
+
+function sdpCalcNetSalary() {
+  const basic  = parseFloat(document.getElementById('sdpSalBasic')?.value)  || 0;
+  const allow  = parseFloat(document.getElementById('sdpSalAllow')?.value)  || 0;
+  const deduct = parseFloat(document.getElementById('sdpSalDeduct')?.value) || 0;
+  const nhif   = parseFloat(document.getElementById('sdpSalNHIF')?.value)   || 0;
+  const nssf   = parseFloat(document.getElementById('sdpSalNSSF')?.value)   || 0;
+  const net    = basic + allow - deduct - nhif - nssf;
+  const netEl  = document.getElementById('sdpSalNet');
+  if (netEl) netEl.value = net.toFixed(2);
+}
+
+function sdpSaveStaffSalary() {
+  const sel = document.getElementById('sdpSalStaff');
+  const staffId = sel?.value || '';
+  const name    = sel?.options[sel.selectedIndex]?.text.split(' (')[0] || '';
+  const role    = (document.getElementById('sdpSalRole')?.value  || '').trim();
+  const type    = document.getElementById('sdpSalType')?.value   || 'Monthly';
+  const basic   = parseFloat(document.getElementById('sdpSalBasic')?.value)  || 0;
+  const allow   = parseFloat(document.getElementById('sdpSalAllow')?.value)  || 0;
+  const deduct  = parseFloat(document.getElementById('sdpSalDeduct')?.value) || 0;
+  const nhif    = parseFloat(document.getElementById('sdpSalNHIF')?.value)   || 0;
+  const nssf    = parseFloat(document.getElementById('sdpSalNSSF')?.value)   || 0;
+  const net     = basic + allow - deduct - nhif - nssf;
+  const notes   = (document.getElementById('sdpSalNotes')?.value || '').trim();
+
+  if (!staffId) { alert('Please select a staff member.'); return; }
+  if (!basic)   { alert('Please enter a basic salary amount.'); return; }
+
+  let data    = loadStaffSalaries();
+  const editId = document.getElementById('sdpSalaryEditId')?.value;
+
+  // Also check if this staffId already has a record (upsert by staffId)
+  const byStaffIdx = data.findIndex(r => r.staffId === staffId);
+
+  const record = { name, staffId, role, type, basic, allow, deduct, nhif, nssf, net, notes };
+
+  if (editId) {
+    const idx = data.findIndex(r => r.id === editId);
+    if (idx > -1) { data[idx] = { ...data[idx], ...record }; }
+    else { data.push({ id: editId, ...record }); }
+  } else if (byStaffIdx > -1) {
+    // Update existing record for this staff member
+    data[byStaffIdx] = { ...data[byStaffIdx], ...record };
+    document.getElementById('sdpSalaryEditId').value = data[byStaffIdx].id;
+  } else {
+    const newRec = { id: 'ss_' + Date.now(), ...record };
+    data.push(newRec);
+    document.getElementById('sdpSalaryEditId').value = newRec.id;
+  }
+
+  saveStaffSalariesToStorage(data);
+
+  // Refresh both this table and the Finances salary table if visible
+  sdpRenderSalaryTable();
+  renderStaffSalaryTable();   // keeps Finances → Staff Salary in sync
+
+  const t = document.getElementById('sdpSalaryFormTitle');
+  if (t) t.innerHTML = '<i class="fa-solid fa-pen"></i> Update Salary Record';
+
+  showToast('Salary saved and reflected in Finances <i class="fa-solid fa-check"></i>', 'success');
+}
+
+function sdpClearSalaryForm() {
+  document.getElementById('sdpSalaryEditId').value = '';
+  ['sdpSalStaff','sdpSalType'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.selectedIndex = 0;
+  });
+  ['sdpSalRole','sdpSalBasic','sdpSalNotes','sdpSalNet'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['sdpSalAllow','sdpSalDeduct','sdpSalNHIF','sdpSalNSSF'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '0';
+  });
+  const t = document.getElementById('sdpSalaryFormTitle');
+  if (t) t.innerHTML = '<i class="fa-solid fa-money-bill-wave"></i> Set / Update Staff Salary';
+}
+
+function sdpRenderSalaryTable() {
+  const body = document.getElementById('sdpSalBody');
+  if (!body) return;
+  const data = loadStaffSalaries();
+  if (!data.length) {
+    body.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No salary records yet. Select a staff member above to add one.</td></tr>';
+    return;
+  }
+  body.innerHTML = data.map((r, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td><strong>${r.name}</strong></td>
+      <td>${r.role || '—'}</td>
+      <td><span class="badge">${r.type}</span></td>
+      <td>KES ${Number(r.basic).toLocaleString()}</td>
+      <td>KES ${Number(r.allow).toLocaleString()}</td>
+      <td>KES ${Number(r.deduct).toLocaleString()}</td>
+      <td>KES ${Number(r.nhif).toLocaleString()}</td>
+      <td>KES ${Number(r.nssf).toLocaleString()}</td>
+      <td style="font-weight:700;color:var(--primary)">KES ${Number(r.net).toLocaleString()}</td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="sdpEditSalaryRecord('${r.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-danger btn-xs"  onclick="sdpDeleteSalaryRecord('${r.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function sdpEditSalaryRecord(id) {
+  const r = loadStaffSalaries().find(x => x.id === id);
+  if (!r) return;
+  sdpPopulateSalaryStaffDropdown();
+  sdpFillSalaryForm(r);
+  const t = document.getElementById('sdpSalaryFormTitle');
+  if (t) t.innerHTML = '<i class="fa-solid fa-pen"></i> Edit Salary Record';
+  window.scrollTo({ top: document.getElementById('sdpSalary')?.offsetTop || 0, behavior: 'smooth' });
+}
+
+function sdpDeleteSalaryRecord(id) {
+  if (!confirm('Delete this salary record? It will also be removed from Finances.')) return;
+  let data = loadStaffSalaries().filter(r => r.id !== id);
+  saveStaffSalariesToStorage(data);
+  sdpRenderSalaryTable();
+  renderStaffSalaryTable();  // sync Finances table
+  showToast('Salary record deleted.');
+}
+
+
+function platExportStaffCSV() {
+  const data = loadStaffDetails();
+  if (!data.length) { alert('No staff records to export.'); return; }
+  const cols = ['Name','Staff ID','Nat ID','Gender','DOB','Phone','Email','Address','Role','Dept','Employment Type','Date Joined','Contract End','Status','Qualification','Subjects','EC Name','EC Phone','Notes'];
+  const rows = [cols, ...data.map(r => [r.name,r.staffId,r.natId,r.gender,r.dob,r.phone,r.email,r.address,r.role,r.dept,r.empType,r.joinDate,r.contractEnd,r.status,r.qual,r.subjects,r.ecName,r.ecPhone,r.notes])];
+  const a = Object.assign(document.createElement('a'), { href:'data:text/csv,'+encodeURIComponent(rows.map(r=>r.join(',')).join('\n')), download:'staff_details.csv' });
+  a.click();
+}
+
+// Roles (shared storage, rendered in both sidebar and platform admin)
+function sdpSaveRole() {
+  const name = (document.getElementById('sdprName')?.value||'').trim();
+  const dept = document.getElementById('sdprDept')?.value||'';
+  const desc = (document.getElementById('sdprDesc')?.value||'').trim();
+  if (!name) { alert('Role name is required.'); return; }
+  let roles = JSON.parse(localStorage.getItem('charanas_staffRoles')||'[]');
+  roles.push({ id:'sr_'+Date.now(), name, dept, desc });
+  localStorage.setItem('charanas_staffRoles', JSON.stringify(roles));
+  sdpRenderRolesList();
+  document.getElementById('sdprName').value = '';
+  document.getElementById('sdprDesc').value = '';
   showToast('Role saved.');
 }
 
-function platRenderRolesList() {
-  const el=document.getElementById('platRolesList'); if(!el) return;
-  const roles=JSON.parse(localStorage.getItem('charanas_staffRoles')||'[]');
-  if(!roles.length){el.innerHTML='<p style="color:var(--muted);font-size:.85rem">No roles defined yet.</p>';return;}
-  el.innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Role</th><th>Department</th><th>Description</th><th>Action</th></tr></thead>
+function sdpRenderRolesList() {
+  const el = document.getElementById('sdpRolesList');
+  if (!el) return;
+  const roles = JSON.parse(localStorage.getItem('charanas_staffRoles')||'[]');
+  if (!roles.length) { el.innerHTML = '<p style="color:var(--muted);font-size:.85rem">No roles defined yet.</p>'; return; }
+  el.innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Role</th><th>Department</th><th>Description</th><th>Action</th></tr></thead>
   <tbody>${roles.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${r.name}</strong></td><td>${r.dept}</td><td>${r.desc||'—'}</td>
-  <td><button class="btn btn-danger btn-xs" onclick="platDeleteRole('${r.id}')"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('')}</tbody></table></div>`;
+  <td><button class="btn btn-danger btn-xs" onclick="sdpDeleteRole('${r.id}')"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('')}</tbody></table></div>`;
 }
 
-function platDeleteRole(id) {
-  if(!confirm('Delete this role?')) return;
-  let roles=JSON.parse(localStorage.getItem('charanas_staffRoles')||'[]').filter(r=>r.id!==id);
-  localStorage.setItem('charanas_staffRoles',JSON.stringify(roles));
-  platRenderRolesList(); sdpRenderRolesList();
+function sdpDeleteRole(id) {
+  if (!confirm('Delete this role?')) return;
+  let roles = JSON.parse(localStorage.getItem('charanas_staffRoles')||'[]').filter(r=>r.id!==id);
+  localStorage.setItem('charanas_staffRoles', JSON.stringify(roles));
+  sdpRenderRolesList();
 }
 
-function platPopulateDocDropdown() {
-  const staff=loadStaffDetails();
-  const sel=document.getElementById('psdocStaff'); if(!sel) return;
-  const cur=sel.value;
-  sel.innerHTML='<option value="">— Select Staff —</option>'+
-    staff.map(s=>`<option value="${s.id}">${s.name}${s.role?' — '+s.role:''}</option>`).join('');
-  if(cur) sel.value=cur;
+// Documents
+function sdpPopulateDropdowns() {
+  const staff = loadStaffDetails();
+  ['sdpdocStaff'].forEach(selId => {
+    const sel = document.getElementById(selId); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Select Staff —</option>' +
+      staff.map(s => `<option value="${s.id}">${s.name}${s.role?' — '+s.role:''}</option>`).join('');
+    if (cur) sel.value = cur;
+  });
 }
 
-function platHandleDocUpload(input) {
-  const file=input.files[0]; if(!file) return;
-  const staffSel=document.getElementById('psdocStaff');
-  const staffName=staffSel?.options[staffSel.selectedIndex]?.text||'Unknown';
-  const type=document.getElementById('psdocType')?.value||'Other';
-  let docs=JSON.parse(localStorage.getItem(staffDocsKey())||'[]');
-  docs.push({id:'doc_'+Date.now(),staff:staffName,type,filename:file.name,size:(file.size/1024).toFixed(1)+' KB',uploaded:new Date().toLocaleDateString()});
-  localStorage.setItem(staffDocsKey(),JSON.stringify(docs));
-  platRenderDocsList(); sdpRenderDocsList();
-  input.value=''; showToast(`Document "${file.name}" recorded.`);
+function sdpHandleDocUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  const staffSel = document.getElementById('sdpdocStaff');
+  const staffName = staffSel?.options[staffSel.selectedIndex]?.text || 'Unknown';
+  const type = document.getElementById('sdpdocType')?.value || 'Other';
+  let docs = JSON.parse(localStorage.getItem(staffDocsKey())||'[]');
+  docs.push({ id:'doc_'+Date.now(), staff:staffName, type, filename:file.name, size:(file.size/1024).toFixed(1)+' KB', uploaded:new Date().toLocaleDateString() });
+  localStorage.setItem(staffDocsKey(), JSON.stringify(docs));
+  sdpRenderDocsList();  input.value = ''; showToast(`Document "${file.name}" recorded.`);
 }
 
-function platRenderDocsList() {
-  const el=document.getElementById('platDocsList'); if(!el) return;
-  const docs=JSON.parse(localStorage.getItem(staffDocsKey())||'[]');
-  if(!docs.length){el.innerHTML='<p style="color:var(--muted);font-size:.85rem;text-align:center;padding:1.5rem">No documents recorded yet.</p>';return;}
-  el.innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Staff</th><th>Type</th><th>Filename</th><th>Size</th><th>Date</th><th>Action</th></tr></thead>
+function sdpRenderDocsList() {
+  const el = document.getElementById('sdpDocsList'); if (!el) return;
+  const docs = JSON.parse(localStorage.getItem(staffDocsKey())||'[]');
+  if (!docs.length) { el.innerHTML = '<p style="color:var(--muted);font-size:.85rem;text-align:center;padding:1.5rem">No documents recorded yet.</p>'; return; }
+  el.innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Staff</th><th>Type</th><th>Filename</th><th>Size</th><th>Date</th><th>Action</th></tr></thead>
   <tbody>${docs.map((d,i)=>`<tr><td>${i+1}</td><td>${d.staff}</td><td>${d.type}</td><td><i class="fa-solid fa-file"></i> ${d.filename}</td><td>${d.size}</td><td>${d.uploaded}</td>
-  <td><button class="btn btn-danger btn-xs" onclick="platDeleteDoc('${d.id}')"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('')}</tbody></table></div>`;
+  <td><button class="btn btn-danger btn-xs" onclick="sdpDeleteDoc('${d.id}')"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('')}</tbody></table></div>`;
 }
 
-function platDeleteDoc(id) {
-  if(!confirm('Remove this document record?')) return;
-  let docs=JSON.parse(localStorage.getItem(staffDocsKey())||'[]').filter(d=>d.id!==id);
-  localStorage.setItem(staffDocsKey(),JSON.stringify(docs));
-  platRenderDocsList(); sdpRenderDocsList();
+function sdpDeleteDoc(id) {
+  if (!confirm('Remove this document record?')) return;
+  let docs = JSON.parse(localStorage.getItem(staffDocsKey())||'[]').filter(d=>d.id!==id);
+  localStorage.setItem(staffDocsKey(), JSON.stringify(docs));
+  sdpRenderDocsList();}
+
+// ════════════════════════════════════════════════════════════════
+//  SCHOOL STAFF — LEAVE DETAILS
+// ════════════════════════════════════════════════════════════════
+
+function loadStaffLeave() {
+  return JSON.parse(localStorage.getItem(staffLeaveKey()) || '[]');
+}
+function saveStaffLeave(data) {
+  localStorage.setItem(staffLeaveKey(), JSON.stringify(data));
 }
 
+function sdpPopulateLeaveDropdowns() {
+  const staff = loadStaffDetails();
+  ['sdpLeaveStaff', 'sdpLeaveFilterStaff'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const first = id === 'sdpLeaveFilterStaff' ? '<option value="">All Staff</option>' : '<option value="">— Select Staff —</option>';
+    sel.innerHTML = first + staff.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  });
+}
 
+function sdpPopulateDocDropdownSchool() {
+  const staff = loadStaffDetails();
+  const sel = document.getElementById('sdpdocStaff');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Select Staff —</option>' + staff.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+/* Auto-calculate days when dates change */
+function sdpLeaveCalcDays() {
+  const s = document.getElementById('sdpLeaveStart')?.value;
+  const e = document.getElementById('sdpLeaveEnd')?.value;
+  if (s && e) {
+    const diff = Math.round((new Date(e) - new Date(s)) / 86400000) + 1;
+    const el = document.getElementById('sdpLeaveDays');
+    if (el) el.value = diff > 0 ? diff : '';
+  }
+}
+
+function sdpSaveLeave() {
+  const g = id => (document.getElementById(id)?.value || '').trim();
+  const staffId = g('sdpLeaveStaff');
+  const start   = g('sdpLeaveStart');
+  const end     = g('sdpLeaveEnd');
+  if (!staffId) { alert('Please select a staff member.'); return; }
+  if (!start)   { alert('Start date is required.'); return; }
+  if (!end)     { alert('End date is required.'); return; }
+  if (new Date(end) < new Date(start)) { alert('End date cannot be before start date.'); return; }
+  const staffList = loadStaffDetails();
+  const staffRec  = staffList.find(s => s.id === staffId);
+  const rec = {
+    staffId, staffName: staffRec ? staffRec.name : '—',
+    type:   document.getElementById('sdpLeaveType')?.value   || 'Annual Leave',
+    status: document.getElementById('sdpLeaveStatus')?.value || 'Pending',
+    start, end,
+    days:   document.getElementById('sdpLeaveDays')?.value   || '',
+    reason: g('sdpLeaveReason')
+  };
+  let data = loadStaffLeave();
+  const editId = g('sdpLeaveEditId');
+  if (editId) {
+    const idx = data.findIndex(r => r.id === editId);
+    if (idx > -1) data[idx] = { ...data[idx], ...rec };
+  } else {
+    data.push({ id: 'lv_' + Date.now(), ...rec });
+  }
+  saveStaffLeave(data);
+  sdpClearLeave();
+  sdpRenderLeaveList();
+  showToast('Leave record saved.');
+}
+
+function sdpClearLeave() {
+  ['sdpLeaveEditId','sdpLeaveStart','sdpLeaveEnd','sdpLeaveDays','sdpLeaveReason'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['sdpLeaveStaff','sdpLeaveType','sdpLeaveStatus'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.selectedIndex = 0;
+  });
+}
+
+function sdpEditLeave(id) {
+  const r = loadStaffLeave().find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('sdpLeaveEditId').value = id;
+  ['sdpLeaveStaff','sdpLeaveType','sdpLeaveStatus'].forEach(fid => {
+    const key = {sdpLeaveStaff:'staffId',sdpLeaveType:'type',sdpLeaveStatus:'status'}[fid];
+    const el = document.getElementById(fid); if (el && r[key]) el.value = r[key];
+  });
+  ['sdpLeaveStart','sdpLeaveEnd','sdpLeaveDays','sdpLeaveReason'].forEach(fid => {
+    const key = {sdpLeaveStart:'start',sdpLeaveEnd:'end',sdpLeaveDays:'days',sdpLeaveReason:'reason'}[fid];
+    const el = document.getElementById(fid); if (el) el.value = r[key] || '';
+  });
+  openSDTab('sdpLeave', document.getElementById('sdpbtLeave'));
+}
+
+function sdpDeleteLeave(id) {
+  if (!confirm('Delete this leave record?')) return;
+  saveStaffLeave(loadStaffLeave().filter(r => r.id !== id));
+  sdpRenderLeaveList();
+  showToast('Leave record deleted.');
+}
+
+function sdpRenderLeaveList() {
+  const el = document.getElementById('sdpLeaveList'); if (!el) return;
+  let data = loadStaffLeave();
+  const filterStaff  = document.getElementById('sdpLeaveFilterStaff')?.value  || '';
+  const filterStatus = document.getElementById('sdpLeaveFilterStatus')?.value || '';
+  if (filterStaff)  data = data.filter(r => r.staffId  === filterStaff);
+  if (filterStatus) data = data.filter(r => r.status   === filterStatus);
+  if (!data.length) {
+    el.innerHTML = '<p style="color:var(--muted);font-size:.85rem;text-align:center;padding:2rem">No leave records found.</p>';
+    return;
+  }
+  const sc = { Pending:'#f59e0b', Approved:'#16a34a', Rejected:'#ef4444', Completed:'#6b7280' };
+  el.innerHTML = `<div class="tbl-wrap"><table>
+    <thead><tr><th>#</th><th>Staff</th><th>Type</th><th>Start</th><th>End</th><th>Days</th><th>Status</th><th>Reason</th><th>Action</th></tr></thead>
+    <tbody>${data.map((r,i)=>`<tr>
+      <td>${i+1}</td><td><strong>${r.staffName}</strong></td><td>${r.type}</td>
+      <td>${r.start}</td><td>${r.end}</td><td>${r.days||'—'}</td>
+      <td><span class="badge" style="background:${sc[r.status]||'#6b7280'};color:#fff">${r.status}</span></td>
+      <td>${r.reason||'—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-outline btn-xs" onclick="sdpEditLeave('${r.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-danger btn-xs"  onclick="sdpDeleteLeave('${r.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  HR & PAYROLL MODULE
