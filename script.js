@@ -1346,7 +1346,7 @@ function enterPlatformDashboard() {
   const mbnRestore = document.getElementById('mbnRestoreTab');
   if (mbnRestore) mbnRestore.style.display = 'none';
   // Platform portal: hide school-specific nav, only show Platform Admin link
-  ['subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','people','staffdetails','messaging','settings'].forEach(s=>{
+  ['subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','messaging','settings'].forEach(s=>{
     const el=document.querySelector('[data-s="'+s+'"]'); if(el) el.style.display='none';
   });
   // Hide school-only exam tabs for platform admin
@@ -2389,8 +2389,6 @@ const NAV_CONFIG_SCHEMA = [
     { id:'tabFeeReminders',  label:'<i class="fa-solid fa-bell"></i> Reminders' },
     { id:'tabFeeReceipts',   label:'<i class="fa-solid fa-receipt"></i> Receipts' },
   ]},
-  { section:'people',       label:'<i class="fa-solid fa-users"></i> People',                 tabs:[] },
-  { section:'staffdetails', label:'<i class="fa-solid fa-id-card"></i> Staff Details',         tabs:[] },
   { section:'messaging',   label:'<i class="fa-solid fa-comments"></i> Messaging',          tabs:[] },
   { section:'settings',    label:'<i class="fa-solid fa-screwdriver-wrench"></i>️ Settings',            tabs:[] },
 ];
@@ -3172,7 +3170,7 @@ function doLogout() {
   if (mbnRestore) { mbnRestore.classList.remove('visible'); mbnRestore.style.display = 'none'; }
   document.body.classList.remove('mbn-hidden');
   // Restore ALL nav links in both sidebar AND mobile bottom nav for next login
-  ['dashboard','subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','people','messaging','staffdetails','settings'].forEach(s=>{
+  ['dashboard','subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','messaging','settings'].forEach(s=>{
     document.querySelectorAll('[data-s="'+s+'"]').forEach(el => el.style.display='');
   });
   // Also restore topbar user display
@@ -3258,7 +3256,7 @@ function launchApp() {
     const teacherAllowed = new Set(['dashboard','exambuilder','papers']);
     // Settings nav: only show if NOT restricted
     if (!settings.restrictTeacherSettings) teacherAllowed.add('settings');
-    const allSecs = ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','people','staffdetails','messaging','settings','exambuilder','papers'];
+    const allSecs = ['dashboard','subjects','classes','teachers','students','timetable','exams','reports','fees','messaging','settings','exambuilder','papers'];
     // Apply show/hide to BOTH sidebar AND mobile bottom nav via querySelectorAll
     allSecs.forEach(sec => {
       const show = teacherAllowed.has(sec);
@@ -9927,10 +9925,10 @@ function go(sec, el) {
   if (sec === 'reports')    { populateReportDropdowns(); }
   if (sec === 'messaging')  { loadMsgRecipients(); }
   if (sec === 'fees')       { initFeesSection(); }
-  if (sec === 'people')     { initPeopleSection(); }
-  if (sec === 'staffdetails') { initStaffDetailsSection(); }
   if (sec === 'papers')     { initPapersSection(); }
   if (sec === 'settings')   { renderTeacherPreferences(); }
+  if (sec === 'people')     { initPeopleSection(); }
+  if (sec === 'staffdetails') { initStaffDetailsSection(); }
   if (sec === 'platform')   { renderPlatformDashboard(); _navCfgMode='global'; navCfgSwitchMode('global'); platRenderNavConfig(); platRenderLiteModeConfig(); platLoadContactInputs(); themeRenderSwatches(); /* Activate first platform tab */ openPlatTab('platTab-schools', document.querySelector('#platTabBar .plat-tab-btn')); }
   if (sec === 'livechat')   { initLiveChatSection(); }
   if (sec === 'exambuilder') { /* handled by EB module DOMContentLoaded wrapper */ }
@@ -17770,13 +17768,18 @@ function savePeopleBOM(arr) {
 }
 
 function initPeopleSection() {
+  // Temporarily show BOM panel so peopleRenderBOMTable can find its tbody
+  var bomPanel = document.getElementById('peopleBOMPanel');
+  if (bomPanel) bomPanel.style.display = 'block';
+  peopleRenderBOMTable();
+  if (bomPanel) bomPanel.style.display = '';
+
   // Default to Staff panel, reset sub-tabs to list view
   openPeopleTab('peopleStaffPanel', document.getElementById('pmtStaff'));
   // Always start on the Staff List sub-tab
   openPeopleStaffTab('pplStList', document.getElementById('pstbList'));
   pstPopulateDeptFilter();
   pstRenderList();
-  peopleRenderBOMTable();
 }
 
 function openPeopleTab(panelId, btn) {
@@ -17785,12 +17788,18 @@ function openPeopleTab(panelId, btn) {
   const panel = document.getElementById(panelId);
   if (panel) panel.classList.add('active');
   if (btn) btn.classList.add('active');
+  if (panelId === 'peopleBOMPanel') peopleRenderBOMTable();
+  if (panelId === 'peopleStaffPanel') { pstPopulateDeptFilter(); pstRenderList(); }
 }
 
 function openPeopleStaffTab(tabId, btn) {
-  document.querySelectorAll('#peopleStaffPanel .tab-panel').forEach(function(panel) { panel.classList.remove('active'); });
+  document.querySelectorAll('#peopleStaffPanel .tab-panel').forEach(function(panel) {
+    panel.style.display = 'none';
+    panel.classList.remove('active');
+  });
   document.querySelectorAll('#peopleStaffTabBar .tb').forEach(function(b) { b.classList.remove('active'); });
-  var tabPanel = document.getElementById(tabId); if (tabPanel) tabPanel.classList.add('active');
+  var tabPanel = document.getElementById(tabId);
+  if (tabPanel) { tabPanel.style.display = 'block'; tabPanel.classList.add('active'); }
   if (btn) btn.classList.add('active');
   if (tabId === 'pplStList')  pstRenderList();
   if (tabId === 'pplStRoles') pstRenderRoles();
@@ -17799,7 +17808,8 @@ function openPeopleStaffTab(tabId, btn) {
 // ── Staff List ──
 
 function pstPopulateDeptFilter() {
-  const staff = loadPeopleStaff();
+  // Read from unified staffDetails store
+  const staff = loadStaffDetails();
   const depts = [...new Set(staff.map(s => s.dept).filter(Boolean))].sort();
   const sel = document.getElementById('pstDeptFilter');
   if (!sel) return;
@@ -17812,7 +17822,8 @@ function pstFilterStaff() {
 }
 
 function pstRenderList() {
-  const staff  = loadPeopleStaff();
+  // Use unified staffDetails store so People & Staff Details stay in sync
+  const staff  = loadStaffDetails();
   const search = (document.getElementById('pstSearch')?.value || '').toLowerCase();
   const dept   = document.getElementById('pstDeptFilter')?.value || '';
   const body   = document.getElementById('pstBody');
@@ -17820,62 +17831,84 @@ function pstRenderList() {
 
   const filtered = staff.filter(s => {
     const matchSearch = !search ||
-      (s.name   || '').toLowerCase().includes(search) ||
-      (s.role   || '').toLowerCase().includes(search) ||
-      (s.dept   || '').toLowerCase().includes(search);
+      (s.name    || '').toLowerCase().includes(search) ||
+      (s.role    || '').toLowerCase().includes(search) ||
+      (s.dept    || '').toLowerCase().includes(search) ||
+      (s.staffId || '').toLowerCase().includes(search);
     const matchDept = !dept || s.dept === dept;
     return matchSearch && matchDept;
   });
 
   if (!filtered.length) {
-    body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">${staff.length ? 'No matches found.' : 'No staff records yet. Click <strong>Add New Staff</strong> to get started.'}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">${staff.length ? 'No matches found.' : 'No staff records yet. Click <strong>Add New Staff</strong> to get started.'}</td></tr>`;
     return;
   }
 
-  body.innerHTML = filtered.map((s,i) => `
+  const statusColour = { Active:'#16a34a', 'On Leave':'#f59e0b', Resigned:'#ef4444', Retired:'#6b7280' };
+  body.innerHTML = filtered.map((s,i) => {
+    const sc = statusColour[s.status] || '#6b7280';
+    const statusBadge = s.status ? `<span class="badge" style="background:${sc};color:#fff;font-size:.7rem">${s.status}</span>` : '—';
+    return `
     <tr>
       <td>${i+1}</td>
       <td><strong>${s.name || '—'}</strong></td>
       <td>${s.role || '—'}</td>
-      <td>${s.dept || '—'}</td>
+      <td>${s.dept ? `<span class="badge">${s.dept}</span>` : '—'}</td>
       <td>${s.phone || '—'}</td>
       <td>${s.email || '—'}</td>
-      <td>${s.tsc || '—'}</td>
+      <td>${s.staffId || '—'}</td>
+      <td>${statusBadge}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-outline btn-xs" onclick="pstEditStaff('${s.id}')"><i class="fa-solid fa-pen"></i></button>
         <button class="btn btn-danger btn-xs" onclick="pstDeleteStaff('${s.id}')"><i class="fa-solid fa-trash"></i></button>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 function pstSaveStaff() {
   try {
     const g = id => { const el = document.getElementById(id); return el ? (el.value || '').trim() : ''; };
-    const name  = g('pstName');
-    const role  = g('pstRole');
-    const dept  = g('pstDept');
-    const tsc   = g('pstTSC');
-    const phone = g('pstPhone');
-    const email = g('pstEmail');
-    const nid   = g('pstNID');
-    const doe   = g('pstDOE');
-    const notes = g('pstNotes');
-    const editId = g('pstEditId');
+    const name     = g('pstName');
+    const role     = g('pstRole');
+    const dept     = g('pstDept');
+    const staffId  = g('pstTSC');
+    const phone    = g('pstPhone');
+    const email    = g('pstEmail');
+    const natId    = g('pstNID');
+    const joinDate = g('pstDOE');
+    const notes    = g('pstNotes');
+    const editId   = g('pstEditId');
 
     if (!name) { alert('Full name is required.'); return; }
     if (!role) { alert('Please select a role.'); return; }
 
-    let staff = loadPeopleStaff();
+    // Save to the shared staffDetails store so it is visible in Staff Details,
+    // salary dropdowns, Platform Admin, etc.
+    let data = loadStaffDetails();
 
     if (editId) {
-      const idx = staff.findIndex(s => s.id === editId);
-      if (idx > -1) staff[idx] = { ...staff[idx], name, role, dept, tsc, phone, email, nid, doe, notes };
-      else staff.push({ id: editId, name, role, dept, tsc, phone, email, nid, doe, notes });
+      const idx = data.findIndex(r => r.id === editId);
+      if (idx > -1) {
+        data[idx] = { ...data[idx], name, role, dept, staffId, phone, email, natId, joinDate, notes };
+      } else {
+        data.push({ id: editId, name, role, dept, staffId, phone, email, natId, joinDate, notes,
+          gender:'', dob:'', address:'', empType:'Permanent', contractEnd:'', status:'Active',
+          qual:'', subjects:'', ecName:'', ecPhone:'' });
+      }
     } else {
-      staff.push({ id: 'pst_' + Date.now(), name, role, dept, tsc, phone, email, nid, doe, notes });
+      data.push({
+        id: 'pst_' + Date.now(),
+        name, role, dept, staffId, phone, email, natId, joinDate, notes,
+        gender:'', dob:'', address:'', empType:'Permanent', contractEnd:'', status:'Active',
+        qual:'', subjects:'', ecName:'', ecPhone:''
+      });
     }
 
-    savePeopleStaff(staff);
+    saveStaffDetailsStorage(data);
+    populateStaffDropdowns();
+    platRenderStaffList();
+    if (typeof sdpRenderList === 'function') sdpRenderList();
     pstClearForm();
     pstPopulateDeptFilter();
     pstRenderList();
@@ -17903,39 +17936,42 @@ function pstClearForm() {
 }
 
 function pstEditStaff(id) {
-  const staff = loadPeopleStaff();
-  const s = staff.find(x => x.id === id);
+  // Read from unified staffDetails store
+  const s = loadStaffDetails().find(x => x.id === id);
   if (!s) return;
   document.getElementById('pstEditId').value = id;
-  document.getElementById('pstName').value   = s.name  || '';
-  document.getElementById('pstRole').value   = s.role  || '';
-  document.getElementById('pstDept').value   = s.dept  || '';
-  document.getElementById('pstTSC').value    = s.tsc   || '';
-  document.getElementById('pstPhone').value  = s.phone || '';
-  document.getElementById('pstEmail').value  = s.email || '';
-  document.getElementById('pstNID').value    = s.nid   || '';
-  document.getElementById('pstDOE').value    = s.doe   || '';
-  document.getElementById('pstNotes').value  = s.notes || '';
+  document.getElementById('pstName').value   = s.name     || '';
+  document.getElementById('pstRole').value   = s.role     || '';
+  document.getElementById('pstDept').value   = s.dept     || '';
+  document.getElementById('pstTSC').value    = s.staffId  || '';
+  document.getElementById('pstPhone').value  = s.phone    || '';
+  document.getElementById('pstEmail').value  = s.email    || '';
+  document.getElementById('pstNID').value    = s.natId    || '';
+  document.getElementById('pstDOE').value    = s.joinDate || '';
+  document.getElementById('pstNotes').value  = s.notes    || '';
   const title = document.getElementById('pplStFormTitle');
   if (title) title.innerHTML = '<i class="fa-solid fa-pen"></i> Edit Staff Member';
-  // Switch to add/edit tab
   openPeopleStaffTab('pplStAddEdit', document.getElementById('pstbAddEdit'));
 }
 
 function pstDeleteStaff(id) {
   if (!confirm('Delete this staff record? This cannot be undone.')) return;
-  let staff = loadPeopleStaff().filter(s => s.id !== id);
-  savePeopleStaff(staff);
+  let data = loadStaffDetails().filter(s => s.id !== id);
+  saveStaffDetailsStorage(data);
+  populateStaffDropdowns();
+  platRenderStaffList();
+  if (typeof sdpRenderList === 'function') sdpRenderList();
   pstPopulateDeptFilter();
   pstRenderList();
   showToast('Staff record deleted.');
 }
 
 function pstExportCSV() {
-  const staff = loadPeopleStaff();
+  const staff = loadStaffDetails();
   if (!staff.length) { alert('No staff records to export.'); return; }
-  const hdr = ['Name','Role','Department','TSC No.','Phone','Email','National ID','Date of Employment','Notes'];
-  const rows = staff.map(s => [s.name,s.role,s.dept,s.tsc,s.phone,s.email,s.nid,s.doe,s.notes].map(v => `"${(v||'').replace(/"/g,'""')}"`));
+  const hdr = ['Name','Role','Department','Staff ID / TSC','Phone','Email','National ID','Date Joined','Status','Notes'];
+  const rows = staff.map(s => [s.name,s.role,s.dept,s.staffId,s.phone,s.email,s.natId,s.joinDate,s.status,s.notes]
+    .map(v => `"${(v||'').replace(/"/g,'""')}"`));
   const csv = [hdr, ...rows].map(r => r.join(',')).join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
@@ -17943,10 +17979,11 @@ function pstExportCSV() {
   a.click();
 }
 
+
 // ── Roles & Departments ──
 
 function pstRenderRoles() {
-  const staff   = loadPeopleStaff();
+  const staff   = loadStaffDetails();
   const el      = document.getElementById('pstRolesContent');
   if (!el) return;
   if (!staff.length) {
@@ -18101,6 +18138,8 @@ function initStaffDetailsSection() {
   sdpPopulateDropdowns();
   sdpRenderRolesList();
   sdpRenderDocsList();
+  sdpPopulateSalaryStaffDropdown();
+  sdpRenderSalaryTable();
 }
 
 function openSDTab(tabId, btn) {
@@ -18109,8 +18148,9 @@ function openSDTab(tabId, btn) {
   const panel = document.getElementById(tabId);
   if (panel) { panel.style.display = ''; panel.classList.add('active'); }
   if (btn) btn.classList.add('active');
-  if (tabId === 'sdpLeave') { sdpPopulateLeaveDropdowns(); sdpRenderLeaveList(); }
-  if (tabId === 'sdpDocs')  { sdpPopulateDocDropdownSchool(); sdpRenderDocsList(); }
+  if (tabId === 'sdpLeave')  { sdpPopulateLeaveDropdowns(); sdpRenderLeaveList(); }
+  if (tabId === 'sdpDocs')   { sdpPopulateDocDropdownSchool(); sdpRenderDocsList(); }
+  if (tabId === 'sdpSalary') { sdpPopulateSalaryStaffDropdown(); sdpRenderSalaryTable(); }
 }
 
 function sdpRenderStats() {
@@ -18139,17 +18179,17 @@ function sdpRenderList() {
   if (status) data = data.filter(r => r.status === status);
   sdpRenderStats();
   if (!data.length) {
-    body.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No staff records found. Click <strong>Add Staff</strong> to get started.</td></tr>';
+    body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">No staff records found. Click <strong>Add Staff</strong> to get started.</td></tr>';
     return;
   }
   const sc = { Active:'#16a34a','On Leave':'#f59e0b',Resigned:'#ef4444',Retired:'#6b7280' };
   body.innerHTML = data.map((r,i) => `
     <tr>
-      <td>${i+1}</td><td>${r.staffId||'—'}</td><td><strong>${r.name}</strong></td>
-      <td>${r.role}</td><td><span class="badge">${r.dept}</span></td>
-      <td>${r.phone}</td><td>${r.email||'—'}</td><td>${r.empType}</td>
+      <td>${i+1}</td><td><strong>${r.name}</strong></td>
+      <td>${r.role||'—'}</td><td>${r.dept ? `<span class="badge">${r.dept}</span>` : '—'}</td>
+      <td>${r.phone||'—'}</td><td>${r.email||'—'}</td>
+      <td><span class="badge" style="background:${sc[r.status]||'#6b7280'};color:#fff">${r.status||'Active'}</span></td>
       <td>${r.joinDate||'—'}</td>
-      <td><span class="badge" style="background:${sc[r.status]||'#6b7280'};color:#fff">${r.status}</span></td>
       <td>
         <button class="btn btn-outline btn-xs" onclick="sdpEditStaff('${r.id}')"><i class="fa-solid fa-pen"></i></button>
         <button class="btn btn-danger btn-xs"  onclick="sdpDeleteStaff('${r.id}')"><i class="fa-solid fa-trash"></i></button>
@@ -18189,6 +18229,7 @@ function sdpSaveStaff() {
   sdpPopulateDropdowns();
   populateStaffDropdowns();      // keep Finances salary dropdowns in sync
   platRenderStaffList();         // keep Platform Admin table in sync
+  pstPopulateDeptFilter(); pstRenderList(); // keep People list in sync
   openSDTab('sdpList', document.getElementById('sdpbtList'));
   showToast('Staff record saved.');
 }
@@ -18205,21 +18246,27 @@ function sdpClearForm() {
 }
 
 function sdpEditStaff(id) {
-  const r = loadStaffDetails().find(x => x.id === id);
-  if (!r) return;
-  const map = { sdpEditId:id, sdpName:r.name, sdpStaffId:r.staffId, sdpNatId:r.natId,
-    sdpDOB:r.dob, sdpPhone:r.phone, sdpEmail:r.email, sdpAddress:r.address,
-    sdpRole:r.role, sdpJoinDate:r.joinDate, sdpContractEnd:r.contractEnd,
-    sdpQual:r.qual, sdpSubjects:r.subjects, sdpECName:r.ecName, sdpECPhone:r.ecPhone, sdpNotes:r.notes };
-  Object.entries(map).forEach(([k,v]) => { const el = document.getElementById(k); if (el) el.value = v||''; });
+  const s = loadStaffDetails().find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('sdpEditId').value = id;
+  ['sdpName','sdpStaffId','sdpNatId','sdpDOB','sdpPhone','sdpEmail','sdpAddress',
+   'sdpRole','sdpJoinDate','sdpContractEnd','sdpQual','sdpSubjects','sdpECName','sdpECPhone','sdpNotes']
+    .forEach(fid => {
+      const keyMap = {sdpName:'name',sdpStaffId:'staffId',sdpNatId:'natId',sdpDOB:'dob',
+        sdpPhone:'phone',sdpEmail:'email',sdpAddress:'address',sdpRole:'role',
+        sdpJoinDate:'joinDate',sdpContractEnd:'contractEnd',sdpQual:'qual',
+        sdpSubjects:'subjects',sdpECName:'ecName',sdpECPhone:'ecPhone',sdpNotes:'notes'};
+      const el = document.getElementById(fid);
+      if (el) el.value = s[keyMap[fid]] || '';
+    });
   ['sdpGender','sdpDept','sdpEmpType','sdpStatus'].forEach(fid => {
+    const keyMap = {sdpGender:'gender',sdpDept:'dept',sdpEmpType:'empType',sdpStatus:'status'};
     const el = document.getElementById(fid);
-    const key = {sdpGender:'gender',sdpDept:'dept',sdpEmpType:'empType',sdpStatus:'status'}[fid];
-    if (el && r[key]) el.value = r[key];
+    if (el && s[keyMap[fid]]) el.value = s[keyMap[fid]];
   });
   const t = document.getElementById('sdpFormTitle');
-  if (t) t.innerHTML = `<i class="fa-solid fa-pen"></i> Edit — ${r.name}`;
-  openSDTab('sdpAdd', document.getElementById('sdpbtAdd'));
+  if (t) t.innerHTML = '<i class="fa-solid fa-pen"></i> Edit Staff Member';
+  openSDTab('sdpAddEdit', document.getElementById('sdpbtAddEdit'));
 }
 
 function sdpDeleteStaff(id) {
@@ -18227,8 +18274,205 @@ function sdpDeleteStaff(id) {
   let data = loadStaffDetails().filter(r => r.id !== id);
   saveStaffDetailsStorage(data);
   sdpRenderList(); sdpPopulateDropdowns(); populateStaffDropdowns(); platRenderStaffList();
+  pstPopulateDeptFilter(); pstRenderList(); // keep People list in sync
   showToast('Staff record deleted.');
 }
+
+
+
+// ══════════════════════════════════════════════════════════════════
+// STAFF DETAILS — Salary Tab
+// Reads/writes the same charanas_staffSalaries key as Finances,
+// so changes here instantly reflect in Finances → Staff Salary.
+// ══════════════════════════════════════════════════════════════════
+
+function sdpPopulateSalaryStaffDropdown() {
+  const sel = document.getElementById('sdpSalStaff');
+  if (!sel) return;
+  const staff = loadStaffDetails();
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Select Staff —</option>';
+  staff.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name + (s.role ? ' (' + s.role + ')' : '');
+    sel.appendChild(opt);
+  });
+  if (cur) sel.value = cur;
+}
+
+function sdpSalOnStaffChange() {
+  const sel  = document.getElementById('sdpSalStaff');
+  const staffId = sel?.value || '';
+  const roleEl  = document.getElementById('sdpSalRole');
+
+  // Auto-fill role from staff profile
+  if (staffId && roleEl) {
+    const s = loadStaffDetails().find(x => x.id === staffId);
+    if (s && s.role) roleEl.value = s.role;
+  }
+
+  // If this staff already has a saved salary record, pre-fill the form
+  const existing = loadStaffSalaries().find(r => r.staffId === staffId);
+  if (existing) {
+    sdpFillSalaryForm(existing);
+    const t = document.getElementById('sdpSalaryFormTitle');
+    if (t) t.innerHTML = '<i class="fa-solid fa-pen"></i> Update Salary Record';
+  } else {
+    // Clear numeric fields but keep the role we just set
+    ['sdpSalBasic','sdpSalAllow','sdpSalDeduct','sdpSalNHIF','sdpSalNSSF','sdpSalNet','sdpSalNotes'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && id !== 'sdpSalRole') el.value = id.endsWith('Net') ? '' : (id.endsWith('Notes') ? '' : '0');
+    });
+    document.getElementById('sdpSalBasic').value = '';
+    document.getElementById('sdpSalNet').value = '';
+    document.getElementById('sdpSalNotes').value = '';
+    document.getElementById('sdpSalaryEditId').value = '';
+    const t = document.getElementById('sdpSalaryFormTitle');
+    if (t) t.innerHTML = '<i class="fa-solid fa-money-bill-wave"></i> Set / Update Staff Salary';
+  }
+}
+
+function sdpFillSalaryForm(r) {
+  document.getElementById('sdpSalaryEditId').value = r.id || '';
+  const sel = document.getElementById('sdpSalStaff');
+  if (sel) sel.value = r.staffId || '';
+  document.getElementById('sdpSalRole').value    = r.role    || '';
+  document.getElementById('sdpSalBasic').value   = r.basic   || '';
+  document.getElementById('sdpSalAllow').value   = r.allow   || 0;
+  document.getElementById('sdpSalDeduct').value  = r.deduct  || 0;
+  document.getElementById('sdpSalNHIF').value    = r.nhif    || 0;
+  document.getElementById('sdpSalNSSF').value    = r.nssf    || 0;
+  document.getElementById('sdpSalNet').value     = r.net     || '';
+  document.getElementById('sdpSalNotes').value   = r.notes   || '';
+  const typeEl = document.getElementById('sdpSalType');
+  if (typeEl && r.type) typeEl.value = r.type;
+}
+
+function sdpCalcNetSalary() {
+  const basic  = parseFloat(document.getElementById('sdpSalBasic')?.value)  || 0;
+  const allow  = parseFloat(document.getElementById('sdpSalAllow')?.value)  || 0;
+  const deduct = parseFloat(document.getElementById('sdpSalDeduct')?.value) || 0;
+  const nhif   = parseFloat(document.getElementById('sdpSalNHIF')?.value)   || 0;
+  const nssf   = parseFloat(document.getElementById('sdpSalNSSF')?.value)   || 0;
+  const net    = basic + allow - deduct - nhif - nssf;
+  const netEl  = document.getElementById('sdpSalNet');
+  if (netEl) netEl.value = net.toFixed(2);
+}
+
+function sdpSaveStaffSalary() {
+  const sel = document.getElementById('sdpSalStaff');
+  const staffId = sel?.value || '';
+  const name    = sel?.options[sel.selectedIndex]?.text.split(' (')[0] || '';
+  const role    = (document.getElementById('sdpSalRole')?.value  || '').trim();
+  const type    = document.getElementById('sdpSalType')?.value   || 'Monthly';
+  const basic   = parseFloat(document.getElementById('sdpSalBasic')?.value)  || 0;
+  const allow   = parseFloat(document.getElementById('sdpSalAllow')?.value)  || 0;
+  const deduct  = parseFloat(document.getElementById('sdpSalDeduct')?.value) || 0;
+  const nhif    = parseFloat(document.getElementById('sdpSalNHIF')?.value)   || 0;
+  const nssf    = parseFloat(document.getElementById('sdpSalNSSF')?.value)   || 0;
+  const net     = basic + allow - deduct - nhif - nssf;
+  const notes   = (document.getElementById('sdpSalNotes')?.value || '').trim();
+
+  if (!staffId) { alert('Please select a staff member.'); return; }
+  if (!basic)   { alert('Please enter a basic salary amount.'); return; }
+
+  let data    = loadStaffSalaries();
+  const editId = document.getElementById('sdpSalaryEditId')?.value;
+
+  // Also check if this staffId already has a record (upsert by staffId)
+  const byStaffIdx = data.findIndex(r => r.staffId === staffId);
+
+  const record = { name, staffId, role, type, basic, allow, deduct, nhif, nssf, net, notes };
+
+  if (editId) {
+    const idx = data.findIndex(r => r.id === editId);
+    if (idx > -1) { data[idx] = { ...data[idx], ...record }; }
+    else { data.push({ id: editId, ...record }); }
+  } else if (byStaffIdx > -1) {
+    // Update existing record for this staff member
+    data[byStaffIdx] = { ...data[byStaffIdx], ...record };
+    document.getElementById('sdpSalaryEditId').value = data[byStaffIdx].id;
+  } else {
+    const newRec = { id: 'ss_' + Date.now(), ...record };
+    data.push(newRec);
+    document.getElementById('sdpSalaryEditId').value = newRec.id;
+  }
+
+  saveStaffSalariesToStorage(data);
+
+  // Refresh both this table and the Finances salary table if visible
+  sdpRenderSalaryTable();
+  renderStaffSalaryTable();   // keeps Finances → Staff Salary in sync
+
+  const t = document.getElementById('sdpSalaryFormTitle');
+  if (t) t.innerHTML = '<i class="fa-solid fa-pen"></i> Update Salary Record';
+
+  showToast('Salary saved and reflected in Finances <i class="fa-solid fa-check"></i>', 'success');
+}
+
+function sdpClearSalaryForm() {
+  document.getElementById('sdpSalaryEditId').value = '';
+  ['sdpSalStaff','sdpSalType'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.selectedIndex = 0;
+  });
+  ['sdpSalRole','sdpSalBasic','sdpSalNotes','sdpSalNet'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['sdpSalAllow','sdpSalDeduct','sdpSalNHIF','sdpSalNSSF'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '0';
+  });
+  const t = document.getElementById('sdpSalaryFormTitle');
+  if (t) t.innerHTML = '<i class="fa-solid fa-money-bill-wave"></i> Set / Update Staff Salary';
+}
+
+function sdpRenderSalaryTable() {
+  const body = document.getElementById('sdpSalBody');
+  if (!body) return;
+  const data = loadStaffSalaries();
+  if (!data.length) {
+    body.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No salary records yet. Select a staff member above to add one.</td></tr>';
+    return;
+  }
+  body.innerHTML = data.map((r, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td><strong>${r.name}</strong></td>
+      <td>${r.role || '—'}</td>
+      <td><span class="badge">${r.type}</span></td>
+      <td>KES ${Number(r.basic).toLocaleString()}</td>
+      <td>KES ${Number(r.allow).toLocaleString()}</td>
+      <td>KES ${Number(r.deduct).toLocaleString()}</td>
+      <td>KES ${Number(r.nhif).toLocaleString()}</td>
+      <td>KES ${Number(r.nssf).toLocaleString()}</td>
+      <td style="font-weight:700;color:var(--primary)">KES ${Number(r.net).toLocaleString()}</td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="sdpEditSalaryRecord('${r.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-danger btn-xs"  onclick="sdpDeleteSalaryRecord('${r.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function sdpEditSalaryRecord(id) {
+  const r = loadStaffSalaries().find(x => x.id === id);
+  if (!r) return;
+  sdpPopulateSalaryStaffDropdown();
+  sdpFillSalaryForm(r);
+  const t = document.getElementById('sdpSalaryFormTitle');
+  if (t) t.innerHTML = '<i class="fa-solid fa-pen"></i> Edit Salary Record';
+  window.scrollTo({ top: document.getElementById('sdpSalary')?.offsetTop || 0, behavior: 'smooth' });
+}
+
+function sdpDeleteSalaryRecord(id) {
+  if (!confirm('Delete this salary record? It will also be removed from Finances.')) return;
+  let data = loadStaffSalaries().filter(r => r.id !== id);
+  saveStaffSalariesToStorage(data);
+  sdpRenderSalaryTable();
+  renderStaffSalaryTable();  // sync Finances table
+  showToast('Salary record deleted.');
+}
+
 
 function platExportStaffCSV() {
   const data = loadStaffDetails();

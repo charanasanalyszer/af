@@ -3652,3 +3652,19 @@ body.dark .sbar { background: rgba(255,255,255,0.10) !important; }
 .people-main-panel.active {
   display: block;
 }
+
+/* ── People Section Tab Panel Safety Fix ── */
+#pplStList.active,
+#pplStAddEdit.active,
+#pplStRoles.active,
+#pplStDocs.active {
+  display: block !important;
+}
+
+#peopleStaffPanel.active {
+  display: block !important;
+}
+
+#peopleBOMPanel.active {
+  display: block !important;
+}
