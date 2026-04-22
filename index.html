@@ -217,7 +217,8 @@
       <a class="sn" data-s="classes"     onclick="go('classes',this)"><i class="fa-solid fa-school"></i><span>Classes &amp; Streams</span></a>
       <!-- 4. Teachers — set up before assigning -->
       <a class="sn" data-s="teachers"    onclick="go('teachers',this)"><i class="fa-solid fa-chalkboard-user"></i><span>Teachers</span></a>
-
+      <a class="sn" data-s="people"      onclick="go('people',this)"><i class="fa-solid fa-users"></i><span>Staff &amp; BOM</span></a>
+      <a class="sn" data-s="staffdetails" onclick="go('staffdetails',this)"><i class="fa-solid fa-id-card"></i><span>Staff Details</span></a>
       <!-- 5. Students — enrol after classes exist -->
       <a class="sn" data-s="students"    onclick="go('students',this)"><i class="fa-solid fa-user-graduate"></i><span>Students</span></a>
 
@@ -3496,18 +3497,6 @@
       <!-- ══════════════════════════════════════════════ -->
       <div id="platTab-access" class="plat-tab-panel" style="display:none">
 
-      <!-- Access Control inner tab bar -->
-      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:1.25rem;border-bottom:2px solid var(--border)">
-        <div id="accessInnerTabBar" style="display:flex;gap:0;min-width:max-content">
-          <button class="access-inner-tab-btn" onclick="openAccessInnerTab('accessInner-main',this)" style="padding:.6rem 1rem;border:none;border-bottom:3px solid var(--primary,#4f7cff);cursor:pointer;font-size:.82rem;font-weight:700;background:var(--primary,#4f7cff);color:#fff;transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-lock"></i> Access Control</button>
-          <button class="access-inner-tab-btn" onclick="openAccessInnerTab('accessInner-staff',this)" style="padding:.6rem 1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-users"></i> Staff</button>
-          <button class="access-inner-tab-btn" onclick="openAccessInnerTab('accessInner-bom',this)" style="padding:.6rem 1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-user-tie"></i> BOM</button>
-        </div>
-      </div>
-
-      <!-- Inner tab: main Access Control content -->
-      <div id="accessInner-main" class="access-inner-panel">
-
         <div class="card" style="border-left:4px solid #f59e0b">
           <h3><i class="fa-solid fa-lock"></i> Exam Print / Download Access Control</h3>
           <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">Control whether teachers and guest users can print or download exams from the Exam Builder. Set a fee (KES) to require payment, or 0 for free access.</p>
@@ -3594,68 +3583,6 @@
           </div>
         </div>
 
-      </div><!-- /accessInner-main -->
-
-      <!-- Inner tab: Staff Directory (Access Control context) -->
-      <div id="accessInner-staff" class="access-inner-panel" style="display:none">
-        <div class="card" style="border-left:4px solid #3b82f6">
-          <h3><i class="fa-solid fa-users"></i> Staff Directory</h3>
-          <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">View and manage non-teaching staff across the platform. Click a school to filter staff by school.</p>
-          <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem">
-            <div class="search-box"><span><i class="fa-solid fa-magnifying-glass"></i></span><input type="text" id="platStaffSearch" placeholder="Search name, role, ID…" oninput="platStaffFilter()"/></div>
-            <select id="platStaffSchoolFilter" style="height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem" onchange="platStaffFilter()">
-              <option value="">All Schools</option>
-            </select>
-            <select id="platStaffDeptFilter" style="height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem" onchange="platStaffFilter()">
-              <option value="">All Departments</option>
-              <option>Administration</option><option>Academics</option><option>Finance</option>
-              <option>Library</option><option>Laboratory</option><option>ICT</option>
-              <option>Health</option><option>Guidance &amp; Counselling</option><option>Support Services</option>
-            </select>
-          </div>
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr>
-                <th>#</th><th>Name</th><th>Role / Position</th><th>Department</th>
-                <th>School</th><th>Phone</th><th>Staff ID</th><th>Status</th>
-              </tr></thead>
-              <tbody id="platStaffBody">
-                <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">
-                  <i class="fa-solid fa-circle-info"></i> Staff records are managed inside each school. Select a school above to view its staff.
-                </td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div><!-- /accessInner-staff -->
-
-      <!-- Inner tab: BOM Members (Access Control context) -->
-      <div id="accessInner-bom" class="access-inner-panel" style="display:none">
-        <div class="card" style="border-left:4px solid #7c3aed">
-          <h3><i class="fa-solid fa-user-tie"></i> Board of Management (BOM) Directory</h3>
-          <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">View Board of Management members across all schools.</p>
-          <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem">
-            <div class="search-box"><span><i class="fa-solid fa-magnifying-glass"></i></span><input type="text" id="platBomSearch" placeholder="Search name, position…" oninput="platBomFilter()"/></div>
-            <select id="platBomSchoolFilter" style="height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem" onchange="platBomFilter()">
-              <option value="">All Schools</option>
-            </select>
-          </div>
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr>
-                <th>#</th><th>Name</th><th>Position</th><th>School</th>
-                <th>Phone</th><th>Email</th><th>Term Start</th><th>Term End</th>
-              </tr></thead>
-              <tbody id="platBomBody">
-                <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">
-                  <i class="fa-solid fa-circle-info"></i> BOM records are managed inside each school. Select a school above to view its BOM.
-                </td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div><!-- /accessInner-bom -->
-
       </div><!-- /platTab-access -->
 
       <!-- ══════════════════════════════════════════════ -->
@@ -3686,18 +3613,6 @@
       <!-- TAB 5: SYSTEM                                 -->
       <!-- ══════════════════════════════════════════════ -->
       <div id="platTab-system" class="plat-tab-panel" style="display:none">
-
-      <!-- System inner tab bar -->
-      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:1.25rem;border-bottom:2px solid var(--border)">
-        <div id="systemInnerTabBar" style="display:flex;gap:0;min-width:max-content">
-          <button class="system-inner-tab-btn" onclick="openSystemInnerTab('systemInner-main',this)" style="padding:.6rem 1rem;border:none;border-bottom:3px solid var(--primary,#4f7cff);cursor:pointer;font-size:.82rem;font-weight:700;background:var(--primary,#4f7cff);color:#fff;transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-gear"></i> System</button>
-          <button class="system-inner-tab-btn" onclick="openSystemInnerTab('systemInner-staff',this)" style="padding:.6rem 1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-users"></i> Staff</button>
-          <button class="system-inner-tab-btn" onclick="openSystemInnerTab('systemInner-bom',this)" style="padding:.6rem 1rem;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.82rem;font-weight:500;background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-user-tie"></i> BOM</button>
-        </div>
-      </div>
-
-      <!-- Inner tab: main System content -->
-      <div id="systemInner-main" class="system-inner-panel">
 
         <!-- <i class="fa-solid fa-bolt"></i> Congestion Lite Mode -->
         <div class="card" style="border-left:4px solid #f59e0b;margin-bottom:1.5rem" id="liteModeCard">
@@ -3826,64 +3741,6 @@
         </div>
       </div>
 
-
-      </div><!-- /systemInner-main -->
-
-      <!-- Inner tab: Staff (System context) -->
-      <div id="systemInner-staff" class="system-inner-panel" style="display:none">
-        <div class="card" style="border-left:4px solid #3b82f6;margin-bottom:1.5rem">
-          <h3><i class="fa-solid fa-users"></i> Staff — Platform Overview</h3>
-          <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">Platform-wide view of all staff members. Add or manage staff within each school's portal.</p>
-          <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem">
-            <div class="search-box"><span><i class="fa-solid fa-magnifying-glass"></i></span><input type="text" id="sysStaffSearch" placeholder="Search name, role, ID…" oninput="sysStaffFilter()"/></div>
-            <select id="sysStaffSchoolFilter" style="height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem" onchange="sysStaffFilter()">
-              <option value="">All Schools</option>
-            </select>
-          </div>
-          <div id="sysStaffSummary" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem"></div>
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr>
-                <th>#</th><th>Name</th><th>Role / Position</th><th>Department</th>
-                <th>School</th><th>Phone</th><th>Status</th>
-              </tr></thead>
-              <tbody id="sysStaffBody">
-                <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">
-                  <i class="fa-solid fa-circle-info"></i> Staff are managed inside each school. Use the filter above to view by school.
-                </td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div><!-- /systemInner-staff -->
-
-      <!-- Inner tab: BOM (System context) -->
-      <div id="systemInner-bom" class="system-inner-panel" style="display:none">
-        <div class="card" style="border-left:4px solid #7c3aed;margin-bottom:1.5rem">
-          <h3><i class="fa-solid fa-user-tie"></i> BOM — Platform Overview</h3>
-          <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">Platform-wide view of all Board of Management members across registered schools.</p>
-          <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem">
-            <div class="search-box"><span><i class="fa-solid fa-magnifying-glass"></i></span><input type="text" id="sysBomSearch" placeholder="Search name, position…" oninput="sysBomFilter()"/></div>
-            <select id="sysBomSchoolFilter" style="height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem" onchange="sysBomFilter()">
-              <option value="">All Schools</option>
-            </select>
-          </div>
-          <div id="sysBomSummary" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem"></div>
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr>
-                <th>#</th><th>Name</th><th>Position</th><th>School</th>
-                <th>Phone</th><th>Email</th><th>Term Start</th><th>Term End</th>
-              </tr></thead>
-              <tbody id="sysBomBody">
-                <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">
-                  <i class="fa-solid fa-circle-info"></i> BOM members are managed inside each school. Use the filter above to view by school.
-                </td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div><!-- /systemInner-bom -->
 
       </div><!-- /platTab-system -->
 
@@ -5122,7 +4979,8 @@ document.addEventListener('DOMContentLoaded', function() {
   <a class="mbn-item active" data-s="dashboard"   onclick="go('dashboard',this);mbnActivate(this)"><i><i class="fa-solid fa-house"></i></i><span>Home</span></a>
   <a class="mbn-item"        data-s="students"    onclick="go('students',this);mbnActivate(this)"><i class="fa-solid fa-user-graduate"></i><span>Students</span></a>
   <a class="mbn-item"        data-s="teachers"    onclick="go('teachers',this);mbnActivate(this)"><i class="fa-solid fa-chalkboard-user"></i><span>Teachers</span></a>
-
+  <a class="mbn-item"        data-s="people"      onclick="go('people',this);mbnActivate(this)"><i class="fa-solid fa-users"></i><span>Staff</span></a>
+  <a class="mbn-item"        data-s="staffdetails" onclick="go('staffdetails',this);mbnActivate(this)"><i class="fa-solid fa-id-card"></i><span>Details</span></a>
   <a class="mbn-item"        data-s="classes"     onclick="go('classes',this);mbnActivate(this)"><i class="fa-solid fa-school"></i><span>Classes</span></a>
   <a class="mbn-item"        data-s="subjects"    onclick="go('subjects',this);mbnActivate(this)"><i class="fa-solid fa-book"></i><span>Subjects</span></a>
   <a class="mbn-item"        data-s="timetable"   onclick="go('timetable',this);mbnActivate(this)"><i><i class="fa-solid fa-clock"></i></i><span>Timetable</span></a>
