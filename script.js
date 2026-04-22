@@ -19263,3 +19263,177 @@ function rptBarChart(obj, total, defaultColor, colorMap) {
     </div>`;
   }).join('');
 }
+
+// ── Inner tab switcher: Access Control ──
+function openAccessInnerTab(tabId, btn) {
+  document.querySelectorAll('#platTab-access .access-inner-panel').forEach(p => { p.style.display = 'none'; });
+  document.querySelectorAll('#accessInnerTabBar .access-inner-tab-btn').forEach(b => {
+    b.style.background = 'var(--surface)';
+    b.style.color = 'var(--text)';
+    b.style.borderBottom = '3px solid transparent';
+    b.style.fontWeight = '500';
+  });
+  const panel = document.getElementById(tabId);
+  if (panel) { panel.style.display = 'block'; }
+  if (btn) {
+    btn.style.background = 'var(--primary, #4f7cff)';
+    btn.style.color = '#fff';
+    btn.style.borderBottom = '3px solid var(--primary, #4f7cff)';
+    btn.style.fontWeight = '700';
+  }
+  if (tabId === 'accessInner-staff') platPopulateStaffSchoolFilter();
+  if (tabId === 'accessInner-bom')   platPopulateBomSchoolFilter();
+}
+
+function platPopulateStaffSchoolFilter() {
+  const sel = document.getElementById('platStaffSchoolFilter');
+  if (!sel) return;
+  const schools = JSON.parse(localStorage.getItem('platform_schools') || '[]');
+  sel.innerHTML = '<option value="">All Schools</option>' +
+    schools.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+function platStaffFilter() {
+  const q = (document.getElementById('platStaffSearch')?.value || '').toLowerCase();
+  const schId = document.getElementById('platStaffSchoolFilter')?.value || '';
+  const dept = document.getElementById('platStaffDeptFilter')?.value || '';
+  const schools = JSON.parse(localStorage.getItem('platform_schools') || '[]');
+  let rows = [];
+  schools.forEach(sch => {
+    if (schId && sch.id !== schId) return;
+    const staff = JSON.parse(localStorage.getItem('pst_' + sch.id) || '[]');
+    staff.forEach(m => { rows.push({...m, schoolName: sch.name}); });
+  });
+  if (q)    rows = rows.filter(r => (r.name+r.role+r.tsc).toLowerCase().includes(q));
+  if (dept) rows = rows.filter(r => r.dept === dept);
+  const body = document.getElementById('platStaffBody');
+  if (!body) return;
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem"><i class="fa-solid fa-circle-info"></i> No staff records found.</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map((r,i) => `<tr>
+    <td>${i+1}</td><td>${r.name||''}</td><td>${r.role||''}</td><td>${r.dept||''}</td>
+    <td>${r.schoolName||''}</td><td>${r.phone||''}</td>
+    <td><span style="padding:.15rem .55rem;border-radius:5px;font-size:.75rem;font-weight:700;background:${r.status==='Inactive'?'rgba(239,68,68,.12)':'rgba(16,185,129,.12)'};color:${r.status==='Inactive'?'#dc2626':'#065f46'}">${r.status||'Active'}</span></td>
+  </tr>`).join('');
+}
+
+function platPopulateBomSchoolFilter() {
+  const sel = document.getElementById('platBomSchoolFilter');
+  if (!sel) return;
+  const schools = JSON.parse(localStorage.getItem('platform_schools') || '[]');
+  sel.innerHTML = '<option value="">All Schools</option>' +
+    schools.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+function platBomFilter() {
+  const q = (document.getElementById('platBomSearch')?.value || '').toLowerCase();
+  const schId = document.getElementById('platBomSchoolFilter')?.value || '';
+  const schools = JSON.parse(localStorage.getItem('platform_schools') || '[]');
+  let rows = [];
+  schools.forEach(sch => {
+    if (schId && sch.id !== schId) return;
+    const bom = JSON.parse(localStorage.getItem('bom_' + sch.id) || '[]');
+    bom.forEach(m => { rows.push({...m, schoolName: sch.name}); });
+  });
+  if (q) rows = rows.filter(r => (r.name+r.position).toLowerCase().includes(q));
+  const body = document.getElementById('platBomBody');
+  if (!body) return;
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem"><i class="fa-solid fa-circle-info"></i> No BOM records found.</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map((r,i) => `<tr>
+    <td>${i+1}</td><td>${r.name||''}</td><td>${r.position||''}</td><td>${r.schoolName||''}</td>
+    <td>${r.phone||''}</td><td>${r.email||''}</td><td>${r.termStart||''}</td><td>${r.termEnd||''}</td>
+  </tr>`).join('');
+}
+
+// ── Inner tab switcher: System ──
+function openSystemInnerTab(tabId, btn) {
+  document.querySelectorAll('#platTab-system .system-inner-panel').forEach(p => { p.style.display = 'none'; });
+  document.querySelectorAll('#systemInnerTabBar .system-inner-tab-btn').forEach(b => {
+    b.style.background = 'var(--surface)';
+    b.style.color = 'var(--text)';
+    b.style.borderBottom = '3px solid transparent';
+    b.style.fontWeight = '500';
+  });
+  const panel = document.getElementById(tabId);
+  if (panel) { panel.style.display = 'block'; }
+  if (btn) {
+    btn.style.background = 'var(--primary, #4f7cff)';
+    btn.style.color = '#fff';
+    btn.style.borderBottom = '3px solid var(--primary, #4f7cff)';
+    btn.style.fontWeight = '700';
+  }
+  if (tabId === 'systemInner-staff') sysPopulateStaffSchoolFilter();
+  if (tabId === 'systemInner-bom')   sysPopulateBomSchoolFilter();
+}
+
+function sysPopulateStaffSchoolFilter() {
+  const sel = document.getElementById('sysStaffSchoolFilter');
+  if (!sel) return;
+  const schools = JSON.parse(localStorage.getItem('platform_schools') || '[]');
+  sel.innerHTML = '<option value="">All Schools</option>' +
+    schools.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+function sysStaffFilter() {
+  const q = (document.getElementById('sysStaffSearch')?.value || '').toLowerCase();
+  const schId = document.getElementById('sysStaffSchoolFilter')?.value || '';
+  const schools = JSON.parse(localStorage.getItem('platform_schools') || '[]');
+  let rows = [];
+  schools.forEach(sch => {
+    if (schId && sch.id !== schId) return;
+    const staff = JSON.parse(localStorage.getItem('pst_' + sch.id) || '[]');
+    staff.forEach(m => { rows.push({...m, schoolName: sch.name}); });
+  });
+  if (q) rows = rows.filter(r => (r.name+r.role+r.tsc).toLowerCase().includes(q));
+  const body = document.getElementById('sysStaffBody');
+  if (!body) return;
+  const summary = document.getElementById('sysStaffSummary');
+  if (summary) summary.innerHTML = `<div style="padding:.55rem .9rem;border-radius:8px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);font-size:.82rem;font-weight:700;color:#1d4ed8"><i class="fa-solid fa-users"></i> Total: ${rows.length} staff</div>`;
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem"><i class="fa-solid fa-circle-info"></i> No staff records found.</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map((r,i) => `<tr>
+    <td>${i+1}</td><td>${r.name||''}</td><td>${r.role||''}</td><td>${r.dept||''}</td>
+    <td>${r.schoolName||''}</td><td>${r.phone||''}</td>
+    <td><span style="padding:.15rem .55rem;border-radius:5px;font-size:.75rem;font-weight:700;background:${r.status==='Inactive'?'rgba(239,68,68,.12)':'rgba(16,185,129,.12)'};color:${r.status==='Inactive'?'#dc2626':'#065f46'}">${r.status||'Active'}</span></td>
+  </tr>`).join('');
+}
+
+function sysPopulateBomSchoolFilter() {
+  const sel = document.getElementById('sysBomSchoolFilter');
+  if (!sel) return;
+  const schools = JSON.parse(localStorage.getItem('platform_schools') || '[]');
+  sel.innerHTML = '<option value="">All Schools</option>' +
+    schools.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+function sysBomFilter() {
+  const q = (document.getElementById('sysBomSearch')?.value || '').toLowerCase();
+  const schId = document.getElementById('sysBomSchoolFilter')?.value || '';
+  const schools = JSON.parse(localStorage.getItem('platform_schools') || '[]');
+  let rows = [];
+  schools.forEach(sch => {
+    if (schId && sch.id !== schId) return;
+    const bom = JSON.parse(localStorage.getItem('bom_' + sch.id) || '[]');
+    bom.forEach(m => { rows.push({...m, schoolName: sch.name}); });
+  });
+  if (q) rows = rows.filter(r => (r.name+r.position).toLowerCase().includes(q));
+  const body = document.getElementById('sysBomBody');
+  if (!body) return;
+  const summary = document.getElementById('sysBomSummary');
+  if (summary) summary.innerHTML = `<div style="padding:.55rem .9rem;border-radius:8px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);font-size:.82rem;font-weight:700;color:#6d28d9"><i class="fa-solid fa-user-tie"></i> Total: ${rows.length} BOM members</div>`;
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem"><i class="fa-solid fa-circle-info"></i> No BOM records found.</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map((r,i) => `<tr>
+    <td>${i+1}</td><td>${r.name||''}</td><td>${r.position||''}</td><td>${r.schoolName||''}</td>
+    <td>${r.phone||''}</td><td>${r.email||''}</td><td>${r.termStart||''}</td><td>${r.termEnd||''}</td>
+  </tr>`).join('');
+}
