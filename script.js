@@ -1231,6 +1231,16 @@ function guestShowTab(which) {
 //   PLATFORM ADMIN — EXAM DOWNLOAD FEE CONTROLS
 // ══════════════════════════════════════════════
 // ── Platform Admin Tab Switcher ──────────────────────────
+function platNavbarTab(tabId, btnId) {
+  // Sync the inner tab bar (hidden for platform admin mode, but keep state correct)
+  const innerBtn = document.querySelector('#platTabBar .plat-tab-btn[onclick*="' + tabId + '"]');
+  openPlatTab(tabId, innerBtn);
+  // Update navbar active state
+  document.querySelectorAll('.plat-nb-btn').forEach(b => b.classList.remove('active'));
+  const nb = document.getElementById(btnId);
+  if (nb) nb.classList.add('active');
+}
+
 function openPlatTab(tabId, btn) {
   if (tabId === 'platTab-system') { setTimeout(platRenderLiteModeConfig, 50); }
   document.querySelectorAll('#s-platform .plat-tab-panel').forEach(p => { p.style.display = 'none'; });
@@ -1356,6 +1366,9 @@ function enterPlatformDashboard() {
     if (el.dataset.s !== 'platform') el.style.display='none';
   });
   const platLink = document.getElementById('platNavLink'); if(platLink) platLink.style.display='';
+  // Show platform admin navbar (desktop) and mobile platform tab items
+  document.body.classList.add('plat-admin-mode');
+  document.querySelectorAll('.mbn-plat').forEach(el => el.style.display = '');
   if (localStorage.getItem('ei_dark')==='1') applyDark(true);
   renderPlatformDashboard();
   platRenderNavConfig();
@@ -1379,6 +1392,9 @@ function enterSchoolAsPlatformAdmin(schoolId) {
     canAnalyse: true, canReport: true, canMerit: true,
     _impersonatedByPlatformAdmin: true
   };
+  // Hide platform admin navbar when impersonating a school
+  document.body.classList.remove('plat-admin-mode');
+  document.querySelectorAll('.mbn-plat').forEach(el => el.style.display = 'none');
   // Show back-to-platform banner
   const btp = document.getElementById('backToPlatformBar');
   if (btp) btp.style.display = 'flex';
@@ -2810,6 +2826,9 @@ let _platformAdminSession = null;
 
 function backToPlatformPortal() {
   if (!_platformAdminSession) { doLogout(); return; }
+  // Re-enable platform admin mode UI when returning to platform portal
+  document.body.classList.add('plat-admin-mode');
+  document.querySelectorAll('.mbn-plat').forEach(el => el.style.display = '');
   // Restore platform admin session
   currentUser     = _platformAdminSession.user;
   currentSchoolId = null;
@@ -3178,6 +3197,11 @@ function doLogout() {
   // Also restore papers upload card visibility
   const termlyUpload = document.getElementById('termlyUploadCard'); if (termlyUpload) termlyUpload.style.display='';
   const platLink=document.getElementById('platNavLink'); if(platLink) platLink.style.display='none';
+  // Clean up platform admin mode
+  document.body.classList.remove('plat-admin-mode');
+  document.querySelectorAll('.mbn-plat').forEach(el => el.style.display = 'none');
+  const platAdminNavbar = document.getElementById('platAdminNavbar');
+  if (platAdminNavbar) platAdminNavbar.style.display = 'none';
   // Hide all login screens, then show the main unified login
   ['loginScreen','platformLogin','dualPortal','schoolSelector'].forEach(id => {
     const el = document.getElementById(id); if (el) el.style.display = 'none';

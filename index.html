@@ -207,9 +207,6 @@
     </div>
     <div class="sb-school-name" id="sbSchoolName">School Name</div>
     <nav class="sb-nav">
-      <!-- 1. Dashboard -->
-      <a class="sn active" data-s="dashboard" onclick="go('dashboard',this)"><i class="fa-solid fa-house"></i><span>Dashboard</span></a>
-
       <div class="sb-section-lbl">Setup</div>
       <!-- 2. Subjects — must exist before classes or exams -->
       <a class="sn" data-s="subjects"    onclick="go('subjects',this)"><i class="fa-solid fa-book"></i><span>Subjects</span></a>
@@ -217,7 +214,6 @@
       <a class="sn" data-s="classes"     onclick="go('classes',this)"><i class="fa-solid fa-school"></i><span>Classes &amp; Streams</span></a>
       <!-- 4. Teachers — set up before assigning -->
       <a class="sn" data-s="teachers"    onclick="go('teachers',this)"><i class="fa-solid fa-chalkboard-user"></i><span>Teachers</span></a>
-      <a class="sn" data-s="people"      onclick="go('people',this)"><i class="fa-solid fa-users"></i><span>Staff &amp; BOM</span></a>
       <a class="sn" data-s="staffdetails" onclick="go('staffdetails',this)"><i class="fa-solid fa-id-card"></i><span>Staff Details</span></a>
       <!-- 5. Students — enrol after classes exist -->
       <a class="sn" data-s="students"    onclick="go('students',this)"><i class="fa-solid fa-user-graduate"></i><span>Students</span></a>
@@ -271,6 +267,19 @@
       <button class="tb tb-dark-toggle" onclick="toggleDark()" title="Toggle dark mode" id="tbDarkBtn"><i id="tbDmIco"><i class="fa-solid fa-moon"></i></i></button>
       <div class="tb-user" id="tbUser"><i class="fa-solid fa-circle-user" style="margin-right:.3rem"></i>Super Admin</div>
       <button class="tb tb-logout-btn" onclick="doLogout()" title="Logout" id="tbLogoutBtn"><i class="fa-solid fa-arrow-right-from-bracket" style="margin-right:.3rem"></i>Logout</button>
+    </div>
+  </div>
+
+  <!-- PLATFORM ADMIN NAVBAR — visible only for platform admin users -->
+  <div id="platAdminNavbar" style="display:none;position:fixed;top:var(--tb-h,52px);left:var(--sb-w,256px);right:0;z-index:38;background:var(--surface);border-bottom:2px solid var(--primary,#4f7cff);box-shadow:0 2px 8px rgba(79,124,255,.10);overflow-x:auto;-webkit-overflow-scrolling:touch;transition:left .25s">
+    <div style="display:flex;gap:0;min-width:max-content;align-items:stretch">
+      <button class="plat-nb-btn active" id="platNb-schools" onclick="platNavbarTab('platTab-schools','platNb-schools')"><i class="fa-solid fa-school"></i><span>Schools</span></button>
+      <button class="plat-nb-btn" id="platNb-exams" onclick="platNavbarTab('platTab-exams','platNb-exams')"><i class="fa-solid fa-file-pen"></i><span>Exams &amp; Papers</span></button>
+      <button class="plat-nb-btn" id="platNb-access" onclick="platNavbarTab('platTab-access','platNb-access')"><i class="fa-solid fa-lock"></i><span>Access</span></button>
+      <button class="plat-nb-btn" id="platNb-broadcast" onclick="platNavbarTab('platTab-broadcast','platNb-broadcast')"><i class="fa-solid fa-bullhorn"></i><span>Broadcast</span></button>
+      <button class="plat-nb-btn" id="platNb-system" onclick="platNavbarTab('platTab-system','platNb-system')"><i class="fa-solid fa-gear"></i><span>System</span></button>
+      <button class="plat-nb-btn" id="platNb-contact" onclick="platNavbarTab('platTab-contact','platNb-contact')"><i class="fa-solid fa-phone"></i><span>Contact &amp; Chat</span></button>
+      <button class="plat-nb-btn" id="platNb-bugdetector" onclick="platNavbarTab('platTab-bugdetector','platNb-bugdetector');bugDetectorInit()"><i class="fa-solid fa-bug"></i><span>Bug Detector</span></button>
     </div>
   </div>
 
@@ -5452,11 +5461,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Mobile bottom navigation (phones only, scrollable) -->
 <nav class="mobile-bottom-nav" id="mobileBottomNav" style="display:none">
-  <a class="mbn-item active" data-s="dashboard"   onclick="go('dashboard',this);mbnActivate(this)"><i><i class="fa-solid fa-house"></i></i><span>Home</span></a>
-  <a class="mbn-item"        data-s="students"    onclick="go('students',this);mbnActivate(this)"><i class="fa-solid fa-user-graduate"></i><span>Students</span></a>
+  <a class="mbn-item active" data-s="students"    onclick="go('students',this);mbnActivate(this)"><i class="fa-solid fa-user-graduate"></i><span>Students</span></a>
   <a class="mbn-item"        data-s="teachers"    onclick="go('teachers',this);mbnActivate(this)"><i class="fa-solid fa-chalkboard-user"></i><span>Teachers</span></a>
-  <a class="mbn-item"        data-s="people"      onclick="go('people',this);mbnActivate(this)"><i class="fa-solid fa-users"></i><span>Staff</span></a>
-  <a class="mbn-item"        data-s="staffdetails" onclick="go('staffdetails',this);mbnActivate(this)"><i class="fa-solid fa-id-card"></i><span>Details</span></a>
+  <a class="mbn-item"        data-s="staffdetails" onclick="go('staffdetails',this);mbnActivate(this)"><i class="fa-solid fa-id-card"></i><span>Staff</span></a>
   <a class="mbn-item"        data-s="classes"     onclick="go('classes',this);mbnActivate(this)"><i class="fa-solid fa-school"></i><span>Classes</span></a>
   <a class="mbn-item"        data-s="subjects"    onclick="go('subjects',this);mbnActivate(this)"><i class="fa-solid fa-book"></i><span>Subjects</span></a>
   <a class="mbn-item"        data-s="timetable"   onclick="go('timetable',this);mbnActivate(this)"><i><i class="fa-solid fa-clock"></i></i><span>Timetable</span></a>
@@ -5467,6 +5474,14 @@ document.addEventListener('DOMContentLoaded', function() {
   <a class="mbn-item"        data-s="fees"        onclick="go('fees',this);mbnActivate(this)"><i class="fa-solid fa-coins"></i><span>Fees</span></a>
   <a class="mbn-item"        data-s="messaging"   onclick="go('messaging',this);mbnActivate(this)"><i class="fa-solid fa-comments"></i><span>Messaging</span></a>
   <a class="mbn-item mbn-yellow" data-s="settings" onclick="go('settings',this);mbnActivate(this)"><i class="fa-solid fa-sliders"></i><span>Settings</span></a>
+  <!-- Platform Admin tabs - shown only for platform admin -->
+  <a class="mbn-item mbn-plat" id="mbnPlat-schools" style="display:none" onclick="go('platform',document.getElementById('platNavLink'));mbnActivate(this);platNavbarTab('platTab-schools','platNb-schools')"><i class="fa-solid fa-school"></i><span>Schools</span></a>
+  <a class="mbn-item mbn-plat" id="mbnPlat-exams" style="display:none" onclick="go('platform',document.getElementById('platNavLink'));mbnActivate(this);platNavbarTab('platTab-exams','platNb-exams')"><i class="fa-solid fa-file-pen"></i><span>Exams</span></a>
+  <a class="mbn-item mbn-plat" id="mbnPlat-access" style="display:none" onclick="go('platform',document.getElementById('platNavLink'));mbnActivate(this);platNavbarTab('platTab-access','platNb-access')"><i class="fa-solid fa-lock"></i><span>Access</span></a>
+  <a class="mbn-item mbn-plat" id="mbnPlat-broadcast" style="display:none" onclick="go('platform',document.getElementById('platNavLink'));mbnActivate(this);platNavbarTab('platTab-broadcast','platNb-broadcast')"><i class="fa-solid fa-bullhorn"></i><span>Broadcast</span></a>
+  <a class="mbn-item mbn-plat" id="mbnPlat-system" style="display:none" onclick="go('platform',document.getElementById('platNavLink'));mbnActivate(this);platNavbarTab('platTab-system','platNb-system')"><i class="fa-solid fa-gear"></i><span>System</span></a>
+  <a class="mbn-item mbn-plat" id="mbnPlat-contact" style="display:none" onclick="go('platform',document.getElementById('platNavLink'));mbnActivate(this);platNavbarTab('platTab-contact','platNb-contact')"><i class="fa-solid fa-phone"></i><span>Contact</span></a>
+  <a class="mbn-item mbn-plat" id="mbnPlat-bugdetector" style="display:none" onclick="go('platform',document.getElementById('platNavLink'));mbnActivate(this);platNavbarTab('platTab-bugdetector','platNb-bugdetector');bugDetectorInit()"><i class="fa-solid fa-bug"></i><span>Bugs</span></a>
   <!-- Dark mode toggle (hidden from nav) -->
   <button class="mbn-item mbn-dark-btn" onclick="toggleDark()" title="Toggle Dark Mode" style="display:none"><i id="mbnDmIco" class="fa-solid fa-moon"></i><span id="mbnDmLbl">Dark</span></button>
   <!-- Logout button (hidden from nav) -->
