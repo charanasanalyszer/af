@@ -8568,9 +8568,16 @@ async function es_generateTimetable() {
 
       // Also pull in stream-assigned teacher for this class (highest priority)
       const streamTeacher = es_getStreamAssignedTeacher(cls, sub.id);
-      const mergedTeachers = streamTeacher
+      let mergedTeachers = streamTeacher
         ? [streamTeacher.id, ...teacherIds.filter(id => id !== streamTeacher.id)]
         : teacherIds;
+
+      // Fallback: if STILL no teachers mapped, use all teachers so the slot
+      // is never left without a teacher due to missing subject assignments.
+      if (mergedTeachers.length === 0) {
+        mergedTeachers = es_state.teachers.map(t => t.id);
+      }
+
       const teachers = mergedTeachers;
       for (let i = 0; i < lpw; i++) {
         lessons.push({
@@ -8649,21 +8656,31 @@ async function es_generateTimetable() {
           if (daysWithoutThisSubject.length > 0 && daysWithoutThisSubject.includes(day) === false) continue;
         }
 
-        // Find available teacher
+        // ── Find available teacher ───────────────────────────────────────
+        // teacherUsage[tid][day][period] is set whenever a teacher is placed
+        // in ANY stream at that slot — this is the cross-stream collision guard.
+        // Constraint 1: a teacher cannot be in two streams at the same time.
+        // Constraint 2: a stream slot holds exactly one teacher (enforced by the
+        //               data model — only one teacherId per slot).
         let teacherId = null;
         const shuffledTeachers = [...lesson.teachers].sort(() => Math.random() - .5);
         for (const tid of shuffledTeachers) {
           const t = es_state.teachers.find(x => x.id === tid);
           if (!t) continue;
+          // Ensure usage map exists so the collision check below is reliable
+          if (!teacherUsage[tid])        teacherUsage[tid]        = {};
+          if (!teacherUsage[tid][day])   teacherUsage[tid][day]   = {};
+          // COLLISION GUARD: skip if teacher already placed anywhere at this slot
+          if (teacherUsage[tid][day][period]) continue;
           if (t.availability?.[day]?.[String(period+1)] === false) continue;
-          if (teacherUsage[tid]?.[day]?.[period]) continue;
-          const dayLoad  = Object.values(teacherUsage[tid]?.[day] || {}).filter(Boolean).length;
-          if (dayLoad >= t.maxPerDay) continue;
-          const weekLoad = Object.values(teacherUsage[tid]||{})
+          const dayLoad  = Object.values(teacherUsage[tid][day]).filter(Boolean).length;
+          if (dayLoad >= (t.maxPerDay || 6)) continue;
+          const weekLoad = Object.values(teacherUsage[tid])
             .reduce((s, dObj) => s + Object.values(dObj).filter(Boolean).length, 0);
-          if (weekLoad >= t.maxPerWeek) continue;
+          if (weekLoad >= (t.maxPerWeek || 25)) continue;
           teacherId = tid; break;
         }
+        // ────────────────────────────────────────────────────────────────
 
         // Find room
         let roomId = null;
@@ -14949,10 +14966,14 @@ function es_syncFromCharanas() {
   const chTeachers  = load(K.teachers);   // [{id, name, subjects[], …}]
   const chSubjects  = load(K.subjects);   // [{id, name, teacherId, …}]
 
-  /* Read stream-subject-teacher assignments from the dedicated key */
-  const kSA = schoolPrefix() + 'ei_streamassign';
-  let chSA  = [];
-  try { chSA = JSON.parse(localStorage.getItem(kSA)) || []; } catch {}
+  /* Read stream-subject-teacher assignments from the dedicated key.
+     The main system saves to 'ei_streamassign' (no school prefix) while
+     older builds saved with schoolPrefix(). Try both so neither is missed. */
+  let chSA = [];
+  try { chSA = JSON.parse(localStorage.getItem(schoolPrefix() + 'ei_streamassign')) || []; } catch {}
+  if (!chSA.length) {
+    try { chSA = JSON.parse(localStorage.getItem('ei_streamassign')) || []; } catch {}
+  }
 
   if (chClasses.length === 0 && chStreams.length === 0 && chTeachers.length === 0) {
     es_toast('No school data found. Add classes, teachers & subjects first.', 'warning');
