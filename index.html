@@ -2271,6 +2271,7 @@
       (function() {
         /* ── State ── */
         var ttTeachers  = [];
+        var ttStreamAssignments = []; /* [{ streamId, subjectId, teacherId }] */
         var ttSubjects  = [];
         var ttClasses   = [];
         var ttTimetable = {};
@@ -2410,6 +2411,7 @@
           renderTeacherList();
           renderClassList();
           updateStats();
+          ttStreamAssignments = chSA.slice();
           ttToast('Synced: ' + ttClasses.length + ' classes, ' + ttTeachers.length + ' teachers, ' + ttSubjects.length + ' subjects', 'ok');
         }
 
@@ -2607,10 +2609,19 @@
             el.innerHTML = '<div class="tt-empty" style="padding:.75rem"><div class="tt-empty-sub">No teachers added</div></div>'; return;
           }
           el.innerHTML = ttTeachers.map(function(t) {
-            var subs = t.subjects.map(function(sid){ var s=ttSubjects.find(function(x){return x.id===sid;}); return s?s.name:'?'; }).join(', ') || 'No subjects';
-            return '<div style="display:flex;align-items:center;gap:.4rem;padding:.4rem .45rem;border-radius:6px;background:var(--tt-navy3);margin-bottom:.25rem;">'
+            var assignLines = [];
+            if (ttStreamAssignments.length) {
+              ttStreamAssignments.filter(function(sa){ return sa.teacherId === t.id; }).forEach(function(sa) {
+                var cls = ttClasses.find(function(c){ return c.id === sa.streamId; });
+                var sub = ttSubjects.find(function(s){ return s.id === sa.subjectId; });
+                if (cls && sub) assignLines.push(clsName(cls) + ' → ' + sub.name);
+              });
+            }
+            var hasAssign = assignLines.length > 0;
+            var subs = hasAssign ? assignLines.join(' · ') : (t.subjects.map(function(sid){ var s=ttSubjects.find(function(x){return x.id===sid;}); return s?s.name:'?'; }).join(', ') || 'No subjects');
+            return '<div style="display:flex;align-items:center;gap:.4rem;padding:.4rem .45rem;border-radius:6px;background:var(--tt-navy3);margin-bottom:.25rem;border-left:3px solid '+(hasAssign?'var(--tt-teal)':'var(--tt-border2)')+';">' 
               +'<div style="flex:1;min-width:0"><div style="font-size:.76rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tt-text)">'+t.name+'</div>'
-              +'<div style="font-size:.63rem;color:var(--tt-text3);margin-top:1px">'+subs+'</div></div>'
+              +'<div style="font-size:.6rem;color:'+(hasAssign?'var(--tt-teal)':'var(--tt-text3)')+';margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+subs+'">'+(hasAssign?'[stream] ':'')+subs+'</div></div>'
               +'<button class="tt-btn tt-btn-sm tt-btn-outline" style="padding:.18rem .42rem;font-size:.65rem" onclick="tt_openTeacherModal(\''+t.id+'\')">✏</button>'
               +'<button class="tt-btn tt-btn-sm tt-btn-danger" style="padding:.18rem .42rem;font-size:.65rem" onclick="tt_deleteTeacher(\''+t.id+'\')">🗑</button>'
               +'</div>';
@@ -2768,7 +2779,28 @@
             var sub  = ttSubjects.find(function(s){ return s.id === item.subjectId; });
             var avoidDays    = (sub && sub.avoidDays)    || [];
             var avoidPeriods = (sub && sub.avoidPeriods) || [];
-            var eligible = ttTeachers.filter(function(t){ return t.subjects.indexOf(item.subjectId) >= 0; });
+            /* Only the teacher assigned to THIS subject in THIS stream/class */
+            var eligible = ttTeachers.filter(function(t) {
+              if (!ttStreamAssignments.length) {
+                return t.subjects.indexOf(item.subjectId) >= 0;
+              }
+              return ttStreamAssignments.some(function(sa) {
+                return sa.teacherId === t.id &&
+                       sa.subjectId === item.subjectId &&
+                       sa.streamId  === item.classId;
+              });
+            });
+            /* Fallback: only use subject-level match if NO stream assignment exists for this slot */
+            if (!eligible.length) {
+              var hasAnyAssign = ttStreamAssignments.some(function(sa) {
+                return sa.subjectId === item.subjectId && sa.streamId === item.classId;
+              });
+              if (hasAnyAssign) {
+                addLog('⚠ No free teacher for ' + (sub ? sub.name : '?') + ' in ' + clsName(ttClasses.find(function(c){return c.id===item.classId;})) + ' (assigned teacher busy)', 'warn');
+              } else {
+                eligible = ttTeachers.filter(function(t){ return t.subjects.indexOf(item.subjectId) >= 0; });
+              }
+            }
 
             if (item.isDouble) {
               /* ── Place a double (two consecutive periods on same day) ── */
@@ -3068,15 +3100,51 @@
             {id:ttUid(),grade:'Grade 8',stream:'North'},
             {id:ttUid(),grade:'Grade 8',stream:'South'},
           ];
+          /* Build stream assignments: each teacher owns specific subjects per stream */
+          var tids = ttTeachers.map(function(t){ return t.id; });
+          var cids = ttClasses.map(function(c){ return c.id; });
+          ttStreamAssignments = [];
+          // Mr. Kamau (MAT, SCI) → Grade 7 East & West
+          ttStreamAssignments.push({id:ttUid(),streamId:cids[0],subjectId:sids[0],teacherId:tids[0]});
+          ttStreamAssignments.push({id:ttUid(),streamId:cids[0],subjectId:sids[2],teacherId:tids[0]});
+          ttStreamAssignments.push({id:ttUid(),streamId:cids[1],subjectId:sids[0],teacherId:tids[0]});
+          ttStreamAssignments.push({id:ttUid(),streamId:cids[1],subjectId:sids[2],teacherId:tids[0]});
+          // Mr. Mutua (MAT, ENG) → Grade 8 North & South
+          ttStreamAssignments.push({id:ttUid(),streamId:cids[2],subjectId:sids[0],teacherId:tids[4]});
+          ttStreamAssignments.push({id:ttUid(),streamId:cids[2],subjectId:sids[1],teacherId:tids[4]});
+          ttStreamAssignments.push({id:ttUid(),streamId:cids[3],subjectId:sids[0],teacherId:tids[4]});
+          ttStreamAssignments.push({id:ttUid(),streamId:cids[3],subjectId:sids[1],teacherId:tids[4]});
+          // Ms. Wanjiku (ENG, KSW) → Grade 7 both streams
+          ttStreamAssignments.push({id:ttUid(),streamId:cids[0],subjectId:sids[1],teacherId:tids[1]});
+          ttStreamAssignments.push({id:ttUid(),streamId:cids[0],subjectId:sids[4],teacherId:tids[1]});
+          ttStreamAssignments.push({id:ttUid(),streamId:cids[1],subjectId:sids[1],teacherId:tids[1]});
+          ttStreamAssignments.push({id:ttUid(),streamId:cids[1],subjectId:sids[4],teacherId:tids[1]});
+          // Mr. Ochieng (SST, CRE) → all streams
+          [0,1,2,3].forEach(function(ci){
+            ttStreamAssignments.push({id:ttUid(),streamId:cids[ci],subjectId:sids[3],teacherId:tids[2]});
+            ttStreamAssignments.push({id:ttUid(),streamId:cids[ci],subjectId:sids[5],teacherId:tids[2]});
+          });
+          // Ms. Kiprop (SCI, SST) → Grade 8 (SCI only since Mr. Ochieng has SST)
+          ttStreamAssignments.push({id:ttUid(),streamId:cids[2],subjectId:sids[2],teacherId:tids[5]});
+          ttStreamAssignments.push({id:ttUid(),streamId:cids[3],subjectId:sids[2],teacherId:tids[5]});
+          // Ms. Rotich (ICT, PE) → all streams
+          [0,1,2,3].forEach(function(ci){
+            ttStreamAssignments.push({id:ttUid(),streamId:cids[ci],subjectId:sids[6],teacherId:tids[3]});
+            ttStreamAssignments.push({id:ttUid(),streamId:cids[ci],subjectId:sids[7],teacherId:tids[3]});
+          });
+          // Ms. Wanjiku also covers KSW for Grade 8
+          ttStreamAssignments.push({id:ttUid(),streamId:cids[2],subjectId:sids[4],teacherId:tids[1]});
+          ttStreamAssignments.push({id:ttUid(),streamId:cids[3],subjectId:sids[4],teacherId:tids[1]});
+
           /* Keep proxies in sync */
           window.ttSubjectsProxy = ttSubjects;
           window.ttClassesProxy  = ttClasses;
           renderSubjectList(); renderTeacherList(); renderClassList(); updateStats();
-          ttToast('Demo data loaded — MAT/SCI/ICT have doubles, PE/SST have avoid constraints. Click Generate!','ok');
+          ttToast('Demo loaded — stream assignments enforced. Each teacher only covers their designated streams. Click Generate!','ok');
         }
 
         function resetAll() {
-          ttTeachers=[]; ttSubjects=[]; ttClasses=[]; ttTimetable={}; ttTchrMap={}; ttSelClass=null;
+          ttTeachers=[]; ttSubjects=[]; ttClasses=[]; ttTimetable={}; ttTchrMap={}; ttSelClass=null; ttStreamAssignments=[];
           window.ttSubjectsProxy = ttSubjects;
           window.ttClassesProxy  = ttClasses;
           renderSubjectList(); renderTeacherList(); renderClassList(); updateStats();
