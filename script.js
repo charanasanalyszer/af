@@ -8592,14 +8592,18 @@ async function es_generateTimetable() {
 
       // Also pull in stream-assigned teacher for this class (highest priority)
       const streamTeacher = es_getStreamAssignedTeacher(cls, sub.id);
-      let mergedTeachers = streamTeacher
-        ? [streamTeacher.id, ...teacherIds.filter(id => id !== streamTeacher.id)]
-        : teacherIds;
-
-      // Fallback: if STILL no teachers mapped, use all teachers so the slot
-      // is never left without a teacher due to missing subject assignments.
-      if (mergedTeachers.length === 0) {
-        mergedTeachers = es_state.teachers.map(t => t.id);
+      let mergedTeachers;
+      if (streamTeacher) {
+        // Rule: only the teacher assigned to this stream+subject may teach this slot.
+        // No other teacher should assist or be used as a fallback.
+        mergedTeachers = [streamTeacher.id];
+      } else {
+        mergedTeachers = teacherIds;
+        // Fallback: if STILL no teachers mapped, use all teachers so the slot
+        // is never left without a teacher due to missing subject assignments.
+        if (mergedTeachers.length === 0) {
+          mergedTeachers = es_state.teachers.map(t => t.id);
+        }
       }
 
       const teachers = mergedTeachers;
@@ -9124,6 +9128,32 @@ function es_dragDrop(e, classId, day, period) {
   es_saveData(); es_runConflictCheck(); es_renderTimetableView();
 }
 
+/* ── Helper: restrict teacher dropdown in lesson-edit modal to the stream-assigned teacher ── */
+function es_filterEditTeachers(classId, subjectId) {
+  const teacherSel = document.getElementById('es_lessonEditTeacher');
+  if (!teacherSel) return;
+
+  let allowedTeachers = es_state.teachers; // default: all teachers
+
+  if (classId && subjectId) {
+    const cls = es_state.classes.find(c => c.id === classId);
+    if (cls) {
+      const streamTeacher = es_getStreamAssignedTeacher(cls, subjectId);
+      if (streamTeacher) {
+        // A specific teacher is assigned to this stream+subject — show only them
+        allowedTeachers = [streamTeacher];
+      }
+    }
+  }
+
+  const currentVal = teacherSel.value;
+  teacherSel.innerHTML =
+    '<option value="">— No Teacher —</option>' +
+    allowedTeachers.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+  // Restore previous selection if still valid
+  if (allowedTeachers.find(t => t.id === currentVal)) teacherSel.value = currentVal;
+}
+
 /* =====================================================
    LESSON EDIT MODAL
 ===================================================== */
@@ -9137,19 +9167,23 @@ function es_openLessonEdit(classId, day, period) {
 
   document.getElementById('es_lessonEditSubject').innerHTML =
     '<option value="">— Empty —</option>' + es_state.subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-  document.getElementById('es_lessonEditTeacher').innerHTML =
-    '<option value="">— No Teacher —</option>' + es_state.teachers.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
   document.getElementById('es_lessonEditRoom').innerHTML =
     '<option value="">— No Room —</option>' + es_state.rooms.map(r => `<option value="${r.id}">${r.name} (${r.type})</option>`).join('');
+
+  // Re-filter teacher dropdown whenever the subject changes in the edit modal
+  const _subSelEl = document.getElementById('es_lessonEditSubject');
+  _subSelEl.onchange = () => es_filterEditTeachers(classId, _subSelEl.value);
 
   const slot = es_state.timetable[classId]?.[day]?.[period];
   if (slot) {
     document.getElementById('es_lessonEditSubject').value = slot.subjectId || '';
+    es_filterEditTeachers(classId, slot.subjectId || '');
     document.getElementById('es_lessonEditTeacher').value = slot.teacherId || '';
     document.getElementById('es_lessonEditRoom').value    = slot.roomId    || '';
     document.getElementById('es_lessonEditLocked').checked = !!slot.locked;
   } else {
     document.getElementById('es_lessonEditSubject').value = '';
+    es_filterEditTeachers(classId, '');
     document.getElementById('es_lessonEditTeacher').value = '';
     document.getElementById('es_lessonEditRoom').value    = '';
     document.getElementById('es_lessonEditLocked').checked = false;
@@ -9164,6 +9198,18 @@ function es_saveLessonEdit() {
   const teacherId = document.getElementById('es_lessonEditTeacher').value;
   const roomId    = document.getElementById('es_lessonEditRoom').value;
   const locked    = document.getElementById('es_lessonEditLocked').checked;
+
+  // Enforce stream assignment: only the teacher assigned to this stream+subject may be saved.
+  if (subjectId && teacherId) {
+    const cls = es_state.classes.find(c => c.id === classId);
+    if (cls) {
+      const streamTeacher = es_getStreamAssignedTeacher(cls, subjectId);
+      if (streamTeacher && streamTeacher.id !== teacherId) {
+        es_toast(`<i class="fa-solid fa-circle-xmark"></i> Only ${streamTeacher.name} is assigned to teach this subject in this stream.`, 'error');
+        return;
+      }
+    }
+  }
 
   if (!es_state.timetable[classId]) es_state.timetable[classId] = {};
   if (!es_state.timetable[classId][day]) es_state.timetable[classId][day] = {};
