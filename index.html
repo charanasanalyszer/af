@@ -1795,24 +1795,26 @@
           width:100%; border-collapse:collapse; font-size:.78rem; min-width:740px;
         }
         #tt-app .tt-table th {
-          background:var(--tt-card2); padding:.6rem .75rem; text-align:center;
-          font-size:.64rem; font-weight:700; text-transform:uppercase;
-          letter-spacing:.06em; color:var(--tt-text2); border:1px solid var(--tt-border);
-          white-space:nowrap;
+          background:var(--tt-card2); padding:.65rem .85rem; text-align:center;
+          font-size:.66rem; font-weight:800; text-transform:uppercase;
+          letter-spacing:.08em; color:var(--tt-text2); border:1px solid var(--tt-border);
+          white-space:nowrap; position:sticky; top:0; z-index:2;
         }
-        #tt-app .tt-table th.tt-day-col { width:70px; text-align:left; background:var(--tt-navy3); }
+        #tt-app .tt-table th.tt-day-col { width:75px; text-align:left; background:var(--tt-navy3); }
         #tt-app .tt-table td {
           border:1px solid var(--tt-border); padding:0;
-          vertical-align:top; min-width:100px; height:68px;
+          vertical-align:top; min-width:110px; height:76px;
+          transition:background .12s;
         }
+        #tt-app .tt-table tr:hover td { background:rgba(255,255,255,.015); }
         #tt-app .tt-lesson-cell {
-          padding:.4rem .5rem; height:100%; border-radius:4px; margin:2px;
+          padding:.45rem .55rem; height:calc(100% - 6px); border-radius:6px; margin:3px;
           display:flex; flex-direction:column; justify-content:center;
-          cursor:pointer; transition:opacity .15s;
+          cursor:pointer; transition:all .15s; box-shadow:0 1px 3px rgba(0,0,0,.15);
         }
-        #tt-app .tt-lesson-cell:hover { opacity:.82; }
-        #tt-app .tt-lesson-subject { font-weight:700; font-size:.74rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2; }
-        #tt-app .tt-lesson-teacher { font-size:.65rem; opacity:.72; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        #tt-app .tt-lesson-cell:hover { opacity:.88; transform:scale(1.02); box-shadow:0 3px 8px rgba(0,0,0,.2); }
+        #tt-app .tt-lesson-subject { font-weight:800; font-size:.76rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2; letter-spacing:.01em; }
+        #tt-app .tt-lesson-teacher { font-size:.64rem; opacity:.75; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         #tt-app .tt-cell-empty {
           width:100%; height:100%; display:flex; align-items:center; justify-content:center;
           color:var(--tt-text3); font-size:.65rem; transition:background .1s;
@@ -2009,6 +2011,15 @@
             <button class="tt-btn tt-btn-outline tt-btn-sm" onclick="tt_resetAll()">
               <i class="fa-solid fa-trash"></i> Reset
             </button>
+            <button class="tt-btn tt-btn-sm" id="tt_saveBtn" onclick="tt_saveBest()" title="Save this as your best timetable" style="background:rgba(33,201,164,.12);color:var(--tt-teal);border:1px solid rgba(33,201,164,.3);">
+              <i class="fa-solid fa-floppy-disk"></i> Save Best
+            </button>
+            <button class="tt-btn tt-btn-sm" id="tt_loadSavedBtn" onclick="tt_loadSaved()" title="Load your saved timetable" style="display:none;background:rgba(79,163,224,.12);color:var(--tt-sky);border:1px solid rgba(79,163,224,.3);">
+              <i class="fa-solid fa-rotate-left"></i> Load Saved
+            </button>
+            <button class="tt-btn tt-btn-sm" id="tt_lockBtn" onclick="tt_toggleLock()" title="Lock timetable to prevent changes" style="display:none;background:rgba(232,184,75,.12);color:var(--tt-gold);border:1px solid rgba(232,184,75,.3);">
+              <i class="fa-solid fa-lock-open"></i> Lock
+            </button>
           </div>
         </div>
 
@@ -2034,6 +2045,20 @@
             <div class="tt-stat-val" id="tt_statFill">—</div>
             <div class="tt-stat-lbl">Fill Rate</div>
           </div>
+        </div>
+
+        <!-- Lock Banner -->
+        <div id="tt_lockBanner" style="display:none;align-items:center;gap:.65rem;background:rgba(242,97,122,.1);border:1px solid rgba(242,97,122,.3);border-radius:9px;padding:.55rem 1rem;margin-bottom:.85rem;font-size:.8rem;color:var(--tt-red);">
+          <i class="fa-solid fa-lock" style="font-size:1rem;flex-shrink:0"></i>
+          <span style="font-weight:700;flex:1">Timetable is locked — editing and re-generation are disabled.</span>
+          <button onclick="tt_toggleLock()" style="background:rgba(242,97,122,.18);border:1px solid rgba(242,97,122,.4);border-radius:6px;padding:.28rem .7rem;color:var(--tt-red);font-size:.75rem;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;">Unlock</button>
+        </div>
+
+        <!-- Saved Timetable Badge -->
+        <div id="tt_savedBanner" style="display:none;align-items:center;gap:.55rem;background:rgba(33,201,164,.08);border:1px solid rgba(33,201,164,.25);border-radius:9px;padding:.45rem .9rem;margin-bottom:.85rem;font-size:.77rem;color:var(--tt-teal);">
+          <i class="fa-solid fa-circle-check"></i>
+          <span id="tt_savedBannerText" style="font-weight:600;flex:1">Saved timetable available</span>
+          <button onclick="tt_loadSaved()" style="background:rgba(33,201,164,.15);border:1px solid rgba(33,201,164,.3);border-radius:5px;padding:.2rem .6rem;color:var(--tt-teal);font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;">Load</button>
         </div>
 
         <!-- Main layout -->
@@ -2089,7 +2114,7 @@
             <div class="tt-panel">
               <div class="tt-panel-hdr">
                 <span class="tt-panel-title">📚 Subjects</span>
-                <button class="tt-btn tt-btn-sm tt-btn-teal" onclick="tt_addSubjectRow()">+ Add</button>
+                <button class="tt-btn tt-btn-sm tt-btn-teal" onclick="tt_openAddSubjectModal()">+ Add</button>
               </div>
               <div class="tt-panel-body">
                 <div id="tt_subjectList" style="max-height:190px;overflow-y:auto;display:flex;flex-direction:column;gap:.35rem;"></div>
@@ -2266,6 +2291,46 @@
         </div>
       </div>
 
+      <!-- ═══ ADD SUBJECT MODAL ═══ -->
+      <div id="tt-addSubjectModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:9200;align-items:center;justify-content:center;padding:1rem;">
+        <div style="background:var(--tt-card,#13213a);border:1px solid rgba(255,255,255,.12);border-radius:14px;width:min(96vw,440px);max-height:90vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.55);">
+          <div style="padding:.8rem 1.1rem;background:var(--tt-card2,#172a45);border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between;border-radius:14px 14px 0 0;">
+            <div style="font-size:.9rem;font-weight:800;color:var(--tt-text,#e8f0f8);display:flex;align-items:center;gap:.5rem;"><i class="fa-solid fa-book" style="color:var(--tt-teal)"></i> Add New Subject</div>
+            <button onclick="tt_closeAddSubjectModal()" style="background:none;border:none;color:var(--tt-text2);font-size:1.1rem;cursor:pointer;padding:.15rem .35rem;">✕</button>
+          </div>
+          <div style="padding:1.1rem;">
+            <div style="margin-bottom:.8rem;">
+              <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tt-text2);margin-bottom:.35rem;">Subject Name *</label>
+              <input type="text" id="tt_newSubName" placeholder="e.g. Mathematics" style="width:100%;background:var(--tt-navy3,#18304d);border:1px solid rgba(255,255,255,.14);border-radius:7px;padding:.5rem .7rem;color:var(--tt-text,#e8f0f8);font-family:inherit;font-size:.85rem;outline:none;box-sizing:border-box;"/>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.8rem;">
+              <div>
+                <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tt-text2);margin-bottom:.35rem;">Code (e.g. MAT)</label>
+                <input type="text" id="tt_newSubCode" maxlength="6" placeholder="MAT" style="width:100%;background:var(--tt-navy3,#18304d);border:1px solid rgba(255,255,255,.14);border-radius:7px;padding:.5rem .7rem;color:var(--tt-text,#e8f0f8);font-family:inherit;font-size:.85rem;outline:none;box-sizing:border-box;"/>
+              </div>
+              <div>
+                <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tt-text2);margin-bottom:.35rem;">Lessons / Week</label>
+                <input type="number" id="tt_newSubLpw" value="5" min="1" max="20" style="width:100%;background:var(--tt-navy3,#18304d);border:1px solid rgba(255,255,255,.14);border-radius:7px;padding:.5rem .7rem;color:var(--tt-gold,#e8b84b);font-family:inherit;font-size:.85rem;outline:none;box-sizing:border-box;"/>
+              </div>
+            </div>
+            <div style="margin-bottom:.8rem;">
+              <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tt-text2);margin-bottom:.35rem;">Color</label>
+              <div id="tt_newSubColorPicker" style="display:flex;flex-wrap:wrap;gap:.4rem;"></div>
+            </div>
+            <div style="margin-bottom:.8rem;">
+              <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tt-text2);margin-bottom:.35rem;">Double Lessons / Week</label>
+              <input type="number" id="tt_newSubDoubles" value="0" min="0" max="5" style="width:80px;background:var(--tt-navy3,#18304d);border:1px solid rgba(255,255,255,.14);border-radius:7px;padding:.4rem .6rem;color:var(--tt-text,#e8f0f8);font-family:inherit;font-size:.82rem;outline:none;"/>
+              <span style="font-size:.68rem;color:var(--tt-text3);margin-left:.5rem">0 = singles only</span>
+            </div>
+            <div id="tt_newSubErr" style="display:none;color:var(--tt-red);font-size:.78rem;margin-bottom:.6rem;"></div>
+          </div>
+          <div style="padding:.8rem 1.1rem;border-top:1px solid rgba(255,255,255,.07);display:flex;gap:.5rem;justify-content:flex-end;">
+            <button onclick="tt_closeAddSubjectModal()" style="background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:7px;padding:.45rem 1rem;color:var(--tt-text2);font-size:.8rem;cursor:pointer;font-family:inherit;">Cancel</button>
+            <button onclick="tt_saveNewSubject()" style="background:linear-gradient(135deg,var(--tt-teal,#21c9a4),#0fa880);border:none;border-radius:7px;padding:.45rem 1.1rem;color:#0b1526;font-size:.8rem;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:.4rem;"><i class="fa-solid fa-floppy-disk"></i> Save Subject</button>
+          </div>
+        </div>
+      </div>
+
       <!-- ═══ TIMETABLE JAVASCRIPT (IIFE-scoped to avoid conflicts) ═══ -->
       <script>
       (function() {
@@ -2296,8 +2361,14 @@
         window.tt_deleteClass        = deleteClass;
         window.tt_generate           = generate;
         window.tt_selectClass        = selectClass;
-        window.tt_printTimetable     = printTimetable;
-        window.tt_downloadPDF        = downloadPDF;
+        window.tt_printTimetable       = printTimetable;
+        window.tt_downloadPDF          = downloadPDF;
+        window.tt_saveBest             = saveBest;
+        window.tt_loadSaved            = loadSaved;
+        window.tt_toggleLock           = toggleLock;
+        window.tt_openAddSubjectModal  = openAddSubjectModal;
+        window.tt_closeAddSubjectModal = closeAddSubjectModal;
+        window.tt_saveNewSubject       = saveNewSubject;
         window.tt_syncBreakToggles   = renderBreakToggles;
         window.tt_renderBreakToggles = renderBreakToggles;
         window.tt_openSubjectSettings  = openSubjectSettings;
@@ -2914,6 +2985,9 @@
           renderTeacherMapView();
           renderConflicts();
           ttToast('Generated — '+assigned+'/'+total+' slots filled', failed===0?'ok':'warn');
+          /* Enable save button now that we have a timetable */
+          var sb = document.getElementById('tt_saveBtn');
+          if (sb) sb.removeAttribute('disabled');
         }
 
         /* ── Render timetable ── */
@@ -3226,41 +3300,269 @@
           var jsPDF = window.jspdf && window.jspdf.jsPDF;
           if (!jsPDF) { ttToast('PDF library not loaded — check internet connection','err'); return; }
           if (!window.html2canvas) { ttToast('html2canvas not loaded','err'); return; }
-          var cls  = ttClasses.find(function(c){return c.id===ttSelClass;});
+          var cls    = ttClasses.find(function(c){return c.id===ttSelClass;});
           var school = (document.getElementById('tt_schoolName').value||'School').trim();
-          var fname  = (cls ? clsName(cls) : 'Timetable').replace(/[^a-zA-Z0-9]/g,'_') + '_Timetable.pdf';
+          var clsLabel = cls ? clsName(cls) : 'Timetable';
+          var fname  = (clsLabel).replace(/[^a-zA-Z0-9]/g,'_') + '_Timetable.pdf';
+          var days   = parseInt(document.getElementById('tt_daysPerWeek').value)||5;
+          var now    = new Date();
+          var dateStr = now.toLocaleDateString('en-GB',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
           ttToast('Generating PDF…','ok');
+          /* Temporarily make wrapper white for clean capture */
+          var origBg = el.style.backgroundColor;
+          el.style.backgroundColor = '#ffffff';
           window.html2canvas(el, {
-            scale: 2.4,
+            scale: 2.6,
             useCORS: true,
             backgroundColor: '#ffffff',
-            logging: false
+            logging: false,
+            allowTaint: true
           }).then(function(canvas){
+            el.style.backgroundColor = origBg;
             var imgData = canvas.toDataURL('image/png');
             var pdf = new jsPDF({orientation:'landscape', unit:'mm', format:'a4'});
             var pw = pdf.internal.pageSize.getWidth();
             var ph = pdf.internal.pageSize.getHeight();
-            /* canvas was rendered at 2.4x — convert px→mm (96dpi) */
-            var cw = canvas.width  / 2.4 / 3.7795;
-            var ch = canvas.height / 2.4 / 3.7795;
-            var margin = 10;
-            var maxW = pw - margin * 2;
-            var maxH = ph - margin * 2 - 10; /* 10mm for title */
-            var ratio = Math.min(maxW / cw, maxH / ch);
-            var w = cw * ratio;
-            var h = ch * ratio;
-            /* Header */
+            /* ── Beautiful header band ── */
+            /* Dark blue band */
+            pdf.setFillColor(11, 21, 38);
+            pdf.rect(0, 0, pw, 22, 'F');
+            /* Gold accent bar */
+            pdf.setFillColor(232, 184, 75);
+            pdf.rect(0, 22, pw, 1.5, 'F');
+            /* School name */
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(13);
+            pdf.setTextColor(255, 255, 255);
+            pdf.text(school, 14, 10);
+            /* Class label */
+            pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(9);
-            pdf.setTextColor(45, 74, 106);
-            pdf.text(school + '  ·  ' + (cls ? clsName(cls) : '') + ' Timetable', pw/2, margin + 3, {align:'center'});
-            /* Timetable image */
-            pdf.addImage(imgData, 'PNG', (pw - w)/2, margin + 8, w, h);
+            pdf.setTextColor(200, 210, 230);
+            pdf.text(clsLabel + ' Weekly Timetable  ·  ' + days + ' days/week', 14, 17);
+            /* Date stamp right-aligned */
+            pdf.setFont('helvetica', 'italic');
+            pdf.setFontSize(7.5);
+            pdf.setTextColor(160, 180, 210);
+            pdf.text('Generated: ' + dateStr, pw - 14, 10, {align:'right'});
+            /* Lock indicator if locked */
+            if (ttIsLocked) {
+              pdf.setFont('helvetica', 'bold');
+              pdf.setFontSize(7);
+              pdf.setTextColor(232, 184, 75);
+              pdf.text('🔒 LOCKED', pw - 14, 17, {align:'right'});
+            }
+            /* ── Timetable image ── */
+            var cw = canvas.width  / 2.6 / 3.7795;
+            var ch = canvas.height / 2.6 / 3.7795;
+            var margin   = 8;
+            var topOffset = 27;
+            var maxW = pw - margin * 2;
+            var maxH = ph - topOffset - margin - 8;
+            var ratio = Math.min(maxW / cw, maxH / ch);
+            var w = cw * ratio, h = ch * ratio;
+            var x = (pw - w) / 2;
+            /* Subtle shadow via a slightly-offset dark rect */
+            pdf.setFillColor(220, 228, 238);
+            pdf.roundedRect(x + 1, topOffset + 1, w, h, 2, 2, 'F');
+            pdf.addImage(imgData, 'PNG', x, topOffset, w, h);
+            /* ── Footer ── */
+            pdf.setFillColor(240, 244, 250);
+            pdf.rect(0, ph - 8, pw, 8, 'F');
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(6.5);
+            pdf.setTextColor(120, 140, 170);
+            var lockNote = ttIsLocked ? '  ·  🔒 Locked timetable' : '';
+            pdf.text('Charanas Analyzer — Smart Timetable Generator' + lockNote, pw/2, ph - 2.5, {align:'center'});
             pdf.save(fname);
             ttToast('PDF saved — ' + fname, 'ok');
           }).catch(function(e){
+            el.style.backgroundColor = origBg;
             ttToast('PDF error: ' + e.message, 'err');
           });
         }
+
+        /* ── Save Best Timetable ── */
+        var ttIsLocked = false;
+        var ttSavedKey = 'tt_savedBestV2';
+
+        function saveBest() {
+          if (!Object.keys(ttTimetable).length || !ttClasses.length) { ttToast('Generate a timetable first','warn'); return; }
+          var state = {
+            timetable: ttTimetable, subjects: ttSubjects, teachers: ttTeachers,
+            classes: ttClasses, streamAssignments: ttStreamAssignments,
+            schoolName: document.getElementById('tt_schoolName').value,
+            daysPerWeek: document.getElementById('tt_daysPerWeek').value,
+            periodsPerDay: document.getElementById('tt_periodsPerDay').value,
+            breakPeriods: document.getElementById('tt_breakPeriods').value,
+            savedAt: new Date().toISOString(), locked: false
+          };
+          try { localStorage.setItem(ttSavedKey, JSON.stringify(state)); } catch(e) { ttToast('Storage error: '+e.message,'err'); return; }
+          document.getElementById('tt_loadSavedBtn').style.display = '';
+          document.getElementById('tt_lockBtn').style.display = '';
+          updateSavedBanner(state);
+          ttToast('Best timetable saved! 💾', 'ok');
+        }
+
+        function loadSaved() {
+          var raw; try { raw = localStorage.getItem(ttSavedKey); } catch(e){}
+          if (!raw) { ttToast('No saved timetable found','warn'); return; }
+          var s; try { s = JSON.parse(raw); } catch(e) { ttToast('Saved data corrupted','err'); return; }
+          ttTimetable = s.timetable || {};
+          ttSubjects = s.subjects || [];
+          ttTeachers = s.teachers || [];
+          ttClasses  = s.classes  || [];
+          ttStreamAssignments = s.streamAssignments || [];
+          window.ttSubjectsProxy = ttSubjects;
+          window.ttClassesProxy  = ttClasses;
+          if (s.schoolName) document.getElementById('tt_schoolName').value = s.schoolName;
+          if (s.daysPerWeek)  document.getElementById('tt_daysPerWeek').value  = s.daysPerWeek;
+          if (s.periodsPerDay) document.getElementById('tt_periodsPerDay').value = s.periodsPerDay;
+          if (s.breakPeriods) document.getElementById('tt_breakPeriods').value  = s.breakPeriods;
+          renderSubjectList(); renderTeacherList(); renderClassList();
+          renderAllTimetables(); renderTeacherMapView(); renderConflicts(); updateStats(); renderBreakToggles();
+          var sb = document.getElementById('tt_saveBtn'); if (sb) sb.removeAttribute('disabled');
+          if (s.locked) { applyLock(); } else { removeLock(); }
+          updateSavedBanner(s);
+          ttToast('Saved timetable loaded ✓', 'ok');
+        }
+
+        function toggleLock() {
+          var raw; try { raw = localStorage.getItem(ttSavedKey); } catch(e){}
+          if (!raw) { ttToast('Save a timetable first before locking','warn'); return; }
+          ttIsLocked = !ttIsLocked;
+          var s; try { s = JSON.parse(raw); } catch(e) { s = {}; }
+          s.locked = ttIsLocked;
+          try { localStorage.setItem(ttSavedKey, JSON.stringify(s)); } catch(e){}
+          if (ttIsLocked) { applyLock(); ttToast('Timetable locked 🔒 — generating disabled', 'ok'); }
+          else             { removeLock(); ttToast('Timetable unlocked 🔓', 'ok'); }
+        }
+
+        function applyLock() {
+          ttIsLocked = true;
+          var lb = document.getElementById('tt_lockBtn');
+          if (lb) { lb.innerHTML = '<i class="fa-solid fa-lock"></i> Unlock'; lb.style.cssText += ';background:rgba(242,97,122,.12)!important;color:var(--tt-red)!important;border-color:rgba(242,97,122,.35)!important;'; }
+          var genBtn = document.querySelector('#tt-app .tt-btn-generate');
+          if (genBtn) { genBtn.disabled = true; genBtn.title = 'Unlock timetable first'; }
+          var sb = document.getElementById('tt_saveBtn'); if (sb) sb.disabled = true;
+          var ban = document.getElementById('tt_lockBanner'); if (ban) ban.style.display = 'flex';
+        }
+
+        function removeLock() {
+          ttIsLocked = false;
+          var lb = document.getElementById('tt_lockBtn');
+          if (lb) { lb.innerHTML = '<i class="fa-solid fa-lock-open"></i> Lock'; lb.style.cssText = lb.style.cssText.replace(/background:[^;]+;|color:[^;]+;|border-color:[^;]+;/g,''); lb.style.background='rgba(232,184,75,.12)'; lb.style.color='var(--tt-gold)'; lb.style.borderColor='rgba(232,184,75,.3)'; }
+          var genBtn = document.querySelector('#tt-app .tt-btn-generate');
+          if (genBtn) { genBtn.disabled = false; genBtn.title = ''; }
+          var sb = document.getElementById('tt_saveBtn'); if (sb) sb.removeAttribute('disabled');
+          var ban = document.getElementById('tt_lockBanner'); if (ban) ban.style.display = 'none';
+        }
+
+        function updateSavedBanner(s) {
+          var banner = document.getElementById('tt_savedBanner');
+          var txt    = document.getElementById('tt_savedBannerText');
+          if (!banner || !s) return;
+          banner.style.display = 'flex';
+          var d = s.savedAt ? new Date(s.savedAt) : new Date();
+          var lbl = d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+          var cls = s.classes ? s.classes.length : 0;
+          txt.textContent = '💾 Saved ' + lbl + '  ·  ' + cls + ' class' + (cls!==1?'es':'') + (s.locked?' · 🔒 Locked':'');
+          document.getElementById('tt_loadSavedBtn').style.display = '';
+          document.getElementById('tt_lockBtn').style.display = '';
+        }
+
+        /* ── Add Subject Modal ── */
+        var TT_COLORS_FULL = ['#4fa3e0','#21c9a4','#e8b84b','#f2617a','#9b72cf','#f4854a','#4ecdc4','#ffd166','#06d6a0','#e63946','#118ab2','#3a86ff','#fb8500','#8338ec','#2dc653'];
+        var ttNewSubSelectedColor = '#4fa3e0';
+
+        function openAddSubjectModal() {
+          document.getElementById('tt_newSubName').value = '';
+          document.getElementById('tt_newSubCode').value = '';
+          document.getElementById('tt_newSubLpw').value  = '5';
+          document.getElementById('tt_newSubDoubles').value = '0';
+          document.getElementById('tt_newSubErr').style.display = 'none';
+          /* Render color picker */
+          var colIdx = ttSubjects.length % TT_COLORS_FULL.length;
+          ttNewSubSelectedColor = TT_COLORS_FULL[colIdx];
+          var picker = document.getElementById('tt_newSubColorPicker');
+          picker.innerHTML = TT_COLORS_FULL.map(function(c){
+            var sel = (c === ttNewSubSelectedColor);
+            return '<button type="button" onclick="tt_pickSubColor(\''+c+'\',this)" title="'+c+'" style="width:22px;height:22px;border-radius:50%;background:'+c+';border:'+(sel?'3px solid #fff':'2px solid transparent')+';cursor:pointer;transition:transform .1s;outline:'+( sel?'2px solid '+c:'none')+';"></button>';
+          }).join('');
+          document.getElementById('tt-addSubjectModal').style.display = 'flex';
+          setTimeout(function(){ document.getElementById('tt_newSubName').focus(); }, 100);
+        }
+
+        window.tt_pickSubColor = function(color, btn) {
+          ttNewSubSelectedColor = color;
+          var picker = document.getElementById('tt_newSubColorPicker');
+          picker.querySelectorAll('button').forEach(function(b){
+            var bc = b.title;
+            b.style.border = (bc===color) ? '3px solid #fff' : '2px solid transparent';
+            b.style.outline = (bc===color) ? '2px solid '+bc : 'none';
+          });
+        };
+
+        function closeAddSubjectModal() {
+          document.getElementById('tt-addSubjectModal').style.display = 'none';
+        }
+
+        function saveNewSubject() {
+          var name = (document.getElementById('tt_newSubName').value||'').trim();
+          var code = (document.getElementById('tt_newSubCode').value||'').trim().toUpperCase();
+          var lpw  = parseInt(document.getElementById('tt_newSubLpw').value)||5;
+          var dbl  = parseInt(document.getElementById('tt_newSubDoubles').value)||0;
+          var errEl = document.getElementById('tt_newSubErr');
+          if (!name) { errEl.textContent = '⚠ Subject name is required.'; errEl.style.display='block'; return; }
+          if (!code) code = name.slice(0,3).toUpperCase();
+          /* Check duplicate */
+          if (ttSubjects.some(function(s){ return s.name.toLowerCase()===name.toLowerCase(); })) {
+            errEl.textContent = '⚠ A subject with this name already exists.'; errEl.style.display='block'; return;
+          }
+          errEl.style.display = 'none';
+          var newSub = { id:ttUid(), name:name, code:code, lessonsPerWeek:lpw, color:ttNewSubSelectedColor, doubles:dbl, avoidDays:[], avoidPeriods:[] };
+          ttSubjects.push(newSub);
+          window.ttSubjectsProxy = ttSubjects;
+          /* Persist subjects to localStorage */
+          try { localStorage.setItem('tt_savedSubjects', JSON.stringify(ttSubjects)); } catch(e){}
+          renderSubjectList(); updateStats();
+          /* Also update teacher modal select if open */
+          var sel = document.getElementById('tt_tchSubjects');
+          if (sel) sel.innerHTML = ttSubjects.map(function(s){ return '<option value="'+s.id+'">'+s.name+'</option>'; }).join('');
+          closeAddSubjectModal();
+          ttToast('Subject "'+name+'" saved! Add it to a teacher then re-generate.', 'ok');
+        }
+
+        /* ── Load saved subjects on init ── */
+        (function loadSavedSubjectsOnInit() {
+          try {
+            var savedSubjectsRaw = localStorage.getItem('tt_savedSubjects');
+            if (savedSubjectsRaw) {
+              var saved = JSON.parse(savedSubjectsRaw);
+              if (Array.isArray(saved) && saved.length) {
+                saved.forEach(function(s) {
+                  if (!ttSubjects.some(function(x){ return x.id===s.id; })) {
+                    ttSubjects.push(s);
+                  }
+                });
+                window.ttSubjectsProxy = ttSubjects;
+              }
+            }
+          } catch(e){}
+          /* Check for any saved timetable and show badge */
+          try {
+            var raw = localStorage.getItem(ttSavedKey);
+            if (raw) {
+              var saved = JSON.parse(raw);
+              document.getElementById('tt_loadSavedBtn').style.display = '';
+              document.getElementById('tt_lockBtn').style.display = '';
+              updateSavedBanner(saved);
+              if (saved.locked) {
+                applyLock();
+              }
+            }
+          } catch(e){}
+        })();
 
         /* ── Init ── */
         renderSubjectList(); renderTeacherList(); renderClassList(); updateStats();
