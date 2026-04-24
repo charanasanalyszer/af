@@ -214,6 +214,7 @@
       <a class="sn" data-s="classes"     onclick="go('classes',this)"><i class="fa-solid fa-school"></i><span>Classes &amp; Streams</span></a>
       <!-- 4. Teachers — set up before assigning -->
       <a class="sn" data-s="teachers"    onclick="go('teachers',this)"><i class="fa-solid fa-chalkboard-user"></i><span>Teachers</span></a>
+      <a class="sn" data-s="staffdetails" onclick="go('staffdetails',this)"><i class="fa-solid fa-id-card"></i><span>Staff Details</span></a>
       <!-- 5. Students — enrol after classes exist -->
       <a class="sn" data-s="students"    onclick="go('students',this)"><i class="fa-solid fa-user-graduate"></i><span>Students</span></a>
 
@@ -5896,6 +5897,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <nav class="mobile-bottom-nav" id="mobileBottomNav" style="display:none">
   <a class="mbn-item active" data-s="students"    onclick="go('students',this);mbnActivate(this)"><i class="fa-solid fa-user-graduate"></i><span>Students</span></a>
   <a class="mbn-item"        data-s="teachers"    onclick="go('teachers',this);mbnActivate(this)"><i class="fa-solid fa-chalkboard-user"></i><span>Teachers</span></a>
+  <a class="mbn-item"        data-s="staffdetails" onclick="go('staffdetails',this);mbnActivate(this)"><i class="fa-solid fa-id-card"></i><span>Staff</span></a>
   <a class="mbn-item"        data-s="classes"     onclick="go('classes',this);mbnActivate(this)"><i class="fa-solid fa-school"></i><span>Classes</span></a>
   <a class="mbn-item"        data-s="subjects"    onclick="go('subjects',this);mbnActivate(this)"><i class="fa-solid fa-book"></i><span>Subjects</span></a>
   <a class="mbn-item"        data-s="timetable"   onclick="go('timetable',this);mbnActivate(this)"><i><i class="fa-solid fa-clock"></i></i><span>Timetable</span></a>
