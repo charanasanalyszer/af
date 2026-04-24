@@ -10314,7 +10314,15 @@ function applyTranslations() {
   const T = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
   I18N_MAP.forEach(({ key, sel }) => {
     const el = document.querySelector(sel);
-    if (el && T[key] !== undefined) el.textContent = T[key];
+    if (el && T[key] !== undefined) {
+      // Use innerHTML for values that contain HTML tags (e.g. icon <i> elements),
+      // textContent for plain strings to avoid XSS on user-facing fields.
+      if (/<[a-z][\s\S]*>/i.test(T[key])) {
+        el.innerHTML = T[key];
+      } else {
+        el.textContent = T[key];
+      }
+    }
   });
   // Also update topbar title to current section
   const activeNav = document.querySelector('.sn.active span');
