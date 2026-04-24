@@ -19476,8 +19476,80 @@ function acRenderSchoolList() {
 }
 
 
+/**
+ * Builds a full RBAC config (teacher role) based on the features
+ * included in the given access level index.
+ */
+function acBuildRbacFromLevel(levelIdx) {
+  const features       = new Set(AC_LEVEL_FEATURES[levelIdx] || []);
+  const hasExams       = features.has('Exam Analysis');
+  const hasTeachers    = features.has('Add Teachers');
+  const hasStudents    = features.has('Add Students');
+  const hasTimetable   = features.has('Timetable');
+  const hasFees        = features.has('Fees Management');
+  const hasSalaries    = features.has('Salary Management');
+  const hasFullReports = features.has('Full Reports');
+  const hasSettings    = features.has('System Settings');
+
+  return {
+    teacher: {
+      // Core sections
+      dashboard:   true,
+      exambuilder: hasExams,
+      exams:       hasExams,
+        'exams__tabExamList':         hasExams,
+        'exams__tabExamTimetable':    hasTimetable,
+        'exams__tabCreateExam':       hasExams,
+        'exams__tabUploadMarks':      hasExams,
+        'exams__tabAnalyse':          hasFullReports,
+        'exams__tabMeritList':        hasFullReports,
+        'exams__tabSummaryAnalytics': hasFullReports,
+      papers: true,
+        'papers__tabTermlyExams': true,
+        'papers__tabRevision':    true,
+      fees: hasFees,
+        'fees__tabFeeOverview':   hasFees,
+        'fees__tabFeeStructure':  hasFees,
+        'fees__tabFeePayments':   hasFees,
+        'fees__tabFeeStudents':   hasFees,
+        'fees__tabFeeImport':     hasFees,
+        'fees__tabFeeReminders':  hasFees,
+        'fees__tabFeeReceipts':   hasFees,
+      staffdetails: hasTeachers,
+        'staffdetails__sdpList':    hasTeachers,
+        'staffdetails__sdpAddEdit': hasTeachers,
+        'staffdetails__sdpLeave':   false,
+        'staffdetails__sdpDocs':    false,
+        'staffdetails__sdpRoles':   false,
+        'staffdetails__sdpSalary':  hasSalaries,
+      salaries: hasSalaries,
+        'salaries__tabStaffSalary': hasSalaries,
+        'salaries__tabPayroll':     hasSalaries,
+        'salaries__tabPayslips':    hasSalaries,
+      messaging: false,
+      settings:  hasSettings,
+      // Extras
+      canAnalyse: hasExams,
+      canReport:  hasFullReports,
+      canMerit:   hasFullReports,
+    }
+  };
+}
+
 function acAssignLevel(schoolId, levelIdx) {
   acSetSchoolLevel(schoolId, levelIdx);
+
+  // Sync RBAC permissions to match the new level's feature set
+  try {
+    const rbacCfg  = acBuildRbacFromLevel(levelIdx);
+    const existing = rbacLoad(schoolId);
+    // Merge: overwrite teacher (level-controlled) but preserve any other role overrides
+    const merged   = Object.assign({}, existing, rbacCfg);
+    rbacSaveRaw(merged, schoolId);
+  } catch (e) {
+    console.warn('acAssignLevel: RBAC sync failed', e);
+  }
+
   acRenderSchoolList();
   const school = platformSchools.find(s=>s.id===schoolId);
   showToast(`<i class="fa-solid fa-layer-group"></i> <strong>${school?.name||schoolId}</strong> → ${AC_LEVEL_NAMES[levelIdx]} access assigned`, 'success');
