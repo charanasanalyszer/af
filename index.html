@@ -238,6 +238,16 @@
       <a class="sn" data-s="messaging"   onclick="go('messaging',this)"><i class="fa-solid fa-comments"></i><span>Messaging</span></a>
       <!-- 12b. Platform Admin (hidden for school users) -->
       <a class="sn" data-s="platform" id="platNavLink" onclick="go('platform',this)" style="display:none"><i class="fa-solid fa-gear"></i><span>Platform Admin</span></a>
+
+      <!-- Platform Admin Sub-tabs — only visible in plat-admin-mode -->
+      <div class="sb-section-lbl sb-plat-item" style="display:none">Platform Admin</div>
+      <a class="sn sb-plat-item sb-plat-tab" id="sbPlat-schools"    style="display:none;padding-left:1.4rem" onclick="go('platform',document.getElementById('platNavLink'));platNavbarTab('platTab-schools','platNb-schools');sbPlatActivate(this)"><i class="fa-solid fa-school"></i><span>Schools</span></a>
+      <a class="sn sb-plat-item sb-plat-tab" id="sbPlat-exams"      style="display:none;padding-left:1.4rem" onclick="go('platform',document.getElementById('platNavLink'));platNavbarTab('platTab-exams','platNb-exams');sbPlatActivate(this)"><i class="fa-solid fa-file-pen"></i><span>Exams &amp; Papers</span></a>
+      <a class="sn sb-plat-item sb-plat-tab" id="sbPlat-access"     style="display:none;padding-left:1.4rem" onclick="go('platform',document.getElementById('platNavLink'));platNavbarTab('platTab-access','platNb-access');sbPlatActivate(this)"><i class="fa-solid fa-lock"></i><span>Access Control</span></a>
+      <a class="sn sb-plat-item sb-plat-tab" id="sbPlat-broadcast"  style="display:none;padding-left:1.4rem" onclick="go('platform',document.getElementById('platNavLink'));platNavbarTab('platTab-broadcast','platNb-broadcast');sbPlatActivate(this)"><i class="fa-solid fa-bullhorn"></i><span>Broadcast</span></a>
+      <a class="sn sb-plat-item sb-plat-tab" id="sbPlat-system"     style="display:none;padding-left:1.4rem" onclick="go('platform',document.getElementById('platNavLink'));platNavbarTab('platTab-system','platNb-system');sbPlatActivate(this)"><i class="fa-solid fa-gear"></i><span>System</span></a>
+      <a class="sn sb-plat-item sb-plat-tab" id="sbPlat-contact"    style="display:none;padding-left:1.4rem" onclick="go('platform',document.getElementById('platNavLink'));platNavbarTab('platTab-contact','platNb-contact');sbPlatActivate(this)"><i class="fa-solid fa-phone"></i><span>Contact &amp; Chat</span></a>
+      <a class="sn sb-plat-item sb-plat-tab" id="sbPlat-bugdetector" style="display:none;padding-left:1.4rem" onclick="go('platform',document.getElementById('platNavLink'));platNavbarTab('platTab-bugdetector','platNb-bugdetector');sbPlatActivate(this);bugDetectorInit()"><i class="fa-solid fa-bug"></i><span>Bug Detector</span></a>
       <!-- 12c. Live Chat (shown when enabled) -->
       <a class="sn" data-s="livechat" id="livechatNavLink" onclick="go('livechat',this)" style="display:none"><i class="fa-solid fa-headset"></i><span>Live Chat <span id="livechatBadge" style="display:none;background:#ef4444;color:#fff;font-size:.65rem;padding:.1rem .4rem;border-radius:999px;margin-left:.3rem">0</span></span></a>
       <!-- 13. Settings -->

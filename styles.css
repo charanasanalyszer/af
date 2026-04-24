@@ -3699,28 +3699,44 @@ body.dark .sbar { background: rgba(255,255,255,0.10) !important; }
   font-weight: 700;
 }
 
-/* Adjust main content top offset when platform navbar visible */
+/* Platform admin: top navbar now replaced by sidebar — always hidden */
+#platAdminNavbar { display: none !important; }
+
+/* Desktop: sidebar handles platform tabs, normal top padding */
 body.plat-admin-mode .main {
-  padding-top: calc(var(--tb-h, 52px) + 42px) !important;
+  padding-top: var(--tb-h, 52px) !important;
 }
-body.plat-admin-mode #platAdminNavbar {
+
+/* Show platform sidebar items when in plat-admin-mode */
+body.plat-admin-mode .sb-plat-item {
   display: flex !important;
 }
 
-/* Sidebar-collapsed adjustments */
+/* Active state for platform sidebar tabs */
+.sb-plat-tab.sb-plat-active {
+  background: rgba(124, 58, 237, 0.12) !important;
+  color: #a78bfa !important;
+  border-left: 3px solid #7c3aed !important;
+}
+.sb-plat-tab.sb-plat-active i {
+  color: #a78bfa !important;
+}
+
+/* Sidebar-collapsed adjustments (no change needed since navbar is gone) */
 #app.sidebar-collapsed #platAdminNavbar {
   left: 0 !important;
 }
 
-/* Mobile: platform navbar is hidden (tabs go into bottom nav) */
+/* Mobile: platform tabs go into bottom nav */
 @media (max-width: 960px) {
-  #platAdminNavbar { display: none !important; }
   body.plat-admin-mode .main { padding-top: var(--tb-h, 52px) !important; }
   .mbn-plat { color: #a78bfa !important; }
   .mbn-plat.active { color: var(--primary, #4f7cff) !important; }
+  /* Hide sidebar plat items on mobile — bottom nav handles it */
+  body.plat-admin-mode .sb-plat-item { display: none !important; }
 }
 
-/* Hide the inner tab bar in platform section — tabs are now in the top navbar */
+/* Hide the inner tab bar in platform section — tabs are now in sidebar/bottom nav */
 body.plat-admin-mode #platTabBar {
   display: none !important;
 }

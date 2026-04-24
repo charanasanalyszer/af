@@ -1235,11 +1235,27 @@ function platNavbarTab(tabId, btnId) {
   // Sync the inner tab bar (hidden for platform admin mode, but keep state correct)
   const innerBtn = document.querySelector('#platTabBar .plat-tab-btn[onclick*="' + tabId + '"]');
   openPlatTab(tabId, innerBtn);
-  // Update navbar active state
+  // Update top navbar active state
   document.querySelectorAll('.plat-nb-btn').forEach(b => b.classList.remove('active'));
   const nb = document.getElementById(btnId);
   if (nb) nb.classList.add('active');
+  // Update sidebar active state
+  document.querySelectorAll('.sb-plat-tab').forEach(b => b.classList.remove('sb-plat-active','active'));
+  const tabKey = tabId.replace('platTab-','');
+  const sbItem = document.getElementById('sbPlat-' + tabKey);
+  if (sbItem) sbItem.classList.add('sb-plat-active','active');
+  // Update mobile bottom nav active state
+  document.querySelectorAll('.mbn-plat').forEach(b => b.classList.remove('active'));
+  const mbnItem = document.getElementById('mbnPlat-' + tabKey);
+  if (mbnItem) mbnItem.classList.add('active');
 }
+
+// Expose sbPlatActivate for inline onclick
+function sbPlatActivate(el) {
+  document.querySelectorAll('.sb-plat-tab').forEach(b => b.classList.remove('sb-plat-active','active'));
+  if (el) el.classList.add('sb-plat-active','active');
+}
+if (typeof window !== 'undefined') window.sbPlatActivate = sbPlatActivate;
 
 function openPlatTab(tabId, btn) {
   if (tabId === 'platTab-system') { setTimeout(platRenderLiteModeConfig, 50); }
@@ -1369,6 +1385,11 @@ function enterPlatformDashboard() {
   // Show platform admin navbar (desktop) and mobile platform tab items
   document.body.classList.add('plat-admin-mode');
   document.querySelectorAll('.mbn-plat').forEach(el => el.style.display = '');
+  // Activate Schools tab in sidebar by default
+  setTimeout(function() {
+    const sbSchools = document.getElementById('sbPlat-schools');
+    if (sbSchools) { document.querySelectorAll('.sb-plat-tab').forEach(b=>b.classList.remove('sb-plat-active','active')); sbSchools.classList.add('sb-plat-active','active'); }
+  }, 50);
   if (localStorage.getItem('ei_dark')==='1') applyDark(true);
   renderPlatformDashboard();
   platRenderNavConfig();
@@ -2829,6 +2850,10 @@ function backToPlatformPortal() {
   // Re-enable platform admin mode UI when returning to platform portal
   document.body.classList.add('plat-admin-mode');
   document.querySelectorAll('.mbn-plat').forEach(el => el.style.display = '');
+  setTimeout(function() {
+    const sbSchools = document.getElementById('sbPlat-schools');
+    if (sbSchools) { document.querySelectorAll('.sb-plat-tab').forEach(b=>b.classList.remove('sb-plat-active','active')); sbSchools.classList.add('sb-plat-active','active'); }
+  }, 50);
   // Restore platform admin session
   currentUser     = _platformAdminSession.user;
   currentSchoolId = null;
