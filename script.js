@@ -16754,6 +16754,25 @@ const RBAC_SCHEMA = {
           { key: 'tabFeeReceipts',   label: 'Receipts',         defaultOn: true  },
         ]
       },
+      {
+        key: 'staffdetails', label: 'Staff Details', icon: 'fa-id-card', defaultOn: false,
+        tabs: [
+          { key: 'sdpList',    label: 'Directory',   defaultOn: true  },
+          { key: 'sdpAddEdit', label: 'Add / Edit',  defaultOn: false },
+          { key: 'sdpLeave',   label: 'Leave',       defaultOn: false },
+          { key: 'sdpDocs',    label: 'Documents',   defaultOn: false },
+          { key: 'sdpRoles',   label: 'Roles',       defaultOn: false },
+          { key: 'sdpSalary',  label: 'Salary',      defaultOn: false },
+        ]
+      },
+      {
+        key: 'salaries', label: 'Finance → Salaries', icon: 'fa-money-bill-wave', defaultOn: false,
+        tabs: [
+          { key: 'tabStaffSalary', label: 'Staff Salary', defaultOn: false },
+          { key: 'tabPayroll',     label: 'Payroll',      defaultOn: false },
+          { key: 'tabPayslips',    label: 'Payslips',     defaultOn: false },
+        ]
+      },
       { key: 'messaging',    label: 'Messaging',            icon: 'fa-comments',        defaultOn: false },
       { key: 'settings',     label: 'Settings',             icon: 'fa-sliders',         defaultOn: true  },
     ],
@@ -17072,12 +17091,36 @@ function applyRbacTeacher() {
   const cfg = rbacEffective('teacher', currentSchoolId);
 
   // Sections — hide/show nav links
-  const teacherSections = ['dashboard','exambuilder','exams','papers','fees','messaging','settings'];
+  const teacherSections = ['dashboard','exambuilder','exams','papers','fees','staffdetails','messaging','settings'];
   teacherSections.forEach(sec => {
     const allowed = cfg[sec] !== false;
     document.querySelectorAll(`[data-s="${sec}"]`).forEach(el => {
       // Only restrict if already visible (don't fight platform nav config)
       if (!allowed) el.style.display = 'none';
+    });
+  });
+
+  // Staff Details sub-tabs
+  ['sdpList','sdpAddEdit','sdpLeave','sdpDocs','sdpRoles','sdpSalary'].forEach(tabId => {
+    const key = 'staffdetails__' + tabId;
+    const allowed = cfg[key] !== false;
+    document.querySelectorAll(`[onclick*="${tabId}"]`).forEach(btn => {
+      if (!allowed) btn.style.display = 'none';
+    });
+  });
+
+  // Finance → Salaries main tab button
+  if (cfg['salaries'] === false) {
+    const salBtn = document.getElementById('fmtSalaries');
+    if (salBtn) salBtn.style.display = 'none';
+  }
+
+  // Salaries sub-tabs (only relevant when salaries section is allowed)
+  ['tabStaffSalary','tabPayroll','tabPayslips'].forEach(tabId => {
+    const key = 'salaries__' + tabId;
+    const allowed = cfg[key] !== false;
+    document.querySelectorAll(`[onclick*="${tabId}"]`).forEach(btn => {
+      if (!allowed) btn.style.display = 'none';
     });
   });
 
