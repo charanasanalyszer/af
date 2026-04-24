@@ -2403,7 +2403,14 @@ const NAV_CONFIG_SCHEMA = [
   { section:'subjects',    label:'<i class="fa-solid fa-book"></i> Subjects',           tabs:[] },
   { section:'classes',     label:'<i class="fa-solid fa-school"></i> Classes & Streams',  tabs:[] },
   { section:'teachers',     label:'<i class="fa-solid fa-person"></i>‍<i class="fa-solid fa-school"></i> Teachers',           tabs:[] },
-  { section:'staffdetails', label:'<i class="fa-solid fa-id-card"></i> Staff Details',           tabs:[] },
+  { section:'staffdetails', label:'<i class="fa-solid fa-id-card"></i> Staff Details', tabs:[
+    { id:'sdpList',    label:'<i class="fa-solid fa-table-list"></i> Directory' },
+    { id:'sdpAddEdit', label:'<i class="fa-solid fa-user-plus"></i> Add / Edit' },
+    { id:'sdpLeave',   label:'<i class="fa-solid fa-calendar-minus"></i> Leave' },
+    { id:'sdpDocs',    label:'<i class="fa-solid fa-folder-open"></i> Documents' },
+    { id:'sdpRoles',   label:'<i class="fa-solid fa-tags"></i> Roles' },
+    { id:'sdpSalary',  label:'<i class="fa-solid fa-money-bill-wave"></i> Salary' },
+  ]},
   { section:'students',     label:'<i class="fa-solid fa-user-graduate"></i> Students',          tabs:[] },
   { section:'timetable',   label:'<i class="fa-solid fa-clock"></i> Timetables',         tabs:[] },
   { section:'exambuilder', label:'<i class="fa-solid fa-pen"></i>️ Exam Builder',        tabs:[] },
@@ -2429,6 +2436,12 @@ const NAV_CONFIG_SCHEMA = [
     { id:'tabFeeImport',     label:'⬆ Import Fees' },
     { id:'tabFeeReminders',  label:'<i class="fa-solid fa-bell"></i> Reminders' },
     { id:'tabFeeReceipts',   label:'<i class="fa-solid fa-receipt"></i> Receipts' },
+  ]},
+  { section:'salaries',    label:'<i class="fa-solid fa-money-bill-wave"></i> Finance → Salaries', tabs:[
+    { id:'fmtSalaries',      label:'<i class="fa-solid fa-money-bill-wave"></i> Salaries (main tab button)' },
+    { id:'tabStaffSalary',   label:'<i class="fa-solid fa-users"></i> Staff Salary' },
+    { id:'tabPayroll',       label:'<i class="fa-solid fa-file-invoice-dollar"></i> Payroll' },
+    { id:'tabPayslips',      label:'<i class="fa-solid fa-scroll"></i> Payslips' },
   ]},
   { section:'messaging',   label:'<i class="fa-solid fa-comments"></i> Messaging',          tabs:[] },
   { section:'settings',    label:'<i class="fa-solid fa-screwdriver-wrench"></i>️ Settings',            tabs:[] },
@@ -2596,16 +2609,17 @@ function applyPlatformNavConfig() {
 
   // First reset all school nav items to visible as baseline
   NAV_CONFIG_SCHEMA.forEach(sec => {
-    if (sec.section !== 'dashboard') {
+    if (sec.section !== 'dashboard' && sec.section !== 'salaries') {
       const sbLink = document.querySelector('.sb-nav [data-s="'+sec.section+'"]');
       if (sbLink) { sbLink.dataset.platHidden = ''; sbLink.style.display = ''; }
       const mbnLink = document.querySelector('.mbn-item[data-s="'+sec.section+'"]');
       if (mbnLink) mbnLink.style.display = '';
     }
     sec.tabs.forEach(tab => {
-      const allBtns = document.querySelectorAll('#'+sec.section+'TabBar .tb, [onclick*="'+tab.id+'"]');
+      const allBtns = document.querySelectorAll('#'+sec.section+'TabBar .tb, [onclick*="'+tab.id+'"], #'+tab.id);
       allBtns.forEach(btn => {
-        if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(tab.id)) {
+        const oc = btn.getAttribute('onclick') || '';
+        if (oc.includes(tab.id) || btn.id === tab.id) {
           btn.style.display = '';
         }
       });
@@ -2615,7 +2629,7 @@ function applyPlatformNavConfig() {
   // Then apply platform config — hide anything explicitly disabled
   NAV_CONFIG_SCHEMA.forEach(sec => {
     const secVisible = cfg[sec.section] !== false;
-    if (sec.section !== 'dashboard') {
+    if (sec.section !== 'dashboard' && sec.section !== 'salaries') {
       const sbLink = document.querySelector('.sb-nav [data-s="'+sec.section+'"]');
       if (sbLink) {
         sbLink.dataset.platHidden = secVisible ? '' : '1';
@@ -2628,9 +2642,10 @@ function applyPlatformNavConfig() {
       const tabKey = sec.section + '__' + tab.id;
       const tabVisible = cfg[tabKey] !== false;
       if (!tabVisible) {
-        const allBtns = document.querySelectorAll('#'+sec.section+'TabBar .tb, [onclick*="'+tab.id+'"]');
+        const allBtns = document.querySelectorAll('#'+sec.section+'TabBar .tb, [onclick*="'+tab.id+'"], #'+tab.id);
         allBtns.forEach(btn => {
-          if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(tab.id)) {
+          const oc = btn.getAttribute('onclick') || '';
+          if (oc.includes(tab.id) || btn.id === tab.id) {
             btn.style.display = 'none';
           }
         });
