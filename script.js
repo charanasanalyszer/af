@@ -3364,8 +3364,56 @@ function launchApp() {
   // Apply platform nav visibility config to school portal
   applyPlatformNavConfig();
 
+  // Enforce access level restrictions for this school (must run after applyPlatformNavConfig)
+  applyAccessLevelRestrictions();
+
   go('dashboard', document.querySelector('[data-s="dashboard"]'));
 }
+/**
+ * Enforces the access level assigned to the current school.
+ * Reads the school's level from ac_school_levels and hides nav sections
+ * that are not included in that level's feature set (AC_LEVEL_FEATURES).
+ * If no level is assigned, all sections remain visible (backward compatible).
+ */
+function applyAccessLevelRestrictions() {
+  if (!currentSchoolId) return;
+
+  // Skip restriction enforcement for platform admins
+  if (currentUser && currentUser.role === 'platform_admin') return;
+
+  const levelIdx = (typeof acGetSchoolLevel === 'function') ? acGetSchoolLevel(currentSchoolId) : null;
+
+  // No level assigned — allow everything (unmanaged school)
+  if (levelIdx === null || levelIdx === undefined) return;
+
+  const allowedFeatures = new Set(AC_LEVEL_FEATURES[levelIdx] || []);
+
+  // Map each gated feature name to its nav section key (data-s attribute value)
+  const featureNavMap = {
+    'Timetable':         ['timetable'],
+    'Fees Management':   ['fees'],
+    'Salary Management': ['staffdetails'],
+    'System Settings':   ['settings'],
+  };
+
+  Object.entries(featureNavMap).forEach(([feature, navSections]) => {
+    const allowed = allowedFeatures.has(feature);
+    navSections.forEach(sec => {
+      document.querySelectorAll('[data-s="' + sec + '"]').forEach(el => {
+        if (!allowed) el.style.display = 'none';
+      });
+    });
+  });
+
+  // Inform the user of their active plan tier
+  const levelName  = (typeof AC_LEVEL_NAMES  !== 'undefined') ? AC_LEVEL_NAMES[levelIdx]  : ('Level ' + (levelIdx + 1));
+  showToast(
+    '<i class="fa-solid fa-layer-group"></i> <strong>' + levelName + '</strong> plan active — some features may be restricted',
+    'info',
+    3500
+  );
+}
+
 function initApp() {
   initLang();
   if (localStorage.getItem('ei_dark') === '1') applyDark(true);
