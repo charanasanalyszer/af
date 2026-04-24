@@ -1366,9 +1366,9 @@ function enterPlatformDashboard() {
   const tb = document.getElementById('topbar'); if (tb) tb.style.display = '';
   const sb = document.getElementById('sidebar'); if (sb) sb.style.display = '';
   document.getElementById('tbUser').innerHTML = '<i class="fa-solid fa-gear"></i>️ Platform Admin';
-  // Platform portal: no mobile bottom nav
+  // Platform portal: show mobile nav with platform tabs only (no school items)
   const mbn = document.getElementById('mobileBottomNav');
-  if (mbn) mbn.style.display = 'none';
+  if (mbn) mbn.style.display = '';
   const mbnRestore = document.getElementById('mbnRestoreTab');
   if (mbnRestore) mbnRestore.style.display = 'none';
   // Platform portal: hide school-specific nav, only show Platform Admin link
@@ -1385,10 +1385,13 @@ function enterPlatformDashboard() {
   // Show platform admin navbar (desktop) and mobile platform tab items
   document.body.classList.add('plat-admin-mode');
   document.querySelectorAll('.mbn-plat').forEach(el => el.style.display = '');
-  // Activate Schools tab in sidebar by default
+  // Activate Schools tab in sidebar and mobile nav by default
   setTimeout(function() {
     const sbSchools = document.getElementById('sbPlat-schools');
     if (sbSchools) { document.querySelectorAll('.sb-plat-tab').forEach(b=>b.classList.remove('sb-plat-active','active')); sbSchools.classList.add('sb-plat-active','active'); }
+    document.querySelectorAll('.mbn-plat').forEach(b => b.classList.remove('active'));
+    const mbnSchools = document.getElementById('mbnPlat-schools');
+    if (mbnSchools) mbnSchools.classList.add('active');
   }, 50);
   if (localStorage.getItem('ei_dark')==='1') applyDark(true);
   renderPlatformDashboard();
@@ -2850,10 +2853,15 @@ function backToPlatformPortal() {
   if (!_platformAdminSession) { doLogout(); return; }
   // Re-enable platform admin mode UI when returning to platform portal
   document.body.classList.add('plat-admin-mode');
+  const mbn = document.getElementById('mobileBottomNav');
+  if (mbn) mbn.style.display = '';
   document.querySelectorAll('.mbn-plat').forEach(el => el.style.display = '');
   setTimeout(function() {
     const sbSchools = document.getElementById('sbPlat-schools');
     if (sbSchools) { document.querySelectorAll('.sb-plat-tab').forEach(b=>b.classList.remove('sb-plat-active','active')); sbSchools.classList.add('sb-plat-active','active'); }
+    document.querySelectorAll('.mbn-plat').forEach(b => b.classList.remove('active'));
+    const mbnSchools = document.getElementById('mbnPlat-schools');
+    if (mbnSchools) mbnSchools.classList.add('active');
   }, 50);
   // Restore platform admin session
   currentUser     = _platformAdminSession.user;
