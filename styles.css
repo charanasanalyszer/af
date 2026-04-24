@@ -3727,13 +3727,39 @@ body.plat-admin-mode .sb-plat-item {
   left: 0 !important;
 }
 
-/* Mobile: platform tabs go into bottom nav */
+/* Mobile: platform tabs go into top nav */
 @media (max-width: 960px) {
-  body.plat-admin-mode .main { padding-top: var(--tb-h, 52px) !important; }
   .mbn-plat { color: #a78bfa !important; }
   .mbn-plat.active { color: var(--primary, #4f7cff) !important; }
-  /* Hide sidebar plat items on mobile — bottom nav handles it */
+  /* Hide sidebar plat items on mobile — top nav handles it */
   body.plat-admin-mode .sb-plat-item { display: none !important; }
+
+  /* Reposition nav bar to top in platform admin */
+  body.plat-admin-mode #mobileBottomNav {
+    bottom: auto !important;
+    top: var(--tb-h, 52px) !important;
+    border-top: none !important;
+    border-bottom: 2px solid rgba(124,58,237,0.4) !important;
+    box-shadow: 0 4px 20px rgba(124,58,237,0.15) !important;
+    transform: none !important;
+  }
+  /* Slide upward when collapsed in plat-admin */
+  body.plat-admin-mode #mobileBottomNav.mbn-collapsed {
+    transform: translateY(-62px) !important;
+  }
+  /* Push main content below topbar + top nav */
+  body.plat-admin-mode .main {
+    padding-top: calc(var(--tb-h, 52px) + 62px) !important;
+    padding-bottom: 24px !important;
+  }
+  /* Restore tab moves to top in plat-admin */
+  body.plat-admin-mode #mbnRestoreTab {
+    bottom: auto !important;
+    top: calc(var(--tb-h, 52px) + 62px) !important;
+    border-radius: 0 0 12px 12px !important;
+    border-top: none !important;
+    border-bottom: 2px solid rgba(124,58,237,0.5) !important;
+  }
 }
 
 /* Hide the inner tab bar in platform section — tabs are now in sidebar/bottom nav */
