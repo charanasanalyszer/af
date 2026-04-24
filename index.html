@@ -4542,7 +4542,12 @@
 
           <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;padding-top:.75rem;border-top:1px solid var(--border);margin-top:.5rem">
             <button class="btn btn-primary btn-sm" onclick="acSavePricing()"><i class="fa-solid fa-floppy-disk"></i> Save Pricing</button>
-            <button class="btn btn-outline btn-sm" onclick="acDownloadPDF()"><i class="fa-solid fa-file-pdf"></i> Download Access Level PDF</button>
+            <span style="font-size:.75rem;font-weight:600;color:var(--muted);margin-right:.25rem">Download PDF per level:</span>
+            <button class="btn btn-sm" onclick="acDownloadLevelPDF(0)" style="background:#3b82f6;color:#fff;border-color:#3b82f6;font-size:.75rem"><i class="fa-solid fa-file-pdf"></i> Basic</button>
+            <button class="btn btn-sm" onclick="acDownloadLevelPDF(1)" style="background:#8b5cf6;color:#fff;border-color:#8b5cf6;font-size:.75rem"><i class="fa-solid fa-file-pdf"></i> Standard</button>
+            <button class="btn btn-sm" onclick="acDownloadLevelPDF(2)" style="background:#f59e0b;color:#fff;border-color:#f59e0b;font-size:.75rem"><i class="fa-solid fa-file-pdf"></i> Advanced</button>
+            <button class="btn btn-sm" onclick="acDownloadLevelPDF(3)" style="background:#ef4444;color:#fff;border-color:#ef4444;font-size:.75rem"><i class="fa-solid fa-file-pdf"></i> Enterprise</button>
+            <button class="btn btn-outline btn-sm" onclick="acDownloadPDF()"><i class="fa-solid fa-file-pdf"></i> Summary (All Levels)</button>
             <span id="acPriceSaveMsg" style="font-size:.82rem;color:var(--muted)"></span>
           </div>
         </div>
@@ -4552,9 +4557,14 @@
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:.85rem">
             <div>
               <h3 style="margin:0"><i class="fa-solid fa-school"></i> School Access Assignment</h3>
-              <p style="font-size:.8rem;color:var(--muted);margin-top:.2rem">Assign a subscription level to each school with a single button press.</p>
+              <p style="font-size:.8rem;color:var(--muted);margin-top:.2rem">Assign a subscription level to each school and control active status.</p>
             </div>
-            <input type="text" id="acSchoolSearch" placeholder="Search schools…" oninput="acRenderSchoolList()" style="height:34px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .8rem;font-family:inherit;font-size:.83rem;width:200px"/>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+              <span id="acActiveSummary" style="font-size:.78rem;padding:.2rem .5rem;border-radius:6px;background:var(--surface);border:1px solid var(--border)"></span>
+              <button class="btn btn-sm" onclick="acActivateAll()" style="background:#22c55e;color:#fff;border-color:#22c55e;font-size:.78rem"><i class="fa-solid fa-circle-check"></i> Activate All</button>
+              <button class="btn btn-sm btn-outline" onclick="acDeactivateAll()" style="font-size:.78rem;color:#ef4444;border-color:#ef4444"><i class="fa-solid fa-circle-xmark"></i> Deactivate All</button>
+              <input type="text" id="acSchoolSearch" placeholder="Search schools…" oninput="acRenderSchoolList()" style="height:34px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .8rem;font-family:inherit;font-size:.83rem;width:180px"/>
+            </div>
           </div>
           <div id="acSchoolList" style="min-height:60px"></div>
         </div>
