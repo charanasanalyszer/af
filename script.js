@@ -1372,7 +1372,7 @@ function enterPlatformDashboard() {
   const mbnRestore = document.getElementById('mbnRestoreTab');
   if (mbnRestore) mbnRestore.style.display = 'none';
   // Platform portal: hide school-specific nav, only show Platform Admin link
-  ['subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','messaging','settings'].forEach(s=>{
+  ['subjects','classes','teachers','staffdetails','students','timetable','exambuilder','exams','reports','papers','fees','messaging','settings'].forEach(s=>{
     const el=document.querySelector('[data-s="'+s+'"]'); if(el) el.style.display='none';
   });
   // Hide school-only exam tabs for platform admin
@@ -3214,7 +3214,7 @@ function doLogout() {
   if (mbnRestore) { mbnRestore.classList.remove('visible'); mbnRestore.style.display = 'none'; }
   document.body.classList.remove('mbn-hidden');
   // Restore ALL nav links in both sidebar AND mobile bottom nav for next login
-  ['dashboard','subjects','classes','teachers','students','timetable','exambuilder','exams','reports','papers','fees','messaging','settings'].forEach(s=>{
+  ['dashboard','subjects','classes','teachers','staffdetails','students','timetable','exambuilder','exams','reports','papers','fees','messaging','settings'].forEach(s=>{
     document.querySelectorAll('[data-s="'+s+'"]').forEach(el => el.style.display='');
   });
   // Also restore topbar user display
