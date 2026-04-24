@@ -3766,3 +3766,24 @@ body.plat-admin-mode .sb-plat-item {
 body.plat-admin-mode #platTabBar {
   display: none !important;
 }
+
+/* ── Access Control Level UI ── */
+.ac-feat-item{display:flex;align-items:center;gap:.4rem;font-size:.8rem;padding:.45rem .65rem;border-radius:7px;border:1px solid var(--border);background:var(--surface);font-weight:500}
+.ac-feat-item.ac-locked{border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.06)}
+.ac-feat-item.ac-off{opacity:.65}
+.ac-lock-badge{margin-left:auto;font-size:.68rem;font-weight:700;padding:.1rem .4rem;border-radius:5px;background:rgba(34,197,94,.15);color:#15803d;white-space:nowrap}
+.ac-off-badge{margin-left:auto;font-size:.68rem;font-weight:700;padding:.1rem .4rem;border-radius:5px;background:rgba(148,163,184,.15);color:#64748b;white-space:nowrap}
+.ac-school-row{display:flex;align-items:center;gap:.75rem;padding:.65rem .85rem;border-radius:9px;border:1.5px solid var(--border);margin-bottom:.5rem;background:var(--surface);flex-wrap:wrap}
+.ac-school-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.82rem;flex-shrink:0;color:#fff}
+.ac-school-name{font-weight:700;font-size:.88rem;flex:1;min-width:120px}
+.ac-level-btns{display:flex;gap:.35rem;flex-wrap:wrap}
+.ac-lvl-btn{font-size:.72rem;font-weight:700;padding:.28rem .6rem;border-radius:6px;cursor:pointer;font-family:inherit;border:1.5px solid transparent;transition:all .15s;white-space:nowrap}
+.ac-lvl-btn.active-0{background:#3b82f6;color:#fff;border-color:#3b82f6}
+.ac-lvl-btn.active-1{background:#8b5cf6;color:#fff;border-color:#8b5cf6}
+.ac-lvl-btn.active-2{background:#f59e0b;color:#fff;border-color:#f59e0b}
+.ac-lvl-btn.active-3{background:#ef4444;color:#fff;border-color:#ef4444}
+.ac-lvl-btn:not([class*="active-"]){background:var(--surface);color:var(--text);border-color:var(--border)}
+.ac-lvl-btn:not([class*="active-"]):hover{border-color:#94a3b8}
+.ac-status-pill{font-size:.72rem;font-weight:700;padding:.2rem .6rem;border-radius:20px;white-space:nowrap}
+.ac-pill-on{background:rgba(34,197,94,.12);color:#15803d}
+.ac-pill-off{background:rgba(239,68,68,.1);color:#b91c1c}

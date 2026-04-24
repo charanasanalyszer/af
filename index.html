@@ -4426,6 +4426,140 @@
       <!-- ══════════════════════════════════════════════ -->
       <div id="platTab-access" class="plat-tab-panel" style="display:none">
 
+        <!-- ══ SUBSCRIPTION ACCESS LEVELS ══ -->
+        <div class="card" style="border-left:4px solid #4f46e5;margin-bottom:1.25rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:.25rem">
+            <h3 style="margin:0"><i class="fa-solid fa-layer-group"></i> Subscription Access Levels</h3>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+              <button class="btn btn-sm" id="acLevelTabBtn0" onclick="acShowLevelTab(0)" style="background:#4f46e5;color:#fff;border-color:#4f46e5;font-size:.78rem">L1 Basic</button>
+              <button class="btn btn-sm btn-outline" id="acLevelTabBtn1" onclick="acShowLevelTab(1)" style="font-size:.78rem">L2 Standard</button>
+              <button class="btn btn-sm btn-outline" id="acLevelTabBtn2" onclick="acShowLevelTab(2)" style="font-size:.78rem">L3 Advanced</button>
+              <button class="btn btn-sm btn-outline" id="acLevelTabBtn3" onclick="acShowLevelTab(3)" style="font-size:.78rem">L4 Enterprise</button>
+            </div>
+          </div>
+          <p style="font-size:.8rem;color:var(--muted);margin-bottom:1rem">Configure what each subscription level can access. Each level inherits all features of lower levels.</p>
+
+          <!-- Level panels -->
+          <div id="acLevelPanel0" style="display:block">
+            <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.85rem">
+              <div style="width:36px;height:36px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.85rem;flex-shrink:0">L1</div>
+              <div>
+                <div style="font-weight:700;font-size:.95rem">Basic</div>
+                <div style="font-size:.75rem;color:var(--muted)">Exam analysis + teacher &amp; student management</div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.5rem;margin-bottom:1rem">
+              <div class="ac-feat-item ac-locked" data-feat="exam_analysis"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Exam Analysis <span class="ac-lock-badge">included</span></div>
+              <div class="ac-feat-item ac-locked" data-feat="add_teachers"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Add Teachers <span class="ac-lock-badge">included</span></div>
+              <div class="ac-feat-item ac-locked" data-feat="add_students"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Add Students <span class="ac-lock-badge">included</span></div>
+              <div class="ac-feat-item ac-off" data-feat="timetable"><i class="fa-solid fa-xmark-circle" style="color:#94a3b8"></i> Timetable <span class="ac-off-badge">not included</span></div>
+              <div class="ac-feat-item ac-off" data-feat="fees"><i class="fa-solid fa-xmark-circle" style="color:#94a3b8"></i> Fees Management <span class="ac-off-badge">not included</span></div>
+              <div class="ac-feat-item ac-off" data-feat="salaries"><i class="fa-solid fa-xmark-circle" style="color:#94a3b8"></i> Salary Management <span class="ac-off-badge">not included</span></div>
+              <div class="ac-feat-item ac-off" data-feat="reports"><i class="fa-solid fa-xmark-circle" style="color:#94a3b8"></i> Full Reports <span class="ac-off-badge">not included</span></div>
+              <div class="ac-feat-item ac-off" data-feat="settings"><i class="fa-solid fa-xmark-circle" style="color:#94a3b8"></i> System Settings <span class="ac-off-badge">not included</span></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:.75rem">
+              <div><label style="font-size:.75rem;font-weight:600;color:var(--muted)">Installation (KES)</label><input type="number" id="acPrice0_install" value="5000" min="0" oninput="acUpdateAnnual(0)" style="width:100%;height:34px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .6rem;font-family:inherit;font-size:.85rem;margin-top:.25rem"/></div>
+              <div><label style="font-size:.75rem;font-weight:600;color:var(--muted)">Monthly (KES)</label><input type="number" id="acPrice0_monthly" value="2000" min="0" oninput="acUpdateAnnual(0)" style="width:100%;height:34px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .6rem;font-family:inherit;font-size:.85rem;margin-top:.25rem"/></div>
+              <div><label style="font-size:.75rem;font-weight:600;color:var(--muted)">Annual (KES)</label><div id="acPrice0_annual" style="margin-top:.25rem;height:34px;border-radius:7px;background:rgba(79,70,229,.1);color:#4f46e5;font-weight:700;font-size:.88rem;display:flex;align-items:center;padding:0 .6rem">24,000</div></div>
+            </div>
+          </div>
+
+          <div id="acLevelPanel1" style="display:none">
+            <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.85rem">
+              <div style="width:36px;height:36px;border-radius:50%;background:#8b5cf6;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.85rem;flex-shrink:0">L2</div>
+              <div>
+                <div style="font-weight:700;font-size:.95rem">Standard</div>
+                <div style="font-size:.75rem;color:var(--muted)">All Basic features + Timetable creation</div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.5rem;margin-bottom:1rem">
+              <div class="ac-feat-item ac-locked"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Exam Analysis <span class="ac-lock-badge">inherited</span></div>
+              <div class="ac-feat-item ac-locked"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Add Teachers <span class="ac-lock-badge">inherited</span></div>
+              <div class="ac-feat-item ac-locked"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Add Students <span class="ac-lock-badge">inherited</span></div>
+              <div class="ac-feat-item ac-locked"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Timetable <span class="ac-lock-badge">included</span></div>
+              <div class="ac-feat-item ac-off"><i class="fa-solid fa-xmark-circle" style="color:#94a3b8"></i> Fees Management <span class="ac-off-badge">not included</span></div>
+              <div class="ac-feat-item ac-off"><i class="fa-solid fa-xmark-circle" style="color:#94a3b8"></i> Salary Management <span class="ac-off-badge">not included</span></div>
+              <div class="ac-feat-item ac-off"><i class="fa-solid fa-xmark-circle" style="color:#94a3b8"></i> Full Reports <span class="ac-off-badge">not included</span></div>
+              <div class="ac-feat-item ac-off"><i class="fa-solid fa-xmark-circle" style="color:#94a3b8"></i> System Settings <span class="ac-off-badge">not included</span></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:.75rem">
+              <div><label style="font-size:.75rem;font-weight:600;color:var(--muted)">Installation (KES)</label><input type="number" id="acPrice1_install" value="10000" min="0" oninput="acUpdateAnnual(1)" style="width:100%;height:34px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .6rem;font-family:inherit;font-size:.85rem;margin-top:.25rem"/></div>
+              <div><label style="font-size:.75rem;font-weight:600;color:var(--muted)">Monthly (KES)</label><input type="number" id="acPrice1_monthly" value="4000" min="0" oninput="acUpdateAnnual(1)" style="width:100%;height:34px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .6rem;font-family:inherit;font-size:.85rem;margin-top:.25rem"/></div>
+              <div><label style="font-size:.75rem;font-weight:600;color:var(--muted)">Annual (KES)</label><div id="acPrice1_annual" style="margin-top:.25rem;height:34px;border-radius:7px;background:rgba(139,92,246,.1);color:#8b5cf6;font-weight:700;font-size:.88rem;display:flex;align-items:center;padding:0 .6rem">48,000</div></div>
+            </div>
+          </div>
+
+          <div id="acLevelPanel2" style="display:none">
+            <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.85rem">
+              <div style="width:36px;height:36px;border-radius:50%;background:#f59e0b;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.85rem;flex-shrink:0">L3</div>
+              <div>
+                <div style="font-weight:700;font-size:.95rem">Advanced</div>
+                <div style="font-size:.75rem;color:var(--muted)">All Standard + Fees management (no salaries)</div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.5rem;margin-bottom:1rem">
+              <div class="ac-feat-item ac-locked"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Exam Analysis <span class="ac-lock-badge">inherited</span></div>
+              <div class="ac-feat-item ac-locked"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Add Teachers <span class="ac-lock-badge">inherited</span></div>
+              <div class="ac-feat-item ac-locked"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Add Students <span class="ac-lock-badge">inherited</span></div>
+              <div class="ac-feat-item ac-locked"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Timetable <span class="ac-lock-badge">inherited</span></div>
+              <div class="ac-feat-item ac-locked"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Fees Management <span class="ac-lock-badge">included</span></div>
+              <div class="ac-feat-item ac-off"><i class="fa-solid fa-xmark-circle" style="color:#94a3b8"></i> Salary Management <span class="ac-off-badge">not included</span></div>
+              <div class="ac-feat-item ac-off"><i class="fa-solid fa-xmark-circle" style="color:#94a3b8"></i> Full Reports <span class="ac-off-badge">not included</span></div>
+              <div class="ac-feat-item ac-off"><i class="fa-solid fa-xmark-circle" style="color:#94a3b8"></i> System Settings <span class="ac-off-badge">not included</span></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:.75rem">
+              <div><label style="font-size:.75rem;font-weight:600;color:var(--muted)">Installation (KES)</label><input type="number" id="acPrice2_install" value="20000" min="0" oninput="acUpdateAnnual(2)" style="width:100%;height:34px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .6rem;font-family:inherit;font-size:.85rem;margin-top:.25rem"/></div>
+              <div><label style="font-size:.75rem;font-weight:600;color:var(--muted)">Monthly (KES)</label><input type="number" id="acPrice2_monthly" value="7500" min="0" oninput="acUpdateAnnual(2)" style="width:100%;height:34px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .6rem;font-family:inherit;font-size:.85rem;margin-top:.25rem"/></div>
+              <div><label style="font-size:.75rem;font-weight:600;color:var(--muted)">Annual (KES)</label><div id="acPrice2_annual" style="margin-top:.25rem;height:34px;border-radius:7px;background:rgba(245,158,11,.1);color:#b45309;font-weight:700;font-size:.88rem;display:flex;align-items:center;padding:0 .6rem">90,000</div></div>
+            </div>
+          </div>
+
+          <div id="acLevelPanel3" style="display:none">
+            <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.85rem">
+              <div style="width:36px;height:36px;border-radius:50%;background:#ef4444;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.85rem;flex-shrink:0">L4</div>
+              <div>
+                <div style="font-weight:700;font-size:.95rem">Enterprise</div>
+                <div style="font-size:.75rem;color:var(--muted)">Full system access — everything unlocked</div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.5rem;margin-bottom:1rem">
+              <div class="ac-feat-item ac-locked"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Exam Analysis <span class="ac-lock-badge">included</span></div>
+              <div class="ac-feat-item ac-locked"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Add Teachers <span class="ac-lock-badge">included</span></div>
+              <div class="ac-feat-item ac-locked"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Add Students <span class="ac-lock-badge">included</span></div>
+              <div class="ac-feat-item ac-locked"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Timetable <span class="ac-lock-badge">included</span></div>
+              <div class="ac-feat-item ac-locked"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Fees Management <span class="ac-lock-badge">included</span></div>
+              <div class="ac-feat-item ac-locked"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Salary Management <span class="ac-lock-badge">included</span></div>
+              <div class="ac-feat-item ac-locked"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> Full Reports <span class="ac-lock-badge">included</span></div>
+              <div class="ac-feat-item ac-locked"><i class="fa-solid fa-check-circle" style="color:#22c55e"></i> System Settings <span class="ac-lock-badge">included</span></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:.75rem">
+              <div><label style="font-size:.75rem;font-weight:600;color:var(--muted)">Installation (KES)</label><input type="number" id="acPrice3_install" value="50000" min="0" oninput="acUpdateAnnual(3)" style="width:100%;height:34px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .6rem;font-family:inherit;font-size:.85rem;margin-top:.25rem"/></div>
+              <div><label style="font-size:.75rem;font-weight:600;color:var(--muted)">Monthly (KES)</label><input type="number" id="acPrice3_monthly" value="15000" min="0" oninput="acUpdateAnnual(3)" style="width:100%;height:34px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .6rem;font-family:inherit;font-size:.85rem;margin-top:.25rem"/></div>
+              <div><label style="font-size:.75rem;font-weight:600;color:var(--muted)">Annual (KES)</label><div id="acPrice3_annual" style="margin-top:.25rem;height:34px;border-radius:7px;background:rgba(239,68,68,.1);color:#b91c1c;font-weight:700;font-size:.88rem;display:flex;align-items:center;padding:0 .6rem">180,000</div></div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;padding-top:.75rem;border-top:1px solid var(--border);margin-top:.5rem">
+            <button class="btn btn-primary btn-sm" onclick="acSavePricing()"><i class="fa-solid fa-floppy-disk"></i> Save Pricing</button>
+            <button class="btn btn-outline btn-sm" onclick="acDownloadPDF()"><i class="fa-solid fa-file-pdf"></i> Download Access Level PDF</button>
+            <span id="acPriceSaveMsg" style="font-size:.82rem;color:var(--muted)"></span>
+          </div>
+        </div>
+
+        <!-- ══ SCHOOL ACCESS ASSIGNMENT ══ -->
+        <div class="card" style="border-left:4px solid #10b981;margin-bottom:1.25rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:.85rem">
+            <div>
+              <h3 style="margin:0"><i class="fa-solid fa-school"></i> School Access Assignment</h3>
+              <p style="font-size:.8rem;color:var(--muted);margin-top:.2rem">Assign a subscription level to each school with a single button press.</p>
+            </div>
+            <input type="text" id="acSchoolSearch" placeholder="Search schools…" oninput="acRenderSchoolList()" style="height:34px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .8rem;font-family:inherit;font-size:.83rem;width:200px"/>
+          </div>
+          <div id="acSchoolList" style="min-height:60px"></div>
+        </div>
+
+        <!-- ══ EXISTING: Exam Print / Download Access Control ══ -->
         <div class="card" style="border-left:4px solid #f59e0b">
           <h3><i class="fa-solid fa-lock"></i> Exam Print / Download Access Control</h3>
           <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">Control whether teachers and guest users can print or download exams from the Exam Builder. Set a fee (KES) to require payment, or 0 for free access.</p>

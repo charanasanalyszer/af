@@ -1259,6 +1259,7 @@ if (typeof window !== 'undefined') window.sbPlatActivate = sbPlatActivate;
 
 function openPlatTab(tabId, btn) {
   if (tabId === 'platTab-system') { setTimeout(platRenderLiteModeConfig, 50); }
+  if (tabId === 'platTab-access') { setTimeout(()=>{ if(typeof acInitPricing==='function'){acInitPricing();acRenderSchoolList();} }, 80); }
   document.querySelectorAll('#s-platform .plat-tab-panel').forEach(p => { p.style.display = 'none'; });
   document.querySelectorAll('#platTabBar .plat-tab-btn').forEach(b => {
     b.style.background = 'var(--surface)';
@@ -19249,3 +19250,219 @@ function rptBarChart(obj, total, defaultColor, colorMap) {
     </div>`;
   }).join('');
 }
+
+/* ═══════════════════════════════════════════════════════
+   ACCESS CONTROL LEVEL MANAGEMENT — Platform Admin
+   ═══════════════════════════════════════════════════════ */
+
+const AC_PRICING_KEY = 'ac_level_pricing';
+const AC_LEVEL_NAMES = ['Basic','Standard','Advanced','Enterprise'];
+const AC_LEVEL_COLORS = ['#3b82f6','#8b5cf6','#f59e0b','#ef4444'];
+const AC_LEVEL_FEATURES = [
+  ['Exam Analysis','Add Teachers','Add Students'],
+  ['Exam Analysis','Add Teachers','Add Students','Timetable'],
+  ['Exam Analysis','Add Teachers','Add Students','Timetable','Fees Management'],
+  ['Exam Analysis','Add Teachers','Add Students','Timetable','Fees Management','Salary Management','Full Reports','System Settings']
+];
+
+function acLoadPricing() {
+  try { return JSON.parse(localStorage.getItem(AC_PRICING_KEY)) || {}; } catch { return {}; }
+}
+function acSavePricingData(data) {
+  localStorage.setItem(AC_PRICING_KEY, JSON.stringify(data));
+}
+
+function acInitPricing() {
+  const stored = acLoadPricing();
+  [0,1,2,3].forEach(i => {
+    const inst = document.getElementById('acPrice'+i+'_install');
+    const mon  = document.getElementById('acPrice'+i+'_monthly');
+    if (!inst || !mon) return;
+    if (stored['install_'+i] !== undefined) inst.value = stored['install_'+i];
+    if (stored['monthly_'+i] !== undefined) mon.value  = stored['monthly_'+i];
+    acUpdateAnnual(i);
+  });
+}
+
+function acUpdateAnnual(i) {
+  const mon = parseFloat(document.getElementById('acPrice'+i+'_monthly')?.value) || 0;
+  const el  = document.getElementById('acPrice'+i+'_annual');
+  if (el) el.textContent = 'KES ' + (mon * 12).toLocaleString();
+}
+
+function acSavePricing() {
+  const data = {};
+  [0,1,2,3].forEach(i => {
+    data['install_'+i] = parseFloat(document.getElementById('acPrice'+i+'_install')?.value) || 0;
+    data['monthly_'+i] = parseFloat(document.getElementById('acPrice'+i+'_monthly')?.value) || 0;
+  });
+  acSavePricingData(data);
+  const msg = document.getElementById('acPriceSaveMsg');
+  if (msg) { msg.innerHTML = '<i class="fa-solid fa-check" style="color:#22c55e"></i> Pricing saved'; setTimeout(()=>{ msg.textContent=''; }, 2500); }
+}
+
+function acShowLevelTab(idx) {
+  [0,1,2,3].forEach(i => {
+    const panel = document.getElementById('acLevelPanel'+i);
+    const btn   = document.getElementById('acLevelTabBtn'+i);
+    if (panel) panel.style.display = i===idx ? 'block' : 'none';
+    if (btn) {
+      if (i===idx) {
+        btn.style.background = AC_LEVEL_COLORS[i];
+        btn.style.color = '#fff';
+        btn.style.borderColor = AC_LEVEL_COLORS[i];
+        btn.className = 'btn btn-sm';
+      } else {
+        btn.style.background = '';
+        btn.style.color = '';
+        btn.style.borderColor = '';
+        btn.className = 'btn btn-sm btn-outline';
+      }
+    }
+  });
+}
+
+function acGetSchoolLevel(schoolId) {
+  try {
+    const map = JSON.parse(localStorage.getItem('ac_school_levels')) || {};
+    return map[schoolId] !== undefined ? map[schoolId] : null;
+  } catch { return null; }
+}
+
+function acSetSchoolLevel(schoolId, levelIdx) {
+  try {
+    const map = JSON.parse(localStorage.getItem('ac_school_levels')) || {};
+    map[schoolId] = levelIdx;
+    localStorage.setItem('ac_school_levels', JSON.stringify(map));
+  } catch {}
+}
+
+function acGetSchoolActive(schoolId) {
+  try {
+    const map = JSON.parse(localStorage.getItem('ac_school_active')) || {};
+    return map[schoolId] !== false;
+  } catch { return true; }
+}
+
+function acToggleSchoolActive(schoolId) {
+  try {
+    const map = JSON.parse(localStorage.getItem('ac_school_active')) || {};
+    map[schoolId] = !acGetSchoolActive(schoolId);
+    localStorage.setItem('ac_school_active', JSON.stringify(map));
+    acRenderSchoolList();
+  } catch {}
+}
+
+function acRenderSchoolList() {
+  const el = document.getElementById('acSchoolList');
+  if (!el) return;
+  loadPlatform();
+  const q = (document.getElementById('acSchoolSearch')?.value || '').toLowerCase();
+  const schools = platformSchools.filter(s => !q || s.name.toLowerCase().includes(q));
+  if (!schools.length) {
+    el.innerHTML = '<p style="font-size:.85rem;color:var(--muted);padding:.5rem 0">No schools found. Add schools in the Schools tab first.</p>';
+    return;
+  }
+  el.innerHTML = schools.map(s => {
+    const lvl     = acGetSchoolLevel(s.id);
+    const active  = acGetSchoolActive(s.id);
+    const initials = s.name.split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
+    const color   = lvl !== null ? AC_LEVEL_COLORS[lvl] : '#94a3b8';
+    const levelBtns = AC_LEVEL_NAMES.map((n,i) =>
+      `<button class="ac-lvl-btn ${lvl===i?'active-'+i:''}" onclick="acAssignLevel('${s.id}',${i})">${n}</button>`
+    ).join('');
+    return `<div class="ac-school-row" id="acRow-${s.id}">
+      <div class="ac-school-avatar" style="background:${color}">${initials}</div>
+      <div class="ac-school-name">${s.name}<div style="font-size:.72rem;font-weight:400;color:var(--muted)">${s.username} · ${s.code||''}</div></div>
+      <div class="ac-level-btns">${levelBtns}</div>
+      <span class="ac-status-pill ${active?'ac-pill-on':'ac-pill-off'}">${active?'Active':'Inactive'}</span>
+      <button onclick="acToggleSchoolActive('${s.id}')" style="font-size:.72rem;font-weight:700;padding:.28rem .65rem;border-radius:6px;cursor:pointer;font-family:inherit;border:1px solid var(--border);background:var(--surface);color:var(--text)" title="${active?'Deactivate':'Activate'} access">
+        <i class="fa-solid ${active?'fa-toggle-on':'fa-toggle-off'}" style="color:${active?'#22c55e':'#94a3b8'}"></i> ${active?'On':'Off'}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function acAssignLevel(schoolId, levelIdx) {
+  acSetSchoolLevel(schoolId, levelIdx);
+  acRenderSchoolList();
+  const school = platformSchools.find(s=>s.id===schoolId);
+  showToast(`<i class="fa-solid fa-layer-group"></i> <strong>${school?.name||schoolId}</strong> → ${AC_LEVEL_NAMES[levelIdx]} access assigned`, 'success');
+}
+
+function acDownloadPDF() {
+  const pricing = acLoadPricing();
+  const levelData = [0,1,2,3].map(i=>({
+    name: AC_LEVEL_NAMES[i],
+    color: AC_LEVEL_COLORS[i],
+    features: AC_LEVEL_FEATURES[i],
+    installation: pricing['install_'+i] || [5000,10000,20000,50000][i],
+    monthly: pricing['monthly_'+i] || [2000,4000,7500,15000][i]
+  }));
+  loadPlatform();
+  const schoolData = platformSchools.map(s=>({
+    name: s.name,
+    level: acGetSchoolLevel(s.id) !== null ? AC_LEVEL_NAMES[acGetSchoolLevel(s.id)] : 'Unassigned',
+    levelIdx: acGetSchoolLevel(s.id),
+    active: acGetSchoolActive(s.id)
+  }));
+
+  // Build printable HTML and open in new window for PDF
+  const rows = levelData.map((lv,i) => {
+    const allFeats = ['Exam Analysis','Add Teachers','Add Students','Timetable','Fees Management','Salary Management','Full Reports','System Settings'];
+    const featsHTML = allFeats.map(f=>{
+      const has = lv.features.includes(f);
+      return `<div style="display:flex;align-items:center;gap:6px;font-size:11px;padding:5px 8px;border-radius:5px;border:1px solid ${has?'#bbf7d0':'#e2e8f0'};background:${has?'#f0fdf4':'#f8fafc'};margin-bottom:4px">
+        <span style="color:${has?'#16a34a':'#94a3b8'};font-size:13px">${has?'✓':'✗'}</span>
+        <span style="font-weight:${has?'600':'400'};color:${has?'#15803d':'#94a3b8'}">${f}</span>
+      </div>`;
+    }).join('');
+    const annual = lv.monthly * 12;
+    return `<div style="border:1.5px solid #e2e8f0;border-left:5px solid ${lv.color};border-radius:10px;padding:14px 16px;margin-bottom:14px;break-inside:avoid">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="width:32px;height:32px;border-radius:50%;background:${lv.color};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px">L${i+1}</div>
+        <div><div style="font-size:15px;font-weight:700">${lv.name}</div><div style="font-size:11px;color:#64748b">Level ${i+1}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:12px">${featsHTML}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;background:#f8fafc;border-radius:7px;padding:10px">
+        <div style="text-align:center"><div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">Installation</div><div style="font-size:14px;font-weight:700;color:#1e293b">KES ${lv.installation.toLocaleString()}</div></div>
+        <div style="text-align:center;border-left:1px solid #e2e8f0"><div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">Monthly</div><div style="font-size:14px;font-weight:700;color:#1e293b">KES ${lv.monthly.toLocaleString()}</div></div>
+        <div style="text-align:center;border-left:1px solid #e2e8f0"><div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">Annual</div><div style="font-size:14px;font-weight:700;color:${lv.color}">KES ${annual.toLocaleString()}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const schoolRows = schoolData.map(s=>{
+    const c = s.levelIdx!==null ? AC_LEVEL_COLORS[s.levelIdx] : '#94a3b8';
+    return `<tr style="border-bottom:1px solid #f1f5f9">
+      <td style="padding:7px 10px;font-weight:600;font-size:12px">${s.name}</td>
+      <td style="padding:7px 10px"><span style="background:${c}1a;color:${c};font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px">${s.level}</span></td>
+      <td style="padding:7px 10px"><span style="font-size:11px;font-weight:700;color:${s.active?'#16a34a':'#ef4444'}">${s.active?'Active':'Inactive'}</span></td>
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><head><title>Access Level Control — SchoolPro</title>
+  <style>body{font-family:Arial,sans-serif;margin:0;padding:24px;color:#1e293b}h1{font-size:20px;font-weight:700;margin-bottom:4px}h2{font-size:15px;font-weight:700;margin:18px 0 10px;color:#334155}@media print{.noprint{display:none}}</style></head>
+  <body>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+    <div><h1>SchoolPro — Access Level Control</h1><div style="font-size:11px;color:#64748b">Generated: ${new Date().toLocaleDateString('en-KE',{year:'numeric',month:'long',day:'numeric'})}</div></div>
+    <button class="noprint" onclick="window.print()" style="background:#4f46e5;color:#fff;border:none;padding:8px 18px;border-radius:7px;cursor:pointer;font-size:13px;font-weight:700">🖨 Print / Save PDF</button>
+  </div>
+  <div style="height:3px;background:linear-gradient(90deg,#4f46e5,#10b981);border-radius:2px;margin:12px 0 18px"></div>
+  <h2>Subscription Levels</h2>
+  ${rows}
+  <h2 style="margin-top:20px">School Assignments</h2>
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+    <thead><tr style="background:#f8fafc"><th style="padding:8px 10px;text-align:left;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em">School</th><th style="padding:8px 10px;text-align:left;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em">Level</th><th style="padding:8px 10px;text-align:left;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em">Status</th></tr></thead>
+    <tbody>${schoolRows}</tbody>
+  </table>
+  <div style="margin-top:20px;font-size:10px;color:#94a3b8;text-align:center;border-top:1px solid #f1f5f9;padding-top:10px">SchoolPro Platform Admin — Confidential Access Control Document</div>
+  </body></html>`;
+
+  const w = window.open('','_blank','width=800,height=700');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.focus(), 300);
+}
+
+// Access control init is hooked into openPlatTab directly above
