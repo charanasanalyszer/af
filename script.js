@@ -15358,18 +15358,22 @@ function etGenerate() {
   }
 
   /* ── Teacher busy tracking ── */
+  /* ── Teacher busy tracking (keyed by date+slot so teachers can
+        supervise different slots on the same day, but NEVER two
+        classes at the same time) ── */
   const teacherBusy = {};
-  const markBusy  = (dt,tid) => { if(!tid)return; if(!teacherBusy[dt])teacherBusy[dt]=new Set(); teacherBusy[dt].add(tid); };
-  const isBusy    = (dt,tid) => teacherBusy[dt]?.has(tid);
-  const freeT     = (dt,excl) => teachers.find(t=>!isBusy(dt,t.id)&&!excl.has(t.id))||null;
+  const _slotKey  = (dt, si) => dt + '_' + si;
+  const markBusy  = (dt, si, tid) => { if(!tid)return; const k=_slotKey(dt,si); if(!teacherBusy[k])teacherBusy[k]=new Set(); teacherBusy[k].add(tid); };
+  const isBusy    = (dt, si, tid) => teacherBusy[_slotKey(dt,si)]?.has(tid);
+  const freeT     = (dt, si, excl) => teachers.find(t=>!isBusy(dt,si,t.id)&&!excl.has(t.id))||null;
 
-  const resolveTeacher = (su, subId, dt) => {
+  const resolveTeacher = (su, subId, dt, si) => {
     const sa = streamAssignments.find(a=>a.streamId===su.id&&a.subjectId===subId&&a.teacherId);
     let tid=sa?.teacherId||null, role=tid?'stream':null;
     if (!tid){ const d=subjects.find(s=>s.id===subId)?.teacherId; if(d){tid=d;role='default';} }
-    if (tid&&isBusy(dt,tid)){ const f=freeT(dt,new Set([tid])); tid=f?f.id:tid; role=f?'free':'overflow'; }
-    if (!tid){ const f=freeT(dt,new Set()); if(f){tid=f.id;role='free';} }
-    markBusy(dt,tid);
+    if (tid&&isBusy(dt,si,tid)){ const f=freeT(dt,si,new Set([tid])); tid=f?f.id:tid; role=f?'free':'overflow'; }
+    if (!tid){ const f=freeT(dt,si,new Set()); if(f){tid=f.id;role='free';} }
+    markBusy(dt,si,tid);
     const tObj=teachers.find(t=>t.id===tid);
     return { teacherId:tid||'', teacherName:tObj?.name||'— Unassigned —', role:role||'free' };
   };
@@ -15391,7 +15395,7 @@ function etGenerate() {
 
       const groupEntries = classGroups.map(grp => {
         const streamSlots = grp.streams.map(su => {
-          const { teacherId, teacherName, role } = resolveTeacher(su, subId, dateStr);
+          const { teacherId, teacherName, role } = resolveTeacher(su, subId, dateStr, slotIdx);
           return { streamId:su.id, classLabel:su.label, teacherId, teacherName, role };
         });
         return { date:dateStr, slotIndex:slotIdx, slotName:slotDef.name, slotStart:slotDef.startTime,
@@ -15532,16 +15536,65 @@ function etRender() {
 function etEditSlot(key, subjectName, currentTeacherId) {
   document.getElementById('etSlotSubject').value = subjectName;
   document.getElementById('etSlotKey').value     = key;
+
+  /* Determine which teachers are already busy in this slot.
+     key format: ${dateStr}_${slotIndex}_${subjectId}_${streamId} */
+  const parts    = key.split('_');
+  const dateStr  = parts[0];
+  const slotIdx  = parts[1];
+  const slotKey  = dateStr + '_' + slotIdx;
+
+  /* Collect all teacher IDs already assigned in this date+slot (excl. this cell) */
+  const busyInSlot = new Set();
+  et_schedule.forEach(entry => {
+    if (entry.date !== dateStr || String(entry.slotIndex) !== slotIdx) return;
+    entry.streamSlots.forEach(ss => {
+      const cellKey = entry.date + '_' + entry.slotIndex + '_' + entry.subjectId + '_' + ss.streamId;
+      if (cellKey === key) return;                         // skip the cell being edited
+      const effectiveTid = et_overrides[cellKey] !== undefined ? et_overrides[cellKey] : ss.teacherId;
+      if (effectiveTid) busyInSlot.add(effectiveTid);
+    });
+  });
+
   const sel = document.getElementById('etSlotTeacher');
   sel.innerHTML = '<option value="">— Unassigned —</option>' +
-    teachers.map(t => `<option value="${t.id}" ${t.id===currentTeacherId?'selected':''}>${t.name}</option>`).join('');
+    teachers.map(t => {
+      const conflict = busyInSlot.has(t.id) && t.id !== currentTeacherId;
+      const label    = conflict ? t.name + ' ⚠ busy this slot' : t.name;
+      return `<option value="${t.id}" ${t.id===currentTeacherId?'selected':''} ${conflict?'style="color:#ef4444"':''} data-conflict="${conflict}">${label}</option>`;
+    }).join('');
+
   document.getElementById('etSlotModal').style.display = 'flex';
 }
 function etSaveSlotEdit() {
-  const key=document.getElementById('etSlotKey').value;
-  const tid=document.getElementById('etSlotTeacher').value;
-  if (key) et_overrides[key]=tid||null;
-  document.getElementById('etSlotModal').style.display='none';
+  const key = document.getElementById('etSlotKey').value;
+  const tid = document.getElementById('etSlotTeacher').value;
+
+  if (tid && key) {
+    /* Conflict check: make sure the chosen teacher isn't already assigned
+       to another class in the same date+slot */
+    const parts   = key.split('_');
+    const dateStr = parts[0];
+    const slotIdx = parts[1];
+    const busyInSlot = new Set();
+    et_schedule.forEach(entry => {
+      if (entry.date !== dateStr || String(entry.slotIndex) !== slotIdx) return;
+      entry.streamSlots.forEach(ss => {
+        const cellKey = entry.date + '_' + entry.slotIndex + '_' + entry.subjectId + '_' + ss.streamId;
+        if (cellKey === key) return;
+        const effectiveTid = et_overrides[cellKey] !== undefined ? et_overrides[cellKey] : ss.teacherId;
+        if (effectiveTid) busyInSlot.add(effectiveTid);
+      });
+    });
+    if (busyInSlot.has(tid)) {
+      const tName = teachers.find(t => t.id === tid)?.name || tid;
+      showToast(`<i class="fa-solid fa-triangle-exclamation"></i> <strong>${tName}</strong> is already assigned to another class in this time slot. Please choose a different teacher.`, 'warning', 4000);
+      return;   // keep modal open
+    }
+  }
+
+  if (key) et_overrides[key] = tid || null;
+  document.getElementById('etSlotModal').style.display = 'none';
   etRender();
 }
 function etClear() { et_schedule=[]; et_overrides={}; etRender(); }
