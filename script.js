@@ -18685,7 +18685,8 @@ function sdpRenderList() {
         <button class="btn btn-outline btn-xs" onclick="sdpEditStaff('${r.id}')"><i class="fa-solid fa-pen"></i></button>
         <button class="btn btn-danger btn-xs"  onclick="sdpDeleteStaff('${r.id}')"><i class="fa-solid fa-trash"></i></button>
       </td>
-    </tr>`;\n  }).join('');
+    </tr>`;
+  }).join('');
 }
 
 function sdpSaveStaff() {
