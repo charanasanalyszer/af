@@ -726,11 +726,6 @@ function doPlatformLogin() {
       errEl.style.display = 'block';
       return;
     }
-    // Confirm before creating — prevents accidental overwrites
-    if (!confirm(`Create a new Platform Admin account?\n\nUsername: ${u}\n\nMake sure you remember these credentials — they cannot be recovered without resetting.`)) {
-      re();
-      return;
-    }
     if (!validateUsername('platform', u)) { re(); return; }
     setPlatformCreds(u, p);
     re();
@@ -803,14 +798,13 @@ function doUnifiedLogin() {
     // Try schools first; if no match, treat as first-time platform setup
     const anySchoolMatch = platformSchools.some(s => s.username===u && s.password===p);
     if (!anySchoolMatch) {
-      if (p.length < 6) { re(); err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> No account found. Platform password must be ≥6 chars to create.'; err.style.display='block'; return; }
-      if (!confirm('Create a new Platform Admin account?\n\nUsername: '+u+'\n\nRemember these credentials — they cannot be recovered without a reset.')) { re(); return; }
+      if (p.length < 6) { re(); err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> No account found. Platform password must be at least 6 characters.'; err.style.display='block'; return; }
       // Platform admin: any alphanumeric username (no @ allowed)
       if (u.includes('@')) { re(); err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Platform Admin username cannot contain @. Use a plain name like: myadmin'; err.style.display='block'; return; }
       setPlatformCreds(u, p);
       re();
       maybeSaveCreds();
-      showToast('Platform account created <i class="fa-solid fa-check"></i>','success');
+      showToast('Platform admin account created successfully <i class="fa-solid fa-check"></i>','success');
       enterPlatformDashboard();
       return;
     }
