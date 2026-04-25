@@ -450,19 +450,9 @@ function resetPlatformAccount() {
   showPlatformLogin(); // re-render with first-time labels
 }
 function showUnifiedLogin() {
-  // If no schools registered yet, redirect to platform admin setup
   loadPlatform();
-  if (!platformSchools.length) {
-    showPlatformLogin();
-    const plErr = document.getElementById('plErr');
-    if (plErr) {
-      plErr.textContent = 'ℹ️ No schools registered yet. Set up your platform account first, then create a school.';
-      plErr.style.display = 'block';
-    }
-    return;
-  }
-  // Go straight to school login without showing school list
-  ['dualPortal','platformLogin','schoolSelector','app'].forEach(id => {
+  // Hide all other screens and app elements
+  ['dualPortal','platformLogin','schoolSelector','app','loginScreen'].forEach(id => {
     const el = document.getElementById(id); if (el) el.style.display = 'none';
   });
   // Hide fixed-position elements that escape parent display:none
@@ -470,13 +460,24 @@ function showUnifiedLogin() {
   const tb = document.getElementById('topbar'); if (tb) tb.style.display = 'none';
   const mbn = document.getElementById('mobileBottomNav'); if (mbn) mbn.style.display = 'none';
   const mbnR = document.getElementById('mbnRestoreTab'); if (mbnR) mbnR.style.display = 'none';
-  document.getElementById('lUser').value = '';
-  document.getElementById('lPass').value = '';
-  document.getElementById('loginErr').style.display = 'none';
-  document.getElementById('schoolLoginLabel').textContent = 'School Login';
-  // Flag that we are in direct-login mode (no pre-selected school)
+  // Flag direct-login mode (no pre-selected school)
   currentSchoolId = null;
-  document.getElementById('loginScreen').style.display = 'flex';
+  // Show the unified login form
+  const ul = document.getElementById('unifiedLogin');
+  if (ul) {
+    ul.style.display = 'flex';
+    const uniSubtitle = document.getElementById('uniSubtitle');
+    if (uniSubtitle) uniSubtitle.textContent = !platformSchools.length
+      ? 'No schools yet — log in with platform admin credentials to get started'
+      : 'School Exam Management System';
+    const u = document.getElementById('uniUser');
+    const p = document.getElementById('uniPass');
+    const err = document.getElementById('uniErr');
+    if (u) u.value = '';
+    if (p) p.value = '';
+    if (err) err.style.display = 'none';
+    setTimeout(() => { if (u) u.focus(); }, 100);
+  }
 }
 
 // ═══════════════ FORGOT PASSWORD ═══════════════
@@ -3063,11 +3064,20 @@ function enterSchool(schoolId) {
   // Full rendering happens in finishLogin() after credentials are verified.
   currentSchoolId = school.id;
   document.getElementById('schoolSelector').style.display = 'none';
-  document.getElementById('loginScreen').style.display    = 'flex';
-  document.getElementById('schoolLoginLabel').textContent = school.name;
-  document.getElementById('lUser').value = '';
-  document.getElementById('lPass').value = '';
-  document.getElementById('loginErr').style.display = 'none';
+  // Show the unified login form with the school's name as subtitle
+  const _ulEnter = document.getElementById('unifiedLogin');
+  if (_ulEnter) {
+    _ulEnter.style.display = 'flex';
+    const _sub = document.getElementById('uniSubtitle');
+    if (_sub) _sub.textContent = school.name + ' — Sign In';
+    const _u = document.getElementById('uniUser');
+    const _p = document.getElementById('uniPass');
+    const _e = document.getElementById('uniErr');
+    if (_u) _u.value = '';
+    if (_p) _p.value = '';
+    if (_e) _e.style.display = 'none';
+    setTimeout(() => { if (_u) _u.focus(); }, 100);
+  }
 }
 
 // Storage for platform admin session during school impersonation
