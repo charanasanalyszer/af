@@ -859,6 +859,19 @@ function doUnifiedLogin() {
     const teacher = teachers.find(t=>t.username===u&&t.password===p);
     if (teacher) { currentUser={username:teacher.username,role:'teacher',name:teacher.name,teacherId:teacher.id,canAnalyse:teacher.canAnalyse,canReport:teacher.canReport,canMerit:teacher.canMerit}; re(); maybeSaveCreds(); finishLogin(school); return; }
 
+    // ── Staff Payslip Portal login: staffId as username, natId (or staffId) as password ──
+    const staffList = JSON.parse(localStorage.getItem(staffDetailsKey()) || '[]');
+    const staffMatch = staffList.find(s => {
+      const uMatch = (s.staffId || '').toLowerCase() === u.toLowerCase();
+      if (!uMatch) return false;
+      const pwd = (s.natId || s.staffId || '').toString().trim();
+      return pwd && pwd === p;
+    });
+    if (staffMatch) {
+      currentUser = { username: staffMatch.staffId, role: 'staff_payslip', name: staffMatch.name, staffRecordId: staffMatch.id, staffId: staffMatch.staffId, dept: staffMatch.dept || '', jobRole: staffMatch.role || '', canAnalyse: false, canReport: false, canMerit: false };
+      re(); maybeSaveCreds(); finishStaffPayslipPortal(school); return;
+    }
+
     // ── Student login: admNo@schoolcode  e.g. 2024001@sunrise ──
     const atIdx = u.indexOf('@');
     if (atIdx > 0) {
@@ -1111,6 +1124,201 @@ function spRenderPapers() {
   });
   html += '</div>';
   body.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════
+//   STAFF PAYSLIP PORTAL
+// ══════════════════════════════════════════════
+function finishStaffPayslipPortal(school) {
+  saveSession();
+  const ul = document.getElementById('unifiedLogin'); if (ul) ul.style.display = 'none';
+  const app = document.getElementById('app'); if (app) app.style.display = 'none';
+  const portal = document.getElementById('staffPayslipPortal');
+  if (!portal) { finishLogin(school); return; } // fallback
+  portal.style.display = 'block';
+  if (localStorage.getItem('ei_dark') === '1') applyDark(true);
+
+  // Populate header & badge
+  document.getElementById('sppStaffName').textContent = currentUser.name || 'Staff Member';
+  document.getElementById('sppStaffRole').textContent = currentUser.jobRole || '—';
+  document.getElementById('sppStaffId').textContent   = currentUser.staffId  || '—';
+  document.getElementById('sppSchoolBadge').textContent = school.name || '';
+
+  // Populate year dropdown
+  const yearSel = document.getElementById('sppYear');
+  if (yearSel) {
+    const cur = new Date().getFullYear();
+    yearSel.innerHTML = '';
+    for (let y = cur; y >= cur - 5; y--) {
+      const o = document.createElement('option'); o.value = o.textContent = y; yearSel.appendChild(o);
+    }
+  }
+  // Pre-select current month
+  const monthSel = document.getElementById('sppMonth');
+  if (monthSel) {
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    monthSel.value = months[new Date().getMonth()];
+  }
+
+  // Load salary summary cards
+  sppLoadSummaryCards();
+  // Load details tab
+  sppRenderDetails();
+  // Load history
+  sppRenderHistory();
+}
+
+function sppLoadSummaryCards() {
+  if (!currentUser || currentUser.role !== 'staff_payslip') return;
+  const salaries = JSON.parse(localStorage.getItem('charanas_staffSalaries') || '[]');
+  const rec = salaries.find(r => r.staffId === currentUser.staffId);
+  const fmt = v => 'KES ' + (Number(v) || 0).toLocaleString();
+  document.getElementById('sppBasic').textContent  = rec ? fmt(rec.basic)  : '—';
+  document.getElementById('sppAllow').textContent  = rec ? fmt(rec.allow)  : '—';
+  const totalDeduct = rec ? (Number(rec.deduct||0) + Number(rec.nhif||0) + Number(rec.nssf||0)) : 0;
+  document.getElementById('sppDeduct').textContent = rec ? fmt(totalDeduct) : '—';
+  document.getElementById('sppNet').textContent    = rec ? fmt(rec.net)    : '—';
+}
+
+function sppOpenTab(tabId, btn) {
+  ['sppCurrent','sppHistory','sppDetails'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.style.display = id === tabId ? '' : 'none'; }
+  });
+  document.querySelectorAll('#staffPayslipPortal .tb').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (tabId === 'sppHistory') sppRenderHistory();
+  if (tabId === 'sppDetails') sppRenderDetails();
+}
+
+function sppPreviewPayslip() {
+  if (!currentUser || currentUser.role !== 'staff_payslip') return;
+  const month = document.getElementById('sppMonth')?.value || '';
+  const year  = document.getElementById('sppYear')?.value  || '';
+  const area  = document.getElementById('sppPreviewArea');
+  if (!area) return;
+
+  const salaries = JSON.parse(localStorage.getItem('charanas_staffSalaries') || '[]');
+  const rec = salaries.find(r => r.staffId === currentUser.staffId);
+  if (!rec) {
+    area.innerHTML = '<div style="color:var(--muted);padding:.5rem 0"><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;margin-right:.4rem"></i>No salary record found for your account. Please contact the administrator.</div>';
+    return;
+  }
+
+  const school = (typeof currentSchoolId !== 'undefined' && currentSchoolId)
+    ? (JSON.parse(localStorage.getItem('ei_platform_schools') || '[]').find(s => s.id === currentSchoolId) || {}).name || 'School'
+    : localStorage.getItem('charanas_schoolName') || 'School';
+  const totalDeduct = Number(rec.deduct||0) + Number(rec.nhif||0) + Number(rec.nssf||0);
+
+  area.innerHTML = `
+    <div id="sppPayslipDoc" style="border:1px solid var(--border);border-radius:10px;padding:1.5rem;font-size:.85rem;max-width:600px">
+      <div style="text-align:center;padding-bottom:.85rem;border-bottom:2px solid var(--primary,#7c3aed);margin-bottom:1rem">
+        <div style="font-size:1.05rem;font-weight:800;color:var(--primary,#7c3aed)">${school}</div>
+        <div style="font-size:.88rem;font-weight:700;margin-top:.25rem">PAYSLIP — ${month.toUpperCase()} ${year}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem .75rem;margin-bottom:1rem;font-size:.83rem">
+        <div><span style="color:var(--muted)">Employee:</span> <strong>${rec.name}</strong></div>
+        <div><span style="color:var(--muted)">Role:</span> ${rec.role || currentUser.jobRole || '—'}</div>
+        <div><span style="color:var(--muted)">Staff ID:</span> ${currentUser.staffId || '—'}</div>
+        <div><span style="color:var(--muted)">Employment:</span> ${rec.type || '—'}</div>
+        <div><span style="color:var(--muted)">Pay Period:</span> <strong>${month} ${year}</strong></div>
+        <div><span style="color:var(--muted)">Department:</span> ${currentUser.dept || '—'}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;margin-bottom:.75rem">
+        <thead><tr style="background:var(--bg)">
+          <th style="padding:.4rem .75rem;text-align:left;border:1px solid var(--border);font-weight:700">Description</th>
+          <th style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border);font-weight:700">Amount (KES)</th>
+        </tr></thead>
+        <tbody>
+          <tr><td style="padding:.4rem .75rem;border:1px solid var(--border)">Basic Salary</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border)">${Number(rec.basic).toLocaleString()}</td></tr>
+          <tr><td style="padding:.4rem .75rem;border:1px solid var(--border)">Allowances</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border)">${Number(rec.allow).toLocaleString()}</td></tr>
+          <tr style="background:#fef2f2"><td style="padding:.4rem .75rem;border:1px solid var(--border);color:#dc2626">SHA</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border);color:#dc2626">- ${Number(rec.nhif).toLocaleString()}</td></tr>
+          <tr style="background:#fef2f2"><td style="padding:.4rem .75rem;border:1px solid var(--border);color:#dc2626">NSSF</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border);color:#dc2626">- ${Number(rec.nssf).toLocaleString()}</td></tr>
+          <tr style="background:#fef2f2"><td style="padding:.4rem .75rem;border:1px solid var(--border);color:#dc2626">Other Deductions</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border);color:#dc2626">- ${Number(rec.deduct).toLocaleString()}</td></tr>
+          <tr style="font-weight:800;background:var(--primary-lt,#ede9fe)">
+            <td style="padding:.5rem .75rem;border:1px solid var(--border);color:var(--primary,#7c3aed)">NET PAY</td>
+            <td style="padding:.5rem .75rem;text-align:right;border:1px solid var(--border);color:var(--primary,#7c3aed);font-size:1rem">KES ${Number(rec.net).toLocaleString()}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="font-size:.72rem;color:var(--muted);text-align:center;margin-top:.5rem">Generated by Charanas School Management System — ${month} ${year}</div>
+    </div>`;
+
+  // Save to payslip history (shared history key — filtered by staffId on read)
+  let history = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
+  const exists = history.find(h => h.staffId === currentUser.staffId && h.month === month && h.year === year);
+  if (!exists) {
+    history.push({ id: 'ps_' + Date.now(), staffId: currentUser.staffId, name: rec.name, role: rec.role || '', month, year, net: rec.net });
+    localStorage.setItem('charanas_payslipHistory', JSON.stringify(history));
+    sppRenderHistory();
+  }
+}
+
+function sppPrintPayslip() {
+  const doc = document.getElementById('sppPayslipDoc');
+  if (!doc) { alert('Please preview a payslip first.'); return; }
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Payslip</title>
+  <style>body{font-family:Arial,sans-serif;padding:30px;max-width:600px;margin:auto}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;font-size:12px}.primary{color:#7c3aed}</style>
+  </head><body>${doc.outerHTML}</body></html>`);
+  win.document.close(); win.print();
+}
+
+function sppRenderHistory() {
+  const body = document.getElementById('sppHistBody');
+  if (!body || !currentUser || currentUser.role !== 'staff_payslip') return;
+  let history = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
+  // SECURITY: only show this staff member's own payslips
+  history = history.filter(h => h.staffId === currentUser.staffId);
+  const search = (document.getElementById('sppHistSearch')?.value || '').toLowerCase().trim();
+  if (search) history = history.filter(h => (h.month + ' ' + h.year).toLowerCase().includes(search));
+  if (!history.length) {
+    body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">No payslips generated yet. Use the <strong>Current Payslip</strong> tab to generate one.</td></tr>';
+    return;
+  }
+  body.innerHTML = history.map((h, i) => `
+    <tr style="border-top:1px solid var(--border)">
+      <td style="padding:.5rem .75rem">${i + 1}</td>
+      <td style="padding:.5rem .75rem;font-weight:600">${h.month}</td>
+      <td style="padding:.5rem .75rem">${h.year}</td>
+      <td style="padding:.5rem .75rem;text-align:right;font-weight:700;color:var(--primary,#7c3aed);font-family:var(--mono)">KES ${Number(h.net).toLocaleString()}</td>
+      <td style="padding:.5rem .75rem;text-align:center">
+        <button class="btn btn-outline btn-xs" onclick="sppReloadPayslip('${h.month}','${h.year}')"><i class="fa-solid fa-eye"></i> View</button>
+      </td>
+    </tr>`).join('');
+}
+
+function sppReloadPayslip(month, year) {
+  const monthSel = document.getElementById('sppMonth'); if (monthSel) monthSel.value = month;
+  const yearSel  = document.getElementById('sppYear');  if (yearSel)  yearSel.value  = year;
+  sppOpenTab('sppCurrent', document.getElementById('sppTabCurrent'));
+  sppPreviewPayslip();
+}
+
+function sppRenderDetails() {
+  const body = document.getElementById('sppDetailsBody');
+  if (!body || !currentUser || currentUser.role !== 'staff_payslip') return;
+  const staffList = JSON.parse(localStorage.getItem(staffDetailsKey()) || '[]');
+  const s = staffList.find(x => x.id === currentUser.staffRecordId);
+  if (!s) { body.innerHTML = '<p style="color:var(--muted)">No details on file. Contact the administrator.</p>'; return; }
+  const row = (label, val) => val ? `<div style="display:flex;gap:.5rem;padding:.55rem 0;border-bottom:1px solid var(--border-lt)"><span style="color:var(--muted);min-width:140px;font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em">${label}</span><span style="font-weight:600">${val}</span></div>` : '';
+  body.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 2rem">
+      <div>
+        ${row('Full Name', s.name)}
+        ${row('Staff ID / TSC', s.staffId)}
+        ${row('Role / Title', s.role)}
+        ${row('Department', s.dept)}
+        ${row('Employment Type', s.empType)}
+      </div>
+      <div>
+        ${row('Phone', s.phone)}
+        ${row('Email', s.email)}
+        ${row('Join Date', s.joinDate)}
+        ${row('Status', s.status)}
+        ${row('Qualification', s.qual)}
+      </div>
+    </div>`;
 }
 
 // ══════════════════════════════════════════════
@@ -3217,6 +3425,9 @@ function doLogout() {
   // Hide student portal overlay if open
   const sp = document.getElementById('studentPortalOverlay');
   if (sp) sp.style.display = 'none';
+  // Hide staff payslip portal if open
+  const spp = document.getElementById('staffPayslipPortal');
+  if (spp) spp.style.display = 'none';
   // Hide guest portal if open
   const gp = document.getElementById('guestPortal');
   if (gp) gp.style.display = 'none';
@@ -3431,6 +3642,15 @@ function initApp() {
       loadPlatform();
       enterPlatformDashboard();
       return;
+    }
+
+    // Staff payslip portal restore
+    if (savedUser.role === 'staff_payslip' && savedSchoolId) {
+      currentUser = savedUser;
+      currentSchoolId = savedSchoolId;
+      loadPlatform();
+      const school = platformSchools.find(s => s.id === savedSchoolId);
+      if (school) { loadSchoolContext(school); finishStaffPayslipPortal(school); return; }
     }
 
     // Student portal restore
@@ -18100,6 +18320,10 @@ function pstRenderList() {
   body.innerHTML = filtered.map((s,i) => {
     const sc = statusColour[s.status] || '#6b7280';
     const statusBadge = s.status ? `<span class="badge" style="background:${sc};color:#fff;font-size:.7rem">${s.status}</span>` : '—';
+    const hasPortalAccess = !!(s.staffId && s.natId);
+    const portalBadge = hasPortalAccess
+      ? `<span class="badge" style="background:#dcfce7;color:#15803d;font-size:.7rem"><i class="fa-solid fa-circle-check"></i> Ready</span>`
+      : `<span class="badge" style="background:#fef9c3;color:#a16207;font-size:.7rem" title="Add National ID to enable portal login"><i class="fa-solid fa-triangle-exclamation"></i> Missing NatID</span>`;
     return `
     <tr>
       <td>${i+1}</td>
@@ -18110,6 +18334,7 @@ function pstRenderList() {
       <td>${s.email || '—'}</td>
       <td>${s.staffId || '—'}</td>
       <td>${statusBadge}</td>
+      <td>${portalBadge}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-outline btn-xs" onclick="pstEditStaff('${s.id}')"><i class="fa-solid fa-pen"></i></button>
         <button class="btn btn-danger btn-xs" onclick="pstDeleteStaff('${s.id}')"><i class="fa-solid fa-trash"></i></button>
@@ -18429,22 +18654,28 @@ function sdpRenderList() {
   if (status) data = data.filter(r => r.status === status);
   sdpRenderStats();
   if (!data.length) {
-    body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">No staff records found. Click <strong>Add Staff</strong> to get started.</td></tr>';
+    body.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:2rem">No staff records found. Click <strong>Add Staff</strong> to get started.</td></tr>';
     return;
   }
   const sc = { Active:'#16a34a','On Leave':'#f59e0b',Resigned:'#ef4444',Retired:'#6b7280' };
-  body.innerHTML = data.map((r,i) => `
+  body.innerHTML = data.map((r,i) => {
+    const hasPortal = !!(r.staffId && r.natId);
+    const portalBadge = hasPortal
+      ? `<span class="badge" style="background:#dcfce7;color:#15803d;font-size:.7rem"><i class="fa-solid fa-circle-check"></i> Ready</span>`
+      : `<span class="badge" style="background:#fef9c3;color:#a16207;font-size:.7rem" title="Add National ID to enable portal login"><i class="fa-solid fa-triangle-exclamation"></i> No NatID</span>`;
+    return `
     <tr>
       <td>${i+1}</td><td><strong>${r.name}</strong></td>
       <td>${r.role||'—'}</td><td>${r.dept ? `<span class="badge">${r.dept}</span>` : '—'}</td>
       <td>${r.phone||'—'}</td><td>${r.email||'—'}</td>
       <td><span class="badge" style="background:${sc[r.status]||'#6b7280'};color:#fff">${r.status||'Active'}</span></td>
       <td>${r.joinDate||'—'}</td>
+      <td>${portalBadge}</td>
       <td>
         <button class="btn btn-outline btn-xs" onclick="sdpEditStaff('${r.id}')"><i class="fa-solid fa-pen"></i></button>
         <button class="btn btn-danger btn-xs"  onclick="sdpDeleteStaff('${r.id}')"><i class="fa-solid fa-trash"></i></button>
       </td>
-    </tr>`).join('');
+    </tr>`;\n  }).join('');
 }
 
 function sdpSaveStaff() {

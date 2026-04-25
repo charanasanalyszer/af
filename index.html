@@ -962,6 +962,11 @@
                 <button class="btn btn-outline btn-sm" onclick="pstExportCSV()"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
               </div>
             </div>
+            <!-- Payslip portal access notice -->
+            <div style="background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.2);border-radius:8px;padding:.65rem 1rem;margin-bottom:.85rem;display:flex;align-items:flex-start;gap:.65rem;font-size:.8rem">
+              <i class="fa-solid fa-circle-info" style="color:#7c3aed;margin-top:.1rem;flex-shrink:0"></i>
+              <span style="color:var(--text-2)"><strong>Staff Payslip Portal:</strong> Staff log in using their <strong>Staff ID</strong> as username and their <strong>National ID</strong> as password. They can only see their own payslips. Ensure both fields are filled in before sharing credentials.</span>
+            </div>
             <div class="tbl-wrap">
               <table>
                 <thead><tr>
@@ -973,6 +978,7 @@
                   <th>Email</th>
                   <th>Staff ID</th>
                   <th>Status</th>
+                  <th>Portal Access</th>
                   <th>Actions</th>
                 </tr></thead>
                 <tbody id="pstBody"></tbody>
@@ -1152,11 +1158,16 @@
               <button class="btn btn-outline btn-sm" onclick="platExportStaffCSV()"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
             </div>
           </div>
+          <!-- Payslip portal access notice -->
+          <div style="background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.2);border-radius:8px;padding:.65rem 1rem;margin-bottom:.85rem;display:flex;align-items:flex-start;gap:.65rem;font-size:.8rem">
+            <i class="fa-solid fa-circle-info" style="color:#7c3aed;margin-top:.1rem;flex-shrink:0"></i>
+            <span style="color:var(--text-2)"><strong>Staff Payslip Portal:</strong> Staff log in using their <strong>Staff ID</strong> as username and their <strong>National ID</strong> as password. They can only see their own payslips. Ensure both fields are filled in before sharing credentials.</span>
+          </div>
           <div class="tbl-wrap">
             <table>
               <thead><tr>
                 <th>#</th><th>Name</th><th>Role</th><th>Department</th>
-                <th>Phone</th><th>Email</th><th>Status</th><th>Joined</th><th>Actions</th>
+                <th>Phone</th><th>Email</th><th>Status</th><th>Joined</th><th>Portal Access</th><th>Actions</th>
               </tr></thead>
               <tbody id="sdpStaffBody"></tbody>
             </table>
@@ -6014,6 +6025,124 @@
     </div>
   </div>
 </div>
+
+<!-- ═══ STAFF PAYSLIP PORTAL ═══ -->
+<div id="staffPayslipPortal" style="display:none;position:fixed;inset:0;z-index:8500;background:var(--bg,#faf5ff);overflow-y:auto">
+  <div style="max-width:960px;margin:0 auto;padding:1.5rem 1rem 3rem">
+
+    <!-- Top bar -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;gap:1rem;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:.75rem">
+        <div style="width:2.8rem;height:2.8rem;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#1a6fb5);color:#fff;font-size:1.15rem;display:flex;align-items:center;justify-content:center"><i class="fa-solid fa-id-card"></i></div>
+        <div>
+          <div style="font-weight:800;font-size:1rem" id="sppStaffName">Staff Member</div>
+          <div style="font-size:.75rem;color:var(--muted)"><span id="sppStaffRole">—</span> &nbsp;·&nbsp; ID: <span id="sppStaffId">—</span></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+        <div id="sppSchoolBadge" style="font-size:.75rem;font-weight:700;background:rgba(124,58,237,.1);color:#7c3aed;padding:.25rem .75rem;border-radius:99px"></div>
+        <button onclick="doLogout()" class="btn btn-outline btn-sm"><i class="fa-solid fa-arrow-right-from-bracket" style="margin-right:.35rem"></i>Logout</button>
+      </div>
+    </div>
+
+    <!-- Welcome banner -->
+    <div style="background:linear-gradient(135deg,#1e1033 0%,#1a3a5c 60%,#0f2744 100%);border-radius:12px;padding:1.25rem 1.5rem;margin-bottom:1.5rem;border:1px solid rgba(124,58,237,.25);display:flex;align-items:center;gap:1.25rem">
+      <div style="font-size:2rem;line-height:1">💼</div>
+      <div>
+        <div style="color:#fff;font-weight:700;font-size:1rem">My Payslip Portal</div>
+        <div style="color:rgba(255,255,255,.5);font-size:.8rem;margin-top:.2rem">View and print your personal payslips. Only your records are accessible here.</div>
+      </div>
+    </div>
+
+    <!-- Stat cards row -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.85rem;margin-bottom:1.5rem">
+      <div style="background:var(--card,#fff);border:1px solid var(--border-lt,#e2e8f0);border-radius:12px;padding:1rem 1.25rem;box-shadow:0 1px 3px rgba(0,0,0,.07)">
+        <div style="font-size:.7rem;font-weight:700;color:var(--muted,#64748b);text-transform:uppercase;letter-spacing:.05em">Basic Salary</div>
+        <div id="sppBasic" style="font-size:1.2rem;font-weight:800;color:var(--text,#0f172a);margin-top:.2rem;font-family:var(--mono,'JetBrains Mono',monospace)">—</div>
+      </div>
+      <div style="background:var(--card,#fff);border:1px solid var(--border-lt,#e2e8f0);border-radius:12px;padding:1rem 1.25rem;box-shadow:0 1px 3px rgba(0,0,0,.07)">
+        <div style="font-size:.7rem;font-weight:700;color:var(--muted,#64748b);text-transform:uppercase;letter-spacing:.05em">Allowances</div>
+        <div id="sppAllow" style="font-size:1.2rem;font-weight:800;color:#0d9488;margin-top:.2rem;font-family:var(--mono,'JetBrains Mono',monospace)">—</div>
+      </div>
+      <div style="background:var(--card,#fff);border:1px solid var(--border-lt,#e2e8f0);border-radius:12px;padding:1rem 1.25rem;box-shadow:0 1px 3px rgba(0,0,0,.07)">
+        <div style="font-size:.7rem;font-weight:700;color:var(--muted,#64748b);text-transform:uppercase;letter-spacing:.05em">Deductions</div>
+        <div id="sppDeduct" style="font-size:1.2rem;font-weight:800;color:#dc2626;margin-top:.2rem;font-family:var(--mono,'JetBrains Mono',monospace)">—</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#1e1033,#1a6fb5);border-radius:12px;padding:1rem 1.25rem;box-shadow:0 4px 16px rgba(124,58,237,.25)">
+        <div style="font-size:.7rem;font-weight:700;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.05em">Net Pay</div>
+        <div id="sppNet" style="font-size:1.2rem;font-weight:800;color:#fff;margin-top:.2rem;font-family:var(--mono,'JetBrains Mono',monospace)">—</div>
+      </div>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="tab-bar" style="margin-bottom:1.25rem">
+      <button class="tb active" id="sppTabCurrent" onclick="sppOpenTab('sppCurrent',this)"><i class="fa-solid fa-scroll"></i> Current Payslip</button>
+      <button class="tb" id="sppTabHistory" onclick="sppOpenTab('sppHistory',this)"><i class="fa-solid fa-clock-rotate-left"></i> Payslip History</button>
+      <button class="tb" id="sppTabDetails" onclick="sppOpenTab('sppDetails',this)"><i class="fa-solid fa-circle-info"></i> My Details</button>
+    </div>
+
+    <!-- CURRENT PAYSLIP TAB -->
+    <div id="sppCurrent" class="tab-panel" style="">
+      <div class="card" style="margin-bottom:1rem">
+        <h3 style="margin-bottom:1rem"><i class="fa-solid fa-scroll"></i> Generate Payslip</h3>
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem">
+          <div style="flex:1;min-width:130px">
+            <label style="font-size:.78rem;font-weight:600;color:var(--muted);display:block;margin-bottom:.35rem">Month</label>
+            <select id="sppMonth" style="width:100%;padding:.5rem .75rem;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:.85rem;font-family:inherit;outline:none">
+              <option value="January">January</option><option value="February">February</option><option value="March">March</option>
+              <option value="April">April</option><option value="May">May</option><option value="June">June</option>
+              <option value="July">July</option><option value="August">August</option><option value="September">September</option>
+              <option value="October">October</option><option value="November">November</option><option value="December">December</option>
+            </select>
+          </div>
+          <div style="flex:1;min-width:110px">
+            <label style="font-size:.78rem;font-weight:600;color:var(--muted);display:block;margin-bottom:.35rem">Year</label>
+            <select id="sppYear" style="width:100%;padding:.5rem .75rem;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:.85rem;font-family:inherit;outline:none" id="sppYear"></select>
+          </div>
+          <button onclick="sppPreviewPayslip()" class="btn btn-primary" style="white-space:nowrap"><i class="fa-solid fa-eye"></i> Preview</button>
+          <button onclick="sppPrintPayslip()" class="btn btn-outline" style="white-space:nowrap"><i class="fa-solid fa-print"></i> Print</button>
+        </div>
+        <div id="sppPreviewArea" style="color:var(--muted);font-size:.88rem;padding:1rem 0">
+          Select a month and year above, then click <strong>Preview</strong> to generate your payslip.
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY TAB -->
+    <div id="sppHistory" class="tab-panel" style="display:none">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem;flex-wrap:wrap;gap:.5rem">
+          <h3><i class="fa-solid fa-clock-rotate-left"></i> My Payslip History</h3>
+          <input type="text" id="sppHistSearch" placeholder="Search by month or year…" oninput="sppRenderHistory()"
+            style="padding:.42rem .85rem;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:.82rem;font-family:inherit;outline:none;width:220px"/>
+        </div>
+        <div class="tbl-wrap">
+          <table style="width:100%;border-collapse:collapse;font-size:.83rem">
+            <thead><tr style="background:var(--bg)">
+              <th style="padding:.5rem .75rem;text-align:left;border-bottom:2px solid var(--border);font-weight:700;color:var(--muted)">#</th>
+              <th style="padding:.5rem .75rem;text-align:left;border-bottom:2px solid var(--border);font-weight:700;color:var(--muted)">Month</th>
+              <th style="padding:.5rem .75rem;text-align:left;border-bottom:2px solid var(--border);font-weight:700;color:var(--muted)">Year</th>
+              <th style="padding:.5rem .75rem;text-align:right;border-bottom:2px solid var(--border);font-weight:700;color:var(--muted)">Net Pay</th>
+              <th style="padding:.5rem .75rem;text-align:center;border-bottom:2px solid var(--border);font-weight:700;color:var(--muted)">Action</th>
+            </tr></thead>
+            <tbody id="sppHistBody">
+              <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">No payslips generated yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- DETAILS TAB -->
+    <div id="sppDetails" class="tab-panel" style="display:none">
+      <div class="card">
+        <h3 style="margin-bottom:1.25rem"><i class="fa-solid fa-circle-info"></i> My Employment Details</h3>
+        <div id="sppDetailsBody" style="font-size:.88rem"></div>
+      </div>
+    </div>
+
+  </div><!-- /inner -->
+</div><!-- /#staffPayslipPortal -->
 
 <!-- ═══ MODAL ═══ -->
 <div class="modal-overlay" id="modalOverlay">
