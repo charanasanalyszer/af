@@ -15152,7 +15152,7 @@ Return ONLY the JSON.`;
     const questions = parsed?.questions || [];
     let added = 0;
     questions.forEach(q => {
-      sec.questions.push({ id:ebGenId(), question:q.question||'', marks:q.marks||sec.marksPerQuestion||3, options:[], answer:'', subParts:q.subParts||[], aiGenerated:true, diagram:null });
+      sec.questions.push({ id:ebGenId(), question:q.question||'', marks:q.marks||sec.marksPerQuestion||3, options:[], answer:'', subParts:[], aiGenerated:true, diagram:null });
       added++;
     });
     ebRenderQuestionBuilder();
@@ -15238,7 +15238,7 @@ function ebRenderPreview() {
 
     if (isMcq) {
       // ── Two-column MCQ — NO examiner boxes ──
-      questionsHtml = `<div class="ebep-mcq-grid">` +
+      questionsHtml = `<div class="ebep-mcq-grid" style="position:relative"><div class="ebep-mcq-col-divider"></div>` +
         sec.questions.map((q, qIdx) => `
           <div class="ebep-q" style="break-inside:avoid;padding:.25rem 0">
             <strong>${qIdx+1}. ${ebEscape(q.question||'[Question text]')}</strong>
@@ -15769,6 +15769,11 @@ function ebClientSidePDF(exam) {
       };
       const lyEnd = renderMcqCol(sec.questions.slice(0,half), 0, lm);
       const ryEnd = renderMcqCol(sec.questions.slice(half), half, col2X);
+      // ── Vertical separator between columns ──
+      const divX = lm + colW2 + 3;
+      doc.setDrawColor(150); doc.setLineWidth(.3);
+      doc.line(divX, y-2, divX, Math.max(lyEnd, ryEnd)+2);
+      doc.setDrawColor(0); doc.setLineWidth(.4);
       y = Math.max(lyEnd, ryEnd)+4;
 
     } else if (isShortAnswer) {
@@ -15907,7 +15912,7 @@ OUTPUT RULES — CRITICAL:
 - Use exactly this structure:
 {"questions":[{"id":"q1","question":"...","type":"mcq","marks":2,"options":["A) ...","B) ...","C) ...","D) ..."],"answer":"A) ...","explanation":"...","difficulty":"medium","subParts":[]${imageField}}]}
 - For MCQ: include 4 options (A-D), set answer to the correct option text.
-- For structured/essay: options=[], answer="", use subParts for multi-part questions.${withImages ? '\n- imageQuery: a short 2-3 word image search term relevant to the question.' : ''}
+- For structured/essay: options=[], answer="", subParts must always be [].${withImages ? '\n- imageQuery: a short 2-3 word image search term relevant to the question.' : ''}
 - Do NOT include any text before or after the JSON.`;
   const userPrompt = `Generate ${count || 5} ${questionType || 'mcq'} questions for:
 Subject: ${subject || 'General'} | Topic: ${topic || subject || 'General'} | Difficulty: ${difficulty || 'medium'} (${diffGuide[difficulty] || diffGuide.medium})
@@ -15985,7 +15990,7 @@ function ebaiAddSingle(idx) {
 function ebStagePendingQ(q) {
   const sec = EB.sections.find(s => s.type === q.type) || EB.sections[0];
   if (!sec) return;
-  sec.questions.push({ id:ebGenId(), question:q.question, marks:q.marks||sec.marksPerQuestion||2, options:q.options||[], answer:q.answer||'', subParts:q.subParts||[], aiGenerated:true });
+  sec.questions.push({ id:ebGenId(), question:q.question, marks:q.marks||sec.marksPerQuestion||2, options:q.options||[], answer:q.answer||'', subParts:[], aiGenerated:true });
 }
 
 // ─── AI per-section modal ─────────────────────────────────────────────────────
@@ -16018,7 +16023,7 @@ async function ebGenSingleQuestion() {
     const qs = await ebGenerateQuestionsAPI({ subject, topic:topic||subject, questionType:sec.type, difficulty:_ebModalDiff, count:1, notes });
     if (qs.length) {
       const q = qs[0];
-      const newQ = { id:ebGenId(), question:q.question, marks:q.marks||sec.marksPerQuestion||2, options:q.options||[], answer:q.answer||'', subParts:q.subParts||[], aiGenerated:true };
+      const newQ = { id:ebGenId(), question:q.question, marks:q.marks||sec.marksPerQuestion||2, options:q.options||[], answer:q.answer||'', subParts:[], aiGenerated:true };
       if (withImages && q.imageQuery) {
         try { newQ.imageData = await ebFetchUnsplashImage(q.imageQuery, imgDesc); } catch(e) { console.warn('Image gen failed:', e); }
       }
@@ -16101,7 +16106,7 @@ async function ebGenForSection() {
       const qs = await ebGenerateQuestionsAPI({ subject, topic:topic||subject, questionType:sec.type, difficulty:_ebModalDiff, count:1, notes });
       if (qs.length) {
         const q = qs[0];
-        const newQ = { id:ebGenId(), question:q.question, marks:q.marks||sec.marksPerQuestion||2, options:q.options||[], answer:q.answer||'', subParts:q.subParts||[], aiGenerated:true };
+        const newQ = { id:ebGenId(), question:q.question, marks:q.marks||sec.marksPerQuestion||2, options:q.options||[], answer:q.answer||'', subParts:[], aiGenerated:true };
         if (withImages && q.imageQuery) {
           try { newQ.imageData = await ebFetchUnsplashImage(q.imageQuery, imgDesc); } catch(e) { console.warn('Image gen failed:', e); }
         }
@@ -16137,7 +16142,7 @@ async function ebDoGenAll() {
   try {
     await Promise.all(EB.sections.map((sec, sIdx) =>
       ebGenerateQuestionsAPI({ subject, topic:topics||subject, questionType:sec.type, difficulty:_ebGaDiff, count:sec.questionCount||5, notes })
-        .then(qs => { qs.forEach(q => { EB.sections[sIdx].questions.push({ id:ebGenId(), question:q.question, marks:q.marks||sec.marksPerQuestion||2, options:q.options||[], answer:q.answer||'', subParts:q.subParts||[], aiGenerated:true }); }); total+=qs.length; })
+        .then(qs => { qs.forEach(q => { EB.sections[sIdx].questions.push({ id:ebGenId(), question:q.question, marks:q.marks||sec.marksPerQuestion||2, options:q.options||[], answer:q.answer||'', subParts:[], aiGenerated:true }); }); total+=qs.length; })
         .catch(err => console.warn('Section', sec.name, err))
     ));
     ebRenderQuestionBuilder();
