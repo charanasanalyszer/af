@@ -1443,16 +1443,209 @@ function finishStaffPayslipPortal(school) {
   sppRenderHistory();
 }
 
+// ── Helper: normalise a month name to a 2-digit number string ("January" → "01") ──
+function _sppMonthNum(name) {
+  const idx = ['january','february','march','april','may','june',
+                'july','august','september','october','november','december']
+                .indexOf((name||'').toLowerCase().trim());
+  return idx >= 0 ? String(idx + 1).padStart(2, '0') : null;
+}
+
+// ── Helper: find a payroll record from charanas_payroll matching staffId + month + year ──
+// period field is free-text, so we try multiple formats
+function _sppFindPayrollRecord(staffId, month, year) {
+  const payroll = JSON.parse(localStorage.getItem('charanas_payroll') || '[]');
+  const mNum = _sppMonthNum(month);
+  const yStr = String(year);
+  return payroll.find(r => {
+    if (r.staffId !== staffId) return false;
+    const p = (r.period || '').toLowerCase().trim();
+    if (!p) return false;
+    // Match "YYYY-MM"
+    if (mNum && p === `${yStr}-${mNum}`) return true;
+    // Match "MM/YYYY" or "MM-YYYY"
+    if (mNum && (p === `${mNum}/${yStr}` || p === `${mNum}-${yStr}`)) return true;
+    // Match "January 2025" or "Jan 2025"
+    if (p.includes(yStr) && p.includes((month||'').toLowerCase().slice(0,3))) return true;
+    return false;
+  }) || null;
+}
+
+// ── Helper: get the best available pay data for a staff member / period ──
+// Returns a normalised record: { name, role, type, staffId, basic, allow, nhif, nssf, deduct, net, source }
+function _sppGetPayData(staffId, month, year) {
+  // 1. Try actual payroll run record
+  const pr = _sppFindPayrollRecord(staffId, month, year);
+  if (pr) {
+    // charanas_payroll: { basic, allowances, deductions, status }
+    // deductions = combined (no nhif/nssf breakdown stored separately)
+    const basic  = Number(pr.basic      || 0);
+    const allow  = Number(pr.allowances || 0);
+    const deduct = Number(pr.deductions || 0);
+    const net    = basic + allow - deduct;
+    return { name: pr.staffName, role: pr.role || currentUser.jobRole || '—',
+             type: '—', staffId, basic, allow, nhif: 0, nssf: 0, deduct, net,
+             status: pr.status || '', source: 'payroll' };
+  }
+  // 2. Fall back to static salary record
+  const salaries = JSON.parse(localStorage.getItem('charanas_staffSalaries') || '[]');
+  const rec = salaries.find(r => r.staffId === staffId);
+  if (rec) {
+    return { name: rec.name, role: rec.role || currentUser.jobRole || '—',
+             type: rec.type || '—', staffId, basic: Number(rec.basic||0),
+             allow: Number(rec.allow||0), nhif: Number(rec.nhif||0),
+             nssf: Number(rec.nssf||0), deduct: Number(rec.deduct||0),
+             net: Number(rec.net||0), status: '', source: 'salary' };
+  }
+  return null;
+}
+
+// ── Helper: get the school name ──
+function _sppSchoolName() {
+  if (typeof currentSchoolId !== 'undefined' && currentSchoolId) {
+    const schools = JSON.parse(localStorage.getItem('ei_platform_schools') || '[]');
+    const s = schools.find(x => x.id === currentSchoolId);
+    if (s && s.name) return s.name;
+  }
+  return localStorage.getItem('charanas_schoolName') || (settings && settings.schoolName) || 'School';
+}
+
+// ── Helper: build a jsPDF payslip document ──
+function _sppBuildPDF(month, year, pay, school) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W = 210, M = 18;
+  const purple = [124, 58, 237];
+  const dark   = [15, 23, 42];
+  const muted  = [100, 116, 139];
+  const green  = [16, 163, 74];
+  const red    = [220, 38, 38];
+  const fmt    = v => Number(v || 0).toLocaleString();
+
+  // ── Header band ──
+  doc.setFillColor(...purple);
+  doc.rect(0, 0, W, 34, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(15);
+  doc.setFont(undefined, 'bold');
+  doc.text(school.toUpperCase(), M, 13);
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'bold');
+  doc.text('PAYSLIP', W - M, 11, { align: 'right' });
+  doc.setFontSize(11);
+  doc.text(`${(month||'').toUpperCase()} ${year}`, W - M, 19, { align: 'right' });
+  doc.setFontSize(7.5);
+  doc.setFont(undefined, 'normal');
+  doc.setTextColor(200, 180, 255);
+  const today = new Date().toLocaleDateString('en-KE', { day: '2-digit', month: 'long', year: 'numeric' });
+  doc.text(`Generated: ${today}`, M, 28);
+  if (pay.source === 'payroll' && pay.status) {
+    doc.text(`Status: ${pay.status}`, W - M, 28, { align: 'right' });
+  }
+
+  // ── Employee info box ──
+  let y = 40;
+  doc.setFillColor(245, 243, 255);
+  doc.roundedRect(M, y, W - M * 2, 24, 3, 3, 'F');
+  doc.setFontSize(7);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(...muted);
+  doc.text('EMPLOYEE DETAILS', M + 4, y + 5);
+  doc.setTextColor(...dark);
+  const col2 = M + (W - M * 2) / 2 + 2;
+  const lbl = (label, val, cx, cy) => {
+    doc.setFont(undefined, 'normal'); doc.setTextColor(...muted);
+    doc.text(label + ':', cx, cy);
+    doc.setFont(undefined, 'bold'); doc.setTextColor(...dark);
+    doc.text(String(val || '—'), cx + 26, cy);
+  };
+  lbl('Name',       pay.name,                     M + 4,  y + 11);
+  lbl('Role',       pay.role,                     col2,   y + 11);
+  lbl('Staff ID',   currentUser.staffId || '—',   M + 4,  y + 17);
+  lbl('Type',       pay.type,                     col2,   y + 17);
+
+  // ── Earnings & Deductions table ──
+  y += 30;
+  doc.setFontSize(8.5);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(...dark);
+  doc.text('EARNINGS & DEDUCTIONS', M, y);
+  y += 3;
+
+  const rows = [
+    ['Basic Salary',      fmt(pay.basic),         'earn'],
+    ['Allowances',        fmt(pay.allow),         'earn'],
+  ];
+  // Only show nhif/nssf if source is salary (has breakdown) or values > 0
+  if (pay.nhif > 0)  rows.push(['SHA',              '- ' + fmt(pay.nhif),   'deduct']);
+  if (pay.nssf > 0)  rows.push(['NSSF',             '- ' + fmt(pay.nssf),   'deduct']);
+  if (pay.deduct > 0) rows.push(['Other Deductions', '- ' + fmt(pay.source === 'salary' ? pay.deduct : pay.deduct - pay.nhif - pay.nssf), 'deduct']);
+  if (pay.source === 'payroll' && pay.nhif === 0 && pay.nssf === 0 && pay.deduct > 0) {
+    // payroll source: only one combined deductions line
+    rows.pop();
+    rows.push(['Total Deductions', '- ' + fmt(pay.deduct), 'deduct']);
+  }
+
+  doc.autoTable({
+    startY: y,
+    head: [['Description', 'Amount (KES)']],
+    body: rows.map(r => [r[0], r[1]]),
+    theme: 'grid',
+    headStyles: { fillColor: purple, textColor: 255, fontStyle: 'bold', fontSize: 8, cellPadding: 2.5 },
+    bodyStyles: { fontSize: 8.5, cellPadding: 2.5 },
+    columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
+    didParseCell: data => {
+      if (data.section === 'body') {
+        const type = rows[data.row.index]?.[2];
+        if (type === 'earn')   data.cell.styles.textColor = [15, 23, 42];
+        if (type === 'deduct') data.cell.styles.textColor = red;
+      }
+    },
+    margin: { left: M, right: M }
+  });
+
+  // ── Net Pay band ──
+  const fy = doc.lastAutoTable.finalY + 4;
+  doc.setFillColor(...purple);
+  doc.roundedRect(M, fy, W - M * 2, 16, 3, 3, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'bold');
+  doc.text('NET PAY', M + 5, fy + 6.5);
+  doc.setFontSize(13);
+  doc.text(`KES ${fmt(pay.net)}`, W - M - 5, fy + 9, { align: 'right' });
+
+  // ── Pay period summary below net ──
+  const sy = fy + 22;
+  doc.setFontSize(7.5);
+  doc.setFont(undefined, 'normal');
+  doc.setTextColor(...muted);
+  doc.text(`Pay Period: ${month} ${year}`, M, sy);
+  doc.text(`Data source: ${pay.source === 'payroll' ? 'Payroll Run Record' : 'Staff Salary Structure'}`, W - M, sy, { align: 'right' });
+
+  // ── Footer ──
+  doc.setFontSize(7);
+  doc.setTextColor(...muted);
+  doc.setDrawColor(...muted);
+  doc.setLineWidth(0.3);
+  doc.line(M, 285, W - M, 285);
+  doc.text(`${school}  •  Official Payslip  •  ${month} ${year}`, W / 2, 289, { align: 'center' });
+
+  return doc;
+}
+
 function sppLoadSummaryCards() {
   if (!currentUser || currentUser.role !== 'staff_payslip') return;
-  const salaries = JSON.parse(localStorage.getItem('charanas_staffSalaries') || '[]');
-  const rec = salaries.find(r => r.staffId === currentUser.staffId);
-  const fmt = v => 'KES ' + (Number(v) || 0).toLocaleString();
-  document.getElementById('sppBasic').textContent  = rec ? fmt(rec.basic)  : '—';
-  document.getElementById('sppAllow').textContent  = rec ? fmt(rec.allow)  : '—';
-  const totalDeduct = rec ? (Number(rec.deduct||0) + Number(rec.nhif||0) + Number(rec.nssf||0)) : 0;
-  document.getElementById('sppDeduct').textContent = rec ? fmt(totalDeduct) : '—';
-  document.getElementById('sppNet').textContent    = rec ? fmt(rec.net)    : '—';
+  const month = document.getElementById('sppMonth')?.value ||
+    ['January','February','March','April','May','June','July','August','September','October','November','December'][new Date().getMonth()];
+  const year  = document.getElementById('sppYear')?.value  || String(new Date().getFullYear());
+  const pay   = _sppGetPayData(currentUser.staffId, month, year);
+  const fmt   = v => 'KES ' + (Number(v) || 0).toLocaleString();
+  document.getElementById('sppBasic').textContent  = pay ? fmt(pay.basic) : '—';
+  document.getElementById('sppAllow').textContent  = pay ? fmt(pay.allow) : '—';
+  const totalDeduct = pay ? (pay.nhif + pay.nssf + pay.deduct) : 0;
+  document.getElementById('sppDeduct').textContent = pay ? fmt(totalDeduct) : '—';
+  document.getElementById('sppNet').textContent    = pay ? fmt(pay.net)    : '—';
 }
 
 function sppOpenTab(tabId, btn) {
@@ -1473,31 +1666,39 @@ function sppPreviewPayslip() {
   const area  = document.getElementById('sppPreviewArea');
   if (!area) return;
 
-  const salaries = JSON.parse(localStorage.getItem('charanas_staffSalaries') || '[]');
-  const rec = salaries.find(r => r.staffId === currentUser.staffId);
-  if (!rec) {
+  const pay = _sppGetPayData(currentUser.staffId, month, year);
+  if (!pay) {
     area.innerHTML = '<div style="color:var(--muted);padding:.5rem 0"><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;margin-right:.4rem"></i>No salary record found for your account. Please contact the administrator.</div>';
     return;
   }
+  const school = _sppSchoolName();
+  const fmt = v => Number(v || 0).toLocaleString();
 
-  const school = (typeof currentSchoolId !== 'undefined' && currentSchoolId)
-    ? (JSON.parse(localStorage.getItem('ei_platform_schools') || '[]').find(s => s.id === currentSchoolId) || {}).name || 'School'
-    : localStorage.getItem('charanas_schoolName') || 'School';
-  const totalDeduct = Number(rec.deduct||0) + Number(rec.nhif||0) + Number(rec.nssf||0);
+  // Build deduction rows
+  let deductRows = '';
+  if (pay.source === 'salary') {
+    deductRows = `
+      <tr style="background:#fef2f2"><td style="padding:.4rem .75rem;border:1px solid var(--border);color:#dc2626">SHA</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border);color:#dc2626">- ${fmt(pay.nhif)}</td></tr>
+      <tr style="background:#fef2f2"><td style="padding:.4rem .75rem;border:1px solid var(--border);color:#dc2626">NSSF</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border);color:#dc2626">- ${fmt(pay.nssf)}</td></tr>
+      <tr style="background:#fef2f2"><td style="padding:.4rem .75rem;border:1px solid var(--border);color:#dc2626">Other Deductions</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border);color:#dc2626">- ${fmt(pay.deduct)}</td></tr>`;
+  } else {
+    deductRows = `<tr style="background:#fef2f2"><td style="padding:.4rem .75rem;border:1px solid var(--border);color:#dc2626">Total Deductions</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border);color:#dc2626">- ${fmt(pay.deduct)}</td></tr>`;
+  }
 
   area.innerHTML = `
     <div id="sppPayslipDoc" style="border:1px solid var(--border);border-radius:10px;padding:1.5rem;font-size:.85rem;max-width:600px">
       <div style="text-align:center;padding-bottom:.85rem;border-bottom:2px solid var(--primary,#7c3aed);margin-bottom:1rem">
         <div style="font-size:1.05rem;font-weight:800;color:var(--primary,#7c3aed)">${school}</div>
-        <div style="font-size:.88rem;font-weight:700;margin-top:.25rem">PAYSLIP — ${month.toUpperCase()} ${year}</div>
+        <div style="font-size:.88rem;font-weight:700;margin-top:.25rem">PAYSLIP — ${(month||'').toUpperCase()} ${year}</div>
+        ${pay.status ? `<div style="font-size:.75rem;font-weight:700;margin-top:.2rem;color:${pay.status==='Paid'?'#16a34a':'#f59e0b'}">${pay.status}</div>` : ''}
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem .75rem;margin-bottom:1rem;font-size:.83rem">
-        <div><span style="color:var(--muted)">Employee:</span> <strong>${rec.name}</strong></div>
-        <div><span style="color:var(--muted)">Role:</span> ${rec.role || currentUser.jobRole || '—'}</div>
+        <div><span style="color:var(--muted)">Employee:</span> <strong>${pay.name}</strong></div>
+        <div><span style="color:var(--muted)">Role:</span> ${pay.role}</div>
         <div><span style="color:var(--muted)">Staff ID:</span> ${currentUser.staffId || '—'}</div>
-        <div><span style="color:var(--muted)">Employment:</span> ${rec.type || '—'}</div>
+        <div><span style="color:var(--muted)">Employment:</span> ${pay.type}</div>
         <div><span style="color:var(--muted)">Pay Period:</span> <strong>${month} ${year}</strong></div>
-        <div><span style="color:var(--muted)">Department:</span> ${currentUser.dept || '—'}</div>
+        <div><span style="color:var(--muted)">Dept:</span> ${currentUser.dept || '—'}</div>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:.82rem;margin-bottom:.75rem">
         <thead><tr style="background:var(--bg)">
@@ -1505,160 +1706,61 @@ function sppPreviewPayslip() {
           <th style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border);font-weight:700">Amount (KES)</th>
         </tr></thead>
         <tbody>
-          <tr><td style="padding:.4rem .75rem;border:1px solid var(--border)">Basic Salary</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border)">${Number(rec.basic).toLocaleString()}</td></tr>
-          <tr><td style="padding:.4rem .75rem;border:1px solid var(--border)">Allowances</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border)">${Number(rec.allow).toLocaleString()}</td></tr>
-          <tr style="background:#fef2f2"><td style="padding:.4rem .75rem;border:1px solid var(--border);color:#dc2626">SHA</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border);color:#dc2626">- ${Number(rec.nhif).toLocaleString()}</td></tr>
-          <tr style="background:#fef2f2"><td style="padding:.4rem .75rem;border:1px solid var(--border);color:#dc2626">NSSF</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border);color:#dc2626">- ${Number(rec.nssf).toLocaleString()}</td></tr>
-          <tr style="background:#fef2f2"><td style="padding:.4rem .75rem;border:1px solid var(--border);color:#dc2626">Other Deductions</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border);color:#dc2626">- ${Number(rec.deduct).toLocaleString()}</td></tr>
+          <tr><td style="padding:.4rem .75rem;border:1px solid var(--border)">Basic Salary</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border)">${fmt(pay.basic)}</td></tr>
+          <tr><td style="padding:.4rem .75rem;border:1px solid var(--border)">Allowances</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border)">${fmt(pay.allow)}</td></tr>
+          ${deductRows}
           <tr style="font-weight:800;background:var(--primary-lt,#ede9fe)">
             <td style="padding:.5rem .75rem;border:1px solid var(--border);color:var(--primary,#7c3aed)">NET PAY</td>
-            <td style="padding:.5rem .75rem;text-align:right;border:1px solid var(--border);color:var(--primary,#7c3aed);font-size:1rem">KES ${Number(rec.net).toLocaleString()}</td>
+            <td style="padding:.5rem .75rem;text-align:right;border:1px solid var(--border);color:var(--primary,#7c3aed);font-size:1rem">KES ${fmt(pay.net)}</td>
           </tr>
         </tbody>
       </table>
-      <div style="font-size:.72rem;color:var(--muted);text-align:center;margin-top:.5rem">Generated by Charanas School Management System — ${month} ${year}</div>
+      <div style="font-size:.7rem;color:var(--muted);text-align:center;margin-top:.5rem">
+        Source: ${pay.source === 'payroll' ? 'Payroll Run Record' : 'Staff Salary Structure'} &nbsp;·&nbsp; Generated ${new Date().toLocaleDateString('en-KE')}
+      </div>
     </div>`;
 
-  // Save to payslip history (shared history key — filtered by staffId on read)
+  // Save to payslip history
   let history = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
   const exists = history.find(h => h.staffId === currentUser.staffId && h.month === month && h.year === year);
   if (!exists) {
-    history.push({ id: 'ps_' + Date.now(), staffId: currentUser.staffId, name: rec.name, role: rec.role || '', month, year, net: rec.net });
+    history.push({ id: 'ps_' + Date.now(), staffId: currentUser.staffId, name: pay.name, role: pay.role, month, year, net: pay.net });
     localStorage.setItem('charanas_payslipHistory', JSON.stringify(history));
     sppRenderHistory();
   }
 }
 
 function sppPrintPayslip() {
-  const doc = document.getElementById('sppPayslipDoc');
-  if (!doc) { alert('Please preview a payslip first.'); return; }
-  const win = window.open('', '_blank');
-  win.document.write(`<!DOCTYPE html><html><head><title>Payslip</title>
-  <style>body{font-family:Arial,sans-serif;padding:30px;max-width:600px;margin:auto}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;font-size:12px}.primary{color:#7c3aed}</style>
-  </head><body>${doc.outerHTML}</body></html>`);
-  win.document.close(); win.print();
+  const month = document.getElementById('sppMonth')?.value || '';
+  const year  = document.getElementById('sppYear')?.value  || '';
+  if (!document.getElementById('sppPayslipDoc')) { showToast('Please preview a payslip first.', 'info'); return; }
+  const pay = _sppGetPayData(currentUser.staffId, month, year);
+  if (!pay) { showToast('No salary data found.', 'error'); return; }
+  const doc = _sppBuildPDF(month, year, pay, _sppSchoolName());
+  const blobUrl = doc.output('bloburl');
+  const win = window.open(blobUrl, '_blank');
+  if (win) win.onload = () => { try { win.print(); } catch(e){} };
+  else showToast('Allow pop-ups to print, or use Download instead.', 'info');
 }
 
 function sppDownloadPayslip() {
-  const doc = document.getElementById('sppPayslipDoc');
-  if (!doc) { alert('Please preview a payslip first.'); return; }
-  const month = document.getElementById('sppMonth')?.value || 'Payslip';
+  const month = document.getElementById('sppMonth')?.value || '';
   const year  = document.getElementById('sppYear')?.value  || '';
-  const staffId = currentUser?.staffId || 'staff';
-  const fullHtml = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Payslip — ${month} ${year}</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 40px; max-width: 640px; margin: auto; color: #0f172a; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }
-    th, td { border: 1px solid #d1d5db; padding: 7px 10px; }
-    th { text-align: left; font-weight: 700; background: #f8fafc; }
-    .text-right { text-align: right; }
-    .primary { color: #7c3aed; }
-    .danger  { color: #dc2626; }
-    .muted   { color: #64748b; }
-    .net-row { background: #ede9fe; font-weight: 800; }
-    .deduct-row { background: #fef2f2; }
-    .header-block { text-align: center; border-bottom: 2px solid #7c3aed; padding-bottom: 14px; margin-bottom: 16px; }
-    .header-block .school-name { font-size: 18px; font-weight: 800; color: #7c3aed; }
-    .header-block .payslip-title { font-size: 13px; font-weight: 700; margin-top: 4px; }
-    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; font-size: 12px; margin-bottom: 14px; }
-    .footer { font-size: 10px; color: #94a3b8; text-align: center; margin-top: 12px; }
-    @media print { body { padding: 20px; } }
-  </style>
-</head>
-<body>
-  <div class="header-block">
-    <div class="school-name">${localStorage.getItem('charanas_schoolName') || 'School'}</div>
-    <div class="payslip-title">PAYSLIP — ${month.toUpperCase()} ${year}</div>
-  </div>
-  ${doc.querySelector('.info-grid, [style*="grid"]') ? '' : ''}
-  ${doc.outerHTML.replace(/style="[^"]*background:[^"]*var\(--[^)]+\)[^"]*"/g, '')}
-  <div class="footer">Generated by Charanas School Management System — ${month} ${year}</div>
-</body>
-</html>`;
-  const blob = new Blob([fullHtml], { type: 'text/html' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `Payslip_${staffId}_${month}_${year}.html`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  if (!document.getElementById('sppPayslipDoc')) { showToast('Please preview a payslip first.', 'info'); return; }
+  const pay = _sppGetPayData(currentUser.staffId, month, year);
+  if (!pay) { showToast('No salary data found.', 'error'); return; }
+  const doc  = _sppBuildPDF(month, year, pay, _sppSchoolName());
+  doc.save(`Payslip_${currentUser.staffId || 'staff'}_${month}_${year}.pdf`);
+  showToast('Payslip PDF downloaded <i class="fa-solid fa-check"></i>', 'success');
 }
 
 function sppBuildAndDownloadPayslip(month, year) {
-  // Build payslip HTML for a specific month/year from salary data (used by history download)
   if (!currentUser || currentUser.role !== 'staff_payslip') return;
-  const salaries = JSON.parse(localStorage.getItem('charanas_staffSalaries') || '[]');
-  const rec = salaries.find(r => r.staffId === currentUser.staffId);
-  if (!rec) { alert('No salary record found.'); return; }
-  const school = (typeof currentSchoolId !== 'undefined' && currentSchoolId)
-    ? (JSON.parse(localStorage.getItem('ei_platform_schools') || '[]').find(s => s.id === currentSchoolId) || {}).name || 'School'
-    : localStorage.getItem('charanas_schoolName') || 'School';
-  const totalDeduct = Number(rec.deduct||0) + Number(rec.nhif||0) + Number(rec.nssf||0);
-  const fmt = v => Number(v).toLocaleString();
-  const fullHtml = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Payslip — ${month} ${year}</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 40px; max-width: 640px; margin: auto; color: #0f172a; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }
-    th, td { border: 1px solid #d1d5db; padding: 7px 10px; }
-    th { text-align: left; font-weight: 700; background: #f8fafc; }
-    .text-right { text-align: right; }
-    .net-row td { background: #ede9fe; font-weight: 800; color: #7c3aed; font-size: 14px; }
-    .deduct-row td { background: #fef2f2; color: #dc2626; }
-    .header-block { text-align: center; border-bottom: 2px solid #7c3aed; padding-bottom: 14px; margin-bottom: 16px; }
-    .school-name { font-size: 18px; font-weight: 800; color: #7c3aed; }
-    .payslip-title { font-size: 13px; font-weight: 700; margin-top: 4px; }
-    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; font-size: 12px; margin-bottom: 14px; }
-    .muted { color: #64748b; }
-    .footer { font-size: 10px; color: #94a3b8; text-align: center; margin-top: 14px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
-    @media print { body { padding: 20px; } }
-  </style>
-</head>
-<body>
-  <div class="header-block">
-    <div class="school-name">${school}</div>
-    <div class="payslip-title">PAYSLIP — ${month.toUpperCase()} ${year}</div>
-  </div>
-  <div class="info-grid">
-    <div><span class="muted">Employee:</span> <strong>${rec.name}</strong></div>
-    <div><span class="muted">Role:</span> ${rec.role || currentUser.jobRole || '—'}</div>
-    <div><span class="muted">Staff ID:</span> ${currentUser.staffId || '—'}</div>
-    <div><span class="muted">Employment:</span> ${rec.type || '—'}</div>
-    <div><span class="muted">Pay Period:</span> <strong>${month} ${year}</strong></div>
-    <div><span class="muted">Department:</span> ${currentUser.dept || '—'}</div>
-  </div>
-  <table>
-    <thead><tr><th>Description</th><th class="text-right">Amount (KES)</th></tr></thead>
-    <tbody>
-      <tr><td>Basic Salary</td><td class="text-right">${fmt(rec.basic)}</td></tr>
-      <tr><td>Allowances</td><td class="text-right">${fmt(rec.allow)}</td></tr>
-      <tr class="deduct-row"><td>SHA</td><td class="text-right">- ${fmt(rec.nhif)}</td></tr>
-      <tr class="deduct-row"><td>NSSF</td><td class="text-right">- ${fmt(rec.nssf)}</td></tr>
-      <tr class="deduct-row"><td>Other Deductions</td><td class="text-right">- ${fmt(rec.deduct)}</td></tr>
-      <tr class="net-row"><td>NET PAY</td><td class="text-right">KES ${fmt(rec.net)}</td></tr>
-    </tbody>
-  </table>
-  <div class="footer">Generated by Charanas School Management System — ${month} ${year}</div>
-</body>
-</html>`;
-  const blob = new Blob([fullHtml], { type: 'text/html' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `Payslip_${currentUser.staffId}_${month}_${year}.html`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const pay = _sppGetPayData(currentUser.staffId, month, year);
+  if (!pay) { showToast('No salary record found for this period.', 'error'); return; }
+  const doc = _sppBuildPDF(month, year, pay, _sppSchoolName());
+  doc.save(`Payslip_${currentUser.staffId || 'staff'}_${month}_${year}.pdf`);
+  showToast('Payslip PDF downloaded <i class="fa-solid fa-check"></i>', 'success');
 }
 
 function sppRenderHistory() {
