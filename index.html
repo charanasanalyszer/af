@@ -5866,9 +5866,14 @@
               <button class="btn btn-outline btn-sm eb-mdiff" data-diff="hard" onclick="ebSetModalDiff(this,'hard')"><i class="fa-solid fa-fire"></i> Hard</button>
             </div>
           </div>
-          <div style="display:flex;align-items:center;gap:.5rem;margin-top:.85rem;padding:.6rem .75rem;background:var(--bg);border-radius:8px;border:1.5px solid var(--border-lt)">
-            <input type="checkbox" id="ebModal-withImages" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer"/>
-            <label for="ebModal-withImages" style="font-size:.82rem;cursor:pointer;user-select:none"><i class="fa-regular fa-image" style="margin-right:.3rem;color:var(--primary)"></i> Generate with images <span style="font-size:.74rem;color:var(--muted)">(AI picks a relevant image per question)</span></label>
+          <div style="margin-top:.85rem;padding:.6rem .75rem;background:var(--bg);border-radius:8px;border:1.5px solid var(--border-lt)">
+            <div style="display:flex;align-items:center;gap:.5rem">
+              <input type="checkbox" id="ebModal-withImages" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer" onchange="document.getElementById('ebModal-imgDescWrap').style.display=this.checked?'block':'none'"/>
+              <label for="ebModal-withImages" style="font-size:.82rem;cursor:pointer;user-select:none"><i class="fa-solid fa-image" style="margin-right:.3rem;color:var(--primary)"></i> <strong>AI-generate an illustration</strong> per question</label>
+            </div>
+            <div id="ebModal-imgDescWrap" style="display:none;margin-top:.5rem">
+              <input type="text" id="ebModal-imgDesc" placeholder="Describe the image style (e.g. diagram of a plant cell, physics force arrows) — leave blank to let AI decide" style="width:100%;padding:5px 8px;border:1.5px solid var(--border-lt);border-radius:6px;font-size:.8rem"/>
+            </div>
           </div>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:.5rem;padding:.75rem 1.25rem;border-top:1px solid var(--border-lt)">
@@ -5901,9 +5906,14 @@
               <button class="btn btn-outline btn-sm eb-mdiff" data-diff="hard" onclick="ebSetModalDiff(this,'hard')"><i class="fa-solid fa-fire"></i> Hard</button>
             </div>
           </div>
-          <div style="display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;background:var(--bg);border-radius:8px;border:1.5px solid var(--border-lt)">
-            <input type="checkbox" id="ebSingleQ-withImages" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer"/>
-            <label for="ebSingleQ-withImages" style="font-size:.82rem;cursor:pointer;user-select:none"><i class="fa-regular fa-image" style="margin-right:.3rem;color:var(--primary)"></i> Add an image to this question <span style="font-size:.74rem;color:var(--muted)">(AI picks a relevant one)</span></label>
+          <div style="padding:.6rem .75rem;background:var(--bg);border-radius:8px;border:1.5px solid var(--border-lt)">
+            <div style="display:flex;align-items:center;gap:.5rem">
+              <input type="checkbox" id="ebSingleQ-withImages" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer" onchange="document.getElementById('ebSingleQ-imgDescWrap').style.display=this.checked?'block':'none'"/>
+              <label for="ebSingleQ-withImages" style="font-size:.82rem;cursor:pointer;user-select:none"><i class="fa-solid fa-image" style="margin-right:.3rem;color:var(--primary)"></i> <strong>AI-generate an illustration</strong> for this question</label>
+            </div>
+            <div id="ebSingleQ-imgDescWrap" style="display:none;margin-top:.5rem">
+              <input type="text" id="ebSingleQ-imgDesc" placeholder="Describe the image (e.g. diagram of DNA replication, bar graph of rainfall) — leave blank to let AI decide" style="width:100%;padding:5px 8px;border:1.5px solid var(--border-lt);border-radius:6px;font-size:.8rem"/>
+            </div>
           </div>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:.5rem;padding:.75rem 1.25rem;border-top:1px solid var(--border-lt)">

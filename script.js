@@ -14890,6 +14890,14 @@ function ebRenderQuestionBuilder() {
         }
       </div>
     </div>`).join('');
+  // Fix textarea values: innerHTML with ebEscape() shows &amp; etc as literals in textarea
+  // We must set .value directly from EB data after rendering
+  EB.sections.forEach((sec, sIdx) => {
+    sec.questions.forEach((q, qIdx) => {
+      const ta = document.getElementById('ebqt-' + sIdx + '-' + qIdx);
+      if (ta && q.question) ta.value = q.question;
+    });
+  });
   setTimeout(() => { if (window.MathJax) MathJax.typesetPromise([area]).catch(()=>{}); }, 100);
 }
 
@@ -14903,7 +14911,8 @@ function ebRenderQCard(sIdx, qIdx, q, sec) {
   // Image preview for this question
   const imgSection = `
     <div style="margin-top:.5rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
-      <button type="button" onclick="ebOpenImgUpload(${sIdx},${qIdx})" class="btn btn-outline btn-sm" style="font-size:.75rem"><i class="fa-regular fa-image"></i>️ ${q.imageData?'Change':'Add'} Image</button>
+      <button type="button" onclick="ebOpenImgUpload(${sIdx},${qIdx})" class="btn btn-outline btn-sm" style="font-size:.75rem"><i class="fa-regular fa-image"></i> ${q.imageData?'Change':'Upload'} Image</button>
+      <button type="button" onclick="ebOpenAIImagePrompt(${sIdx},${qIdx})" class="btn btn-outline btn-sm" style="font-size:.75rem;color:var(--primary);border-color:var(--primary)"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Image</button>
       ${q.imageData ? `
         <button type="button" onclick="ebRemoveImg(${sIdx},${qIdx})" class="btn btn-sm" style="color:var(--danger);font-size:.75rem;background:none;border:none"><i class="fa-solid fa-xmark"></i> Remove</button>
         <div style="margin-top:.35rem;position:relative;display:inline-block">
@@ -14999,6 +15008,29 @@ function ebPassageImageUpload(sIdx) {
   inp.click();
 }
 function ebRemovePassageImage(sIdx) { EB.sections[sIdx].passageImage = null; ebRenderQuestionBuilder(); }
+
+// ─── AI Image Prompt for individual question ──────────────────────────────────
+function ebOpenAIImagePrompt(sIdx, qIdx) {
+  const q = EB.sections[sIdx]?.questions[qIdx]; if (!q) return;
+  const defaultDesc = q.question ? q.question.substring(0, 80) : '';
+  const desc = window.prompt('Describe the image to generate (or leave blank to auto-generate from question):', defaultDesc);
+  if (desc === null) return; // cancelled
+  ebAIGenerateQImage(sIdx, qIdx, desc || q.question || '');
+}
+async function ebAIGenerateQImage(sIdx, qIdx, description) {
+  const q = EB.sections[sIdx]?.questions[qIdx]; if (!q) return;
+  ebShowLoading('Generating AI illustration...');
+  try {
+    const subject = document.getElementById('eb-subject')?.value || '';
+    const fullDesc = description + (subject ? ' (' + subject + ')' : '');
+    const dataUrl = await ebGenerateIllustrationAPI(fullDesc);
+    q.imageData = dataUrl;
+    q.imageHeight = 160;
+    ebRenderQuestionBuilder();
+    showToast('Image generated! <i class="fa-solid fa-check"></i>', 'success');
+  } catch(err) { showToast('Image generation failed: ' + err.message, 'error'); }
+  finally { ebHideLoading(); }
+}
 
 // ─── AI Diagram Generation ────────────────────────────────────────────────────
 function ebRemoveDiagram(sIdx, qIdx) {
@@ -15979,6 +16011,7 @@ async function ebGenSingleQuestion() {
   const notes = document.getElementById('ebSingleQ-notes')?.value?.trim() || '';
   const subject = document.getElementById('eb-subject')?.value?.trim() || '';
   const withImages = document.getElementById('ebSingleQ-withImages')?.checked || false;
+  const imgDesc = document.getElementById('ebSingleQ-imgDesc')?.value?.trim() || '';
   document.getElementById('ebSingleQModal').style.display = 'none';
   ebShowLoading('AI generating question...');
   try {
@@ -15987,7 +16020,7 @@ async function ebGenSingleQuestion() {
       const q = qs[0];
       const newQ = { id:ebGenId(), question:q.question, marks:q.marks||sec.marksPerQuestion||2, options:q.options||[], answer:q.answer||'', subParts:q.subParts||[], aiGenerated:true };
       if (withImages && q.imageQuery) {
-        try { newQ.imageData = await ebFetchUnsplashImage(q.imageQuery); } catch(e) {}
+        try { newQ.imageData = await ebFetchUnsplashImage(q.imageQuery, imgDesc); } catch(e) { console.warn('Image gen failed:', e); }
       }
       // Replace the specific question
       if (qIdx !== undefined && sec.questions[qIdx]) {
@@ -16002,18 +16035,39 @@ async function ebGenSingleQuestion() {
   finally { ebHideLoading(); }
 }
 
-// ─── Fetch image from Unsplash (free, no key needed) ────────────────────────
-async function ebFetchUnsplashImage(query) {
-  const url = `https://source.unsplash.com/400x250/?${encodeURIComponent(query)}`;
-  // Unsplash source redirects to actual image — convert to base64 for embedding
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('Image fetch failed');
-  const blob = await res.blob();
-  return new Promise((resolve, reject) => {
+// ─── AI SVG Image Generation (replaces broken Unsplash source URL) ──────────
+async function ebFetchUnsplashImage(query, userDesc) {
+  // Generate an educational SVG illustration using AI
+  const desc = userDesc || query;
+  return await ebGenerateIllustrationAPI(desc);
+}
+
+async function ebGenerateIllustrationAPI(description) {
+  const system = `You are an expert SVG illustrator for educational exam papers.
+Create clean, labeled, educational SVG illustrations suitable for printing.
+OUTPUT RULES:
+- Output ONLY raw SVG code starting with <svg and ending with </svg>
+- No markdown, no prose, no code fences, no explanation
+- Use viewBox="0 0 420 260" width="420" height="260"  
+- Use clean colors: black (#111), dark gray (#444), medium gray (#888), light gray (#ddd), white (#fff)
+- You may use one or two accent colors (blue #2563eb, green #16a34a, red #dc2626, orange #ea580c) sparingly
+- Include clear text labels using <text> elements, font-family="Arial,sans-serif"
+- Make it look like a professional textbook diagram
+- For science: anatomical diagrams, lab apparatus, chemical structures, circuits
+- For geography: maps, cross-sections, climate charts  
+- For math: geometric shapes, number lines, graphs with axes
+- Always include a <title> describing what it shows`;
+  const prompt = `Create an educational SVG illustration for an exam question about: "${description}"
+Make it clear, labeled, and suitable for a printed exam paper.`;
+  const text = await ebCallClaude(prompt, system);
+  const svgMatch = text.match(/<svg[\s\S]*?<\/svg>/i);
+  if (!svgMatch) throw new Error('AI did not return a valid SVG illustration');
+  // Convert SVG to data URL for embedding
+  const svgBlob = new Blob([svgMatch[0]], {type:'image/svg+xml'});
+  return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
+    reader.readAsDataURL(svgBlob);
   });
 }
 
@@ -16036,6 +16090,7 @@ async function ebGenForSection() {
   const notes = document.getElementById('ebModal-notes')?.value?.trim() || '';
   const subject = document.getElementById('eb-subject')?.value?.trim() || '';
   const withImages = document.getElementById('ebModal-withImages')?.checked || false;
+  const imgDesc = document.getElementById('ebModal-imgDesc')?.value?.trim() || '';
   const count = sec.questionCount || 5;
   document.getElementById('ebAISectionModal').style.display = 'none';
   let added = 0;
@@ -16048,7 +16103,7 @@ async function ebGenForSection() {
         const q = qs[0];
         const newQ = { id:ebGenId(), question:q.question, marks:q.marks||sec.marksPerQuestion||2, options:q.options||[], answer:q.answer||'', subParts:q.subParts||[], aiGenerated:true };
         if (withImages && q.imageQuery) {
-          try { newQ.imageData = await ebFetchUnsplashImage(q.imageQuery); } catch(e) {}
+          try { newQ.imageData = await ebFetchUnsplashImage(q.imageQuery, imgDesc); } catch(e) { console.warn('Image gen failed:', e); }
         }
         sec.questions.push(newQ);
         added++;
