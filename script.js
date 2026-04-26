@@ -749,13 +749,17 @@ function doPlatformLogin() {
 
 // ══ UNIFIED LOGIN — single screen, password routes to platform or school ══
 function doUnifiedLogin() {
-  const u   = document.getElementById('uniUser').value.trim();
-  const p   = document.getElementById('uniPass').value;
+  const u   = (document.getElementById('uniUser')?.value || '').trim();
+  const p   = document.getElementById('uniPass')?.value || '';
   const err = document.getElementById('uniErr');
   const btn = document.getElementById('uniBtn');
-  err.style.display = 'none';
-  if (btn) { btn.disabled=true; btn.textContent='Signing in…'; }
-  const re = () => { if(btn){ btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-arrow-right-to-bracket" style="margin-right:.4rem"></i>Sign In'; } };
+  if (err) err.style.display = 'none';
+  if (btn) { btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin" style="margin-right:.4rem"></i>Signing in…'; }
+  const re = (msg) => {
+    if (btn) { btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-arrow-right-to-bracket" style="margin-right:.4rem"></i>Sign In'; }
+    if (msg && err) { err.innerHTML='<i class="fa-solid fa-circle-xmark"></i> ' + msg; err.style.display='block'; err.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+  };
+  try {
   // Helper: save credentials if "Remember me" is checked
   const maybeSaveCreds = () => {
     try {
@@ -768,25 +772,19 @@ function doUnifiedLogin() {
     } catch(e) {}
   };
 
-  if (!u || !p) { re(); err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Please enter your username and password.'; err.style.display='block'; err.scrollIntoView({behavior:'smooth',block:'nearest'}); return; }
+  if (!u || !p) { re('Please enter your username and password.'); return; }
 
   // ── FORMAT GATE: reject unrecognised username formats immediately ──
   const _detectedRole = detectUsernameRole(u);
   if (!_detectedRole) {
-    re();
-    err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Username format not recognised. Check your credentials — format should be <strong>name@schoolcode</strong> for teachers/students or <strong>name@school</strong> for school login.';
-    err.style.display = 'block';
-    err.scrollIntoView({behavior:'smooth',block:'nearest'});
+    re('Username format not recognised. Format: <strong>name@school</strong> for school &nbsp;|&nbsp; <strong>name@schoolcode</strong> for teacher/student');
     return;
   }
   // Validate exact pattern for known roles (skip for teacherOrStudent — resolved at lookup)
   if (_detectedRole !== 'guest' && _detectedRole !== 'teacherOrStudent') {
     const _rule = USERNAME_RULES[_detectedRole];
     if (_rule && !_rule.rx.test(u)) {
-      re();
-      err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Username format not recognised. ' + _rule.hint;
-      err.style.display = 'block';
-      err.scrollIntoView({behavior:'smooth',block:'nearest'});
+      re('Username format not recognised. ' + _rule.hint);
       return;
     }
   }
@@ -800,9 +798,9 @@ function doUnifiedLogin() {
     // Try schools first; if no match, treat as first-time platform setup
     const anySchoolMatch = platformSchools.some(s => s.username===u && s.password===p);
     if (!anySchoolMatch) {
-      if (p.length < 6) { re(); err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> No account found. Platform password must be at least 6 characters.'; err.style.display='block'; return; }
+      if (p.length < 6) { re('No account found. Platform password must be at least 6 characters.'); return; }
       // Platform admin: any alphanumeric username (no @ allowed)
-      if (u.includes('@')) { re(); err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Platform Admin username cannot contain @. Use a plain name like: myadmin'; err.style.display='block'; return; }
+      if (u.includes('@')) { re('Platform Admin username cannot contain @. Use a plain name like: myadmin'); return; }
       setPlatformCreds(u, p);
       re();
       maybeSaveCreds();
@@ -821,7 +819,7 @@ function doUnifiedLogin() {
   // superadmin built-in
   if (u==='superadmin' && p==='super123') {
     currentUser = { id:'builtin', name:'Super Admin', username:'superadmin', role:'superadmin', builtin:true, canAnalyse:true, canReport:true, canMerit:true };
-    if (platformSchools.length === 0) { re(); err.innerHTML='<i class="fa-solid fa-triangle-exclamation"></i>️ No school accounts yet. Log in with your platform admin credentials to create schools first.'; err.style.display='block'; return; }
+    if (platformSchools.length === 0) { re('No school accounts yet. Log in with your platform admin credentials to create schools first.'); return; }
     // go to first school or school selector — use school selector via legacy path
     re();
     maybeSaveCreds();
@@ -836,13 +834,12 @@ function doUnifiedLogin() {
   for (const school of platformSchools) {
     if (school.active === false) {
       if (school.username===u && school.password===p) {
-        re(); const msg=school.deactivationMessage||'This school account has been suspended.';
-        err.innerHTML='<i class="fa-solid fa-lock"></i> <strong>Account Suspended:</strong> '+msg; err.style.display='block'; return;
+        re('<strong>Account Suspended:</strong> ' + (school.deactivationMessage||'This school account has been suspended.')); return;
       }
       // also check admins/teachers in suspended school — block them too
       loadSchoolContext(school);
       const matchInSuspended = admins.find(a=>a.username===u&&a.password===p) || teachers.find(t=>t.username===u&&t.password===p);
-      if (matchInSuspended) { re(); const msg=school.deactivationMessage||'This school account has been suspended.'; err.innerHTML='<i class="fa-solid fa-lock"></i> <strong>Account Suspended:</strong> '+msg; err.style.display='block'; return; }
+      if (matchInSuspended) { re('<strong>Account Suspended:</strong> ' + (school.deactivationMessage||'This school account has been suspended.')); return; }
       currentSchoolId = null; continue;
     }
     if (school.username===u && school.password===p) {
@@ -886,7 +883,7 @@ function doUnifiedLogin() {
             currentUser = { username: u, role:'student', name: stuMatch.name, studentId: stuMatch.id, adm: stuMatch.adm, canAnalyse:false, canReport:false, canMerit:false };
             re(); maybeSaveCreds(); finishStudentPortal(school); return;
           } else {
-            re(); err.innerHTML='<i class="fa-solid fa-circle-xmark"></i> Incorrect password for student account.'; err.style.display='block'; return;
+            re('Incorrect password for student account.'); return;
           }
         }
       }
@@ -905,13 +902,14 @@ function doUnifiedLogin() {
 
   // Guest login fallback (no school loop needed if no schools)
   if (u.toLowerCase() === 'guest' && p === 'guest') {
-    re(); err.innerHTML='<i class="fa-solid fa-circle-xmark"></i> No schools found. Platform admin must add a school first.'; err.style.display='block'; return;
+    re('No schools found. Platform admin must add a school first.'); return;
   }
 
-  re();
-  err.innerHTML='<i class="fa-solid fa-circle-xmark"></i> Invalid credentials. Check your username and password (case-sensitive).';
-  err.style.display='block';
-  err.scrollIntoView({behavior:'smooth',block:'nearest'});
+    re('Invalid credentials. Check your username and password (case-sensitive).');
+  } catch(e) {
+    console.error('doUnifiedLogin error:', e);
+    re('Something went wrong during sign-in. Please refresh and try again. (' + (e.message||'unknown error') + ')');
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -3992,9 +3990,11 @@ function finishLogin(school) {
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
+  const ul = document.getElementById('unifiedLogin');
   const pl = document.getElementById('platformLogin');
   const ls = document.getElementById('loginScreen');
-  if (pl && pl.style.display !== 'none') doPlatformLogin();
+  if (ul && ul.style.display !== 'none') doUnifiedLogin();
+  else if (pl && pl.style.display !== 'none') doPlatformLogin();
   else if (ls && ls.style.display !== 'none') doLogin();
 });
 function doLogout() {
@@ -14768,6 +14768,7 @@ function ebAutoInstructions() {
   if (EB.sections.some(s => s.type === 'mcq')) insts.splice(1,0,'For multiple choice, shade or circle the correct answer.');
   if (EB.sections.some(s => s.type === 'structured')) insts.splice(2,0,'Answer all structured questions in the spaces provided.');
   if (EB.sections.some(s => s.type === 'essay')) insts.splice(3,0,'For essay questions, write in complete sentences and paragraphs.');
+  if (EB.sections.some(s => s.type === 'comprehension')) insts.splice(2,0,'Read the passage(s) carefully before answering the questions that follow.');
   insts.forEach(t => ebAddInstruction(t));
 }
 function ebGetInstructions() {
@@ -14822,8 +14823,17 @@ function ebRenderSections() {
             <option value="mcq" ${sec.type==='mcq'?'selected':''}>Multiple Choice</option>
             <option value="structured" ${sec.type==='structured'?'selected':''}>Structured</option>
             <option value="essay" ${sec.type==='essay'?'selected':''}>Essay</option>
+            <option value="comprehension" ${sec.type==='comprehension'?'selected':''}>Comprehension</option>
           </select>
         </div>
+        ${sec.type==='comprehension'?`
+        <div class="eb-section-field" style="flex-basis:100%"><label>Sub-type</label>
+          <select onchange="ebUpdateSection(${idx},'comprehensionSubtype',this.value)">
+            <option value="comprehension" ${(sec.comprehensionSubtype||'comprehension')==='comprehension'?'selected':''}>General Comprehension</option>
+            <option value="literary" ${sec.comprehensionSubtype==='literary'?'selected':''}>Literary Comprehension</option>
+            <option value="poetry" ${sec.comprehensionSubtype==='poetry'?'selected':''}>Poetry</option>
+          </select>
+        </div>`:''} 
         <div class="eb-section-field"><label>Questions</label><input type="number" value="${sec.questionCount}" min="1" max="50" onchange="ebUpdateSection(${idx},'questionCount',parseInt(this.value))"/></div>
         <div class="eb-section-field"><label>Marks Each</label><input type="number" value="${sec.marksPerQuestion}" min="1" max="100" onchange="ebUpdateSection(${idx},'marksPerQuestion',parseInt(this.value))"/></div>
         <div class="eb-section-field"><label>Section Total</label><input type="number" value="${sec.totalMarks}" min="1" max="200" style="background:var(--primary-lt);font-weight:700" onchange="ebUpdateSection(${idx},'totalMarks',parseInt(this.value))"/></div>
@@ -14855,12 +14865,23 @@ function ebRenderQuestionBuilder() {
   area.innerHTML = EB.sections.map((sec, sIdx) => `
     <div class="card" style="margin-bottom:1.25rem">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;border-bottom:1px solid var(--border-lt);background:${EB.spColors[sIdx%EB.spColors.length]}12;border-left:4px solid ${EB.spColors[sIdx%EB.spColors.length]}">
-        <h3 style="font-size:.95rem;color:${EB.spColors[sIdx%EB.spColors.length]}">Section ${ebEscape(sec.name)}: ${ebTypeLabel(sec.type)} <span style="font-size:.76rem;background:${EB.spColors[sIdx%EB.spColors.length]}22;padding:1px 8px;border-radius:20px;margin-left:.35rem">${sec.questions.length}/${sec.questionCount}</span></h3>
+        <h3 style="font-size:.95rem;color:${EB.spColors[sIdx%EB.spColors.length]}">Section ${ebEscape(sec.name)}: ${sec.type==='comprehension'?({'comprehension':'Comprehension','literary':'Literary Comprehension','poetry':'Poetry'}[sec.comprehensionSubtype||'comprehension']||'Comprehension'):ebTypeLabel(sec.type)} <span style="font-size:.76rem;background:${EB.spColors[sIdx%EB.spColors.length]}22;padding:1px 8px;border-radius:20px;margin-left:.35rem">${sec.questions.length}/${sec.questionCount}</span></h3>
         <div style="display:flex;gap:.4rem">
-          <button class="btn btn-outline btn-sm" onclick="ebOpenAIModal(${sIdx})"><i class="fa-solid fa-robot"></i> AI</button>
+          ${sec.type==='comprehension'?`<button class="btn btn-outline btn-sm" onclick="ebOpenComprehensionAI(${sIdx})"><i class="fa-solid fa-robot"></i> AI from Passage</button>`:`<button class="btn btn-outline btn-sm" onclick="ebOpenAIModal(${sIdx})"><i class="fa-solid fa-robot"></i> AI</button>`}
           <button class="btn btn-outline btn-sm" onclick="ebAddQuestion(${sIdx})"><i class="fa-solid fa-plus"></i> Manual</button>
         </div>
       </div>
+      ${sec.type==='comprehension'?`
+      <div style="padding:.75rem 1rem 0;border-bottom:1px dashed var(--border-lt)">
+        <div style="font-size:.8rem;font-weight:700;color:var(--primary);margin-bottom:.4rem"><i class="fa-solid fa-file-lines"></i> ${{'comprehension':'Comprehension Passage','literary':'Literary Extract','poetry':'Poem/Verse'}[sec.comprehensionSubtype||'comprehension']}</div>
+        <div style="display:flex;gap:.5rem;margin-bottom:.4rem">
+          <button class="btn btn-outline btn-sm" onclick="ebPassageImageUpload(${sIdx})" style="font-size:.75rem"><i class="fa-regular fa-image"></i> ${sec.passageImage?'Change':'Add'} Image</button>
+          ${sec.passageImage?`<button class="btn btn-sm" onclick="ebRemovePassageImage(${sIdx})" style="color:var(--danger);font-size:.75rem;background:none;border:1px solid var(--danger)"><i class="fa-solid fa-xmark"></i> Remove Image</button>`:''}
+          <span style="font-size:.73rem;color:var(--muted);align-self:center">Or type the passage below</span>
+        </div>
+        ${sec.passageImage?`<img src="${sec.passageImage}" style="max-width:100%;max-height:250px;border:1.5px solid var(--border-lt);border-radius:6px;margin-bottom:.5rem;display:block"/>`:''}
+        <textarea placeholder="Type comprehension passage, poem, or extract here..." style="width:100%;min-height:120px;padding:8px 10px;border:1.5px solid var(--border-lt);border-radius:6px;font-size:.83rem;resize:vertical;outline:none;font-family:Georgia,serif;line-height:1.7" onchange="ebUpdateSection(${sIdx},'passageText',this.value)">${ebEscape(sec.passageText||'')}</textarea>
+      </div>`:''}
       <div style="padding:.75rem 1rem" id="ebqs-${sIdx}">
         ${!sec.questions.length ? `<p style="color:var(--muted);font-size:.82rem;text-align:center;padding:1rem">No questions yet — click AI or Manual to add</p>` :
           sec.type === 'mcq'
@@ -14869,14 +14890,15 @@ function ebRenderQuestionBuilder() {
         }
       </div>
     </div>`).join('');
+  setTimeout(() => { if (window.MathJax) MathJax.typesetPromise([area]).catch(()=>{}); }, 100);
 }
 
-function ebTypeLabel(t) { return {mcq:'Multiple Choice',structured:'Structured',essay:'Essay'}[t] || t; }
+function ebTypeLabel(t) { return {mcq:'Multiple Choice',structured:'Structured',essay:'Essay',comprehension:'Comprehension'}[t] || t; }
 
 function ebRenderQCard(sIdx, qIdx, q, sec) {
   const letters = ['A','B','C','D'];
   const badge = q.aiGenerated ? '<span style="font-size:.68rem;background:#d1fae5;color:#065f46;padding:1px 6px;border-radius:12px;font-weight:700">AI</span>' : '';
-  const typeLabel = {mcq:'MCQ',structured:'STR',essay:'ESS'}[sec.type] || sec.type;
+  const typeLabel = {mcq:'MCQ',structured:'STR',essay:'ESS',comprehension:'COMP'}[sec.type] || sec.type;
 
   // Image preview for this question
   const imgSection = `
@@ -14917,15 +14939,20 @@ function ebRenderQCard(sIdx, qIdx, q, sec) {
           </div>`).join('')}
       </div>
       ${imgSection}`;
-  } else if (sec.type === 'structured') {
+  } else if (sec.type === 'structured' || sec.type === 'comprehension') {
     body = `
       <textarea class="eb-qtextarea" id="ebqt-${sIdx}-${qIdx}" placeholder="Question text..." onchange="ebUpdateQ(${sIdx},${qIdx},'question',this.value)">${ebEscape(q.question||'')}</textarea>
       <div class="eb-qmeta">
         <label>Marks:</label><input type="number" value="${q.marks||6}" min="1" max="100" onchange="ebUpdateQ(${sIdx},${qIdx},'marks',parseInt(this.value))"/>
-        <button class="btn btn-outline btn-sm" onclick="ebOpenSubParts(${sIdx},${qIdx})" style="font-size:.76rem">≡ Sub-parts ${q.subParts?.length?`(${q.subParts.length})`:''}</button>
+        ${sec.type==='structured'?`<button class="btn btn-outline btn-sm" onclick="ebOpenSubParts(${sIdx},${qIdx})" style="font-size:.76rem">≡ Sub-parts ${q.subParts?.length?`(${q.subParts.length})`:''}</button>`:''}
       </div>
       ${q.subParts?.length ? `<div style="margin-top:.4rem;font-size:.76rem;color:var(--muted);padding:4px 8px;background:var(--bg);border-radius:5px">Sub-parts: ${q.subParts.map((p,i) => `(${String.fromCharCode(97+i)}) ${p.text.substring(0,25)}…`).join(' | ')}</div>` : ''}
-      ${imgSection}`;
+      ${imgSection}
+      <div style="margin-top:.4rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+        <button type="button" onclick="ebGenerateDiagram(${sIdx},${qIdx})" class="btn btn-outline btn-sm" style="font-size:.74rem;color:#7c3aed;border-color:#7c3aed"><i class="fa-solid fa-diagram-project"></i> ${q.diagram?'Regenerate':'AI Diagram'}</button>
+        ${q.diagram?`<button type="button" onclick="ebRemoveDiagram(${sIdx},${qIdx})" class="btn btn-sm" style="font-size:.74rem;color:var(--danger);background:none;border:1px solid var(--danger)"><i class="fa-solid fa-xmark"></i> Remove Diagram</button>`:''}
+      </div>
+      ${q.diagram?`<div style="margin-top:.35rem;border:1.5px solid #ddd6fe;border-radius:6px;overflow:hidden;background:#faf5ff;padding:6px">${q.diagram}</div>`:''}` ;
   } else {
     body = `
       <textarea class="eb-qtextarea" id="ebqt-${sIdx}-${qIdx}" placeholder="Essay question..." onchange="ebUpdateQ(${sIdx},${qIdx},'question',this.value)">${ebEscape(q.question||'')}</textarea>
@@ -14952,12 +14979,155 @@ function ebRenderQCard(sIdx, qIdx, q, sec) {
 
 function ebAddQuestion(sIdx) {
   const sec = EB.sections[sIdx]; if (!sec) return;
-  sec.questions.push({ id:ebGenId(), question:'', marks:sec.marksPerQuestion||2, options:sec.type==='mcq'?['','','','']:[], answer:sec.type==='mcq'?'A':'', subParts:[], aiGenerated:false });
+  sec.questions.push({ id:ebGenId(), question:'', marks:sec.marksPerQuestion||2, options:sec.type==='mcq'?['','','','']:[], answer:sec.type==='mcq'?'A':'', subParts:[], aiGenerated:false, diagram:null });
   ebRenderQuestionBuilder();
   setTimeout(() => { const ta = document.getElementById(`ebqt-${sIdx}-${sec.questions.length-1}`); if(ta) ta.focus(); }, 80);
 }
 function ebRemoveQ(sIdx, qIdx) { EB.sections[sIdx].questions.splice(qIdx,1); ebRenderQuestionBuilder(); }
 function ebUpdateQ(sIdx, qIdx, key, value) { if (EB.sections[sIdx]?.questions[qIdx]) EB.sections[sIdx].questions[qIdx][key] = value; }
+
+// ─── Comprehension Helpers ────────────────────────────────────────────────────
+function ebPassageImageUpload(sIdx) {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = e => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => { EB.sections[sIdx].passageImage = ev.target.result; ebRenderQuestionBuilder(); };
+    reader.readAsDataURL(file);
+  };
+  inp.click();
+}
+function ebRemovePassageImage(sIdx) { EB.sections[sIdx].passageImage = null; ebRenderQuestionBuilder(); }
+
+// ─── AI Diagram Generation ────────────────────────────────────────────────────
+function ebRemoveDiagram(sIdx, qIdx) {
+  if (EB.sections[sIdx]?.questions[qIdx]) { EB.sections[sIdx].questions[qIdx].diagram = null; ebRenderQuestionBuilder(); }
+}
+
+async function ebGenerateDiagram(sIdx, qIdx) {
+  const sec = EB.sections[sIdx]; if (!sec) return;
+  const q = sec.questions[qIdx]; if (!q) return;
+  if (!q.question?.trim()) { showToast('Add a question first before generating a diagram.', 'error'); return; }
+  ebShowLoading('Generating AI diagram...');
+  try {
+    const subject = document.getElementById('eb-subject')?.value || '';
+    const svgCode = await ebGenerateDiagramAPI(q.question, subject);
+    if (svgCode) {
+      q.diagram = svgCode;
+      ebRenderQuestionBuilder();
+      showToast('Diagram generated! <i class="fa-solid fa-check"></i>', 'success');
+    }
+  } catch(err) { showToast('Diagram generation failed: ' + err.message, 'error'); }
+  finally { ebHideLoading(); }
+}
+
+async function ebGenerateDiagramAPI(questionText, subject) {
+  const system = `You are an expert SVG diagram creator for educational exam papers.
+Create clear, labeled, black-and-white SVG diagrams suitable for printing.
+OUTPUT RULES:
+- Output ONLY raw SVG code starting with <svg and ending with </svg>
+- No markdown, no prose, no code fences
+- Use viewBox="0 0 400 300" width="400" height="300"
+- Use only black (#000), dark gray (#333), light gray (#eee), white (#fff) colors
+- Include clear labels using <text> elements, font-size="12" font-family="Arial,sans-serif"
+- Make diagrams clean, educational, and print-ready
+- For biology: draw anatomical diagrams with labels
+- For chemistry: draw molecular structures, apparatus, or reaction diagrams  
+- For physics: draw force diagrams, circuits, ray diagrams with arrows
+- For geography: draw simple maps, cross-sections, or climate graphs
+- For math: draw geometric shapes, graphs, or number lines
+- Always include a brief <title> element describing the diagram`;
+  const prompt = `Create an educational SVG diagram for this exam question:
+Subject: ${subject || 'General'}
+Question: "${questionText}"
+Generate an appropriate labeled diagram that helps illustrate or complement this question.`;
+  const text = await ebCallClaude(prompt, system);
+  // Extract SVG from response
+  const svgMatch = text.match(/<svg[\s\S]*?<\/svg>/i);
+  return svgMatch ? svgMatch[0] : null;
+}
+
+// ─── AI Generate from Comprehension Passage ───────────────────────────────────
+function ebOpenComprehensionAI(sIdx) {
+  const sec = EB.sections[sIdx]; if (!sec) return;
+  if (!sec.passageText?.trim() && !sec.passageImage) {
+    showToast('Please add a passage (text or image) first before generating questions.', 'error');
+    return;
+  }
+  EB.aiSectionIdx = sIdx;
+  const modal = document.getElementById('ebComprehensionAIModal');
+  if (!modal) { ebBuildComprehensionAIModal(); }
+  const m = document.getElementById('ebComprehensionAIModal');
+  m.querySelector('#compAI-secName').textContent = sec.name;
+  m.querySelector('#compAI-count').value = sec.questionCount || 5;
+  m.style.display = 'flex';
+}
+function ebBuildComprehensionAIModal() {
+  const el = document.createElement('div');
+  el.id = 'ebComprehensionAIModal';
+  el.className = 'eb-modal-overlay';
+  el.innerHTML = `<div class="eb-modal" style="max-width:420px">
+    <div class="eb-modal-hd"><span>🤖 AI: Generate from Passage</span><button onclick="document.getElementById('ebComprehensionAIModal').style.display='none'" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--muted)">&times;</button></div>
+    <div style="padding:1rem">
+      <p style="font-size:.85rem;color:var(--muted);margin-bottom:.75rem">Section <strong id="compAI-secName"></strong> — AI will read your passage and generate comprehension questions automatically.</p>
+      <div style="margin-bottom:.75rem"><label style="font-size:.82rem;font-weight:600">Number of questions</label>
+        <input id="compAI-count" type="number" value="5" min="1" max="20" style="width:80px;margin-left:.5rem;padding:4px 8px;border:1.5px solid var(--border-lt);border-radius:6px"/>
+      </div>
+      <div style="margin-bottom:.75rem"><label style="font-size:.82rem;font-weight:600">Difficulty</label>
+        <div style="display:flex;gap:.35rem;margin-top:.3rem" id="compAI-diffBtns">
+          <button class="btn btn-outline btn-sm eb-comp-diff active" data-diff="easy" onclick="ebSetCompDiff(this,'easy')">Easy</button>
+          <button class="btn btn-outline btn-sm eb-comp-diff" data-diff="medium" onclick="ebSetCompDiff(this,'medium')">Medium</button>
+          <button class="btn btn-outline btn-sm eb-comp-diff" data-diff="hard" onclick="ebSetCompDiff(this,'hard')">Hard</button>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="ebDoComprehensionAI()" style="width:100%"><i class="fa-solid fa-robot"></i> Generate Questions</button>
+    </div>
+  </div>`;
+  document.body.appendChild(el);
+}
+let _compAIDiff = 'medium';
+function ebSetCompDiff(btn, diff) {
+  _compAIDiff = diff;
+  document.querySelectorAll('.eb-comp-diff').forEach(b => b.classList.toggle('active', b.dataset.diff === diff));
+}
+async function ebDoComprehensionAI() {
+  const modal = document.getElementById('ebComprehensionAIModal');
+  if (modal) modal.style.display = 'none';
+  const sec = EB.sections[EB.aiSectionIdx]; if (!sec) return;
+  const count = parseInt(document.getElementById('compAI-count')?.value) || 5;
+  const passage = sec.passageText || '';
+  const subtype = sec.comprehensionSubtype || 'comprehension';
+  const subtypeLabel = {comprehension:'comprehension',literary:'literary comprehension',poetry:'poetry'}[subtype];
+  ebShowLoading('Generating comprehension questions...');
+  try {
+    const system = `You are an expert ${subtypeLabel} question creator for Kenyan secondary school exams.
+OUTPUT RULES — CRITICAL:
+- Output ONLY raw JSON. No prose, no markdown, no code fences.
+- Start with { and end with }
+- Structure: {"questions":[{"question":"...","marks":2,"subParts":[]}]}
+- For poetry: include questions about literary devices, tone, theme, imagery
+- For literary comprehension: include questions about character, plot, setting, language
+- For general comprehension: include questions about main idea, vocabulary, inference
+- Do NOT include any text before or after the JSON.`;
+    const prompt = `Generate ${count} ${subtypeLabel} questions (difficulty: ${_compAIDiff}) based on this passage:
+
+"${passage.substring(0,3000)}"
+
+Return ONLY the JSON.`;
+    const text = await ebCallClaude(prompt, system);
+    const parsed = ebExtractJSON(text);
+    const questions = parsed?.questions || [];
+    let added = 0;
+    questions.forEach(q => {
+      sec.questions.push({ id:ebGenId(), question:q.question||'', marks:q.marks||sec.marksPerQuestion||3, options:[], answer:'', subParts:q.subParts||[], aiGenerated:true, diagram:null });
+      added++;
+    });
+    ebRenderQuestionBuilder();
+    showToast(`Generated ${added} comprehension questions! <i class="fa-solid fa-check"></i>`, 'success');
+  } catch(err) { showToast('Generation failed: ' + err.message, 'error'); }
+  finally { ebHideLoading(); }
+}
 function ebUpdateOpt(sIdx, qIdx, oi, value) {
   const q = EB.sections[sIdx]?.questions[qIdx]; if (!q) return;
   if (!q.options) q.options = ['','','',''];
@@ -15029,6 +15199,7 @@ function ebRenderPreview() {
     const isMcq = sec.type === 'mcq';
     const isEssay = sec.type === 'essay';
     const isStructured = sec.type === 'structured';
+    const isComprehension = sec.type === 'comprehension';
     const isShortAnswer = isStructured && sec.questions.length >= 2 && sec.questions.every(q => (q.marks||0) <= 4 && !q.subParts?.length);
 
     let questionsHtml = '';
@@ -15093,16 +15264,28 @@ function ebRenderPreview() {
               ${!hasSubParts ? examBox(q.marks) : ''}
             </div>
             ${q.imageData ? `<img src="${q.imageData}" class="ebep-q-img" style="max-height:${q.imageHeight||150}px;margin-top:.3rem"/>` : ''}
+            ${q.diagram ? `<div style="margin:.3rem 0;border:1px solid #ddd;border-radius:3px;overflow:hidden;background:#fafafa;padding:4px;text-align:center">${q.diagram}</div>` : ''}
             ${subPartsHtml}
           </div>`;
       }).join('');
     }
 
     const totalSectionMarks = sec.questions.reduce((s,q) => s + (q.marks||0), 0) || sec.totalMarks;
+    const subtypeMap = {comprehension:'Comprehension',literary:'Literary Comprehension',poetry:'Poetry'};
+    const sectionLabel = isComprehension ? (subtypeMap[sec.comprehensionSubtype||'comprehension']||'Comprehension').toUpperCase() : ebTypeLabel(sec.type).toUpperCase();
+    const passageHtml = isComprehension ? `
+      <div style="border:1.5px solid #333;padding:.6rem .8rem;margin-bottom:.75rem;border-radius:2px;background:#fafafa">
+        <div style="font-size:.7rem;font-weight:900;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #ccc;padding-bottom:.25rem;margin-bottom:.4rem">${subtypeMap[sec.comprehensionSubtype||'comprehension']||'Comprehension'} Passage</div>
+        ${sec.passageImage?`<img src="${sec.passageImage}" style="max-width:100%;max-height:280px;display:block;margin-bottom:.4rem"/>`:''} 
+        ${sec.passageText?`<div style="font-size:.85rem;line-height:1.75;font-family:Georgia,serif;white-space:pre-wrap">${ebEscape(sec.passageText)}</div>`:''}
+        ${!sec.passageText&&!sec.passageImage?`<div style="color:#aaa;font-size:.78rem;text-align:center">[No passage added]</div>`:''}
+      </div>
+      <div style="font-size:.82rem;font-style:italic;margin-bottom:.4rem">Answer the following questions based on the passage above.</div>` : '';
     return `
       <div style="break-before:${sIdx===0?'avoid':'page'}">
-        <div class="ebep-sectitle">SECTION ${ebEscape(sec.name)}: ${ebTypeLabel(sec.type).toUpperCase()} (${totalSectionMarks} MARKS)</div>
+        <div class="ebep-sectitle">SECTION ${ebEscape(sec.name)}: ${sectionLabel} (${totalSectionMarks} MARKS)</div>
         ${sec.instruction ? `<div style="font-style:italic;font-size:.82rem;margin-bottom:.5rem;text-align:center">${ebEscape(sec.instruction)}</div>` : ''}
+        ${passageHtml}
         ${questionsHtml}
         ${!sec.questions.length ? `<div style="color:#aaa;font-size:.78rem;text-align:center">[No questions added yet]</div>` : ''}
       </div>`;
@@ -15514,7 +15697,26 @@ function ebClientSidePDF(exam) {
     y+=2;
 
     const isMcq = sec.type === 'mcq';
+    const isComprehensionSec = sec.type === 'comprehension';
     const isShortAnswer = sec.type === 'structured' && sec.questions.length >= 2 && sec.questions.every(q=>(q.marks||0)<=4 && !q.subParts?.length);
+    // For comprehension: render passage first
+    if (isComprehensionSec) {
+      const subtypeLabel = {comprehension:'Comprehension Passage',literary:'Literary Extract',poetry:'Poem / Verse'}[sec.comprehensionSubtype||'comprehension'];
+      doc.setFont('Helvetica','bold'); doc.setFontSize(8.5);
+      doc.text(subtypeLabel.toUpperCase(), lm, y); y+=5;
+      doc.setLineWidth(.4); doc.rect(lm, y, pw, 2); y+=3;
+      if (sec.passageText) {
+        doc.setFont('Helvetica','normal'); doc.setFontSize(9);
+        const pls = doc.splitTextToSize(sec.passageText, pw); 
+        pls.forEach(line => { addPage(5); doc.text(line, lm, y); y+=4.5; });
+      } else {
+        doc.setFont('Helvetica','italic'); doc.setFontSize(8.5);
+        doc.text('[Passage image — see printed exam]', lm, y); y+=5;
+      }
+      doc.setLineWidth(.4); doc.rect(lm, y, pw, 2); y+=5;
+      doc.setFont('Helvetica','italic'); doc.setFontSize(8.5);
+      doc.text('Answer the following questions based on the passage above.', lm, y); y+=5;
+    }
 
     if (isMcq) {
       // ── Two-column MCQ — NO examiner boxes ──
