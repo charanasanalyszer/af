@@ -5975,7 +5975,7 @@
     <!-- Tab bar -->
     <div class="tab-bar" style="margin-bottom:1.25rem">
       <button class="tb active" id="spTabResults" onclick="spOpenTab('spResults',this)"><i class="fa-solid fa-chart-bar"></i> My Results</button>
-      <button class="tb" id="spTabFees" onclick="spOpenTab('spFees',this)"><i class="fa-solid fa-coins"></i> Fee Balance</button>
+      <button class="tb" id="spTabFees" onclick="spOpenTab('spFees',this)"><i class="fa-solid fa-coins"></i> Fees &amp; Statement</button>
       <button class="tb" id="spTabPapers" onclick="spOpenTab('spPapers',this)"><i class="fa-solid fa-book-open"></i> Revision Materials</button>
     </div>
     <!-- Results tab -->
@@ -6003,7 +6003,17 @@
     <!-- Fees tab -->
     <div id="spFees" class="tab-panel" style="display:none">
       <div class="card">
-        <h3 style="margin-bottom:.75rem"><i class="fa-solid fa-coins"></i> Fee Balance</h3>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;margin-bottom:.85rem">
+          <h3 style="margin:0"><i class="fa-solid fa-coins"></i> Fee Balance &amp; Statement</h3>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <button class="btn btn-outline btn-sm" onclick="spDownloadFeeStatement()" style="border-color:#2563eb;color:#2563eb">
+              <i class="fa-solid fa-file-arrow-down"></i> Download Statement
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="spPrintFeeStatement()" style="border-color:#6d28d9;color:#6d28d9">
+              <i class="fa-solid fa-print"></i> Print Statement
+            </button>
+          </div>
+        </div>
         <div id="spFeesBody" style="font-size:.9rem"></div>
       </div>
     </div>

@@ -1090,6 +1090,283 @@ function spRenderFees() {
   body.innerHTML = html;
 }
 
+// ── Student Portal: build fee statement data for current student ──
+function spBuildFeeStatementData() {
+  loadFees();
+  const stuId = currentUser && currentUser.studentId;
+  const stu   = stuId && students.find(s => s.id === stuId);
+  if (!stu) return null;
+  const cls   = classes.find(c => c.id === stu.classId);
+  const stuRecords = feeRecords.filter(r => r.studentId === stuId);
+
+  // Build per-term rows
+  const rows = [];
+  stuRecords.forEach(rec => {
+    const paid    = getRecordTotalPaid(rec);
+    const bal     = getRecordBalance(rec);
+    const status  = bal <= 0 ? 'Cleared' : paid > 0 ? 'Partial' : 'Unpaid';
+    const payments = (rec.payments || []).map(p => ({
+      date:      p.date || '—',
+      amount:    parseFloat(p.amount) || 0,
+      mode:      p.mode  || 'Cash',
+      receiptNo: p.receiptNo || p.ref || '—',
+      notes:     p.notes || ''
+    }));
+    rows.push({
+      term:      rec.term,
+      year:      rec.year,
+      totalFee:  parseFloat(rec.totalFee || 0),
+      paid,
+      balance:   bal,
+      status,
+      payments
+    });
+  });
+  rows.sort((a, b) => {
+    const termOrder = { 'Term 1': 1, 'Term 2': 2, 'Term 3': 3 };
+    if (String(a.year) !== String(b.year)) return String(a.year).localeCompare(String(b.year));
+    return (termOrder[a.term] || 0) - (termOrder[b.term] || 0);
+  });
+
+  const totalBilled  = rows.reduce((s, r) => s + r.totalFee, 0);
+  const totalPaid    = rows.reduce((s, r) => s + r.paid,     0);
+  const totalBalance = rows.reduce((s, r) => s + r.balance,  0);
+
+  return {
+    student:      stu,
+    className:    cls ? cls.name : (stu.className || '—'),
+    schoolName:   (settings && settings.schoolName) ? settings.schoolName : 'School',
+    schoolMotto:  (settings && settings.motto)      ? settings.motto      : '',
+    rows,
+    totalBilled,
+    totalPaid,
+    totalBalance,
+    generatedOn:  new Date().toLocaleDateString('en-KE', { day: '2-digit', month: 'long', year: 'numeric' })
+  };
+}
+
+// ── Student Portal: download fee statement as PDF ──
+function spDownloadFeeStatement() {
+  const d = spBuildFeeStatementData();
+  if (!d) { showToast('No fee records found for your account.', 'error'); return; }
+  if (!d.rows.length) { showToast('No fee records available to generate a statement.', 'info'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  _spRenderFeeStatementPDF(doc, d);
+  const fname = `Fee_Statement_${d.student.adm || d.student.name.replace(/\s+/g,'_')}.pdf`;
+  doc.save(fname);
+  showToast('Fee statement downloaded <i class="fa-solid fa-check"></i>', 'success');
+}
+
+// ── Student Portal: print fee statement ──
+function spPrintFeeStatement() {
+  const d = spBuildFeeStatementData();
+  if (!d) { showToast('No fee records found for your account.', 'error'); return; }
+  if (!d.rows.length) { showToast('No fee records available to generate a statement.', 'info'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  _spRenderFeeStatementPDF(doc, d);
+  const blobUrl = doc.output('bloburl');
+  const win = window.open(blobUrl, '_blank');
+  if (win) { win.onload = () => { try { win.print(); } catch(e){} }; }
+  else { showToast('Please allow pop-ups to print, or use Download instead.', 'info'); }
+}
+
+// ── Internal: render fee statement into a jsPDF doc ──
+function _spRenderFeeStatementPDF(doc, d) {
+  const W = 210, margin = 14;
+  const blue   = [37, 99, 235];
+  const green  = [22, 163, 74];
+  const red    = [220, 38, 38];
+  const amber  = [202, 138, 4];
+  const dark   = [15, 23, 42];
+  const muted  = [100, 116, 139];
+
+  // ── Header band ──
+  doc.setFillColor(...blue);
+  doc.rect(0, 0, W, 32, 'F');
+
+  // School name
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(15);
+  doc.setFont(undefined, 'bold');
+  doc.text(d.schoolName.toUpperCase(), margin, 12);
+
+  // Motto (if any)
+  if (d.schoolMotto) {
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'italic');
+    doc.setTextColor(200, 220, 255);
+    doc.text(d.schoolMotto, margin, 18);
+  }
+
+  // Statement title aligned right
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text('SCHOOL FEES STATEMENT', W - margin, 12, { align: 'right' });
+  doc.setFontSize(7.5);
+  doc.setFont(undefined, 'normal');
+  doc.setTextColor(200, 220, 255);
+  doc.text(`Generated: ${d.generatedOn}`, W - margin, 18, { align: 'right' });
+
+  // ── Student info box ──
+  let y = 38;
+  doc.setFillColor(241, 245, 249);
+  doc.roundedRect(margin, y, W - margin * 2, 22, 3, 3, 'F');
+  doc.setFontSize(8);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(...dark);
+  doc.text('STUDENT DETAILS', margin + 4, y + 5);
+  doc.setFont(undefined, 'normal');
+  doc.setTextColor(...muted);
+  doc.text(`Name:`, margin + 4, y + 11);
+  doc.text(`Adm No:`, margin + 4, y + 16.5);
+  doc.text(`Class:`, margin + 80, y + 11);
+  doc.text(`Statement Date:`, margin + 80, y + 16.5);
+  doc.setTextColor(...dark);
+  doc.setFont(undefined, 'bold');
+  doc.text(d.student.name || '—', margin + 22, y + 11);
+  doc.text(d.student.adm  || '—', margin + 22, y + 16.5);
+  doc.text(d.className,            margin + 96, y + 11);
+  doc.text(d.generatedOn,          margin + 96, y + 16.5);
+
+  // ── Summary cards ──
+  y += 28;
+  const cardW = (W - margin * 2 - 6) / 3;
+  const cardH = 17;
+  // Billed
+  doc.setFillColor(239, 246, 255);
+  doc.roundedRect(margin, y, cardW, cardH, 3, 3, 'F');
+  doc.setFontSize(7);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(...muted);
+  doc.text('TOTAL BILLED', margin + 3, y + 5.5);
+  doc.setFontSize(10);
+  doc.setTextColor(...blue);
+  doc.text(`KES ${d.totalBilled.toLocaleString()}`, margin + 3, y + 13);
+  // Paid
+  const cx2 = margin + cardW + 3;
+  doc.setFillColor(240, 253, 244);
+  doc.roundedRect(cx2, y, cardW, cardH, 3, 3, 'F');
+  doc.setFontSize(7);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(...muted);
+  doc.text('TOTAL PAID', cx2 + 3, y + 5.5);
+  doc.setFontSize(10);
+  doc.setTextColor(...green);
+  doc.text(`KES ${d.totalPaid.toLocaleString()}`, cx2 + 3, y + 13);
+  // Balance
+  const cx3 = margin + (cardW + 3) * 2;
+  const balColor = d.totalBalance <= 0 ? green : red;
+  doc.setFillColor(d.totalBalance <= 0 ? 240 : 254, d.totalBalance <= 0 ? 253 : 242, d.totalBalance <= 0 ? 244 : 242);
+  doc.roundedRect(cx3, y, cardW, cardH, 3, 3, 'F');
+  doc.setFontSize(7);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(...muted);
+  doc.text('OUTSTANDING BALANCE', cx3 + 3, y + 5.5);
+  doc.setFontSize(10);
+  doc.setTextColor(...balColor);
+  doc.text(`KES ${Math.abs(d.totalBalance).toLocaleString()}${d.totalBalance <= 0 ? ' ✓' : ''}`, cx3 + 3, y + 13);
+
+  // ── Term-by-term table ──
+  y += cardH + 6;
+  doc.setFontSize(8.5);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(...dark);
+  doc.text('TERM SUMMARY', margin, y);
+  y += 3;
+
+  doc.autoTable({
+    startY: y,
+    head: [['Term', 'Year', 'Total Fee (KES)', 'Paid (KES)', 'Balance (KES)', 'Status']],
+    body: d.rows.map(r => [
+      r.term,
+      String(r.year),
+      r.totalFee.toLocaleString(),
+      r.paid.toLocaleString(),
+      Math.abs(r.balance).toLocaleString() + (r.balance < 0 ? ' (OVP)' : ''),
+      r.status
+    ]),
+    theme: 'grid',
+    headStyles: { fillColor: blue, textColor: 255, fontStyle: 'bold', fontSize: 8, cellPadding: 2.5 },
+    bodyStyles: { fontSize: 8, cellPadding: 2 },
+    columnStyles: {
+      2: { halign: 'right' },
+      3: { halign: 'right', textColor: [22, 163, 74] },
+      4: { halign: 'right' },
+      5: { fontStyle: 'bold' }
+    },
+    didParseCell: data => {
+      if (data.section === 'body' && data.column.index === 5) {
+        const v = data.cell.raw;
+        if (v === 'Cleared')     data.cell.styles.textColor = green;
+        else if (v === 'Partial') data.cell.styles.textColor = amber;
+        else                     data.cell.styles.textColor = red;
+      }
+    },
+    margin: { left: margin, right: margin }
+  });
+
+  // ── Payment history table ──
+  const allPayments = [];
+  d.rows.forEach(r => {
+    r.payments.forEach(p => allPayments.push({ ...p, term: r.term, year: r.year }));
+  });
+
+  if (allPayments.length) {
+    let py = doc.lastAutoTable.finalY + 7;
+    // check if there's room; if not add a page
+    if (py > 240) { doc.addPage(); py = 20; }
+
+    doc.setFontSize(8.5);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(...dark);
+    doc.text('PAYMENT HISTORY', margin, py);
+    py += 3;
+
+    allPayments.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    doc.autoTable({
+      startY: py,
+      head: [['Date', 'Term / Year', 'Amount (KES)', 'Mode', 'Receipt / Ref', 'Notes']],
+      body: allPayments.map(p => [
+        p.date,
+        `${p.term} ${p.year}`,
+        p.amount.toLocaleString(),
+        p.mode,
+        p.receiptNo,
+        p.notes || '—'
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold', fontSize: 7.5, cellPadding: 2 },
+      bodyStyles: { fontSize: 7.5, cellPadding: 1.8 },
+      columnStyles: {
+        2: { halign: 'right', fontStyle: 'bold', textColor: green }
+      },
+      margin: { left: margin, right: margin }
+    });
+  }
+
+  // ── Footer ──
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(...muted);
+    doc.text(
+      `${d.schoolName}  •  This is an official fees statement.  •  Page ${i} of ${pageCount}`,
+      W / 2, 292, { align: 'center' }
+    );
+    doc.setDrawColor(...muted);
+    doc.setLineWidth(0.3);
+    doc.line(margin, 288, W - margin, 288);
+  }
+}
+
 function spRenderPapers() {
   const body = document.getElementById('spPapersBody'); if (!body) return;
   loadTermlyPapers();
