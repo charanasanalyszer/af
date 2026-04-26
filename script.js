@@ -1709,7 +1709,16 @@ function sppPreviewPayslip() {
   try {
     const doc = _sppBuildPDF(month, year, pay, school);
     const blobUrl = doc.output('bloburl');
-    area.innerHTML = `<iframe src="${blobUrl}" style="width:100%;min-height:680px;border:none;border-radius:8px;display:block" title="Payslip ${month} ${year}"></iframe>`;
+    area.innerHTML = `
+      <iframe src="${blobUrl}" style="width:100%;min-height:680px;border:none;border-radius:8px;display:block" title="Payslip ${month} ${year}"></iframe>
+      <div style="display:flex;gap:.65rem;justify-content:flex-end;margin-top:.85rem;flex-wrap:wrap">
+        <button onclick="sppDownloadPayslip()" class="btn btn-primary" style="gap:.4rem">
+          <i class="fa-solid fa-download"></i> Download Payslip (PDF)
+        </button>
+        <button onclick="sppPrintPayslip()" class="btn btn-outline">
+          <i class="fa-solid fa-print"></i> Print
+        </button>
+      </div>`;
   } catch(e) {
     // jsPDF not ready yet — fall back to styled HTML payslip
     const fmt = v => Number(v || 0).toLocaleString();
@@ -1789,8 +1798,9 @@ function sppDownloadPayslip() {
   const year  = document.getElementById('sppYear')?.value  || '';
   const pay = _sppGetPayData(currentUser.staffId, month, year);
   if (!pay) { showToast('No salary record found for this period.', 'error'); return; }
-  const doc  = _sppBuildPDF(month, year, pay, _sppSchoolName());
-  doc.save(`Payslip_${currentUser.staffId || 'staff'}_${month}_${year}.pdf`);
+  const doc = _sppBuildPDF(month, year, pay, _sppSchoolName());
+  const safeName = (pay.name || currentUser.staffId || 'Staff').replace(/\s+/g, '_');
+  doc.save(`Payslip_${safeName}_${month}_${year}.pdf`);
   showToast('Payslip PDF downloaded <i class="fa-solid fa-check"></i>', 'success');
 }
 
@@ -1807,8 +1817,16 @@ function sppRenderHistory() {
   const body = document.getElementById('sppHistBody');
   if (!body || !currentUser || currentUser.role !== 'staff_payslip') return;
   let history = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
+  // Resolve internal ID so history entries saved under either ID are found
+  const _allStaff = JSON.parse(localStorage.getItem(staffDetailsKey()) || '[]');
+  const _staffRec = _allStaff.find(s =>
+    (s.staffId || '').toLowerCase() === (currentUser.staffId || '').toLowerCase() || s.id === currentUser.staffId
+  );
+  const _internalId = _staffRec ? _staffRec.id : null;
   // SECURITY: only show this staff member's own payslips
-  history = history.filter(h => h.staffId === currentUser.staffId);
+  history = history.filter(h =>
+    h.staffId === currentUser.staffId || (_internalId && h.staffId === _internalId)
+  );
   const search = (document.getElementById('sppHistSearch')?.value || '').toLowerCase().trim();
   if (search) history = history.filter(h => (h.month + ' ' + h.year).toLowerCase().includes(search));
   if (!history.length) {
