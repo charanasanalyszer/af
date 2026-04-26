@@ -15871,7 +15871,7 @@ function ebExtractJSON(text) {
 
 function ebGetApiKey() {
   // Hardcoded key — always available regardless of login context
-  return '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';
+  return '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';
 }
 
 async function ebCallClaude(prompt, systemPrompt) {
