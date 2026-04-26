@@ -2965,7 +2965,7 @@ function platChangePassword() {
 
 // ── Platform AI API Key ──
 function platSaveApiKey() {
-  const key = (document.getElementById('platApiKeyInput')?.value||'').trim();
+  const key = (document.getElementById('platApiKeyInput')?.value||'').trim().replace(/^["']|["']$/g, '');
   const status = document.getElementById('platApiKeyStatus');
   if (!key) { if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Please enter an API key.';} return; }
   // Save to current school-scoped settings
@@ -3807,6 +3807,19 @@ function loadSchoolContext(school) {
   marks    = load(K.marks);    settings = load(K.settings)[0] || defaultSettings();
   admins   = load(K.admins);   msgLog   = load(K.msgLog);
   smsCredits = parseInt(localStorage.getItem(K.smsCredits) || '0');
+  // Inherit platform-level API key into school settings if not already set
+  if (!settings.ebApiKey) {
+    const platformKey = localStorage.getItem('ei_platform_api_key') || '';
+    if (!platformKey) {
+      // Also check the no-prefix global settings (saved by platform admin before our fix)
+      try {
+        const gs = JSON.parse(localStorage.getItem('ei_settings') || '[{}]');
+        if (gs[0]?.ebApiKey) settings.ebApiKey = gs[0].ebApiKey;
+      } catch(e) {}
+    } else {
+      settings.ebApiKey = platformKey;
+    }
+  }
   loadFees(); loadStreamAssignments(); loadGradingSystems(); loadTermlyPapers();
   if (!settings.schoolName) { settings.schoolName = school.name; save(K.settings,[settings]); }
   seedData();
@@ -15616,10 +15629,13 @@ function ebGetApiKey() {
 
 async function ebCallClaude(prompt, systemPrompt) {
   const key = ebGetApiKey();
-  if (!key) throw new Error('Groq API key required. Go to Settings → AI API Key and paste your key from console.groq.com.');
+  if (!key) throw new Error('No API key found. Go to Platform Admin → AI API Key, paste your Groq key and click Save.');
+  // Validate key format before sending (Groq keys start with gsk_)
+  const cleanKey = key.trim().replace(/^["']|["']$/g, ''); // strip any accidental quotes
+  if (!cleanKey) throw new Error('API key is empty after cleaning. Please re-save your Groq key in Platform Admin.');
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cleanKey}` },
     body: JSON.stringify({
       model: 'llama-3.3-70b-versatile',
       max_tokens: 4000,
