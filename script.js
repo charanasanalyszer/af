@@ -15607,16 +15607,13 @@ function updateExamDlFeeNotice() {
   const notice = document.getElementById('ebDlFeeNotice');
   if (!notice) return;
   const role = currentUser && currentUser.role;
-  if (role === 'teacher' || role === 'guest') {
-    const totalMarks = EB.sections.reduce((s,sec)=>s+(sec.totalMarks||0),0);
-    const fee = getExamDlFeeForMarks(totalMarks);
-    const paperKey = (currentSchoolId||'local') + ':live:' + totalMarks;
-    if (!isPaperUnlocked(paperKey) && !isSchoolExamDlUnlocked(currentSchoolId)) {
-      notice.style.display = '';
-      notice.innerHTML = `<i class="fa-solid fa-lock"></i> KES ${fee.toLocaleString()} required to download/print this ${totalMarks}-mark paper`;
-    } else {
-      notice.style.display = 'none';
-    }
+  if (role === 'platform_admin') { notice.style.display = 'none'; return; }
+  const totalMarks = EB.sections.reduce((s,sec)=>s+(sec.totalMarks||0),0);
+  const fee = getExamDlFeeForMarks(totalMarks);
+  const paperKey = (currentSchoolId||'local') + ':live:' + totalMarks;
+  if (!isPaperUnlocked(paperKey) && !isSchoolExamDlUnlocked(currentSchoolId)) {
+    notice.style.display = '';
+    notice.innerHTML = `<i class="fa-solid fa-lock"></i> KES ${fee.toLocaleString()} required to download/print this ${totalMarks}-mark paper`;
   } else {
     notice.style.display = 'none';
   }
@@ -15625,10 +15622,10 @@ function updateExamDlFeeNotice() {
 function checkExamDlAllowed(totalMarks, paperKey) {
   if (!currentUser) return false;
   const role = currentUser.role;
-  // Admin/superadmin/platform_admin always allowed
-  if (role === 'admin' || role === 'superadmin' || role === 'platform_admin') return true;
-  // Teacher or guest: tiered fee per paper
-  if (role === 'teacher' || role === 'guest') {
+  // Only platform_admin is always allowed
+  if (role === 'platform_admin') return true;
+  // Everyone else (admin, superadmin, teacher, guest, student) is gated
+  {
     const fee = getExamDlFeeForMarks(totalMarks || 0);
     // Check if this specific paper has been unlocked (admin confirmed payment)
     const key = paperKey || (currentSchoolId + ':marks' + (totalMarks||0));
