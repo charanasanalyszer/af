@@ -90,12 +90,31 @@ let   currentSchoolId       = null;
 const K_EXAM_DL_FEE        = 'ei_exam_dl_fee';        // number — KES fee for teacher/guest to print/download
 const K_EXAM_DL_UNLOCKED   = 'ei_exam_dl_unlocked';   // JSON array of schoolIds that have paid/been unlocked
 
+// ── Tiered fee by total marks ──────────────────────────────────────────────
+function getExamDlFeeForMarks(totalMarks) {
+  const m = totalMarks || 0;
+  if (m <= 30)  return 30;
+  if (m <= 50)  return 60;
+  if (m <= 80)  return 80;
+  if (m <= 100) return 100;
+  if (m <= 150) return 200;
+  return 1000; // 200+ marks
+}
+
 function getExamDlFee() { try { const v=localStorage.getItem(K_EXAM_DL_FEE); return v!==null?Number(v):0; } catch { return 0; } }
 function getExamDlUnlocked() { try { return JSON.parse(localStorage.getItem(K_EXAM_DL_UNLOCKED)||'[]'); } catch { return []; } }
 function isSchoolExamDlUnlocked(schoolId) {
   const fee = getExamDlFee();
   if (!fee || fee <= 0) return true; // free
   return getExamDlUnlocked().includes(schoolId);
+}
+// Per-paper unlock key: stores set of "schoolId:examTotalMarks" or "schoolId:examId" tokens that have been paid
+const K_EXAM_PAPER_UNLOCKED = 'ei_exam_paper_unlocked';
+function getPaperUnlocked() { try { return JSON.parse(localStorage.getItem(K_EXAM_PAPER_UNLOCKED)||'[]'); } catch { return []; } }
+function isPaperUnlocked(paperKey) { return getPaperUnlocked().includes(paperKey); }
+function unlockPaper(paperKey) {
+  const arr = getPaperUnlocked();
+  if (!arr.includes(paperKey)) { arr.push(paperKey); localStorage.setItem(K_EXAM_PAPER_UNLOCKED, JSON.stringify(arr)); }
 }
 
 
@@ -2103,6 +2122,44 @@ function platLockSchoolExamDl() {
   platRenderExamDlFeeUI();
 }
 
+// ── Per-paper unlock (by marks tier) ──────────────────────────────────────
+function platUnlockPaperByMarks() {
+  const sel = document.getElementById('platExamDlUnlockSchool');
+  const marksInp = document.getElementById('platPaperUnlockMarks');
+  const schoolId = sel?.value; if (!schoolId) { showToast('Select a school first','error'); return; }
+  const marks = parseInt(marksInp?.value||0);
+  if (!marks) { showToast('Enter total marks of the paper','error'); return; }
+  const fee = getExamDlFeeForMarks(marks);
+  const key = schoolId + ':marks' + marks;
+  unlockPaper(key);
+  const school = platformSchools.find(s=>s.id===schoolId);
+  showToast(`<i class="fa-solid fa-circle-check"></i> ${school?.name||schoolId} — ${marks}-mark paper unlocked (KES ${fee} paid)`, 'success');
+  platRenderExamDlFeeUI();
+}
+
+function platRenderPaperUnlockList() {
+  const el = document.getElementById('platPaperUnlockList'); if (!el) return;
+  const papers = getPaperUnlocked();
+  loadPlatform();
+  if (!papers.length) { el.innerHTML='<div style="font-size:.78rem;color:var(--muted)">No individual papers unlocked yet.</div>'; return; }
+  el.innerHTML = papers.map(key => {
+    const parts = key.split(':');
+    const schoolId = parts[0];
+    const info = parts.slice(1).join(':');
+    const s = platformSchools.find(x=>x.id===schoolId);
+    return `<span style="display:inline-flex;align-items:center;gap:.3rem;background:rgba(37,99,235,.08);color:#1e40af;border:1px solid rgba(37,99,235,.25);border-radius:99px;padding:.2rem .7rem;font-size:.75rem;font-weight:700;margin:.2rem .2rem 0 0">
+      <i class="fa-solid fa-file-circle-check"></i> ${s?s.name:schoolId} · ${info}
+      <button onclick="platRemovePaperUnlock('${key}')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.9rem;padding:0 .1rem;line-height:1">×</button>
+    </span>`;
+  }).join('');
+}
+
+function platRemovePaperUnlock(key) {
+  const arr = getPaperUnlocked().filter(k=>k!==key);
+  localStorage.setItem(K_EXAM_PAPER_UNLOCKED, JSON.stringify(arr));
+  platRenderExamDlFeeUI();
+}
+
 function platRenderExamDlUnlockList() {
   const el = document.getElementById('platExamDlUnlockList'); if (!el) return;
   const unlocked = getExamDlUnlocked();
@@ -2116,6 +2173,7 @@ function platRenderExamDlUnlockList() {
         <button onclick="platRemoveUnlockById('${id}')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.9rem;padding:0 .1rem;line-height:1">×</button>
       </span>`;
     }).join('');
+  platRenderPaperUnlockList();
 }
 
 function platRemoveUnlockById(schoolId) {
@@ -15550,10 +15608,12 @@ function updateExamDlFeeNotice() {
   if (!notice) return;
   const role = currentUser && currentUser.role;
   if (role === 'teacher' || role === 'guest') {
-    const fee = getExamDlFee();
-    if (fee > 0 && !isSchoolExamDlUnlocked(currentSchoolId)) {
+    const totalMarks = EB.sections.reduce((s,sec)=>s+(sec.totalMarks||0),0);
+    const fee = getExamDlFeeForMarks(totalMarks);
+    const paperKey = (currentSchoolId||'local') + ':live:' + totalMarks;
+    if (!isPaperUnlocked(paperKey) && !isSchoolExamDlUnlocked(currentSchoolId)) {
       notice.style.display = '';
-      notice.innerHTML = `<i class="fa-solid fa-lock"></i> KES ${fee.toLocaleString()} fee required to download/print`;
+      notice.innerHTML = `<i class="fa-solid fa-lock"></i> KES ${fee.toLocaleString()} required to download/print this ${totalMarks}-mark paper`;
     } else {
       notice.style.display = 'none';
     }
@@ -15562,31 +15622,52 @@ function updateExamDlFeeNotice() {
   }
 }
 
-function checkExamDlAllowed() {
+function checkExamDlAllowed(totalMarks, paperKey) {
   if (!currentUser) return false;
   const role = currentUser.role;
-  // Admin/superadmin/platform_admin/student always allowed (student can't reach exam builder)
+  // Admin/superadmin/platform_admin always allowed
   if (role === 'admin' || role === 'superadmin' || role === 'platform_admin') return true;
-  // Teacher or guest: check fee
+  // Teacher or guest: tiered fee per paper
   if (role === 'teacher' || role === 'guest') {
-    const fee = getExamDlFee();
-    if (!fee || fee <= 0) return true; // free
-    // Check if current school is unlocked
+    const fee = getExamDlFeeForMarks(totalMarks || 0);
+    // Check if this specific paper has been unlocked (admin confirmed payment)
+    const key = paperKey || (currentSchoolId + ':marks' + (totalMarks||0));
+    if (isPaperUnlocked(key)) return true;
+    // Also check legacy school-wide unlock
     if (currentSchoolId && isSchoolExamDlUnlocked(currentSchoolId)) return true;
-    // Blocked — show paywall message
+    // Build tier table for modal
+    const tiers = [
+      { label:'Up to 30 marks',   price:30 },
+      { label:'Up to 50 marks',   price:60 },
+      { label:'Up to 80 marks',   price:80 },
+      { label:'Up to 100 marks',  price:100 },
+      { label:'Up to 150 marks',  price:200 },
+      { label:'200+ marks',       price:1000 },
+    ];
+    const tierRows = tiers.map(t =>
+      `<tr style="${fee===t.price?'background:#f5f3ff;font-weight:700':''}">
+        <td style="padding:.3rem .6rem;border:1px solid #e2e8f0">${t.label}</td>
+        <td style="padding:.3rem .6rem;border:1px solid #e2e8f0;text-align:right;color:${fee===t.price?'#7c3aed':'#334155'}">KES ${t.price}</td>
+      </tr>`).join('');
     showModal(
-      '<i class="fa-solid fa-lock"></i> Download/Print Locked',
-      `<div style="text-align:center;padding:1rem 0">
-        <div style="font-size:2.5rem;margin-bottom:.75rem"><i class="fa-solid fa-lock"></i></div>
-        <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">Payment Required</div>
-        <div style="color:var(--muted);font-size:.85rem;margin-bottom:1.25rem;line-height:1.6">
-          Printing and downloading exam papers requires a platform fee of<br>
-          <strong style="color:#7c3aed;font-size:1.1rem">KES ${fee.toLocaleString()}</strong><br>
-          per school term. Please pay via M-Pesa or school cashier and ask<br>
-          your Platform Administrator to unlock your school.
+      '<i class="fa-solid fa-lock"></i> Download Locked',
+      `<div style="text-align:center;padding:.75rem 0">
+        <div style="font-size:2.5rem;margin-bottom:.6rem">🔒</div>
+        <div style="font-weight:700;font-size:1rem;margin-bottom:.35rem">Payment Required</div>
+        <div style="color:var(--muted);font-size:.83rem;margin-bottom:1rem;line-height:1.6">
+          This paper has <strong>${totalMarks||0} marks</strong>.<br>
+          The download fee for this paper is <strong style="color:#7c3aed;font-size:1.05rem">KES ${fee}</strong>.
         </div>
-        <div style="background:rgba(124,58,237,.07);border-radius:9px;padding:.75rem 1rem;font-size:.8rem;color:#475569">
-          <i class="fa-solid fa-phone"></i> Contact your Platform Admin to confirm payment and unlock access.
+        <table style="border-collapse:collapse;width:100%;font-size:.8rem;margin-bottom:1rem;text-align:left">
+          <thead><tr style="background:#f8fafc">
+            <th style="padding:.3rem .6rem;border:1px solid #e2e8f0">Paper Size</th>
+            <th style="padding:.3rem .6rem;border:1px solid #e2e8f0;text-align:right">Fee (KES)</th>
+          </tr></thead>
+          <tbody>${tierRows}</tbody>
+        </table>
+        <div style="background:rgba(124,58,237,.07);border-radius:9px;padding:.65rem 1rem;font-size:.78rem;color:#475569">
+          <i class="fa-solid fa-phone"></i> Pay via M-Pesa or school cashier, then ask your<br>
+          <strong>Platform Administrator</strong> to unlock this paper for you.
         </div>
       </div>`,
       []
@@ -15597,17 +15678,21 @@ function checkExamDlAllowed() {
 }
 
 function ebExportPDF() {
-  if (!checkExamDlAllowed()) return;
   ebSyncDOM();
   const header = ebGetHeader();
   const instructions = ebGetInstructions();
   const totalMarks = EB.sections.reduce((s,sec) => s+(sec.totalMarks||0), 0);
+  const paperKey = (currentSchoolId||'local') + ':live:' + totalMarks;
+  if (!checkExamDlAllowed(totalMarks, paperKey)) return;
   ebClientSidePDF({ header, instructions, sections: EB.sections, totalMarks });
 }
 function ebExportExamPDF(id) {
-  if (!checkExamDlAllowed()) return;
   const exam = ebLoad().find(e => e.id === id);
-  if (exam) ebClientSidePDF(exam);
+  if (!exam) return;
+  const totalMarks = exam.totalMarks || (exam.sections||[]).reduce((s,sec)=>s+(sec.totalMarks||0),0);
+  const paperKey = (currentSchoolId||'local') + ':' + id;
+  if (!checkExamDlAllowed(totalMarks, paperKey)) return;
+  ebClientSidePDF(exam);
 }
 function ebClientSidePDF(exam) {
   if (!window.jspdf) { showToast('PDF library not loaded', 'error'); return; }
@@ -15622,20 +15707,20 @@ function ebClientSidePDF(exam) {
 
   const addPage = (need=10) => { if (y+need > maxY) { doc.addPage(); y=15; addFooter(); } };
   const addFooter = () => {
-    doc.setFont('Helvetica','italic'); doc.setFontSize(7.5); doc.setTextColor(100);
+    doc.setFont('Times','italic'); doc.setFontSize(7.5); doc.setTextColor(100);
     doc.text(`${subjectFooter}  \u2022  ${schoolName}  \u2022  ${dateStr}`, 105, 291, {align:'center'});
     doc.setLineWidth(.2); doc.setDrawColor(180); doc.line(lm, 288, lm+pw, 288);
     doc.setTextColor(0); doc.setDrawColor(0);
   };
 
   // ── PAGE 1: HEADER ──
-  doc.setFont('Helvetica','bold'); doc.setFontSize(18);
+  doc.setFont('Times','bold'); doc.setFontSize(18);
   doc.text(schoolName, 105, y, {align:'center'}); y+=9;
   doc.setFontSize(13);
   doc.text(`${(header.subject||'').toUpperCase()} \u2013 ${(header.class||'').toUpperCase()}`, 105, y, {align:'center'}); y+=7;
   doc.setFontSize(11);
   doc.text(`${(header.examType||'').toUpperCase()}  \u2022  ${header.term||''}  ${header.year||''}`, 105, y, {align:'center'}); y+=6;
-  doc.setFont('Helvetica','normal'); doc.setFontSize(10);
+  doc.setFont('Times','normal'); doc.setFontSize(10);
   doc.text(`TIME ALLOWED: ${header.duration||'___ Hours'}     DATE: ${dateStr}     TOTAL MARKS: ${totalMarks}`, 105, y, {align:'center'}); y+=4;
   doc.setLineWidth(1); doc.line(lm, y, lm+pw, y); y+=6;
 
@@ -15644,7 +15729,7 @@ function ebClientSidePDF(exam) {
   const rowH=6.5; const col1=55;
   [['Candidate\'s Name:',''],['Admission No.:',''],['Class / Stream:',''],['Signature:','']].forEach((row,i) => {
     const ry = y+i*rowH+1.5;
-    doc.setFont('Helvetica','bold'); doc.setFontSize(9); doc.text(row[0], lm+2, ry+4);
+    doc.setFont('Times','bold'); doc.setFontSize(9); doc.text(row[0], lm+2, ry+4);
     doc.setLineWidth(.2); doc.line(lm+col1, ry+4.5, lm+pw-2, ry+4.5);
     if (i<3) { doc.setLineWidth(.2); doc.line(lm, y+(i+1)*rowH, lm+pw, y+(i+1)*rowH); }
   });
@@ -15656,7 +15741,7 @@ function ebClientSidePDF(exam) {
   const secColW = 22; const totalColW = 16;
 
   // Header row
-  doc.setFont('Helvetica','bold'); doc.setFontSize(8);
+  doc.setFont('Times','bold'); doc.setFontSize(8);
   doc.text("FOR EXAMINER'S USE ONLY", 105, y, {align:'center'}); y+=4;
   doc.setFontSize(6.5); doc.setLineWidth(.3);
   let tx = lm;
@@ -15669,9 +15754,9 @@ function ebClientSidePDF(exam) {
   // Section rows
   sections.forEach(sec => {
     let rx = lm;
-    doc.setFont('Helvetica','bold'); doc.setFontSize(7);
+    doc.setFont('Times','bold'); doc.setFontSize(7);
     doc.rect(rx, y, secColW, 10); doc.text(`Sec. ${sec.name}`, rx+2, y+6); rx+=secColW;
-    doc.setFont('Helvetica','normal'); doc.setFontSize(6);
+    doc.setFont('Times','normal'); doc.setFontSize(6);
     sec.questions.forEach((q, qi) => {
       doc.rect(rx, y, colW, 10);
       // Sub-part label
@@ -15688,13 +15773,13 @@ function ebClientSidePDF(exam) {
     const secTotal = sec.questions.reduce((s,q)=>s+(q.marks||0),0)||sec.totalMarks;
     doc.rect(rx, y, totalColW, 10);
     doc.setDrawColor(150); doc.line(rx+1, y+6, rx+totalColW-1, y+6); doc.setDrawColor(0);
-    doc.setFont('Helvetica','normal'); doc.setFontSize(6);
+    doc.setFont('Times','normal'); doc.setFontSize(6);
     doc.text(`/${secTotal}`, rx+totalColW/2, y+9, {align:'center'});
     y+=10;
   });
 
   // Grand total + grade rows
-  doc.setFont('Helvetica','bold'); doc.setFontSize(7);
+  doc.setFont('Times','bold'); doc.setFontSize(7);
   const totRowX = lm+secColW+maxQs*colW;
   doc.rect(lm, y, secColW+maxQs*colW, 8); doc.text('GRAND TOTAL', lm+2, y+5.5);
   doc.rect(totRowX, y, totalColW, 8);
@@ -15709,8 +15794,8 @@ function ebClientSidePDF(exam) {
 
   // Instructions on cover
   if (instructions?.length) {
-    doc.setFont('Helvetica','bold'); doc.setFontSize(10); doc.text('INSTRUCTIONS TO CANDIDATES:', lm, y); y+=5;
-    doc.setFont('Helvetica','normal'); doc.setFontSize(9);
+    doc.setFont('Times','bold'); doc.setFontSize(10); doc.text('INSTRUCTIONS TO CANDIDATES:', lm, y); y+=5;
+    doc.setFont('Times','normal'); doc.setFontSize(9);
     instructions.forEach((t,i) => { addPage(5); const ls=doc.splitTextToSize(`${i+1}. ${t}`, pw-60); doc.text(ls, lm, y); y+=ls.length*4.5; });
     y+=2;
   }
@@ -15719,11 +15804,11 @@ function ebClientSidePDF(exam) {
   // ── SECTIONS (page 2 onwards) ──
   sections.forEach((sec, sIdx) => {
     doc.addPage(); y=15; addFooter();
-    doc.setFont('Helvetica','bold'); doc.setFontSize(11);
+    doc.setFont('Times','bold'); doc.setFontSize(11);
     const secTitle = `SECTION ${sec.name}: ${ebTypeLabel(sec.type).toUpperCase()} (${sec.questions.reduce((s,q)=>s+(q.marks||0),0)||sec.totalMarks} MARKS)`;
     doc.text(secTitle, 105, y, {align:'center'}); y+=6;
     if (sec.instruction) {
-      doc.setFont('Helvetica','italic'); doc.setFontSize(9);
+      doc.setFont('Times','italic'); doc.setFontSize(9);
       const ils = doc.splitTextToSize(sec.instruction, pw); doc.text(ils, 105, y, {align:'center'}); y+=ils.length*4.5;
     }
     y+=2;
@@ -15734,19 +15819,19 @@ function ebClientSidePDF(exam) {
     // For comprehension: render passage first
     if (isComprehensionSec) {
       const subtypeLabel = {comprehension:'Comprehension Passage',literary:'Literary Extract',poetry:'Poem / Verse'}[sec.comprehensionSubtype||'comprehension'];
-      doc.setFont('Helvetica','bold'); doc.setFontSize(8.5);
+      doc.setFont('Times','bold'); doc.setFontSize(8.5);
       doc.text(subtypeLabel.toUpperCase(), lm, y); y+=5;
       doc.setLineWidth(.4); doc.rect(lm, y, pw, 2); y+=3;
       if (sec.passageText) {
-        doc.setFont('Helvetica','normal'); doc.setFontSize(9);
+        doc.setFont('Times','normal'); doc.setFontSize(9);
         const pls = doc.splitTextToSize(sec.passageText, pw); 
         pls.forEach(line => { addPage(5); doc.text(line, lm, y); y+=4.5; });
       } else {
-        doc.setFont('Helvetica','italic'); doc.setFontSize(8.5);
+        doc.setFont('Times','italic'); doc.setFontSize(8.5);
         doc.text('[Passage image — see printed exam]', lm, y); y+=5;
       }
       doc.setLineWidth(.4); doc.rect(lm, y, pw, 2); y+=5;
-      doc.setFont('Helvetica','italic'); doc.setFontSize(8.5);
+      doc.setFont('Times','italic'); doc.setFontSize(8.5);
       doc.text('Answer the following questions based on the passage above.', lm, y); y+=5;
     }
 
@@ -15760,10 +15845,10 @@ function ebClientSidePDF(exam) {
           const qNum = startIdx+qi+1;
           const qLines = doc.splitTextToSize(`${qNum}. ${q.question||'[Question]'}  (${q.marks}mk)`, colW2-4);
           if (cy+14 > maxY) { doc.addPage(); cy=15; addFooter(); }
-          doc.setFont('Helvetica','bold'); doc.setFontSize(9.5); doc.text(qLines, x, cy); cy+=qLines.length*5;
-          const labs=['A)','B)','C)','D)']; doc.setFont('Helvetica','normal'); doc.setFontSize(9);
-          (q.options||[]).forEach((o,oi) => { if(o){ doc.text(`  ${labs[oi]} ${o}`, x, cy); cy+=4.5; } });
-          cy+=4;
+          doc.setFont('Times','bold'); doc.setFontSize(9.5); doc.text(qLines, x, cy); cy+=qLines.length*6;
+          const labs=['A)','B)','C)','D)']; doc.setFont('Times','normal'); doc.setFontSize(9);
+          (q.options||[]).forEach((o,oi) => { if(o){ doc.text(`  ${labs[oi]} ${o}`, x, cy); cy+=5.5; } });
+          cy+=5;
         });
         return cy;
       };
@@ -15785,7 +15870,7 @@ function ebClientSidePDF(exam) {
           const q = sec.questions[i+ci]; if(!q) return;
           const bx = lm+ci*(colW2+4);
           doc.setLineWidth(.4); doc.rect(bx, y, colW2, boxH);
-          doc.setFont('Helvetica','bold'); doc.setFontSize(9);
+          doc.setFont('Times','bold'); doc.setFontSize(9);
           const qls = doc.splitTextToSize(`${i+ci+1}. ${q.question||'[Question]'}  (${q.marks}mk)`, colW2-4);
           doc.text(qls, bx+2, y+5);
         });
@@ -15800,14 +15885,14 @@ function ebClientSidePDF(exam) {
         addPage(Math.min(needH, 40));
 
         // Question stem
-        doc.setFont('Helvetica','bold'); doc.setFontSize(10);
+        doc.setFont('Times','bold'); doc.setFontSize(10);
         const qText = hasSubParts ? `${qIdx+1}. ${q.question||'[Question]'}` : `${qIdx+1}. ${q.question||'[Question]'}  (${q.marks} marks)`;
         const qls = doc.splitTextToSize(qText, pw-36); doc.text(qls, lm, y);
 
         if (!hasSubParts) {
           // Small examiner box right-side
           doc.setLineWidth(.3); doc.rect(lm+pw-32, y-5, 30, 10);
-          doc.setFont('Helvetica','normal'); doc.setFontSize(6); doc.text("Examr. Use Only", lm+pw-17, y-3, {align:'center'});
+          doc.setFont('Times','normal'); doc.setFontSize(6); doc.text("Examr. Use Only", lm+pw-17, y-3, {align:'center'});
           doc.setLineWidth(.2); doc.line(lm+pw-32, y+1, lm+pw-2, y+1);
           doc.setFontSize(7.5); doc.text(`/${q.marks}`, lm+pw-17, y+4, {align:'center'});
         }
@@ -15817,13 +15902,13 @@ function ebClientSidePDF(exam) {
           // Each sub-part: "1a. text (marks)" then lines
           q.subParts.forEach((p, pi) => {
             addPage(20);
-            doc.setFont('Helvetica','bold'); doc.setFontSize(9.5);
+            doc.setFont('Times','bold'); doc.setFontSize(9.5);
             const spLabel = `${qIdx+1}${subLetters[pi]}. `;
             const spText = doc.splitTextToSize(`${spLabel}${p.text}`, pw-36);
             doc.text(spText, lm, y);
             // Small examiner box
             doc.setLineWidth(.3); doc.rect(lm+pw-32, y-4, 30, 9);
-            doc.setFont('Helvetica','normal'); doc.setFontSize(6); doc.text("Examr.", lm+pw-17, y-2, {align:'center'});
+            doc.setFont('Times','normal'); doc.setFontSize(6); doc.text("Examr.", lm+pw-17, y-2, {align:'center'});
             doc.setLineWidth(.2); doc.line(lm+pw-32, y+1, lm+pw-2, y+1);
             doc.setFontSize(7.5); doc.text(`/${p.marks}`, lm+pw-17, y+3.5, {align:'center'});
             y+=spText.length*4.5;
@@ -15844,7 +15929,7 @@ function ebClientSidePDF(exam) {
     y+=5;
   });
 
-  addPage(10); doc.setFont('Helvetica','bold'); doc.setFontSize(11);
+  addPage(10); doc.setFont('Times','bold'); doc.setFontSize(11);
   doc.text('*** END OF EXAM ***', 105, y, {align:'center'});
   const fn = `${header.schoolName||'Exam'}_${header.subject}_${header.examType}.pdf`.replace(/[^a-z0-9_\-\.]/gi,'_');
   doc.save(fn);
@@ -16224,21 +16309,91 @@ function ebOpenSubParts(sIdx, qIdx) {
   EB.subPartsSec = sIdx; EB.subPartsQ = qIdx;
   const q = EB.sections[sIdx]?.questions[qIdx];
   const list = document.getElementById('ebSubPartsList'); if (!list) return;
+  // Show main question preview
+  const mainQEl = document.getElementById('ebSubPartsMainQ');
+  const mainQText = document.getElementById('ebSubPartsMainQText');
+  if (mainQEl && mainQText && q?.question) {
+    mainQText.textContent = q.question;
+    mainQEl.style.display = '';
+  } else if (mainQEl) { mainQEl.style.display = 'none'; }
   list.innerHTML = (q?.subParts||[]).map((p,i) => `
     <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem">
+      <span style="font-size:.78rem;font-weight:700;min-width:1.2rem;color:var(--muted)">${String.fromCharCode(97+i)})</span>
       <input type="text" value="${ebEscape(p.text||'')}" placeholder="Sub-part text..." style="flex:1;padding:6px 10px;border:1.5px solid var(--border-lt);border-radius:6px;font-size:.82rem;outline:none" class="eb-sp-text"/>
       <input type="number" value="${p.marks||2}" min="1" max="20" style="width:58px;padding:6px 8px;border:1.5px solid var(--border-lt);border-radius:6px;font-size:.82rem;outline:none" class="eb-sp-marks"/>
-      <button onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;color:var(--danger)"><i class="fa-solid fa-xmark"></i></button>
+      <button onclick="this.closest('div').remove();ebReindexSubPartLabels()" style="background:none;border:none;cursor:pointer;color:var(--danger)"><i class="fa-solid fa-xmark"></i></button>
     </div>`).join('');
   document.getElementById('ebSubPartsModal').style.display = 'flex';
 }
+
+function ebReindexSubPartLabels() {
+  const items = document.querySelectorAll('#ebSubPartsList > div');
+  items.forEach((div, i) => {
+    const lbl = div.querySelector('span');
+    if (lbl) lbl.textContent = String.fromCharCode(97+i) + ')';
+  });
+}
+
+async function ebAiGenerateSubParts() {
+  const sIdx = EB.subPartsSec;
+  const qIdx = EB.subPartsQ;
+  const q = EB.sections[sIdx]?.questions[qIdx];
+  if (!q?.question?.trim()) { showToast('Main question has no text yet — type it first', 'error'); return; }
+  const count = parseInt(document.getElementById('ebSpAiCount')?.value) || 3;
+  const btn = document.getElementById('ebSpAiBtn');
+  const status = document.getElementById('ebSpAiStatus');
+  btn.disabled = true; btn.style.opacity = '.6';
+  if (status) status.style.display = '';
+  const sec = EB.sections[sIdx];
+  const subject = document.getElementById('eb-subject')?.value || 'General';
+  const system = `You are an expert exam question writer for Kenyan secondary school curriculum.
+OUTPUT RULES — CRITICAL:
+- Output ONLY a raw JSON object. No prose, no markdown, no code fences.
+- Start with { and end with }
+- Use exactly this structure: {"subParts":[{"text":"...","marks":2}]}
+- Each sub-part must directly relate to and break down the main question.
+- Sub-parts should be progressive: start simpler, build to harder.
+- Marks should reflect difficulty (1-6 per sub-part).
+- Do NOT repeat the main question in sub-parts.`;
+  const userPrompt = `Main question: "${q.question}"
+Subject: ${subject} | Section type: ${sec.type}
+Generate ${count} sub-parts (a, b, c…) that break this question into smaller parts.
+Return ONLY the JSON.`;
+  try {
+    const text = await ebCallClaude(userPrompt, system);
+    const parsed = ebExtractJSON(text);
+    const parts = parsed?.subParts || [];
+    if (!parts.length) throw new Error('No sub-parts returned');
+    // Append (don't replace) existing sub-parts
+    const existing = document.querySelectorAll('#ebSubPartsList > div').length;
+    const list = document.getElementById('ebSubPartsList');
+    parts.forEach((p, i) => {
+      const idx = existing + i;
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem';
+      div.innerHTML = `<span style="font-size:.78rem;font-weight:700;min-width:1.2rem;color:var(--muted)">${String.fromCharCode(97+idx)})</span>
+        <input type="text" value="${ebEscape(p.text||'')}" placeholder="Sub-part text..." style="flex:1;padding:6px 10px;border:1.5px solid var(--border-lt);border-radius:6px;font-size:.82rem;outline:none" class="eb-sp-text"/>
+        <input type="number" value="${p.marks||2}" min="1" max="20" style="width:58px;padding:6px 8px;border:1.5px solid var(--border-lt);border-radius:6px;font-size:.82rem;outline:none" class="eb-sp-marks"/>
+        <button onclick="this.closest('div').remove();ebReindexSubPartLabels()" style="background:none;border:none;cursor:pointer;color:var(--danger)"><i class="fa-solid fa-xmark"></i></button>`;
+      list.appendChild(div);
+    });
+    showToast(`Generated ${parts.length} sub-parts <i class="fa-solid fa-check"></i>`, 'success');
+  } catch(err) {
+    showToast('AI sub-parts failed: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.style.opacity = '1';
+    if (status) status.style.display = 'none';
+  }
+}
 function ebAddSubPart() {
   const list = document.getElementById('ebSubPartsList');
+  const idx = list.querySelectorAll(':scope > div').length;
   const div = document.createElement('div');
   div.style.cssText = 'display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem';
-  div.innerHTML = `<input type="text" placeholder="Sub-part text..." style="flex:1;padding:6px 10px;border:1.5px solid var(--border-lt);border-radius:6px;font-size:.82rem;outline:none" class="eb-sp-text"/>
+  div.innerHTML = `<span style="font-size:.78rem;font-weight:700;min-width:1.2rem;color:var(--muted)">${String.fromCharCode(97+idx)})</span>
+    <input type="text" placeholder="Sub-part text..." style="flex:1;padding:6px 10px;border:1.5px solid var(--border-lt);border-radius:6px;font-size:.82rem;outline:none" class="eb-sp-text"/>
     <input type="number" value="2" min="1" max="20" style="width:58px;padding:6px 8px;border:1.5px solid var(--border-lt);border-radius:6px;font-size:.82rem;outline:none" class="eb-sp-marks"/>
-    <button onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;color:var(--danger)"><i class="fa-solid fa-xmark"></i></button>`;
+    <button onclick="this.closest('div').remove();ebReindexSubPartLabels()" style="background:none;border:none;cursor:pointer;color:var(--danger)"><i class="fa-solid fa-xmark"></i></button>`;
   list.appendChild(div);
 }
 function ebSaveSubParts() {
