@@ -15673,8 +15673,7 @@ OUTPUT RULES — CRITICAL:
 - Use exactly this structure:
 {"questions":[{"id":"q1","question":"...","type":"mcq","marks":2,"options":["A) ...","B) ...","C) ...","D) ..."],"answer":"A) ...","explanation":"...","difficulty":"medium","subParts":[]${imageField}}]}
 - For MCQ: include 4 options (A-D), set answer to the correct option text.
-- For structured/essay: options=[], answer="", use subParts for multi-part questions.${withImages ? '
-- imageQuery: a short 2-3 word image search term relevant to the question.' : ''}
+- For structured/essay: options=[], answer="", use subParts for multi-part questions.${withImages ? '\n- imageQuery: a short 2-3 word image search term relevant to the question.' : ''}
 - Do NOT include any text before or after the JSON.`;
   const userPrompt = `Generate ${count || 5} ${questionType || 'mcq'} questions for:
 Subject: ${subject || 'General'} | Topic: ${topic || subject || 'General'} | Difficulty: ${difficulty || 'medium'} (${diffGuide[difficulty] || diffGuide.medium})
@@ -15803,7 +15802,7 @@ async function ebGenSingleQuestion() {
 
 // ─── Fetch image from Unsplash (free, no key needed) ────────────────────────
 async function ebFetchUnsplashImage(query) {
-  const url = \`https://source.unsplash.com/400x250/?\${encodeURIComponent(query)}\`;
+  const url = `https://source.unsplash.com/400x250/?${encodeURIComponent(query)}`;
   // Unsplash source redirects to actual image — convert to base64 for embedding
   const res = await fetch(url);
   if (!res.ok) throw new Error('Image fetch failed');
