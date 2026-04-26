@@ -14182,6 +14182,35 @@ function confirmPaperDownload(paperId) {
   if (idx === -1) { showToast('Paper not found', 'error'); return; }
   const paper = termlyPapers[idx];
 
+  // ── PAYWALL: block non-admins from downloading paid papers ──
+  const _role = currentUser && currentUser.role;
+  const _isAdmin = _role === 'admin' || _role === 'superadmin' || _role === 'platform_admin';
+  if (!_isAdmin && paper.price > 0) {
+    const _subj = (typeof subjects !== 'undefined') ? subjects.find(s => s.id === paper.subjectId) : null;
+    showModal(
+      '<i class="fa-solid fa-credit-card"></i> Payment Required',
+      `<div style="text-align:center;padding:1rem 0">
+        <div style="font-size:2.5rem;margin-bottom:.75rem"><i class="fa-solid fa-lock"></i></div>
+        <div style="font-weight:700;font-size:1.05rem;margin-bottom:.25rem">${paper.title}</div>
+        <div style="color:var(--muted);font-size:.85rem;margin-bottom:1.25rem">${_subj ? _subj.name : ''} ${paper.term ? '· ' + paper.term : ''} ${paper.year || ''}</div>
+        <div style="background:var(--primary-lt,#ede9fe);border-radius:12px;padding:1rem;margin-bottom:1.25rem">
+          <div style="font-size:.8rem;color:var(--muted);margin-bottom:.2rem">Amount to Pay</div>
+          <div style="font-size:2rem;font-weight:800;color:var(--primary,#4f7cff)">KES ${paper.price.toLocaleString()}</div>
+        </div>
+        <p style="font-size:.82rem;color:var(--muted);line-height:1.6">
+          This paper requires payment before downloading.<br>
+          Please pay via <strong>M-Pesa or school cashier</strong>, then ask<br>
+          your administrator to confirm and provide access.
+        </p>
+        <div style="background:rgba(124,58,237,.07);border-radius:9px;padding:.75rem 1rem;font-size:.8rem;color:#475569;margin-top:.75rem">
+          <i class="fa-solid fa-circle-info"></i> Contact your school administrator after payment to get access to this paper.
+        </div>
+      </div>`,
+      []
+    );
+    return;
+  }
+
   // Increment download count
   termlyPapers[idx].downloads = (paper.downloads || 0) + 1;
   saveTermlyPapers();
@@ -14360,7 +14389,7 @@ function renderPlatformPapers() {
             ${p.desc ? `<div style="font-size:.76rem;color:var(--muted);margin-top:.3rem;line-height:1.5">${p.desc}</div>` : ''}
           </div>
           <div style="display:flex;flex-direction:column;gap:.4rem;align-items:flex-end;flex-shrink:0">
-            ${isFree && p.fileData ? `<button class="btn btn-primary btn-sm" onclick="downloadPlatformPaper('${p.id}')">⬇ Download</button>` : (!isFree ? `<button class="btn btn-outline btn-sm" style="opacity:.6;cursor:not-allowed" disabled><i class="fa-solid fa-lock"></i> Paid</button>` : '')}
+            ${isFree && p.fileData ? `<button class="btn btn-primary btn-sm" onclick="downloadPlatformPaper('${p.id}')">⬇ Download</button>` : (!isFree ? `<button class="btn btn-primary btn-sm" onclick="downloadPlatformPaper('${p.id}')"><i class="fa-solid fa-credit-card"></i> Buy &amp; Download</button>` : '')}
             ${isPlatformAdmin ? `<button class="btn btn-outline btn-sm" style="color:#ef4444;border-color:#ef4444" onclick="deletePlatformPaper('${p.id}')"><i class="fa-solid fa-trash"></i> Delete</button>` : ''}
           </div>
         </div>`;
@@ -14431,6 +14460,35 @@ function downloadPlatformPaper(paperId) {
   const papers = loadPlatformPapers();
   const paper = papers.find(p => p.id === paperId);
   if (!paper || !paper.fileData) { showToast('File not available for download.', 'error'); return; }
+
+  // ── PAYWALL: block non-admins from downloading paid platform papers ──
+  const _role = currentUser && currentUser.role;
+  const _isAdmin = _role === 'admin' || _role === 'superadmin' || _role === 'platform_admin';
+  if (!_isAdmin && paper.price > 0) {
+    showModal(
+      '<i class="fa-solid fa-credit-card"></i> Payment Required',
+      `<div style="text-align:center;padding:1rem 0">
+        <div style="font-size:2.5rem;margin-bottom:.75rem"><i class="fa-solid fa-lock"></i></div>
+        <div style="font-weight:700;font-size:1.05rem;margin-bottom:.25rem">${paper.title}</div>
+        <div style="color:var(--muted);font-size:.85rem;margin-bottom:1.25rem">${paper.subject || ''} ${paper.classLevel ? '· ' + paper.classLevel : ''} ${paper.term ? '· ' + paper.term : ''} ${paper.year || ''}</div>
+        <div style="background:var(--primary-lt,#ede9fe);border-radius:12px;padding:1rem;margin-bottom:1.25rem">
+          <div style="font-size:.8rem;color:var(--muted);margin-bottom:.2rem">Amount to Pay</div>
+          <div style="font-size:2rem;font-weight:800;color:var(--primary,#4f7cff)">KES ${parseFloat(paper.price).toLocaleString()}</div>
+        </div>
+        <p style="font-size:.82rem;color:var(--muted);line-height:1.6">
+          This revision paper requires payment before downloading.<br>
+          Please pay via <strong>M-Pesa or school cashier</strong>, then ask<br>
+          your administrator to confirm and provide access.
+        </p>
+        <div style="background:rgba(124,58,237,.07);border-radius:9px;padding:.75rem 1rem;font-size:.8rem;color:#475569;margin-top:.75rem">
+          <i class="fa-solid fa-circle-info"></i> Contact your Platform Administrator after payment to unlock this paper.
+        </div>
+      </div>`,
+      []
+    );
+    return;
+  }
+
   try {
     const a = document.createElement('a');
     a.href = paper.fileData;
