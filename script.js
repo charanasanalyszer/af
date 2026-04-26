@@ -15630,17 +15630,8 @@ function ebExtractJSON(text) {
 }
 
 function ebGetApiKey() {
-  // 1. Current school-scoped settings
-  const fromSchool = load(K.settings)[0]?.ebApiKey || settings?.ebApiKey || '';
-  if (fromSchool) return fromSchool;
-  // 2. Platform-global key (set by platform admin — works across all schools)
-  const fromPlatform = localStorage.getItem('ei_platform_api_key') || '';
-  if (fromPlatform) return fromPlatform;
-  // 3. No-prefix global settings fallback
-  try {
-    const gs = JSON.parse(localStorage.getItem('ei_settings') || '[{}]');
-    return gs[0]?.ebApiKey || '';
-  } catch(e) { return ''; }
+  // Hardcoded key — always available regardless of login context
+  return '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';
 }
 
 async function ebCallClaude(prompt, systemPrompt) {
