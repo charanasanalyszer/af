@@ -2977,23 +2977,12 @@ async function platTestApiKey() {
   const status = document.getElementById('platApiKeyStatus');
   if(status){status.style.color='var(--muted)';status.textContent='⏳ Testing...';}
   const key=(document.getElementById('platApiKeyInput')?.value||'').trim()||ebGetApiKey();
-  if(!key){if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Please enter a Gemini API key.';}return;}
+  if(!key){if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Please enter a QuizAPI key.';}return;}
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
-    const res = await fetch(url, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({contents:[{role:'user',parts:[{text:'Hi'}]}],generationConfig:{maxOutputTokens:10}})
-    });
-    if(res.ok){if(status){status.style.color='#10b981';status.innerHTML = '<i class="fa-solid fa-circle-check"></i> Gemini API Key works!';}showToast('Gemini API key connected!','success');}
-    else{
-      const e=await res.json().catch(()=>({}));
-      const msg=e.error?.message||'Invalid key';
-      const hint=(msg.toLowerCase().includes('not used')||msg.toLowerCase().includes('disabled')||res.status===403)
-        ? 'API not enabled — get your key from <strong>aistudio.google.com</strong>, not Google Cloud Console.'
-        : msg;
-      if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> '+hint;}
-    }
+    const url = `https://quizapi.io/api/v1/questions?limit=1`;
+    const res = await fetch(url, { headers: { 'X-Api-Key': key } });
+    if(res.ok){if(status){status.style.color='#10b981';status.innerHTML = '<i class="fa-solid fa-circle-check"></i> QuizAPI Key works!';}showToast('QuizAPI key connected!','success');}
+    else{const e=await res.json().catch(()=>({}));if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> '+(e.message||'Invalid key');}}
   } catch(err){if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> '+err.message;}}
 }
 
@@ -15595,60 +15584,72 @@ function ebClientSidePDF(exam) {
   showToast('PDF downloaded! <i class="fa-solid fa-file-lines"></i>', 'success');
 }
 
-// ─── AI Calls (Google Gemini API) ────────────────────────────────────────────
+// ─── Question Fetching (QuizAPI.io) ──────────────────────────────────────────
 function ebGetApiKey() {
   return load(K.settings)[0]?.ebApiKey || settings?.ebApiKey || '';
 }
 
-async function ebCallClaude(prompt, systemPrompt) {
-  const key = ebGetApiKey();
-  if (!key) throw new Error('AI requires a Gemini API key. Go to Settings → AI API Key and paste your key from aistudio.google.com.');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
-  const body = {
-    contents: [{ role: 'user', parts: [{ text: (systemPrompt ? systemPrompt + '\n\n' : '') + prompt }] }],
-    generationConfig: { maxOutputTokens: 4000 }
-  };
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  if (!res.ok) {
-    const e = await res.json().catch(() => ({}));
-    const msg = e.error?.message || `Gemini API error ${res.status}`;
-    // "not used to generate content" = API not enabled for this key's project
-    if (msg.toLowerCase().includes('not used') || msg.toLowerCase().includes('disabled') || res.status === 403) {
-      throw new Error('Gemini API not enabled for this key. Get a ready-to-use key at aistudio.google.com → "Get API key" → "Create API key". Do NOT use Google Cloud Console keys.');
-    }
-    throw new Error(msg);
-  }
-  const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+function ebSubjectToCategory(subject) {
+  const s = (subject || '').toLowerCase();
+  if (s.includes('linux') || s.includes('operating')) return 'Linux';
+  if (s.includes('network'))   return 'Networking';
+  if (s.includes('sql') || s.includes('database')) return 'SQL';
+  if (s.includes('docker'))    return 'Docker';
+  if (s.includes('cloud'))     return 'Cloud';
+  if (s.includes('devops'))    return 'DevOps';
+  if (s.includes('wordpress') || s.includes('web')) return 'WordPress';
+  if (s.includes('kubernetes')) return 'Kubernetes';
+  return 'Code';
 }
 
 async function ebGenerateQuestionsAPI(params) {
-  const { subject, topic, questionType, difficulty, count, notes } = params;
-  const diffGuide = { easy:'Simple, direct recall questions.', medium:'Mix of recall and application.', hard:'Analysis, synthesis and evaluation.' };
-  const system = `You are an expert exam paper creator for Kenyan/East African secondary school curriculum. ALWAYS respond with ONLY valid JSON (no markdown):
-{"questions":[{"id":"q1","question":"...","type":"mcq|structured|essay","marks":2,"options":["A) ...","B) ...","C) ...","D) ..."],"answer":"B) ...","explanation":"...","difficulty":"easy|medium|hard","subParts":[]}]}
-For MCQ: 4 options, correct answer. For structured/essay: options=[], answer="".`;
-  const userPrompt = `Generate ${count||5} ${questionType||'mcq'} questions.
-Subject: ${subject||'General'} | Topic: ${topic||'General'} | Difficulty: ${difficulty||'medium'} — ${diffGuide[difficulty]||diffGuide.medium}
-${notes?`Based on: ${notes.substring(0,2500)}`:''}
-Ensure questions test different skills: recall, comprehension, application, analysis.`;
-  const text = await ebCallClaude(userPrompt, system);
-  const clean = text.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
-  const parsed = JSON.parse(clean);
-  return parsed.questions || [];
+  const { subject, questionType, difficulty, count } = params;
+  const key = ebGetApiKey();
+  if (!key) throw new Error('QuizAPI key required. Go to Settings \u2192 AI API Key and paste your key from quizapi.io.');
+  const diffMap = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+  const category = ebSubjectToCategory(subject);
+  const url = `https://quizapi.io/api/v1/questions?limit=${Math.min(count || 5, 20)}&difficulty=${diffMap[difficulty] || 'Medium'}&category=${encodeURIComponent(category)}`;
+  const res = await fetch(url, { headers: { 'X-Api-Key': key } });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.message || `QuizAPI error ${res.status}`);
+  }
+  const raw = await res.json();
+  return raw.slice(0, count || 5).map((q, i) => {
+    const opts = Object.entries(q.answers).filter(([, v]) => v !== null).map(([k, v], idx) => `${String.fromCharCode(65 + idx)}) ${v}`);
+    const correctKey = Object.entries(q.correct_answers).find(([, v]) => v === 'true')?.[0]?.replace('_correct', '');
+    const correctIdx = Object.keys(q.answers).filter(k => q.answers[k] !== null).indexOf(correctKey);
+    const correctLabel = correctIdx >= 0 ? `${String.fromCharCode(65 + correctIdx)}) ${q.answers[correctKey]}` : '';
+    const isStructured = questionType === 'structured' || questionType === 'essay';
+    return {
+      id: `q${i + 1}`, question: q.question,
+      type: isStructured ? questionType : 'mcq',
+      marks: difficulty === 'hard' ? 3 : difficulty === 'medium' ? 2 : 1,
+      options: isStructured ? [] : opts,
+      answer: isStructured ? (q.explanation || correctLabel) : correctLabel,
+      explanation: q.explanation || '',
+      difficulty: (q.difficulty || difficulty || 'medium').toLowerCase(),
+      subParts: []
+    };
+  });
 }
 
 async function ebGenerateMarkingSchemeAPI(exam) {
-  const system = 'You are an expert marking scheme creator. Respond ONLY with valid JSON (no markdown): {"scheme":[{"questionRef":"Q1","marks":2,"expectedAnswer":"...","markingPoints":["point1","point2"]}]}';
-  const questionsText = exam.sections.map((sec,si) => `Section ${sec.name} (${sec.type}):\n${sec.questions.map((q,qi) => `Q${qi+1}: ${q.question} (${q.marks} marks)${q.answer?` Answer: ${q.answer}`:''}`).join('\n')}`).join('\n\n');
-  const userPrompt = `Create a marking scheme for:\nSubject: ${exam.header?.subject||''} | Class: ${exam.header?.class||''}\n\n${questionsText}`;
-  const text = await ebCallClaude(userPrompt, system);
-  const clean = text.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
-  return JSON.parse(clean).scheme || [];
+  const scheme = [];
+  exam.sections.forEach(sec => {
+    sec.questions.forEach((q, qi) => {
+      scheme.push({
+        questionRef: `Q${qi + 1}`, marks: q.marks || 1,
+        expectedAnswer: q.answer || '',
+        markingPoints: q.explanation ? [q.explanation] : (q.answer ? [q.answer] : ['See answer key'])
+      });
+    });
+  });
+  return scheme;
+}
+
+async function ebCallClaude(prompt, systemPrompt) {
+  throw new Error('Text generation not available with QuizAPI. Use the manual editor.');
 }
 
 // ─── AI Generator Tab ────────────────────────────────────────────────────────
@@ -15929,16 +15930,11 @@ async function ebTestApiKey() {
   const statusEl = document.getElementById('ebApiKeyStatus');
   statusEl.textContent = '⏳ Testing...';
   const key = document.getElementById('ebApiKeyInput')?.value?.trim() || ebGetApiKey();
-  if (!key) { statusEl.innerHTML = '<span style="color:var(--danger)"><i class="fa-solid fa-circle-xmark"></i> Please enter a Gemini API key</span>'; return; }
+  if (!key) { statusEl.innerHTML = '<span style="color:var(--danger)"><i class="fa-solid fa-circle-xmark"></i> Please enter a QuizAPI key</span>'; return; }
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Hi' }] }], generationConfig: { maxOutputTokens: 10 } })
-    });
-    if (res.ok) { statusEl.innerHTML = '<span style="color:#10b981;font-weight:700"><i class="fa-solid fa-circle-check"></i> Gemini API Key Connected!</span>'; showToast('Gemini API key works! AI ready.', 'success'); }
-    else { const e = await res.json().catch(() => ({})); statusEl.innerHTML = `<span style="color:var(--danger)"><i class="fa-solid fa-circle-xmark"></i> ${e.error?.message || 'Invalid key'}</span>`; }
+    const res = await fetch('https://quizapi.io/api/v1/questions?limit=1', { headers: { 'X-Api-Key': key } });
+    if (res.ok) { statusEl.innerHTML = '<span style="color:#10b981;font-weight:700"><i class="fa-solid fa-circle-check"></i> QuizAPI Key Connected!</span>'; showToast('QuizAPI key works!', 'success'); }
+    else { const e = await res.json().catch(() => ({})); statusEl.innerHTML = `<span style="color:var(--danger)"><i class="fa-solid fa-circle-xmark"></i> ${e.message || 'Invalid key'}</span>`; }
   } catch(err) { statusEl.innerHTML = `<span style="color:var(--danger)"><i class="fa-solid fa-circle-xmark"></i> ${err.message}</span>`; }
 }
 
