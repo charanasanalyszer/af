@@ -2976,25 +2976,16 @@ function platSaveApiKey() {
 async function platTestApiKey() {
   const status = document.getElementById('platApiKeyStatus');
   if(status){status.style.color='var(--muted)';status.textContent='⏳ Testing...';}
-  // Test built-in proxy first
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:10,messages:[{role:'user',content:'Hi'}]})
-    });
-    if(res.ok){if(status){status.style.color='#10b981';status.innerHTML = '<i class="fa-solid fa-circle-check"></i> AI Connected (built-in — no key needed)!';}showToast('AI is connected!','success');return;}
-  } catch(e){}
-  // Try the saved key
   const key=(document.getElementById('platApiKeyInput')?.value||'').trim()||ebGetApiKey();
-  if(!key){if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> No key entered and built-in proxy unavailable.';}return;}
+  if(!key){if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Please enter a Gemini API key.';}return;}
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+    const res = await fetch(url, {
       method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:10,messages:[{role:'user',content:'Hello'}]})
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{role:'user',parts:[{text:'Hi'}]}],generationConfig:{maxOutputTokens:10}})
     });
-    if(res.ok){if(status){status.style.color='#10b981';status.innerHTML = '<i class="fa-solid fa-circle-check"></i> API Key works!';}showToast('API key connected!','success');}
+    if(res.ok){if(status){status.style.color='#10b981';status.innerHTML = '<i class="fa-solid fa-circle-check"></i> Gemini API Key works!';}showToast('Gemini API key connected!','success');}
     else{const e=await res.json().catch(()=>({}));if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> '+(e.error?.message||'Invalid key');}}
   } catch(err){if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> '+err.message;}}
 }
@@ -15597,39 +15588,27 @@ function ebClientSidePDF(exam) {
   showToast('PDF downloaded! <i class="fa-solid fa-file-lines"></i>', 'success');
 }
 
-// ─── AI Calls (direct browser → Anthropic API) ───────────────────────────────
+// ─── AI Calls (Google Gemini API) ────────────────────────────────────────────
 function ebGetApiKey() {
   return load(K.settings)[0]?.ebApiKey || settings?.ebApiKey || '';
 }
 
 async function ebCallClaude(prompt, systemPrompt) {
-  // Try built-in proxy first (works inside claude.ai — no API key needed)
-  const proxyRes = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 4000, system: systemPrompt, messages: [{ role: 'user', content: prompt }] })
-  }).catch(() => null);
-
-  if (proxyRes && proxyRes.ok) {
-    const data = await proxyRes.json();
-    return data.content.map(b => b.text || '').join('');
-  }
-
-  // Fallback: user-saved API key
   const key = ebGetApiKey();
-  if (!key) throw new Error('AI requires an Anthropic API key. Go to Settings and paste your sk-ant-... key.');
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  if (!key) throw new Error('AI requires a Gemini API key. Go to Settings → AI API Key and paste your key from aistudio.google.com.');
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+  const body = {
+    contents: [{ role: 'user', parts: [{ text: (systemPrompt ? systemPrompt + '\n\n' : '') + prompt }] }],
+    generationConfig: { maxOutputTokens: 4000 }
+  };
+  const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type':'application/json', 'x-api-key': key, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 4000, system: systemPrompt, messages: [{ role: 'user', content: prompt }] })
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
   });
-  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error?.message || `API error ${res.status}`); }
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error?.message || `Gemini API error ${res.status}`); }
   const data = await res.json();
-  return data.content.map(b => b.text || '').join('');
+  return data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
 }
 
 async function ebGenerateQuestionsAPI(params) {
@@ -15934,29 +15913,16 @@ function ebSaveApiKey() {
 async function ebTestApiKey() {
   const statusEl = document.getElementById('ebApiKeyStatus');
   statusEl.textContent = '⏳ Testing...';
-  // Test proxy first
+  const key = document.getElementById('ebApiKeyInput')?.value?.trim() || ebGetApiKey();
+  if (!key) { statusEl.innerHTML = '<span style="color:var(--danger)"><i class="fa-solid fa-circle-xmark"></i> Please enter a Gemini API key</span>'; return; }
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+    const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 10, messages: [{ role: 'user', content: 'Hi' }] })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Hi' }] }], generationConfig: { maxOutputTokens: 10 } })
     });
-    if (res.ok) {
-      statusEl.innerHTML = '<span style="color:#10b981;font-weight:700"><i class="fa-solid fa-circle-check"></i> AI Connected (built-in)!</span>';
-      showToast('AI is ready — no API key needed here!', 'success');
-      return;
-    }
-  } catch(e) {}
-  // Try user key
-  const key = document.getElementById('ebApiKeyInput')?.value?.trim();
-  if (!key) { statusEl.innerHTML = '<span style="color:var(--danger)"><i class="fa-solid fa-circle-xmark"></i> No key & proxy unavailable</span>'; return; }
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 10, messages: [{ role: 'user', content: 'Hello' }] })
-    });
-    if (res.ok) { statusEl.innerHTML = '<span style="color:#10b981;font-weight:700"><i class="fa-solid fa-circle-check"></i> API Key Connected!</span>'; showToast('API key works! AI ready.', 'success'); }
+    if (res.ok) { statusEl.innerHTML = '<span style="color:#10b981;font-weight:700"><i class="fa-solid fa-circle-check"></i> Gemini API Key Connected!</span>'; showToast('Gemini API key works! AI ready.', 'success'); }
     else { const e = await res.json().catch(() => ({})); statusEl.innerHTML = `<span style="color:var(--danger)"><i class="fa-solid fa-circle-xmark"></i> ${e.error?.message || 'Invalid key'}</span>`; }
   } catch(err) { statusEl.innerHTML = `<span style="color:var(--danger)"><i class="fa-solid fa-circle-xmark"></i> ${err.message}</span>`; }
 }

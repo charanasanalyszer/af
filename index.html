@@ -4724,17 +4724,17 @@
         <!-- AI / Exam Builder API Settings -->
         <div class="card" style="border-left:4px solid #10b981;margin-bottom:1.5rem">
           <h3><i class="fa-solid fa-robot"></i> Exam Builder — AI API Settings</h3>
-          <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">Configure the Anthropic API key used by the AI Exam Builder across all schools. The AI works automatically inside claude.ai — a key is only needed when running as a standalone file.</p>
+          <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">Configure the Google Gemini API key used by the AI Exam Builder across all schools. Get a free key at <strong>aistudio.google.com</strong> — no billing required.</p>
           <div style="padding:.55rem .85rem;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:8px;font-size:.8rem;color:#065f46;margin-bottom:1rem">
             <i class="fa-solid fa-circle-check"></i> <strong>AI works out of the box</strong> inside Charanas Analyzer — no key needed for claude.ai users. Set a key below only for standalone / offline deployments.
           </div>
           <div class="fg" style="margin-bottom:.75rem">
-            <label>Anthropic API Key (optional)</label>
+            <label>Gemini API Key</label>
             <div class="pw-wrap">
-              <input type="password" id="platApiKeyInput" placeholder="sk-ant-api03-..." style="font-family:monospace"/>
+              <input type="password" id="platApiKeyInput" placeholder="AIza..." style="font-family:monospace"/>
               <button type="button" class="pw-toggle" onclick="var i=document.getElementById('platApiKeyInput');i.type=i.type==='password'?'text':'password'"><i class="fa-solid fa-eye"></i></button>
             </div>
-            <div style="font-size:.76rem;color:var(--muted);margin-top:.3rem">This key is stored locally and shared with all schools using this browser/device.</div>
+            <div style="font-size:.76rem;color:var(--muted);margin-top:.3rem">Get a free key at <strong>aistudio.google.com</strong>. Stored locally and shared across all schools on this device.</div>
           </div>
           <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
             <button class="btn btn-primary btn-sm" onclick="platSaveApiKey()"><i class="fa-solid fa-floppy-disk"></i> Save API Key</button>
