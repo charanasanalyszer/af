@@ -15627,28 +15627,20 @@ Subject: ${subject || 'General'} | Topic: ${topic || 'General'} | Difficulty: ${
 ${notes ? `Based on: ${notes.substring(0, 2500)}` : ''}
 Ensure questions test different skills: recall, comprehension, application, analysis.`;
   const text = await ebCallClaude(userPrompt, system);
-  const clean = text.replace(/```json
-?/g, '').replace(/```
-?/g, '').trim();
+  const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   const parsed = JSON.parse(clean);
   return parsed.questions || [];
 }
 
 async function ebGenerateMarkingSchemeAPI(exam) {
   const system = 'You are an expert marking scheme creator. Respond ONLY with valid JSON (no markdown): {"scheme":[{"questionRef":"Q1","marks":2,"expectedAnswer":"...","markingPoints":["point1","point2"]}]}';
-  const questionsText = exam.sections.map((sec, si) => `Section ${sec.name} (${sec.type}):
-${sec.questions.map((q, qi) => `Q${qi + 1}: ${q.question} (${q.marks} marks)${q.answer ? ` Answer: ${q.answer}` : ''}`).join('
-')}`).join('
-
-');
-  const userPrompt = `Create a marking scheme for:
-Subject: ${exam.header?.subject || ''} | Class: ${exam.header?.class || ''}
-
-${questionsText}`;
+  const questionsText = exam.sections.map((sec, si) => {
+    const qLines = sec.questions.map((q, qi) => 'Q' + (qi+1) + ': ' + q.question + ' (' + q.marks + ' marks)' + (q.answer ? ' Answer: ' + q.answer : '')).join('\n');
+    return 'Section ' + sec.name + ' (' + sec.type + '):\n' + qLines;
+  }).join('\n\n');
+  const userPrompt = 'Create a marking scheme for:\nSubject: ' + (exam.header?.subject||'') + ' | Class: ' + (exam.header?.class||'') + '\n\n' + questionsText;
   const text = await ebCallClaude(userPrompt, system);
-  const clean = text.replace(/```json
-?/g, '').replace(/```
-?/g, '').trim();
+  const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   return JSON.parse(clean).scheme || [];
 }
 
