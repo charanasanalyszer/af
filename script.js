@@ -2968,12 +2968,20 @@ function platSaveApiKey() {
   const key = (document.getElementById('platApiKeyInput')?.value||'').trim();
   const status = document.getElementById('platApiKeyStatus');
   if (!key) { if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Please enter an API key.';} return; }
-  // Save via the shared ebSaveApiKey mechanism (stores in settings.ebApiKey)
-  // We call the underlying save directly
+  // Save to current school-scoped settings
   settings.ebApiKey = key;
   save(K.settings, [settings]);
+  // ALSO save to platform-global key so ALL schools can use it
+  localStorage.setItem('ei_platform_api_key', key);
+  // Also propagate to the no-prefix global settings bucket
+  try {
+    const gs = JSON.parse(localStorage.getItem('ei_settings') || '[{}]');
+    if (!gs[0]) gs[0] = {};
+    gs[0].ebApiKey = key;
+    localStorage.setItem('ei_settings', JSON.stringify(gs));
+  } catch(e) {}
   showToast('API key saved <i class="fa-solid fa-circle-check"></i>', 'success');
-  if(status){status.style.color='#10b981';status.innerHTML = '<i class="fa-solid fa-circle-check"></i> Saved!';}
+  if(status){status.style.color='#10b981';status.innerHTML = '<i class="fa-solid fa-circle-check"></i> Saved — available to all schools!';}
   setTimeout(()=>{if(status)status.textContent='';},3000);
 }
 async function platTestApiKey() {
@@ -15593,7 +15601,17 @@ function ebClientSidePDF(exam) {
 // ─── AI Calls (Groq API) ─────────────────────────────────────────────────────
 // ─── AI Calls (Groq API) ─────────────────────────────────────────────────────
 function ebGetApiKey() {
-  return load(K.settings)[0]?.ebApiKey || settings?.ebApiKey || '';
+  // 1. Current school-scoped settings
+  const fromSchool = load(K.settings)[0]?.ebApiKey || settings?.ebApiKey || '';
+  if (fromSchool) return fromSchool;
+  // 2. Platform-global key (set by platform admin — works across all schools)
+  const fromPlatform = localStorage.getItem('ei_platform_api_key') || '';
+  if (fromPlatform) return fromPlatform;
+  // 3. No-prefix global settings fallback
+  try {
+    const gs = JSON.parse(localStorage.getItem('ei_settings') || '[{}]');
+    return gs[0]?.ebApiKey || '';
+  } catch(e) { return ''; }
 }
 
 async function ebCallClaude(prompt, systemPrompt) {
@@ -15916,6 +15934,8 @@ function ebSaveApiKey() {
   if (!key) { showToast('Please enter an API key', 'error'); return; }
   settings.ebApiKey = key;
   save(K.settings, [settings]);
+  // Also save to platform-global key so it persists across school contexts
+  localStorage.setItem('ei_platform_api_key', key);
   showToast('API key saved! <i class="fa-solid fa-circle-check"></i>', 'success');
   document.getElementById('ebApiKeyStatus').textContent = '';
 }
