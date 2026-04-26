@@ -2979,14 +2979,21 @@ async function platTestApiKey() {
   const key=(document.getElementById('platApiKeyInput')?.value||'').trim()||ebGetApiKey();
   if(!key){if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Please enter a Gemini API key.';}return;}
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
     const res = await fetch(url, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({contents:[{role:'user',parts:[{text:'Hi'}]}],generationConfig:{maxOutputTokens:10}})
     });
     if(res.ok){if(status){status.style.color='#10b981';status.innerHTML = '<i class="fa-solid fa-circle-check"></i> Gemini API Key works!';}showToast('Gemini API key connected!','success');}
-    else{const e=await res.json().catch(()=>({}));if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> '+(e.error?.message||'Invalid key');}}
+    else{
+      const e=await res.json().catch(()=>({}));
+      const msg=e.error?.message||'Invalid key';
+      const hint=(msg.toLowerCase().includes('not used')||msg.toLowerCase().includes('disabled')||res.status===403)
+        ? 'API not enabled — get your key from <strong>aistudio.google.com</strong>, not Google Cloud Console.'
+        : msg;
+      if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> '+hint;}
+    }
   } catch(err){if(status){status.style.color='var(--danger)';status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> '+err.message;}}
 }
 
@@ -15596,7 +15603,7 @@ function ebGetApiKey() {
 async function ebCallClaude(prompt, systemPrompt) {
   const key = ebGetApiKey();
   if (!key) throw new Error('AI requires a Gemini API key. Go to Settings → AI API Key and paste your key from aistudio.google.com.');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
   const body = {
     contents: [{ role: 'user', parts: [{ text: (systemPrompt ? systemPrompt + '\n\n' : '') + prompt }] }],
     generationConfig: { maxOutputTokens: 4000 }
@@ -15606,7 +15613,15 @@ async function ebCallClaude(prompt, systemPrompt) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
-  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error?.message || `Gemini API error ${res.status}`); }
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    const msg = e.error?.message || `Gemini API error ${res.status}`;
+    // "not used to generate content" = API not enabled for this key's project
+    if (msg.toLowerCase().includes('not used') || msg.toLowerCase().includes('disabled') || res.status === 403) {
+      throw new Error('Gemini API not enabled for this key. Get a ready-to-use key at aistudio.google.com → "Get API key" → "Create API key". Do NOT use Google Cloud Console keys.');
+    }
+    throw new Error(msg);
+  }
   const data = await res.json();
   return data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
 }
@@ -15916,7 +15931,7 @@ async function ebTestApiKey() {
   const key = document.getElementById('ebApiKeyInput')?.value?.trim() || ebGetApiKey();
   if (!key) { statusEl.innerHTML = '<span style="color:var(--danger)"><i class="fa-solid fa-circle-xmark"></i> Please enter a Gemini API key</span>'; return; }
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
