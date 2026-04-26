@@ -1476,11 +1476,20 @@ function _sppFindPayrollRecord(staffId, month, year) {
 // ── Helper: get the best available pay data for a staff member / period ──
 // Returns a normalised record: { name, role, type, staffId, basic, allow, nhif, nssf, deduct, net, source }
 function _sppGetPayData(staffId, month, year) {
-  // 1. Try actual payroll run record
-  const pr = _sppFindPayrollRecord(staffId, month, year);
+  // Salary records are stored using s.id (internal record ID) as staffId,
+  // but currentUser.staffId is the actual Staff ID field (e.g. "001").
+  // Resolve both so we can match either way.
+  const staffDetails = JSON.parse(localStorage.getItem(staffDetailsKey()) || '[]');
+  const staffRec = staffDetails.find(s =>
+    (s.staffId || '').toLowerCase() === (staffId || '').toLowerCase() ||
+    s.id === staffId
+  );
+  const internalId = staffRec ? staffRec.id : null;
+
+  // 1. Try actual payroll run record (may use either ID)
+  const pr = _sppFindPayrollRecord(staffId, month, year) ||
+             (internalId && internalId !== staffId ? _sppFindPayrollRecord(internalId, month, year) : null);
   if (pr) {
-    // charanas_payroll: { basic, allowances, deductions, status }
-    // deductions = combined (no nhif/nssf breakdown stored separately)
     const basic  = Number(pr.basic      || 0);
     const allow  = Number(pr.allowances || 0);
     const deduct = Number(pr.deductions || 0);
@@ -1489,9 +1498,12 @@ function _sppGetPayData(staffId, month, year) {
              type: '—', staffId, basic, allow, nhif: 0, nssf: 0, deduct, net,
              status: pr.status || '', source: 'payroll' };
   }
-  // 2. Fall back to static salary record
+  // 2. Fall back to static salary record — match by staffId or internal id
   const salaries = JSON.parse(localStorage.getItem('charanas_staffSalaries') || '[]');
-  const rec = salaries.find(r => r.staffId === staffId);
+  const rec = salaries.find(r =>
+    r.staffId === staffId ||
+    (internalId && r.staffId === internalId)
+  );
   if (rec) {
     return { name: rec.name, role: rec.role || currentUser.jobRole || '—',
              type: rec.type || '—', staffId, basic: Number(rec.basic||0),
@@ -1501,7 +1513,10 @@ function _sppGetPayData(staffId, month, year) {
   }
   // 3. Fall back to admin-generated payslip history (has full breakdown if saved via new previewPayslip)
   const pHistory = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
-  const ph = pHistory.find(h => h.staffId === staffId && h.month === month && h.year === String(year) && h.basic != null);
+  const ph = pHistory.find(h =>
+    (h.staffId === staffId || (internalId && h.staffId === internalId)) &&
+    h.month === month && h.year === String(year) && h.basic != null
+  );
   if (ph) {
     return { name: ph.name, role: ph.role || '—', type: ph.type || '—', staffId,
              basic: Number(ph.basic||0), allow: Number(ph.allow||0), nhif: Number(ph.nhif||0),
