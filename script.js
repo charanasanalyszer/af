@@ -1441,8 +1441,8 @@ function finishStaffPayslipPortal(school) {
   sppRenderDetails();
   // Load history
   sppRenderHistory();
-  // Auto-preview payslip for current month so it's ready immediately
-  sppPreviewPayslip();
+  // Auto-preview payslip for current month — delay slightly so deferred jsPDF is ready
+  setTimeout(sppPreviewPayslip, 300);
 }
 
 // ── Helper: normalise a month name to a 2-digit number string ("January" → "01") ──
@@ -1677,65 +1677,80 @@ function sppPreviewPayslip() {
   const area  = document.getElementById('sppPreviewArea');
   if (!area) return;
 
+  area.innerHTML = '<div style="color:var(--muted);font-size:.85rem;padding:1rem 0"><i class="fa-solid fa-spinner fa-spin" style="margin-right:.5rem"></i>Loading payslip…</div>';
+
   const pay = _sppGetPayData(currentUser.staffId, month, year);
   if (!pay) {
-    area.innerHTML = '<div style="color:var(--muted);padding:.5rem 0"><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;margin-right:.4rem"></i>No salary record found for your account. Please contact the administrator.</div>';
+    area.innerHTML = `<div style="color:var(--muted);padding:1.5rem;text-align:center">
+      <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;font-size:1.5rem;display:block;margin-bottom:.6rem"></i>
+      <strong>No salary record found for ${month} ${year}.</strong><br>
+      <span style="font-size:.82rem">Please contact the administrator to set up your salary record.</span>
+    </div>`;
     return;
   }
-  const school = _sppSchoolName();
-  const fmt = v => Number(v || 0).toLocaleString();
 
-  // Build deduction rows
-  let deductRows = '';
-  if (pay.source === 'salary') {
-    deductRows = `
-      <tr style="background:#fef2f2"><td style="padding:.4rem .75rem;border:1px solid var(--border);color:#dc2626">SHA</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border);color:#dc2626">- ${fmt(pay.nhif)}</td></tr>
-      <tr style="background:#fef2f2"><td style="padding:.4rem .75rem;border:1px solid var(--border);color:#dc2626">NSSF</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border);color:#dc2626">- ${fmt(pay.nssf)}</td></tr>
-      <tr style="background:#fef2f2"><td style="padding:.4rem .75rem;border:1px solid var(--border);color:#dc2626">Other Deductions</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border);color:#dc2626">- ${fmt(pay.deduct)}</td></tr>`;
-  } else {
-    deductRows = `<tr style="background:#fef2f2"><td style="padding:.4rem .75rem;border:1px solid var(--border);color:#dc2626">Total Deductions</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border);color:#dc2626">- ${fmt(pay.deduct)}</td></tr>`;
+  // Build and embed the PDF payslip as an iframe — staff sees the actual document
+  const school = _sppSchoolName();
+  try {
+    const doc = _sppBuildPDF(month, year, pay, school);
+    const blobUrl = doc.output('bloburl');
+    area.innerHTML = `<iframe src="${blobUrl}" style="width:100%;min-height:680px;border:none;border-radius:8px;display:block" title="Payslip ${month} ${year}"></iframe>`;
+  } catch(e) {
+    // jsPDF not ready yet — fall back to styled HTML payslip
+    const fmt = v => Number(v || 0).toLocaleString();
+    let deductRows = '';
+    if (pay.source === 'salary') {
+      deductRows = `
+        <tr style="background:#fef2f2"><td style="padding:.45rem .75rem;border:1px solid #e2e8f0;color:#dc2626">SHA</td><td style="padding:.45rem .75rem;text-align:right;border:1px solid #e2e8f0;color:#dc2626">- KES ${fmt(pay.nhif)}</td></tr>
+        <tr style="background:#fef2f2"><td style="padding:.45rem .75rem;border:1px solid #e2e8f0;color:#dc2626">NSSF</td><td style="padding:.45rem .75rem;text-align:right;border:1px solid #e2e8f0;color:#dc2626">- KES ${fmt(pay.nssf)}</td></tr>
+        <tr style="background:#fef2f2"><td style="padding:.45rem .75rem;border:1px solid #e2e8f0;color:#dc2626">Other Deductions</td><td style="padding:.45rem .75rem;text-align:right;border:1px solid #e2e8f0;color:#dc2626">- KES ${fmt(pay.deduct)}</td></tr>`;
+    } else {
+      deductRows = `<tr style="background:#fef2f2"><td style="padding:.45rem .75rem;border:1px solid #e2e8f0;color:#dc2626">Total Deductions</td><td style="padding:.45rem .75rem;text-align:right;border:1px solid #e2e8f0;color:#dc2626">- KES ${fmt(pay.deduct)}</td></tr>`;
+    }
+    area.innerHTML = `
+      <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;max-width:640px;margin:0 auto;font-family:Arial,sans-serif;box-shadow:0 4px 20px rgba(0,0,0,.08)">
+        <div style="background:linear-gradient(135deg,#7c3aed,#1a6fb5);padding:1.4rem 1.75rem;color:#fff">
+          <div style="font-size:1.05rem;font-weight:800;letter-spacing:.03em">${school.toUpperCase()}</div>
+          <div style="font-size:.78rem;opacity:.75;margin-top:.15rem">Official Payslip</div>
+          <div style="font-size:1rem;font-weight:700;margin-top:.5rem">PAYSLIP — ${(month||'').toUpperCase()} ${year}</div>
+          ${pay.status ? `<span style="display:inline-block;margin-top:.35rem;font-size:.72rem;font-weight:700;background:rgba(255,255,255,.18);padding:.2rem .7rem;border-radius:99px">${pay.status}</span>` : ''}
+        </div>
+        <div style="background:#f8f5ff;padding:1rem 1.75rem;display:grid;grid-template-columns:1fr 1fr;gap:.4rem .75rem;font-size:.82rem;border-bottom:1px solid #e2e8f0">
+          <div><span style="color:#64748b">Employee:</span> <strong>${pay.name}</strong></div>
+          <div><span style="color:#64748b">Role:</span> ${pay.role}</div>
+          <div><span style="color:#64748b">Staff ID:</span> ${currentUser.staffId || '—'}</div>
+          <div><span style="color:#64748b">Employment:</span> ${pay.type}</div>
+          <div><span style="color:#64748b">Pay Period:</span> <strong>${month} ${year}</strong></div>
+          <div><span style="color:#64748b">Department:</span> ${currentUser.dept || '—'}</div>
+        </div>
+        <div style="padding:1rem 1.75rem">
+          <table style="width:100%;border-collapse:collapse;font-size:.83rem">
+            <thead><tr style="background:#f1f5f9">
+              <th style="padding:.5rem .75rem;text-align:left;border:1px solid #e2e8f0;font-weight:700;color:#334155">Description</th>
+              <th style="padding:.5rem .75rem;text-align:right;border:1px solid #e2e8f0;font-weight:700;color:#334155">Amount (KES)</th>
+            </tr></thead>
+            <tbody>
+              <tr><td style="padding:.45rem .75rem;border:1px solid #e2e8f0">Basic Salary</td><td style="padding:.45rem .75rem;text-align:right;border:1px solid #e2e8f0;font-weight:600">${fmt(pay.basic)}</td></tr>
+              <tr><td style="padding:.45rem .75rem;border:1px solid #e2e8f0">Allowances</td><td style="padding:.45rem .75rem;text-align:right;border:1px solid #e2e8f0;font-weight:600;color:#0d9488">${fmt(pay.allow)}</td></tr>
+              ${deductRows}
+              <tr style="background:#ede9fe">
+                <td style="padding:.6rem .75rem;border:1px solid #e2e8f0;font-weight:800;color:#7c3aed;font-size:.9rem">NET PAY</td>
+                <td style="padding:.6rem .75rem;text-align:right;border:1px solid #e2e8f0;font-weight:800;color:#7c3aed;font-size:1rem">KES ${fmt(pay.net)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:.75rem 1.75rem;background:#faf5ff;border-top:1px solid #e2e8f0;font-size:.7rem;color:#94a3b8;text-align:center">
+          Generated ${new Date().toLocaleDateString('en-KE')} &nbsp;·&nbsp; ${school}
+        </div>
+      </div>`;
   }
 
-  area.innerHTML = `
-    <div id="sppPayslipDoc" style="border:1px solid var(--border);border-radius:10px;padding:1.5rem;font-size:.85rem;max-width:600px">
-      <div style="text-align:center;padding-bottom:.85rem;border-bottom:2px solid var(--primary,#7c3aed);margin-bottom:1rem">
-        <div style="font-size:1.05rem;font-weight:800;color:var(--primary,#7c3aed)">${school}</div>
-        <div style="font-size:.88rem;font-weight:700;margin-top:.25rem">PAYSLIP — ${(month||'').toUpperCase()} ${year}</div>
-        ${pay.status ? `<div style="font-size:.75rem;font-weight:700;margin-top:.2rem;color:${pay.status==='Paid'?'#16a34a':'#f59e0b'}">${pay.status}</div>` : ''}
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem .75rem;margin-bottom:1rem;font-size:.83rem">
-        <div><span style="color:var(--muted)">Employee:</span> <strong>${pay.name}</strong></div>
-        <div><span style="color:var(--muted)">Role:</span> ${pay.role}</div>
-        <div><span style="color:var(--muted)">Staff ID:</span> ${currentUser.staffId || '—'}</div>
-        <div><span style="color:var(--muted)">Employment:</span> ${pay.type}</div>
-        <div><span style="color:var(--muted)">Pay Period:</span> <strong>${month} ${year}</strong></div>
-        <div><span style="color:var(--muted)">Dept:</span> ${currentUser.dept || '—'}</div>
-      </div>
-      <table style="width:100%;border-collapse:collapse;font-size:.82rem;margin-bottom:.75rem">
-        <thead><tr style="background:var(--bg)">
-          <th style="padding:.4rem .75rem;text-align:left;border:1px solid var(--border);font-weight:700">Description</th>
-          <th style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border);font-weight:700">Amount (KES)</th>
-        </tr></thead>
-        <tbody>
-          <tr><td style="padding:.4rem .75rem;border:1px solid var(--border)">Basic Salary</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border)">${fmt(pay.basic)}</td></tr>
-          <tr><td style="padding:.4rem .75rem;border:1px solid var(--border)">Allowances</td><td style="padding:.4rem .75rem;text-align:right;border:1px solid var(--border)">${fmt(pay.allow)}</td></tr>
-          ${deductRows}
-          <tr style="font-weight:800;background:var(--primary-lt,#ede9fe)">
-            <td style="padding:.5rem .75rem;border:1px solid var(--border);color:var(--primary,#7c3aed)">NET PAY</td>
-            <td style="padding:.5rem .75rem;text-align:right;border:1px solid var(--border);color:var(--primary,#7c3aed);font-size:1rem">KES ${fmt(pay.net)}</td>
-          </tr>
-        </tbody>
-      </table>
-      <div style="font-size:.7rem;color:var(--muted);text-align:center;margin-top:.5rem">
-        Source: ${pay.source === 'payroll' ? 'Payroll Run Record' : 'Staff Salary Structure'} &nbsp;·&nbsp; Generated ${new Date().toLocaleDateString('en-KE')}
-      </div>
-    </div>`;
-
-  // Save to payslip history
+  // Save to payslip history with full breakdown
   let history = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
-  const exists = history.find(h => h.staffId === currentUser.staffId && h.month === month && h.year === year);
+  const exists = history.find(h => h.staffId === currentUser.staffId && h.month === month && h.year === String(year));
   if (!exists) {
-    history.push({ id: 'ps_' + Date.now(), staffId: currentUser.staffId, name: pay.name, role: pay.role, month, year, net: pay.net,
+    history.push({ id: 'ps_' + Date.now(), staffId: currentUser.staffId, name: pay.name, role: pay.role, month, year: String(year), net: pay.net,
       basic: pay.basic, allow: pay.allow, nhif: pay.nhif, nssf: pay.nssf, deduct: pay.deduct, type: pay.type || '' });
     localStorage.setItem('charanas_payslipHistory', JSON.stringify(history));
     sppRenderHistory();
@@ -1803,7 +1818,7 @@ function sppReloadPayslip(month, year) {
   const monthSel = document.getElementById('sppMonth'); if (monthSel) monthSel.value = month;
   const yearSel  = document.getElementById('sppYear');  if (yearSel)  yearSel.value  = year;
   sppOpenTab('sppCurrent', document.getElementById('sppTabCurrent'));
-  sppPreviewPayslip();
+  setTimeout(sppPreviewPayslip, 100);
 }
 
 function sppRenderDetails() {
