@@ -15613,6 +15613,22 @@ function ebClientSidePDF(exam) {
 
 // ─── AI Calls (Groq API) ─────────────────────────────────────────────────────
 // ─── AI Calls (Groq API) ─────────────────────────────────────────────────────
+// ── Robust JSON extractor — handles llama/Groq responses that add preamble text or ```json fences ──
+function ebExtractJSON(text) {
+  if (!text) return null;
+  // Strip markdown code fences
+  let clean = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  // Try direct parse first (ideal case)
+  try { return JSON.parse(clean); } catch(e) {}
+  // Find the outermost JSON object in the text (handles preamble/postamble)
+  const match = clean.match(/\{[\s\S]*\}/);
+  if (match) { try { return JSON.parse(match[0]); } catch(e) {} }
+  // Last resort: find array
+  const arrMatch = clean.match(/\[[\s\S]*\]/);
+  if (arrMatch) { try { return JSON.parse(arrMatch[0]); } catch(e) {} }
+  return null;
+}
+
 function ebGetApiKey() {
   // 1. Current school-scoped settings
   const fromSchool = load(K.settings)[0]?.ebApiKey || settings?.ebApiKey || '';
@@ -15656,16 +15672,22 @@ async function ebCallClaude(prompt, systemPrompt) {
 async function ebGenerateQuestionsAPI(params) {
   const { subject, topic, questionType, difficulty, count, notes } = params;
   const diffGuide = { easy: 'Simple, direct recall questions.', medium: 'Mix of recall and application.', hard: 'Analysis, synthesis and evaluation.' };
-  const system = `You are an expert exam paper creator for Kenyan/East African secondary school curriculum. ALWAYS respond with ONLY valid JSON (no markdown):
-{"questions":[{"id":"q1","question":"...","type":"mcq|structured|essay","marks":2,"options":["A) ...","B) ...","C) ...","D) ..."],"answer":"B) ...","explanation":"...","difficulty":"easy|medium|hard","subParts":[]}]}
-For MCQ: 4 options, correct answer. For structured/essay: options=[], answer="".`;
-  const userPrompt = `Generate ${count || 5} ${questionType || 'mcq'} questions.
-Subject: ${subject || 'General'} | Topic: ${topic || 'General'} | Difficulty: ${difficulty || 'medium'} — ${diffGuide[difficulty] || diffGuide.medium}
-${notes ? `Based on: ${notes.substring(0, 2500)}` : ''}
-Ensure questions test different skills: recall, comprehension, application, analysis.`;
+  const system = `You are an exam question generator for Kenyan secondary school curriculum.
+OUTPUT RULES — CRITICAL:
+- Output ONLY a raw JSON object. No prose, no markdown, no code fences, no explanation.
+- Start your response with { and end with }
+- Use exactly this structure:
+{"questions":[{"id":"q1","question":"...","type":"mcq","marks":2,"options":["A) ...","B) ...","C) ...","D) ..."],"answer":"A) ...","explanation":"...","difficulty":"medium","subParts":[]}]}
+- For MCQ: include 4 options (A-D), set answer to the correct option text.
+- For structured/essay: options=[], answer="", use subParts for multi-part questions.
+- Do NOT include any text before or after the JSON.`;
+  const userPrompt = `Generate ${count || 5} ${questionType || 'mcq'} questions for:
+Subject: ${subject || 'General'} | Topic: ${topic || subject || 'General'} | Difficulty: ${difficulty || 'medium'} (${diffGuide[difficulty] || diffGuide.medium})
+${notes ? 'Use this content as source material: ' + notes.substring(0, 2500) : ''}
+Return ONLY the JSON object.`;
   const text = await ebCallClaude(userPrompt, system);
-  const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  const parsed = JSON.parse(clean);
+  const parsed = ebExtractJSON(text);
+  if (!parsed) throw new Error('AI returned unexpected format. Try again.');
   return parsed.questions || [];
 }
 
@@ -15677,8 +15699,9 @@ async function ebGenerateMarkingSchemeAPI(exam) {
   }).join('\n\n');
   const userPrompt = 'Create a marking scheme for:\nSubject: ' + (exam.header?.subject||'') + ' | Class: ' + (exam.header?.class||'') + '\n\n' + questionsText;
   const text = await ebCallClaude(userPrompt, system);
-  const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  return JSON.parse(clean).scheme || [];
+  const parsed = ebExtractJSON(text);
+  if (!parsed) throw new Error('AI returned unexpected format. Try again.');
+  return parsed.scheme || [];
 }
 
 let _ebAiDiff = 'easy';
