@@ -1441,6 +1441,8 @@ function finishStaffPayslipPortal(school) {
   sppRenderDetails();
   // Load history
   sppRenderHistory();
+  // Auto-preview payslip for current month so it's ready immediately
+  sppPreviewPayslip();
 }
 
 // ── Helper: normalise a month name to a 2-digit number string ("January" → "01") ──
@@ -1733,9 +1735,8 @@ function sppPreviewPayslip() {
 function sppPrintPayslip() {
   const month = document.getElementById('sppMonth')?.value || '';
   const year  = document.getElementById('sppYear')?.value  || '';
-  if (!document.getElementById('sppPayslipDoc')) { showToast('Please preview a payslip first.', 'info'); return; }
   const pay = _sppGetPayData(currentUser.staffId, month, year);
-  if (!pay) { showToast('No salary data found.', 'error'); return; }
+  if (!pay) { showToast('No salary record found for this period.', 'error'); return; }
   const doc = _sppBuildPDF(month, year, pay, _sppSchoolName());
   const blobUrl = doc.output('bloburl');
   const win = window.open(blobUrl, '_blank');
@@ -1746,9 +1747,8 @@ function sppPrintPayslip() {
 function sppDownloadPayslip() {
   const month = document.getElementById('sppMonth')?.value || '';
   const year  = document.getElementById('sppYear')?.value  || '';
-  if (!document.getElementById('sppPayslipDoc')) { showToast('Please preview a payslip first.', 'info'); return; }
   const pay = _sppGetPayData(currentUser.staffId, month, year);
-  if (!pay) { showToast('No salary data found.', 'error'); return; }
+  if (!pay) { showToast('No salary record found for this period.', 'error'); return; }
   const doc  = _sppBuildPDF(month, year, pay, _sppSchoolName());
   doc.save(`Payslip_${currentUser.staffId || 'staff'}_${month}_${year}.pdf`);
   showToast('Payslip PDF downloaded <i class="fa-solid fa-check"></i>', 'success');
