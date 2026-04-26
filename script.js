@@ -951,7 +951,7 @@ function spLoadExamFilter() {
     return mks.length > 0;
   });
   sel.innerHTML = '<option value="">All Exams</option>' +
-    myExams.map(e => `<option value="${e.id}">${e.title} — ${e.term} ${e.year||''}</option>`).join('');
+    myExams.map(e => `<option value="${e.id}">${e.name || e.title || e.id} — ${e.term} ${e.year||''}</option>`).join('');
 }
 
 function spRenderResults() {
@@ -980,9 +980,12 @@ function spRenderResults() {
   let html = '';
   Object.entries(byExam).forEach(([examId, mks]) => {
     const ex = exams.find(e => e.id === examId);
-    const title = ex ? `${ex.title} — ${ex.term||''} ${ex.year||''}` : examId;
+    const title = ex ? `${ex.name || ex.title || examId} — ${ex.term||''} ${ex.year||''}` : examId;
     const total = mks.reduce((s,m) => s + (Number(m.score)||0), 0);
-    const maxTotal = mks.length * (ex?.maxScore || 100);
+    const maxTotal = mks.reduce((s,m) => {
+      const sub = subjects.find(su => su.id === m.subjectId);
+      return s + (ex?.maxScore || (sub?.max) || 100);
+    }, 0);
     const pct = maxTotal > 0 ? Math.round(total/maxTotal*100) : 0;
     const gradingSystem = ex?.gradingSystemId ? gradingSystems?.find(g=>g.id===ex.gradingSystemId) : null;
     html += `<div style="border:1.5px solid var(--border);border-radius:12px;margin-bottom:1rem;overflow:hidden">
@@ -1003,7 +1006,7 @@ function spRenderResults() {
       const sub = subjects.find(s => s.id === m.subjectId);
       const subName = sub ? sub.name : (m.subject||'—');
       const score = Number(m.score)||0;
-      const maxS  = Number(ex?.maxScore||100);
+      const maxS  = Number(ex?.maxScore || sub?.max || 100);
       const sp2   = maxS > 0 ? Math.round(score/maxS*100) : 0;
       let gradeInfo = getGrade ? getGrade(score, maxS, gradingSystem) : {grade:'—',remark:'—'};
       if (typeof gradeInfo === 'string') gradeInfo = {grade:gradeInfo, remark:''};
