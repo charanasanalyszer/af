@@ -1499,6 +1499,15 @@ function _sppGetPayData(staffId, month, year) {
              nssf: Number(rec.nssf||0), deduct: Number(rec.deduct||0),
              net: Number(rec.net||0), status: '', source: 'salary' };
   }
+  // 3. Fall back to admin-generated payslip history (has full breakdown if saved via new previewPayslip)
+  const pHistory = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
+  const ph = pHistory.find(h => h.staffId === staffId && h.month === month && h.year === String(year) && h.basic != null);
+  if (ph) {
+    return { name: ph.name, role: ph.role || '—', type: ph.type || '—', staffId,
+             basic: Number(ph.basic||0), allow: Number(ph.allow||0), nhif: Number(ph.nhif||0),
+             nssf: Number(ph.nssf||0), deduct: Number(ph.deduct||0), net: Number(ph.net||0),
+             status: '', source: 'salary' };
+  }
   return null;
 }
 
@@ -1726,7 +1735,8 @@ function sppPreviewPayslip() {
   let history = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
   const exists = history.find(h => h.staffId === currentUser.staffId && h.month === month && h.year === year);
   if (!exists) {
-    history.push({ id: 'ps_' + Date.now(), staffId: currentUser.staffId, name: pay.name, role: pay.role, month, year, net: pay.net });
+    history.push({ id: 'ps_' + Date.now(), staffId: currentUser.staffId, name: pay.name, role: pay.role, month, year, net: pay.net,
+      basic: pay.basic, allow: pay.allow, nhif: pay.nhif, nssf: pay.nssf, deduct: pay.deduct, type: pay.type || '' });
     localStorage.setItem('charanas_payslipHistory', JSON.stringify(history));
     sppRenderHistory();
   }
@@ -18642,7 +18652,8 @@ function previewPayslip() {
   let history = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
   const existing = history.find(h => h.staffId === staffId && h.month === month && h.year === year);
   if (!existing) {
-    history.push({ id: 'ps_' + Date.now(), staffId, name: rec.name, role: rec.role || '', month, year, net: rec.net });
+    history.push({ id: 'ps_' + Date.now(), staffId, name: rec.name, role: rec.role || '', month, year, net: rec.net,
+      basic: rec.basic, allow: rec.allow, nhif: rec.nhif, nssf: rec.nssf, deduct: rec.deduct, type: rec.type || '' });
     localStorage.setItem('charanas_payslipHistory', JSON.stringify(history));
     renderPayslipHistory();
   }
@@ -18681,7 +18692,8 @@ function renderPayslipHistory() {
       <td style="font-weight:700;color:var(--primary)">KES ${Number(h.net).toLocaleString()}</td>
       <td>
         <button class="btn btn-outline btn-xs" onclick="reloadPayslip('${h.staffId}','${h.month}','${h.year}')"><i class="fa-solid fa-eye"></i> View</button>
-        <button class="btn btn-danger btn-xs" onclick="deletePayslipHistory('${h.id}')"><i class="fa-solid fa-trash"></i></button>
+        <button class="btn btn-outline btn-xs" style="border-color:#7c3aed;color:#7c3aed;margin-left:.3rem" onclick="reloadAndPrintPayslip('${h.staffId}','${h.month}','${h.year}')"><i class="fa-solid fa-print"></i> Print</button>
+        <button class="btn btn-danger btn-xs" style="margin-left:.3rem" onclick="deletePayslipHistory('${h.id}')"><i class="fa-solid fa-trash"></i></button>
       </td>
     </tr>`).join('');
 }
@@ -18695,6 +18707,44 @@ function reloadPayslip(staffId, month, year) {
   if (yearEl) yearEl.value = year;
   openFeesTab('tabPayslips', document.getElementById('tbPayslips'));
   previewPayslip();
+}
+
+function reloadAndPrintPayslip(staffId, month, year) {
+  // Build and print the payslip PDF directly using the shared _sppBuildPDF builder
+  const salaries = loadStaffSalaries();
+  const rec = salaries.find(r => r.staffId === staffId);
+  const pHistory = JSON.parse(localStorage.getItem('charanas_payslipHistory') || '[]');
+  const ph = pHistory.find(h => h.staffId === staffId && h.month === month && h.year === String(year) && h.basic != null);
+  const school = localStorage.getItem('charanas_schoolName') || (typeof settings !== 'undefined' && settings.schoolName) || 'School';
+  let pay = null;
+  if (rec) {
+    pay = { name: rec.name, role: rec.role || '—', type: rec.type || '—', staffId,
+            basic: Number(rec.basic||0), allow: Number(rec.allow||0), nhif: Number(rec.nhif||0),
+            nssf: Number(rec.nssf||0), deduct: Number(rec.deduct||0), net: Number(rec.net||0),
+            status: '', source: 'salary' };
+  } else if (ph) {
+    pay = { name: ph.name, role: ph.role || '—', type: ph.type || '—', staffId,
+            basic: Number(ph.basic||0), allow: Number(ph.allow||0), nhif: Number(ph.nhif||0),
+            nssf: Number(ph.nssf||0), deduct: Number(ph.deduct||0), net: Number(ph.net||0),
+            status: '', source: 'salary' };
+  }
+  if (!pay) { alert('Salary record not found for this staff member. Please preview first.'); reloadPayslip(staffId, month, year); return; }
+  // Temporarily set currentUser so _sppBuildPDF can use staffId/dept
+  const prevUser = typeof currentUser !== 'undefined' ? currentUser : null;
+  if (!window.currentUser) window.currentUser = {};
+  const savedId = window.currentUser.staffId; const savedDept = window.currentUser.dept;
+  window.currentUser.staffId = staffId;
+  window.currentUser.dept = (rec && rec.dept) || '—';
+  try {
+    const doc = _sppBuildPDF(month, year, pay, school);
+    const blobUrl = doc.output('bloburl');
+    const win = window.open(blobUrl, '_blank');
+    if (win) win.onload = () => { try { win.print(); } catch(e){} };
+    else { alert('Allow pop-ups to print, or use the View button and print from there.'); }
+  } finally {
+    window.currentUser.staffId = savedId;
+    window.currentUser.dept = savedDept;
+  }
 }
 
 function deletePayslipHistory(id) {
