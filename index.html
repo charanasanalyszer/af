@@ -5866,10 +5866,49 @@
               <button class="btn btn-outline btn-sm eb-mdiff" data-diff="hard" onclick="ebSetModalDiff(this,'hard')"><i class="fa-solid fa-fire"></i> Hard</button>
             </div>
           </div>
+          <div style="display:flex;align-items:center;gap:.5rem;margin-top:.85rem;padding:.6rem .75rem;background:var(--bg);border-radius:8px;border:1.5px solid var(--border-lt)">
+            <input type="checkbox" id="ebModal-withImages" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer"/>
+            <label for="ebModal-withImages" style="font-size:.82rem;cursor:pointer;user-select:none"><i class="fa-regular fa-image" style="margin-right:.3rem;color:var(--primary)"></i> Generate with images <span style="font-size:.74rem;color:var(--muted)">(AI picks a relevant image per question)</span></label>
+          </div>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:.5rem;padding:.75rem 1.25rem;border-top:1px solid var(--border-lt)">
           <button class="btn btn-outline btn-sm" onclick="document.getElementById('ebAISectionModal').style.display='none'">Cancel</button>
-          <button class="btn btn-primary btn-sm" onclick="ebGenForSection()"> Generate</button>
+          <button class="btn btn-primary btn-sm" onclick="ebGenForSection()"><i class="fa-solid fa-robot"></i> Generate (1 by 1)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI: Single Question Regenerate Modal -->
+    <div id="ebSingleQModal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.5);align-items:center;justify-content:center;padding:1rem">
+      <div style="background:var(--surface);border-radius:12px;width:min(480px,100%);max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--border-lt)">
+          <h3 style="font-size:1rem"><i class="fa-solid fa-robot"></i> AI Regenerate — <span id="ebSingleQ-secname"></span></h3>
+          <button onclick="document.getElementById('ebSingleQModal').style.display='none'" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--muted)"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div style="padding:1rem 1.25rem">
+          <div class="fg" style="margin-bottom:.75rem">
+            <label>Topic / Hint <span style="font-weight:400;color:var(--muted);font-size:.78rem">(or describe what you want)</span></label>
+            <input type="text" id="ebSingleQ-topic" placeholder="e.g. Photosynthesis, Newton's Laws..."/>
+          </div>
+          <div class="fg" style="margin-bottom:.75rem">
+            <label>Context <span style="font-weight:400;color:var(--muted);font-size:.78rem">(current question shown — edit or leave as hint)</span></label>
+            <textarea id="ebSingleQ-notes" rows="3" placeholder="Current question text shown here..."></textarea>
+          </div>
+          <div class="fg" style="margin-bottom:.75rem"><label>Difficulty</label>
+            <div style="display:flex;gap:.5rem;margin-top:.35rem">
+              <button class="btn btn-outline btn-sm eb-mdiff" data-diff="easy" onclick="ebSetModalDiff(this,'easy')">Easy</button>
+              <button class="btn btn-outline btn-sm eb-mdiff active" data-diff="medium" onclick="ebSetModalDiff(this,'medium')"><i class="fa-solid fa-bullseye"></i> Medium</button>
+              <button class="btn btn-outline btn-sm eb-mdiff" data-diff="hard" onclick="ebSetModalDiff(this,'hard')"><i class="fa-solid fa-fire"></i> Hard</button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;background:var(--bg);border-radius:8px;border:1.5px solid var(--border-lt)">
+            <input type="checkbox" id="ebSingleQ-withImages" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer"/>
+            <label for="ebSingleQ-withImages" style="font-size:.82rem;cursor:pointer;user-select:none"><i class="fa-regular fa-image" style="margin-right:.3rem;color:var(--primary)"></i> Add an image to this question <span style="font-size:.74rem;color:var(--muted)">(AI picks a relevant one)</span></label>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:.5rem;padding:.75rem 1.25rem;border-top:1px solid var(--border-lt)">
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('ebSingleQModal').style.display='none'">Cancel</button>
+          <button class="btn btn-primary btn-sm" onclick="ebGenSingleQuestion()"><i class="fa-solid fa-rotate"></i> Regenerate This Question</button>
         </div>
       </div>
     </div>

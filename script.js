@@ -14942,6 +14942,7 @@ function ebRenderQCard(sIdx, qIdx, q, sec) {
         ${badge}
         <div style="margin-left:auto;display:flex;gap:.3rem">
           <button onclick="ebOpenMathModal('ebqt-${sIdx}-${qIdx}')" style="background:none;border:none;cursor:pointer;font-size:.82rem;color:var(--muted)" title="Insert equation">√</button>
+          <button onclick="ebOpenSingleQModal(${sIdx},${qIdx})" style="background:none;border:none;cursor:pointer;font-size:.82rem;color:var(--primary);padding:2px 5px;border-radius:4px;border:1px solid var(--primary)" title="AI: regenerate this question"><i class="fa-solid fa-robot"></i></button>
           <button onclick="ebRemoveQ(${sIdx},${qIdx})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:.9rem" title="Delete"><i class="fa-solid fa-xmark"></i></button>
         </div>
       </div>
@@ -15663,14 +15664,17 @@ async function ebCallClaude(prompt, systemPrompt) {
 async function ebGenerateQuestionsAPI(params) {
   const { subject, topic, questionType, difficulty, count, notes } = params;
   const diffGuide = { easy: 'Simple, direct recall questions.', medium: 'Mix of recall and application.', hard: 'Analysis, synthesis and evaluation.' };
+  const withImages = params.withImages || false;
+  const imageField = withImages ? ',"imageQuery":"short 2-3 word image search term for this question (e.g. \"mitosis cell\")"' : '';
   const system = `You are an exam question generator for Kenyan secondary school curriculum.
 OUTPUT RULES — CRITICAL:
 - Output ONLY a raw JSON object. No prose, no markdown, no code fences, no explanation.
 - Start your response with { and end with }
 - Use exactly this structure:
-{"questions":[{"id":"q1","question":"...","type":"mcq","marks":2,"options":["A) ...","B) ...","C) ...","D) ..."],"answer":"A) ...","explanation":"...","difficulty":"medium","subParts":[]}]}
+{"questions":[{"id":"q1","question":"...","type":"mcq","marks":2,"options":["A) ...","B) ...","C) ...","D) ..."],"answer":"A) ...","explanation":"...","difficulty":"medium","subParts":[]${imageField}}]}
 - For MCQ: include 4 options (A-D), set answer to the correct option text.
-- For structured/essay: options=[], answer="", use subParts for multi-part questions.
+- For structured/essay: options=[], answer="", use subParts for multi-part questions.${withImages ? '
+- imageQuery: a short 2-3 word image search term relevant to the question.' : ''}
 - Do NOT include any text before or after the JSON.`;
   const userPrompt = `Generate ${count || 5} ${questionType || 'mcq'} questions for:
 Subject: ${subject || 'General'} | Topic: ${topic || subject || 'General'} | Difficulty: ${difficulty || 'medium'} (${diffGuide[difficulty] || diffGuide.medium})
@@ -15752,6 +15756,66 @@ function ebStagePendingQ(q) {
 }
 
 // ─── AI per-section modal ─────────────────────────────────────────────────────
+// ─── AI: Single Question Regenerate ──────────────────────────────────────────
+function ebOpenSingleQModal(sIdx, qIdx) {
+  EB.aiSectionIdx = sIdx;
+  EB.aiQuestionIdx = qIdx;
+  const sec = EB.sections[sIdx];
+  const q = sec?.questions[qIdx];
+  const modal = document.getElementById('ebSingleQModal');
+  if (!modal) return;
+  document.getElementById('ebSingleQ-secname').textContent = 'Section ' + (sec?.name||'') + ' Q' + (qIdx+1);
+  document.getElementById('ebSingleQ-topic').value = document.getElementById('eb-subject')?.value || '';
+  document.getElementById('ebSingleQ-notes').value = q?.question || '';
+  document.getElementById('ebSingleQ-withImages').checked = false;
+  modal.style.display = 'flex';
+}
+async function ebGenSingleQuestion() {
+  const sIdx = EB.aiSectionIdx;
+  const qIdx = EB.aiQuestionIdx;
+  const sec = EB.sections[sIdx]; if (!sec) return;
+  const topic = document.getElementById('ebSingleQ-topic')?.value?.trim();
+  const notes = document.getElementById('ebSingleQ-notes')?.value?.trim() || '';
+  const subject = document.getElementById('eb-subject')?.value?.trim() || '';
+  const withImages = document.getElementById('ebSingleQ-withImages')?.checked || false;
+  document.getElementById('ebSingleQModal').style.display = 'none';
+  ebShowLoading('AI generating question...');
+  try {
+    const qs = await ebGenerateQuestionsAPI({ subject, topic:topic||subject, questionType:sec.type, difficulty:_ebModalDiff, count:1, notes });
+    if (qs.length) {
+      const q = qs[0];
+      const newQ = { id:ebGenId(), question:q.question, marks:q.marks||sec.marksPerQuestion||2, options:q.options||[], answer:q.answer||'', subParts:q.subParts||[], aiGenerated:true };
+      if (withImages && q.imageQuery) {
+        try { newQ.imageData = await ebFetchUnsplashImage(q.imageQuery); } catch(e) {}
+      }
+      // Replace the specific question
+      if (qIdx !== undefined && sec.questions[qIdx]) {
+        sec.questions[qIdx] = newQ;
+      } else {
+        sec.questions.push(newQ);
+      }
+      ebRenderQuestionBuilder();
+      showToast('Question regenerated! <i class="fa-solid fa-robot"></i>', 'success');
+    }
+  } catch(err) { showToast('Failed: ' + err.message, 'error'); }
+  finally { ebHideLoading(); }
+}
+
+// ─── Fetch image from Unsplash (free, no key needed) ────────────────────────
+async function ebFetchUnsplashImage(query) {
+  const url = \`https://source.unsplash.com/400x250/?\${encodeURIComponent(query)}\`;
+  // Unsplash source redirects to actual image — convert to base64 for embedding
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Image fetch failed');
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 let _ebModalDiff = 'medium';
 function ebSetModalDiff(btn, diff) {
   _ebModalDiff = diff;
@@ -15770,15 +15834,29 @@ async function ebGenForSection() {
   const topic = document.getElementById('ebModal-topic')?.value?.trim();
   const notes = document.getElementById('ebModal-notes')?.value?.trim() || '';
   const subject = document.getElementById('eb-subject')?.value?.trim() || '';
+  const withImages = document.getElementById('ebModal-withImages')?.checked || false;
+  const count = sec.questionCount || 5;
   document.getElementById('ebAISectionModal').style.display = 'none';
-  ebShowLoading('AI generating questions...');
-  try {
-    const qs = await ebGenerateQuestionsAPI({ subject, topic:topic||subject, questionType:sec.type, difficulty:_ebModalDiff, count:sec.questionCount||5, notes });
-    qs.forEach(q => sec.questions.push({ id:ebGenId(), question:q.question, marks:q.marks||sec.marksPerQuestion||2, options:q.options||[], answer:q.answer||'', subParts:q.subParts||[], aiGenerated:true }));
-    ebRenderQuestionBuilder();
-    showToast(`Generated ${qs.length} questions for Section ${sec.name}!`, 'success');
-  } catch(err) { showToast('Failed: ' + err.message, 'error'); }
-  finally { ebHideLoading(); }
+  let added = 0;
+  // Generate one question at a time so user sees progress live
+  for (let i = 0; i < count; i++) {
+    ebShowLoading(`Generating question ${i+1} of ${count}...`);
+    try {
+      const qs = await ebGenerateQuestionsAPI({ subject, topic:topic||subject, questionType:sec.type, difficulty:_ebModalDiff, count:1, notes });
+      if (qs.length) {
+        const q = qs[0];
+        const newQ = { id:ebGenId(), question:q.question, marks:q.marks||sec.marksPerQuestion||2, options:q.options||[], answer:q.answer||'', subParts:q.subParts||[], aiGenerated:true };
+        if (withImages && q.imageQuery) {
+          try { newQ.imageData = await ebFetchUnsplashImage(q.imageQuery); } catch(e) {}
+        }
+        sec.questions.push(newQ);
+        added++;
+        ebRenderQuestionBuilder();
+      }
+    } catch(err) { showToast('Question '+(i+1)+' failed: ' + err.message, 'error'); break; }
+  }
+  ebHideLoading();
+  if (added) showToast(`Generated ${added} questions for Section ${sec.name}! <i class="fa-solid fa-check"></i>`, 'success');
 }
 
 // ─── Generate All Sections ────────────────────────────────────────────────────
