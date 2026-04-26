@@ -768,7 +768,7 @@ function doUnifiedLogin() {
     } catch(e) {}
   };
 
-  if (!u || !p) { re(); err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Please enter your username and password.'; err.style.display='block'; return; }
+  if (!u || !p) { re(); err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Please enter your username and password.'; err.style.display='block'; err.scrollIntoView({behavior:'smooth',block:'nearest'}); return; }
 
   // ── FORMAT GATE: reject unrecognised username formats immediately ──
   const _detectedRole = detectUsernameRole(u);
@@ -776,6 +776,7 @@ function doUnifiedLogin() {
     re();
     err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Username format not recognised. Check your credentials — format should be <strong>name@schoolcode</strong> for teachers/students or <strong>name@school</strong> for school login.';
     err.style.display = 'block';
+    err.scrollIntoView({behavior:'smooth',block:'nearest'});
     return;
   }
   // Validate exact pattern for known roles (skip for teacherOrStudent — resolved at lookup)
@@ -785,6 +786,7 @@ function doUnifiedLogin() {
       re();
       err.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Username format not recognised. ' + _rule.hint;
       err.style.display = 'block';
+      err.scrollIntoView({behavior:'smooth',block:'nearest'});
       return;
     }
   }
@@ -909,6 +911,7 @@ function doUnifiedLogin() {
   re();
   err.innerHTML='<i class="fa-solid fa-circle-xmark"></i> Invalid credentials. Check your username and password (case-sensitive).';
   err.style.display='block';
+  err.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
 // ══════════════════════════════════════════════

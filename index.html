@@ -38,7 +38,10 @@
     <form id="uniLoginForm" autocomplete="on" onsubmit="event.preventDefault();doUnifiedLogin()">
     <div class="form-group">
       <label>Username</label>
-      <input type="text" id="uniUser" name="username" placeholder="Enter username" autocomplete="username"/>
+      <input type="text" id="uniUser" name="username" placeholder="e.g. admin  /  john@school  /  A001@sunrise" autocomplete="username"/>
+      <div style="font-size:.75rem;color:#94a3b8;margin-top:.3rem;line-height:1.5">
+        <strong style="color:#64748b">Format:</strong> Platform admin: <code style="background:#f1f5f9;padding:.1rem .3rem;border-radius:4px">myname</code> &nbsp;|&nbsp; School: <code style="background:#f1f5f9;padding:.1rem .3rem;border-radius:4px">name@school</code> &nbsp;|&nbsp; Teacher/Student: <code style="background:#f1f5f9;padding:.1rem .3rem;border-radius:4px">name@schoolcode</code>
+      </div>
     </div>
     <div class="form-group">
       <label>Password</label>
@@ -51,7 +54,7 @@
       <input type="checkbox" id="uniRemember" checked style="accent-color:#7c3aed;width:15px;height:15px;cursor:pointer"/>
       <label for="uniRemember" style="font-size:.8rem;color:var(--muted);cursor:pointer;user-select:none">Remember me on this device</label>
     </div>
-    <button type="submit" class="btn btn-primary btn-full" id="uniBtn"><i class="fa-solid fa-arrow-right-to-bracket" style="margin-right:.4rem"></i>Sign In</button>
+    <button type="submit" class="btn btn-primary btn-full" id="uniBtn" onclick="event.preventDefault();doUnifiedLogin()"><i class="fa-solid fa-arrow-right-to-bracket" style="margin-right:.4rem"></i>Sign In</button>
     </form>
     <div id="uniErr" class="login-err" style="display:none"></div>
 
