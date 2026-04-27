@@ -1067,13 +1067,15 @@ function spRenderFees() {
   const curRec    = stuRecords.find(r => r.term === curTerm && String(r.year) === curYear);
   const curTotal  = curRec ? parseFloat(curRec.totalFee || 0) : 0;
   const curPaid   = curRec ? (curRec.payments || []).reduce((s, p) => s + parseFloat(p.amount || 0), 0) : 0;
-  const curBalance = curTotal - curPaid;
+  const prevBalance = getPreviousBalance(stuId, curTerm, curYear);
+  const curBalance = prevBalance + curTotal - curPaid;
   const balColor  = curBalance > 0 ? '#ef4444' : '#10b981';
 
   let html = `<div style="background:linear-gradient(135deg,${balColor}12,${balColor}06);border:2px solid ${balColor}40;border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.25rem">
     <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.4rem">Current Term — ${curTerm} ${curYear}</div>
     <div style="display:flex;gap:1.5rem;flex-wrap:wrap">
-      <div><div style="font-size:.75rem;color:var(--muted)">Required</div><div style="font-weight:800;font-size:1.1rem">KES ${curTotal.toLocaleString()}</div></div>
+      ${prevBalance > 0 ? `<div><div style="font-size:.75rem;color:var(--muted)">Previous Balance</div><div style="font-weight:800;font-size:1.1rem;color:#ef4444">KES ${prevBalance.toLocaleString()}</div></div>` : ''}
+      <div><div style="font-size:.75rem;color:var(--muted)">This Term's Fees</div><div style="font-weight:800;font-size:1.1rem">KES ${curTotal.toLocaleString()}</div></div>
       <div><div style="font-size:.75rem;color:var(--muted)">Paid</div><div style="font-weight:800;font-size:1.1rem;color:#10b981">KES ${curPaid.toLocaleString()}</div></div>
       <div><div style="font-size:.75rem;color:var(--muted)">Balance</div><div style="font-weight:800;font-size:1.1rem;color:${balColor}">KES ${Math.abs(curBalance).toLocaleString()} ${curBalance <= 0 ? '<i class="fa-solid fa-circle-check"></i> CLEARED' : '<i class="fa-solid fa-triangle-exclamation"></i>️ OWING'}</div></div>
     </div>
@@ -1126,7 +1128,9 @@ function spBuildFeeStatementData() {
   const rows = [];
   stuRecords.forEach(rec => {
     const paid    = getRecordTotalPaid(rec);
-    const bal     = getRecordBalance(rec);
+    const termBal = getRecordBalance(rec);
+    const prevBal = getPreviousBalance(stuId, rec.term, rec.year);
+    const bal     = prevBal + termBal;
     const status  = bal <= 0 ? 'Cleared' : paid > 0 ? 'Partial' : 'Unpaid';
     const payments = (rec.payments || []).map(p => ({
       date:      p.date || '—',
@@ -1139,6 +1143,7 @@ function spBuildFeeStatementData() {
       term:      rec.term,
       year:      rec.year,
       totalFee:  parseFloat(rec.totalFee || 0),
+      prevBal,
       paid,
       balance:   bal,
       status,
@@ -1153,7 +1158,7 @@ function spBuildFeeStatementData() {
 
   const totalBilled  = rows.reduce((s, r) => s + r.totalFee, 0);
   const totalPaid    = rows.reduce((s, r) => s + r.paid,     0);
-  const totalBalance = rows.reduce((s, r) => s + r.balance,  0);
+  const totalBalance = rows.length > 0 ? rows[rows.length - 1].balance : 0;
 
   return {
     student:      stu,
@@ -1304,26 +1309,28 @@ function _spRenderFeeStatementPDF(doc, d) {
 
   doc.autoTable({
     startY: y,
-    head: [['Term', 'Year', 'Total Fee (KES)', 'Paid (KES)', 'Balance (KES)', 'Status']],
+    head: [['Term', 'Year', 'Prev. Bal (KES)', 'This Term Fee (KES)', 'Paid (KES)', 'Net Balance (KES)', 'Status']],
     body: d.rows.map(r => [
       r.term,
       String(r.year),
+      r.prevBal > 0 ? r.prevBal.toLocaleString() : '—',
       r.totalFee.toLocaleString(),
       r.paid.toLocaleString(),
       Math.abs(r.balance).toLocaleString() + (r.balance < 0 ? ' (OVP)' : ''),
       r.status
     ]),
     theme: 'grid',
-    headStyles: { fillColor: blue, textColor: 255, fontStyle: 'bold', fontSize: 8, cellPadding: 2.5 },
-    bodyStyles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: blue, textColor: 255, fontStyle: 'bold', fontSize: 7.5, cellPadding: 2.5 },
+    bodyStyles: { fontSize: 7.5, cellPadding: 2 },
     columnStyles: {
-      2: { halign: 'right' },
-      3: { halign: 'right', textColor: [22, 163, 74] },
-      4: { halign: 'right' },
-      5: { fontStyle: 'bold' }
+      2: { halign: 'right', textColor: [220, 38, 38] },
+      3: { halign: 'right' },
+      4: { halign: 'right', textColor: [22, 163, 74] },
+      5: { halign: 'right' },
+      6: { fontStyle: 'bold' }
     },
     didParseCell: data => {
-      if (data.section === 'body' && data.column.index === 5) {
+      if (data.section === 'body' && data.column.index === 6) {
         const v = data.cell.raw;
         if (v === 'Cleared')     data.cell.styles.textColor = green;
         else if (v === 'Partial') data.cell.styles.textColor = amber;
@@ -11242,6 +11249,20 @@ function getRecordBalance(rec) {
   return parseFloat(rec.totalFee||0) - getRecordTotalPaid(rec);
 }
 
+// Returns the sum of unpaid balances from all terms BEFORE the given term/year for a student
+function getPreviousBalance(studentId, term, year) {
+  const termOrder = { 'Term 1': 1, 'Term 2': 2, 'Term 3': 3 };
+  const recs = feeRecords.filter(r => r.studentId === studentId);
+  return recs
+    .filter(r => {
+      const ry = String(r.year), cy = String(year);
+      if (ry < cy) return true;
+      if (ry === cy && (termOrder[r.term] || 0) < (termOrder[term] || 0)) return true;
+      return false;
+    })
+    .reduce((sum, r) => sum + Math.max(0, getRecordBalance(r)), 0);
+}
+
 // ── Get fee data for a student (for a given term/year) ──
 function getStudentFeeData(studentId, term, year) {
   const stu = students.find(s => s.id === studentId);
@@ -11834,7 +11855,13 @@ function onFpStudentChange() {
   const rec    = feeRecords.find(r => r.studentId===stuId && r.term===term && String(r.year)===String(year));
   const totalFee = rec ? parseFloat(rec.totalFee||0) : (struct ? parseFloat(struct.totalFee||0) : 0);
   const paid     = rec ? getRecordTotalPaid(rec) : 0;
-  const bal      = totalFee - paid;
+  const prevBal  = getPreviousBalance(stuId, term, year);
+  const bal      = prevBal + totalFee - paid;
+
+  const prevBalEl    = document.getElementById('fpPrevBalance');
+  const prevBalRowEl = document.getElementById('fpPrevBalRow');
+  if (prevBalEl) prevBalEl.textContent = `KES ${prevBal.toLocaleString()}`;
+  if (prevBalRowEl) prevBalRowEl.style.display = prevBal > 0 ? 'flex' : 'none';
 
   document.getElementById('fpTotalFee').textContent  = `KES ${totalFee.toLocaleString()}`;
   document.getElementById('fpAmountPaid').textContent = `KES ${paid.toLocaleString()}`;
@@ -11876,7 +11903,8 @@ function recordFeePayment() {
   // Update totalFee from structure in case it changed
   rec.totalFee = totalFee;
 
-  const balBefore = getRecordBalance(rec);
+  const prevBal   = getPreviousBalance(stuId, term, year);
+  const balBefore = prevBal + getRecordBalance(rec);
   const receiptNo = genReceiptNo();
   const payment = { id: uid(), receiptNo, date, amount, mode, notes, balanceBefore: balBefore, balanceAfter: balBefore - amount };
   rec.payments.push(payment);
