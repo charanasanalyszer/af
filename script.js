@@ -1077,7 +1077,7 @@ function spRenderFees() {
       ${prevBalance > 0 ? `<div><div style="font-size:.75rem;color:var(--muted)">Previous Balance</div><div style="font-weight:800;font-size:1.1rem;color:#ef4444">KES ${prevBalance.toLocaleString()}</div></div>` : ''}
       <div><div style="font-size:.75rem;color:var(--muted)">This Term's Fees</div><div style="font-weight:800;font-size:1.1rem">KES ${curTotal.toLocaleString()}</div></div>
       <div><div style="font-size:.75rem;color:var(--muted)">Paid</div><div style="font-weight:800;font-size:1.1rem;color:#10b981">KES ${curPaid.toLocaleString()}</div></div>
-      <div><div style="font-size:.75rem;color:var(--muted)">Cumulative Balance</div><div style="font-weight:800;font-size:1.1rem;color:${balColor}">KES ${Math.abs(curBalance).toLocaleString()} ${curBalance <= 0 ? '<i class="fa-solid fa-circle-check"></i> CLEARED' : '<i class="fa-solid fa-triangle-exclamation"></i>️ OWING'}</div></div>
+      <div><div style="font-size:.75rem;color:var(--muted)">Cumulative</div><div style="font-weight:800;font-size:1.1rem;color:${balColor}">KES ${Math.abs(curBalance).toLocaleString()} ${curBalance <= 0 ? '<i class="fa-solid fa-circle-check"></i> CLEARED' : '<i class="fa-solid fa-triangle-exclamation"></i>️ OWING'}</div></div>
     </div>
   </div>`;
 
@@ -1294,7 +1294,7 @@ function _spRenderFeeStatementPDF(doc, d) {
   doc.setFontSize(7);
   doc.setFont(undefined, 'bold');
   doc.setTextColor(...muted);
-  doc.text('OUTSTANDING BALANCE', cx3 + 3, y + 5.5);
+  doc.text('CUMULATIVE', cx3 + 3, y + 5.5);
   doc.setFontSize(10);
   doc.setTextColor(...balColor);
   doc.text(`KES ${Math.abs(d.totalBalance).toLocaleString()}${d.totalBalance <= 0 ? ' ✓' : ''}`, cx3 + 3, y + 13);
@@ -1309,7 +1309,7 @@ function _spRenderFeeStatementPDF(doc, d) {
 
   doc.autoTable({
     startY: y,
-    head: [['Term', 'Year', 'Prev. Bal (KES)', 'This Term Fee (KES)', 'Paid (KES)', 'Net Balance (KES)', 'Status']],
+    head: [['Term', 'Year', 'Prev. Bal (KES)', 'This Term Fee (KES)', 'Paid (KES)', 'Cumulative (KES)', 'Status']],
     body: d.rows.map(r => [
       r.term,
       String(r.year),
