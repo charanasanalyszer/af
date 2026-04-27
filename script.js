@@ -12074,7 +12074,7 @@ function renderStudentBalances() {
     if (filterStatus && statusKey !== filterStatus) return;
     if (search && !stu.name.toLowerCase().includes(search) && !stu.adm.toLowerCase().includes(search)) return;
 
-    rows.push({ rec, stu, cls, paid, bal, pct, statusKey });
+    rows.push({ rec, stu, cls, paid, bal, cumBal, pct, statusKey });
   });
 
   // Also add students with NO record if a structure exists for them
