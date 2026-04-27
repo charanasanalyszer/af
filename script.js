@@ -11252,18 +11252,35 @@ function getRecordBalance(rec) {
   return parseFloat(rec.totalFee||0) - getRecordTotalPaid(rec);
 }
 
-// Returns the sum of unpaid balances from all terms BEFORE the given term/year for a student
+// Returns the cumulative unpaid balance from all terms BEFORE the given term/year for a student.
+// Includes both: fee records (fees - payments) AND fee structures for prior terms with no record yet.
 function getPreviousBalance(studentId, term, year) {
   const termOrder = { 'Term 1': 1, 'Term 2': 2, 'Term 3': 3 };
-  const recs = feeRecords.filter(r => r.studentId === studentId);
-  return recs
-    .filter(r => {
-      const ry = String(r.year), cy = String(year);
-      if (ry < cy) return true;
-      if (ry === cy && (termOrder[r.term] || 0) < (termOrder[term] || 0)) return true;
-      return false;
-    })
+  const student = students.find(s => s.id === studentId);
+
+  const isPrior = (r) => {
+    const ry = String(r.year), cy = String(year);
+    if (ry < cy) return true;
+    if (ry === cy && (termOrder[r.term] || 0) < (termOrder[term] || 0)) return true;
+    return false;
+  };
+
+  // Sum balances from actual fee records (term fee - payments made)
+  const recordTotal = feeRecords
+    .filter(r => r.studentId === studentId && isPrior(r))
     .reduce((sum, r) => sum + getRecordBalance(r), 0);
+
+  // Also add full fee from structures where no record exists yet (nothing paid at all)
+  const structTotal = student
+    ? feeStructures
+        .filter(f => f.classId === student.classId && isPrior(f) &&
+                     !feeRecords.some(r => r.studentId === studentId &&
+                                          r.term === f.term &&
+                                          String(r.year) === String(f.year)))
+        .reduce((sum, f) => sum + parseFloat(f.totalFee || 0), 0)
+    : 0;
+
+  return recordTotal + structTotal;
 }
 
 // ── Get fee data for a student (for a given term/year) ──
