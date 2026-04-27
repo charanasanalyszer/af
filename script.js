@@ -5109,7 +5109,8 @@ function refreshRpFeeAutoLink() {
     const stu = students.find(s => s.id === stuId);
     const rec = feeRecords.find(r => r.studentId===stuId && r.term===effectiveTerm && String(r.year)===effectiveYear);
     if (rec) {
-      const bal = getRecordBalance(rec);
+      const prevBal = getPreviousBalance(stuId, effectiveTerm, effectiveYear);
+      const bal = prevBal + getRecordBalance(rec);
       if (balEl && !balEl.dataset.manuallySet) balEl.value = bal;
       if (badge) {
         badge.style.display = '';
@@ -11262,7 +11263,7 @@ function getPreviousBalance(studentId, term, year) {
       if (ry === cy && (termOrder[r.term] || 0) < (termOrder[term] || 0)) return true;
       return false;
     })
-    .reduce((sum, r) => sum + Math.max(0, getRecordBalance(r)), 0);
+    .reduce((sum, r) => sum + getRecordBalance(r), 0);
 }
 
 // ── Get fee data for a student (for a given term/year) ──
@@ -12047,7 +12048,8 @@ function renderStudentBalances() {
     const stu = students.find(s => s.id === rec.studentId); if (!stu) return;
     const cls = classes.find(c => c.id === rec.classId);
     const paid = getRecordTotalPaid(rec);
-    const bal  = getRecordBalance(rec);
+    const prevBal = getPreviousBalance(rec.studentId, rec.term, rec.year);
+    const bal  = prevBal + getRecordBalance(rec);
     const pct  = rec.totalFee > 0 ? Math.round(paid/rec.totalFee*100) : 0;
     let statusKey = bal <= 0 ? 'cleared' : paid > 0 ? 'partial' : 'unpaid';
 
@@ -12114,7 +12116,8 @@ function viewStudentPaymentHistory(stuId, term, year) {
 
   const payments = rec ? rec.payments : [];
   const paid = rec ? getRecordTotalPaid(rec) : 0;
-  const bal  = rec ? getRecordBalance(rec) : 0;
+  const prevBal = rec ? getPreviousBalance(stuId, term, year) : 0;
+  const bal  = rec ? prevBal + getRecordBalance(rec) : 0;
 
   showModal(`<i class="fa-solid fa-credit-card"></i> ${stu.name} — Payment History (${term} ${year})`, `
     <div style="margin-bottom:1rem">
@@ -12193,7 +12196,8 @@ function renderFeeReminders() {
     if (filterTerm  && rec.term !== filterTerm)     return;
     if (filterYear  && String(rec.year) !== filterYear) return;
     if (teacherClassIds && !teacherClassIds.includes(rec.classId)) return;
-    const bal = getRecordBalance(rec);
+    const prevBal = getPreviousBalance(rec.studentId, rec.term, rec.year);
+    const bal = prevBal + getRecordBalance(rec);
     if (bal <= 0) return;
     const stu = students.find(s => s.id === rec.studentId); if (!stu) return;
     const cls = classes.find(c => c.id === rec.classId);
@@ -12326,7 +12330,8 @@ function printAllReminders() {
     if (filterTerm  && rec.term !== filterTerm)     return;
     if (filterYear  && String(rec.year) !== filterYear) return;
     if (teacherClassIds && !teacherClassIds.includes(rec.classId)) return;
-    const bal = getRecordBalance(rec);
+    const prevBal = getPreviousBalance(rec.studentId, rec.term, rec.year);
+    const bal = prevBal + getRecordBalance(rec);
     if (bal <= 0) return;
     const stu = students.find(s => s.id === rec.studentId); if (!stu) return;
     const cls = classes.find(c => c.id === rec.classId);
@@ -12427,7 +12432,8 @@ function exportFeesSummary() {
     const stu = students.find(s => s.id === rec.studentId); if (!stu) return;
     const cls = classes.find(c => c.id === rec.classId);
     const paid = getRecordTotalPaid(rec);
-    const bal  = getRecordBalance(rec);
+    const prevBal = getPreviousBalance(rec.studentId, rec.term, rec.year);
+    const bal  = prevBal + getRecordBalance(rec);
     const status = bal <= 0 ? 'Cleared' : paid > 0 ? 'Partial' : 'Unpaid';
     rows.push([stu.name, stu.adm, cls?.name||'', rec.term, rec.year, rec.totalFee, paid, bal, status]);
   });
@@ -12500,7 +12506,8 @@ function downloadFeeStatementPDF() {
     if (search && !stu.name.toLowerCase().includes(search) && !stu.adm.toLowerCase().includes(search)) return;
     const cls   = classes.find(c => c.id === rec.classId);
     const paid  = getRecordTotalPaid(rec);
-    const bal   = getRecordBalance(rec);
+    const prevBal = getPreviousBalance(rec.studentId, rec.term, rec.year);
+    const bal   = prevBal + getRecordBalance(rec);
     const status = bal <= 0 ? 'Cleared' : paid > 0 ? 'Partial' : 'Unpaid';
     if (filterStatus && status.toLowerCase() !== filterStatus) return;
     totalExpected += parseFloat(rec.totalFee||0);
@@ -12607,7 +12614,8 @@ function handleFeeImport(input) {
         }
 
         if (amount > 0) {
-          const balBefore = getRecordBalance(rec);
+          const prevBal = getPreviousBalance(rec.studentId, rec.term, rec.year);
+          const balBefore = prevBal + getRecordBalance(rec);
           const balAfter  = Math.max(0, balBefore - amount);
           rec.payments.push({ id: uid(), receiptNo: rno, date: pdate, amount, mode, notes, balanceBefore: balBefore, balanceAfter: balAfter });
         }
@@ -12688,7 +12696,8 @@ function autoPopulateReportFees(stuId, term, year) {
   loadFees();
   const rec = feeRecords.find(r => r.studentId===stuId && r.term===term && String(r.year)===String(year));
   if (!rec) return;
-  const bal  = getRecordBalance(rec);
+  const prevBal = getPreviousBalance(stuId, term, year);
+  const bal  = prevBal + getRecordBalance(rec);
   const balEl = document.getElementById('rpFeeBalance');
   if (balEl && !balEl.value) balEl.value = bal;
 }
@@ -12713,7 +12722,8 @@ function getStudentFeeStatus(stuId, term, year) {
   loadFees();
   const rec = feeRecords.find(r => r.studentId===stuId && r.term===term && String(r.year)===String(year));
   if (!rec) return { status: 'No Record', cleared: false, balance: null };
-  const bal = getRecordBalance(rec);
+  const prevBal = getPreviousBalance(stuId, term, year);
+  const bal = prevBal + getRecordBalance(rec);
   return { status: bal <= 0 ? 'FEES CLEARED <i class="fa-solid fa-circle-check"></i>' : `BALANCE: KES ${bal.toLocaleString()}`, cleared: bal <= 0, balance: bal };
 }
 
