@@ -12482,11 +12482,11 @@ function downloadFeeStatementPDF() {
   const schoolName   = (settings && settings.schoolName) ? settings.schoolName : 'School';
 
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
   // Header
   doc.setFillColor(37, 99, 235);
-  doc.rect(0, 0, 210, 28, 'F');
+  doc.rect(0, 0, 297, 28, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);
   doc.setFont(undefined, 'bold');
@@ -12527,13 +12527,14 @@ function downloadFeeStatementPDF() {
     const cls   = classes.find(c => c.id === rec.classId);
     const paid  = getRecordTotalPaid(rec);
     const prevBal = getPreviousBalance(rec.studentId, rec.term, rec.year);
-    const bal   = prevBal + getRecordBalance(rec);
-    const status = bal <= 0 ? 'Cleared' : paid > 0 ? 'Partial' : 'Unpaid';
+    const termBal = getRecordBalance(rec);
+    const cumBal  = prevBal + termBal;
+    const status = cumBal <= 0 ? 'Cleared' : paid > 0 ? 'Partial' : 'Unpaid';
     if (filterStatus && status.toLowerCase() !== filterStatus) return;
     totalExpected += parseFloat(rec.totalFee||0);
     totalPaid     += paid;
-    totalBal      += bal;
-    rows.push([stu.adm, stu.name, cls?.name||'—', `${rec.term} ${rec.year}`, `KES ${parseFloat(rec.totalFee||0).toLocaleString()}`, `KES ${paid.toLocaleString()}`, `KES ${bal.toLocaleString()}`, status]);
+    totalBal      += cumBal;
+    rows.push([stu.adm, stu.name, cls?.name||'—', `${rec.term} ${rec.year}`, `KES ${parseFloat(rec.totalFee||0).toLocaleString()}`, `KES ${paid.toLocaleString()}`, `KES ${termBal.toLocaleString()}`, `KES ${cumBal.toLocaleString()}`, status]);
   });
 
   // Also unpaid rows
@@ -12549,7 +12550,9 @@ function downloadFeeStatementPDF() {
       const cls = classes.find(c=>c.id===clsId);
       totalExpected += parseFloat(struct.totalFee||0);
       totalBal      += parseFloat(struct.totalFee||0);
-      rows.push([stu.adm, stu.name, cls?.name||'—', `${struct.term} ${struct.year}`, `KES ${parseFloat(struct.totalFee||0).toLocaleString()}`, 'KES 0', `KES ${parseFloat(struct.totalFee||0).toLocaleString()}`, 'Unpaid']);
+      const noPrevBal2 = getPreviousBalance(stu.id, struct.term, struct.year);
+      const noCumBal2  = noPrevBal2 + parseFloat(struct.totalFee||0);
+      rows.push([stu.adm, stu.name, cls?.name||'—', `${struct.term} ${struct.year}`, `KES ${parseFloat(struct.totalFee||0).toLocaleString()}`, 'KES 0', `KES ${parseFloat(struct.totalFee||0).toLocaleString()}`, `KES ${noCumBal2.toLocaleString()}`, 'Unpaid']);
     });
   });
 
@@ -12559,14 +12562,14 @@ function downloadFeeStatementPDF() {
 
   doc.autoTable({
     startY,
-    head: [['Adm No', 'Student Name', 'Class', 'Term/Year', 'Total Fee', 'Paid', 'Balance', 'Status']],
+    head: [['Adm No', 'Student Name', 'Class', 'Term/Year', 'Total Fee', 'Paid', 'Balance', 'Cumulative', 'Status']],
     body: rows,
     theme: 'grid',
     headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', fontSize: 8 },
     bodyStyles: { fontSize: 7.5, cellPadding: 1.5 },
-    columnStyles: { 1: { cellWidth: 38 }, 7: { fontStyle: 'bold' } },
+    columnStyles: { 1: { cellWidth: 32 }, 6: { halign: 'right' }, 7: { halign: 'right', fontStyle: 'bold' }, 8: { fontStyle: 'bold' } },
     didParseCell: (data) => {
-      if (data.section === 'body' && data.column.index === 7) {
+      if (data.section === 'body' && data.column.index === 8) {
         const val = data.cell.raw;
         if (val === 'Cleared') data.cell.styles.textColor = [22, 163, 74];
         else if (val === 'Partial') data.cell.styles.textColor = [202, 138, 4];
@@ -12579,7 +12582,7 @@ function downloadFeeStatementPDF() {
   // Summary footer
   const finalY = doc.lastAutoTable.finalY + 6;
   doc.setFillColor(245, 247, 250);
-  doc.rect(14, finalY, 182, 18, 'F');
+  doc.rect(14, finalY, 269, 18, 'F');
   doc.setFontSize(8.5);
   doc.setFont(undefined, 'bold');
   doc.setTextColor(30, 30, 30);
@@ -12589,7 +12592,7 @@ function downloadFeeStatementPDF() {
   doc.setTextColor(22, 163, 74);
   doc.text(`Collected: KES ${totalPaid.toLocaleString()}`, 75, finalY + 12);
   doc.setTextColor(220, 38, 38);
-  doc.text(`Outstanding: KES ${totalBal.toLocaleString()}`, 135, finalY + 12);
+  doc.text(`Cumulative: KES ${totalBal.toLocaleString()}`, 135, finalY + 12);
 
   const label = [filterClass&&classes.find(c=>c.id===filterClass)?.name, filterTerm, filterYear].filter(Boolean).join('_') || 'all';
   doc.save(`fee_statement_${label}.pdf`);
