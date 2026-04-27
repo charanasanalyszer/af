@@ -1077,7 +1077,7 @@ function spRenderFees() {
       ${prevBalance > 0 ? `<div><div style="font-size:.75rem;color:var(--muted)">Previous Balance</div><div style="font-weight:800;font-size:1.1rem;color:#ef4444">KES ${prevBalance.toLocaleString()}</div></div>` : ''}
       <div><div style="font-size:.75rem;color:var(--muted)">This Term's Fees</div><div style="font-weight:800;font-size:1.1rem">KES ${curTotal.toLocaleString()}</div></div>
       <div><div style="font-size:.75rem;color:var(--muted)">Paid</div><div style="font-weight:800;font-size:1.1rem;color:#10b981">KES ${curPaid.toLocaleString()}</div></div>
-      <div><div style="font-size:.75rem;color:var(--muted)">Balance</div><div style="font-weight:800;font-size:1.1rem;color:${balColor}">KES ${Math.abs(curBalance).toLocaleString()} ${curBalance <= 0 ? '<i class="fa-solid fa-circle-check"></i> CLEARED' : '<i class="fa-solid fa-triangle-exclamation"></i>️ OWING'}</div></div>
+      <div><div style="font-size:.75rem;color:var(--muted)">Cumulative Balance</div><div style="font-weight:800;font-size:1.1rem;color:${balColor}">KES ${Math.abs(curBalance).toLocaleString()} ${curBalance <= 0 ? '<i class="fa-solid fa-circle-check"></i> CLEARED' : '<i class="fa-solid fa-triangle-exclamation"></i>️ OWING'}</div></div>
     </div>
   </div>`;
 
