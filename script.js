@@ -12066,9 +12066,10 @@ function renderStudentBalances() {
     const cls = classes.find(c => c.id === rec.classId);
     const paid = getRecordTotalPaid(rec);
     const prevBal = getPreviousBalance(rec.studentId, rec.term, rec.year);
-    const bal  = prevBal + getRecordBalance(rec);
+    const bal  = getRecordBalance(rec);
+    const cumBal = prevBal + bal;
     const pct  = rec.totalFee > 0 ? Math.round(paid/rec.totalFee*100) : 0;
-    let statusKey = bal <= 0 ? 'cleared' : paid > 0 ? 'partial' : 'unpaid';
+    let statusKey = cumBal <= 0 ? 'cleared' : paid > 0 ? 'partial' : 'unpaid';
 
     if (filterStatus && statusKey !== filterStatus) return;
     if (search && !stu.name.toLowerCase().includes(search) && !stu.adm.toLowerCase().includes(search)) return;
@@ -12094,7 +12095,8 @@ function renderStudentBalances() {
       if (search && !stu.name.toLowerCase().includes(search) && !stu.adm.toLowerCase().includes(search)) return;
 
       const cls = classes.find(c => c.id === clsId);
-      rows.push({ rec: { id: null, studentId: stu.id, classId: clsId, term: struct.term, year: struct.year, totalFee: struct.totalFee, payments: [] }, stu, cls, paid: 0, bal: struct.totalFee, pct: 0, statusKey: 'unpaid' });
+      const noPrevBal = getPreviousBalance(stu.id, struct.term, struct.year);
+      rows.push({ rec: { id: null, studentId: stu.id, classId: clsId, term: struct.term, year: struct.year, totalFee: struct.totalFee, payments: [] }, stu, cls, paid: 0, bal: struct.totalFee, cumBal: noPrevBal + struct.totalFee, pct: 0, statusKey: 'unpaid' });
     });
   });
 
@@ -12115,14 +12117,15 @@ function renderStudentBalances() {
         <td>${r.rec.term} ${r.rec.year}</td>
         <td>KES ${parseFloat(r.rec.totalFee||0).toLocaleString()}</td>
         <td style="color:var(--success)">KES ${r.paid.toLocaleString()}</td>
-        <td style="color:${r.bal>0?'var(--danger)':'var(--success)'}"><strong>KES ${r.bal.toLocaleString()}</strong></td>
+        <td style="color:${r.bal>0?'var(--danger)':'var(--success)'}">KES ${r.bal.toLocaleString()}</td>
+        <td style="color:${r.cumBal>0?'var(--danger)':'var(--success)'}" ><strong>KES ${r.cumBal.toLocaleString()}</strong></td>
         <td>${statusBadge}</td>
         <td>
           <button class="btn btn-sm btn-outline" onclick="viewStudentPaymentHistory('${r.stu.id}','${r.rec.term}','${r.rec.year}')"><i class="fa-solid fa-clipboard-list"></i> History</button>
           <button class="btn btn-sm btn-outline" onclick="quickPayStudent('${r.stu.id}','${r.rec.classId}','${r.rec.term}','${r.rec.year}')"><i class="fa-solid fa-credit-card"></i> Pay</button>
         </td>
       </tr>`;
-  }).join('') : '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:2rem">No fee records found.</td></tr>';
+  }).join('') : '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No fee records found.</td></tr>';
 }
 
 function viewStudentPaymentHistory(stuId, term, year) {
