@@ -7742,7 +7742,8 @@ function generateReport() {
       : null;
 
     if (exactRec) {
-      const bal = getRecordBalance(exactRec);
+      const prevBal = getPreviousBalance(stu.id, feeLookupTerm, feeLookupYear);
+      const bal = prevBal + getRecordBalance(exactRec);
       autoFeeBalance = bal;
       autoFeeStatus  = bal <= 0 ? 'FEES CLEARED <i class="fa-solid fa-circle-check"></i>' : `BALANCE: KES ${bal.toLocaleString()}`;
     } else {
@@ -7757,7 +7758,8 @@ function generateReport() {
           return (termOrder[b.term]||0) - (termOrder[a.term]||0);
         });
         const latestRec = stuRecs[0];
-        const bal = getRecordBalance(latestRec);
+        const prevBal = getPreviousBalance(stu.id, latestRec.term, latestRec.year);
+        const bal = prevBal + getRecordBalance(latestRec);
         autoFeeBalance = bal;
         autoFeeStatus  = bal <= 0 ? 'FEES CLEARED <i class="fa-solid fa-circle-check"></i>' : `BALANCE: KES ${bal.toLocaleString()}`;
       }
@@ -11906,14 +11908,14 @@ function recordFeePayment() {
   const prevBal   = getPreviousBalance(stuId, term, year);
   const balBefore = prevBal + getRecordBalance(rec);
   const receiptNo = genReceiptNo();
-  const payment = { id: uid(), receiptNo, date, amount, mode, notes, balanceBefore: balBefore, balanceAfter: balBefore - amount };
+  const payment = { id: uid(), receiptNo, date, amount, mode, notes, prevBal, balanceBefore: balBefore, balanceAfter: balBefore - amount };
   rec.payments.push(payment);
   saveFees();
 
   // Build and show receipt
   const stu = students.find(s => s.id === stuId);
   const cls = classes.find(c => c.id === classId);
-  lastReceiptHtml = buildReceiptHTML({ stu, cls, term, year, totalFee, payment, balBefore, balAfter: balBefore - amount, receiptNo, date, mode, notes, amount, schoolName: settings.schoolName || 'School' });
+  lastReceiptHtml = buildReceiptHTML({ stu, cls, term, year, totalFee, payment, prevBal, balBefore, balAfter: balBefore - amount, receiptNo, date, mode, notes, amount, schoolName: settings.schoolName || 'School' });
 
   const previewEl = document.getElementById('receiptPreview');
   if (previewEl) previewEl.innerHTML = lastReceiptHtml;
@@ -11930,7 +11932,10 @@ function recordFeePayment() {
   setTimeout(() => printLastReceipt(), 400);
 }
 
-function buildReceiptHTML({ stu, cls, term, year, totalFee, payment, balBefore, balAfter, receiptNo, date, mode, notes, amount, schoolName }) {
+function buildReceiptHTML({ stu, cls, term, year, totalFee, payment, prevBal, balBefore, balAfter, receiptNo, date, mode, notes, amount, schoolName }) {
+  // prevBal: balance carried from previous term(s)
+  // balBefore: total balance before this payment = prevBal + this term's unpaid fee
+  if (prevBal === undefined) prevBal = 0;
   const d = new Date(date);
   const dateStr = d.toLocaleDateString('en-KE', { day:'2-digit', month:'long', year:'numeric' });
   const status = balAfter <= 0 ? '<span style="color:#16a34a;font-weight:700"><i class="fa-solid fa-circle-check"></i> FEES CLEARED</span>' : `<span style="color:#dc2626;font-weight:700"><i class="fa-solid fa-triangle-exclamation"></i>️ BALANCE: KES ${balAfter.toLocaleString()}</span>`;
@@ -11955,8 +11960,9 @@ function buildReceiptHTML({ stu, cls, term, year, totalFee, payment, balBefore, 
         <div class="rcpt-row"><span class="rcpt-lbl">Admission No.</span><span class="rcpt-val">${stu?.adm || '—'}</span></div>
         <div class="rcpt-row"><span class="rcpt-lbl">Class</span><span class="rcpt-val">${cls?.name || '—'}</span></div>
         <div class="rcpt-row"><span class="rcpt-lbl">Term / Year</span><span class="rcpt-val">${term} — ${year}</span></div>
-        <div class="rcpt-row"><span class="rcpt-lbl">Total Fee</span><span class="rcpt-val">KES ${parseFloat(totalFee).toLocaleString()}</span></div>
-        <div class="rcpt-row"><span class="rcpt-lbl">Previous Balance</span><span class="rcpt-val" style="color:#dc2626">KES ${parseFloat(balBefore).toLocaleString()}</span></div>
+        <div class="rcpt-row"><span class="rcpt-lbl">This Term's Fee</span><span class="rcpt-val">KES ${parseFloat(totalFee).toLocaleString()}</span></div>
+        ${prevBal > 0 ? `<div class="rcpt-row"><span class="rcpt-lbl">Previous Balance</span><span class="rcpt-val" style="color:#dc2626">KES ${parseFloat(prevBal).toLocaleString()}</span></div>` : ''}
+        <div class="rcpt-row"><span class="rcpt-lbl">Total Balance Before Payment</span><span class="rcpt-val" style="color:#dc2626;font-weight:700">KES ${parseFloat(balBefore).toLocaleString()}</span></div>
         <div class="rcpt-divider-sm"></div>
         <div class="rcpt-row rcpt-paid-row">
           <span class="rcpt-lbl">Amount Paid</span>
@@ -12160,7 +12166,8 @@ function reprintReceipt(stuId, term, year, payId) {
   if (!payment) return;
   const stu = students.find(s => s.id === stuId);
   const cls = classes.find(c => c.id === rec.classId);
-  lastReceiptHtml = buildReceiptHTML({ stu, cls, term, year, totalFee: rec.totalFee, payment, balBefore: payment.balanceBefore, balAfter: payment.balanceAfter, receiptNo: payment.receiptNo, date: payment.date, mode: payment.mode, notes: payment.notes, amount: payment.amount, schoolName: settings.schoolName || 'School' });
+  const prevBal = payment.prevBal !== undefined ? payment.prevBal : getPreviousBalance(stuId, term, year);
+  lastReceiptHtml = buildReceiptHTML({ stu, cls, term, year, totalFee: rec.totalFee, payment, prevBal, balBefore: payment.balanceBefore, balAfter: payment.balanceAfter, receiptNo: payment.receiptNo, date: payment.date, mode: payment.mode, notes: payment.notes, amount: payment.amount, schoolName: settings.schoolName || 'School' });
   printLastReceipt();
 }
 
