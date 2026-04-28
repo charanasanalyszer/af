@@ -12123,6 +12123,8 @@ function renderStudentBalances() {
         <td>
           <button class="btn btn-sm btn-outline" onclick="viewStudentPaymentHistory('${r.stu.id}','${r.rec.term}','${r.rec.year}')"><i class="fa-solid fa-clipboard-list"></i> History</button>
           <button class="btn btn-sm btn-outline" onclick="quickPayStudent('${r.stu.id}','${r.rec.classId}','${r.rec.term}','${r.rec.year}')"><i class="fa-solid fa-credit-card"></i> Pay</button>
+          ${isFullFeesRole && r.rec.id ? `<button class="btn btn-sm btn-outline" style="color:var(--warning,#d97706);border-color:var(--warning,#d97706)" onclick="editFeeRecord('${r.rec.id}')"><i class="fa-solid fa-pen"></i> Edit</button>` : ''}
+          ${isFullFeesRole && r.rec.id ? `<button class="btn btn-sm btn-danger-sm" onclick="deleteFeeRecord('${r.rec.id}')"><i class="fa-solid fa-trash"></i></button>` : ''}
         </td>
       </tr>`;
   }).join('') : '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">No fee records found.</td></tr>';
@@ -12157,7 +12159,11 @@ function viewStudentPaymentHistory(stuId, term, year) {
             <td style="padding:.35rem;color:var(--success);font-weight:700">KES ${parseFloat(p.amount).toLocaleString()}</td>
             <td style="padding:.35rem">${p.mode}</td>
             <td style="padding:.35rem;color:${p.balanceAfter>0?'var(--danger)':'var(--success)'}">KES ${parseFloat(p.balanceAfter||0).toLocaleString()}</td>
-            <td style="padding:.35rem"><button class="btn btn-sm btn-outline" onclick="reprintReceipt('${stuId}','${term}','${year}','${p.id}')"><i class="fa-solid fa-print"></i></button></td>
+            <td style="padding:.35rem;display:flex;gap:.3rem;flex-wrap:wrap">
+              <button class="btn btn-sm btn-outline" onclick="reprintReceipt('${stuId}','${term}','${year}','${p.id}')" title="Reprint"><i class="fa-solid fa-print"></i></button>
+              <button class="btn btn-sm btn-outline" style="color:var(--warning,#d97706);border-color:var(--warning,#d97706)" onclick="closeModal();editPayment('${stuId}','${term}','${year}','${p.id}')" title="Edit"><i class="fa-solid fa-pen"></i></button>
+              <button class="btn btn-sm btn-danger-sm" onclick="closeModal();deletePayment('${stuId}','${term}','${year}','${p.id}')" title="Delete"><i class="fa-solid fa-trash"></i></button>
+            </td>
           </tr>`).join('')}
         </tbody>
       </table>` : '<p style="color:var(--muted);text-align:center;padding:1rem">No payments recorded yet.</p>'}
@@ -12192,6 +12198,176 @@ function reprintReceipt(stuId, term, year, payId) {
   const prevBal = payment.prevBal !== undefined ? payment.prevBal : getPreviousBalance(stuId, term, year);
   lastReceiptHtml = buildReceiptHTML({ stu, cls, term, year, totalFee: rec.totalFee, payment, prevBal, balBefore: payment.balanceBefore, balAfter: payment.balanceAfter, receiptNo: payment.receiptNo, date: payment.date, mode: payment.mode, notes: payment.notes, amount: payment.amount, schoolName: settings.schoolName || 'School' });
   printLastReceipt();
+}
+
+// ═══════════════════════════════════════════
+// FEE RECORD EDIT / DELETE
+// ═══════════════════════════════════════════
+
+function editFeeRecord(recId) {
+  const r = currentUser && currentUser.role;
+  if (!(r==='superadmin'||r==='admin'||r==='principal'||r==='bursar')) {
+    showToast('Only administrators and the bursar can edit fee records','error'); return;
+  }
+  loadFees();
+  const rec = feeRecords.find(f => f.id === recId);
+  if (!rec) { showToast('Fee record not found','error'); return; }
+  const stu = students.find(s => s.id === rec.studentId);
+  const cls = classes.find(c => c.id === rec.classId);
+
+  showModal(
+    `<i class="fa-solid fa-pen"></i> Edit Fee Record — ${stu?.name || 'Unknown'}`,
+    `<div style="display:flex;flex-direction:column;gap:1rem;padding:.5rem 0">
+      <div style="background:var(--surface,#f8fafc);border-radius:8px;padding:.75rem;font-size:.85rem;color:var(--muted)">
+        <strong>${stu?.name || '—'}</strong> &nbsp;|&nbsp; ${cls?.name || '—'} &nbsp;|&nbsp; ${rec.term} ${rec.year}
+      </div>
+      <div>
+        <label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:.35rem">Total Fee (KES)</label>
+        <input id="editRecTotalFee" type="number" min="0" step="0.01" value="${parseFloat(rec.totalFee||0)}"
+          style="width:100%;padding:.5rem .75rem;border:1px solid var(--border);border-radius:6px;font-size:.95rem">
+      </div>
+    </div>`,
+    [
+      { label: '<i class="fa-solid fa-check"></i> Save Changes', cls: 'btn-primary', action: `_saveEditFeeRecord('${recId}')` },
+      { label: '<i class="fa-solid fa-xmark"></i> Cancel', cls: 'btn-outline', action: 'closeModal()' }
+    ]
+  );
+}
+
+function _saveEditFeeRecord(recId) {
+  loadFees();
+  const rec = feeRecords.find(f => f.id === recId);
+  if (!rec) { showToast('Fee record not found','error'); return; }
+  const newFee = parseFloat(document.getElementById('editRecTotalFee')?.value || 0);
+  if (isNaN(newFee) || newFee < 0) { showToast('Enter a valid fee amount','error'); return; }
+  rec.totalFee = newFee;
+  saveFees();
+  closeModal();
+  showToast('Fee record updated <i class="fa-solid fa-check"></i>', 'success');
+  renderStudentBalances && renderStudentBalances();
+}
+
+function deleteFeeRecord(recId) {
+  const r = currentUser && currentUser.role;
+  if (!(r==='superadmin'||r==='admin'||r==='principal'||r==='bursar')) {
+    showToast('Only administrators and the bursar can delete fee records','error'); return;
+  }
+  loadFees();
+  const rec = feeRecords.find(f => f.id === recId);
+  if (!rec) { showToast('Fee record not found','error'); return; }
+  const stu = students.find(s => s.id === rec.studentId);
+  const msg = `Delete all fee data for ${stu?.name || 'this student'} (${rec.term} ${rec.year})? This cannot be undone.`;
+  if (!confirm(msg)) return;
+  const idx = feeRecords.findIndex(f => f.id === recId);
+  if (idx > -1) feeRecords.splice(idx, 1);
+  saveFees();
+  showToast('Fee record deleted', 'info');
+  renderStudentBalances && renderStudentBalances();
+}
+
+function editPayment(stuId, term, year, payId) {
+  const r = currentUser && currentUser.role;
+  if (!(r==='superadmin'||r==='admin'||r==='principal'||r==='bursar')) {
+    showToast('Only administrators and the bursar can edit payments','error'); return;
+  }
+  loadFees();
+  const rec = feeRecords.find(f => f.studentId===stuId && f.term===term && String(f.year)===String(year));
+  const pay = rec && rec.payments.find(p => p.id === payId);
+  if (!pay) { showToast('Payment not found','error'); return; }
+  const stu = students.find(s => s.id === stuId);
+
+  showModal(
+    `<i class="fa-solid fa-pen"></i> Edit Payment — ${stu?.name || 'Unknown'}`,
+    `<div style="display:flex;flex-direction:column;gap:.9rem;padding:.5rem 0">
+      <div style="background:var(--surface,#f8fafc);border-radius:8px;padding:.75rem;font-size:.85rem;color:var(--muted)">
+        Receipt: <strong style="color:var(--primary)">${pay.receiptNo}</strong> &nbsp;|&nbsp; ${term} ${year}
+      </div>
+      <div>
+        <label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:.35rem">Amount (KES)</label>
+        <input id="editPayAmount" type="number" min="0" step="0.01" value="${parseFloat(pay.amount||0)}"
+          style="width:100%;padding:.5rem .75rem;border:1px solid var(--border);border-radius:6px;font-size:.95rem">
+      </div>
+      <div>
+        <label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:.35rem">Date</label>
+        <input id="editPayDate" type="date" value="${pay.date||''}"
+          style="width:100%;padding:.5rem .75rem;border:1px solid var(--border);border-radius:6px;font-size:.95rem">
+      </div>
+      <div>
+        <label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:.35rem">Mode</label>
+        <select id="editPayMode" style="width:100%;padding:.5rem .75rem;border:1px solid var(--border);border-radius:6px;font-size:.95rem">
+          ${['Cash','M-Pesa','Bank Transfer','Cheque','Card','Other'].map(m => `<option value="${m}"${pay.mode===m?' selected':''}>${m}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:.35rem">Reference / Notes</label>
+        <input id="editPayNotes" type="text" value="${pay.notes||''}" placeholder="Transaction ref, cheque no..."
+          style="width:100%;padding:.5rem .75rem;border:1px solid var(--border);border-radius:6px;font-size:.95rem">
+      </div>
+    </div>`,
+    [
+      { label: '<i class="fa-solid fa-check"></i> Save Changes', cls: 'btn-primary', action: `_saveEditPayment('${stuId}','${term}','${year}','${payId}')` },
+      { label: '<i class="fa-solid fa-xmark"></i> Cancel', cls: 'btn-outline', action: 'closeModal()' }
+    ]
+  );
+}
+
+function _saveEditPayment(stuId, term, year, payId) {
+  loadFees();
+  const rec = feeRecords.find(f => f.studentId===stuId && f.term===term && String(f.year)===String(year));
+  const pay = rec && rec.payments.find(p => p.id === payId);
+  if (!pay) { showToast('Payment not found','error'); return; }
+
+  const newAmount = parseFloat(document.getElementById('editPayAmount')?.value || 0);
+  if (isNaN(newAmount) || newAmount <= 0) { showToast('Enter a valid amount','error'); return; }
+
+  pay.amount = newAmount;
+  pay.date   = document.getElementById('editPayDate')?.value || pay.date;
+  pay.mode   = document.getElementById('editPayMode')?.value || pay.mode;
+  pay.notes  = document.getElementById('editPayNotes')?.value || '';
+
+  // Recalculate running balances across all payments for this record
+  const prevBal = getPreviousBalance(stuId, term, year);
+  let runBal = prevBal + parseFloat(rec.totalFee || 0);
+  rec.payments.forEach(p => {
+    p.balanceBefore = runBal;
+    p.balanceAfter  = runBal - parseFloat(p.amount || 0);
+    runBal = p.balanceAfter;
+  });
+
+  saveFees();
+  closeModal();
+  showToast('Payment updated <i class="fa-solid fa-check"></i>', 'success');
+  renderStudentBalances && renderStudentBalances();
+}
+
+function deletePayment(stuId, term, year, payId) {
+  const r = currentUser && currentUser.role;
+  if (!(r==='superadmin'||r==='admin'||r==='principal'||r==='bursar')) {
+    showToast('Only administrators and the bursar can delete payments','error'); return;
+  }
+  loadFees();
+  const rec = feeRecords.find(f => f.studentId===stuId && f.term===term && String(f.year)===String(year));
+  const pay = rec && rec.payments.find(p => p.id === payId);
+  if (!pay) { showToast('Payment not found','error'); return; }
+
+  if (!confirm(`Delete payment of KES ${parseFloat(pay.amount).toLocaleString()} (Receipt ${pay.receiptNo})? This cannot be undone.`)) return;
+
+  rec.payments = rec.payments.filter(p => p.id !== payId);
+
+  // Recalculate running balances
+  const prevBal = getPreviousBalance(stuId, term, year);
+  let runBal = prevBal + parseFloat(rec.totalFee || 0);
+  rec.payments.forEach(p => {
+    p.balanceBefore = runBal;
+    p.balanceAfter  = runBal - parseFloat(p.amount || 0);
+    runBal = p.balanceAfter;
+  });
+
+  saveFees();
+  showToast('Payment deleted', 'info');
+  renderStudentBalances && renderStudentBalances();
+  // Reopen the history modal to show updated list
+  viewStudentPaymentHistory(stuId, term, year);
 }
 
 // ═══════════════════════════════════════════
