@@ -7042,6 +7042,7 @@ function renderSubjects() {
   const subThead=document.querySelector('#subTbl thead tr');
   if(subThead) subThead.innerHTML='<th>#</th>'+
     thSort('subjects','name','Name')+
+    thSort('subjects','code','Code')+
     thSort('subjects','max','Max')+
     thSort('subjects','category','Category')+
     thSort('subjects','teacher','Teacher')+
@@ -7051,6 +7052,7 @@ function renderSubjects() {
     const tch=teachers.find(t=>t.id===s.teacherId);
     return `<tr>
       <td>${i+1}</td><td><strong>${s.name}</strong></td>
+      <td><span class="badge b-blue">${s.code}</span></td>
       <td>${s.max}</td>
       <td><span class="badge ${s.category==='Core'?'b-green':s.category==='Technical'?'b-amber':s.category==='Languages'?'b-teal':'b-purple'}">${s.category}</span></td>
       <td>${tch?`<div style="display:flex;align-items:center;gap:.5rem">${teacherInitialsTag(tch)}<span>${tch.name}</span></div>`:'—'}</td>
@@ -7060,31 +7062,24 @@ function renderSubjects() {
         <button class="icb dl" onclick="deleteSubject('${s.id}')" title="Delete"><i class="fa-solid fa-trash"></i>️</button>
       </div></td>
     </tr>`;
-  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">No subjects yet.</td></tr>';
+  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">No subjects yet.</td></tr>';
 }
 
 function saveSubject() {
   const name  =document.getElementById('subName').value.trim();
-  const rawCode = document.getElementById('subCode').value.trim().toUpperCase();
+  const code  =document.getElementById('subCode').value.trim().toUpperCase();
   const max   =parseInt(document.getElementById('subMax').value)||100;
   const cat   =document.getElementById('subCat').value;
   const tchId =document.getElementById('subTeacher').value;
-  if(!name){showToast('Subject name required','error');return;}
+  if(!name||!code){showToast('Name and code required','error');return;}
   const editId=document.getElementById('editSubId').value;
-  // Auto-generate code from name if not provided
-  const baseCode = rawCode || name.replace(/[^A-Za-z0-9]/g,'').slice(0,5).toUpperCase() || name.slice(0,3).toUpperCase();
-  let code = baseCode;
-  // Ensure uniqueness
-  if(!editId) {
-    let suffix=1;
-    while(subjects.find(s=>s.code===code)){code=baseCode+suffix;suffix++;}
-  }
   if(editId){
     const i=subjects.findIndex(s=>s.id===editId);
     // Preserve existing studentIds
     if(i>-1)subjects[i]={...subjects[i],name,code,max,category:cat,teacherId:tchId};
     showToast('Subject updated <i class="fa-solid fa-check"></i>','success');
   } else {
+    if(subjects.find(s=>s.code===code)){showToast('Code already exists','error');return;}
     // Auto-enrol all existing students in new subject
     const allStudentIds = students.map(s=>s.id);
     subjects.push({id:uid(),name,code,max,category:cat,teacherId:tchId,studentIds:allStudentIds});
@@ -7103,7 +7098,7 @@ function editSubject(id) {
   const s=subjects.find(x=>x.id===id); if(!s) return;
   document.getElementById('editSubId').value=s.id;
   document.getElementById('subName').value=s.name;
-  if(document.getElementById('subCode')) document.getElementById('subCode').value=s.code||'';
+  document.getElementById('subCode').value=s.code;
   document.getElementById('subMax').value=s.max;
   document.getElementById('subCat').value=s.category;
   document.getElementById('subTeacher').value=s.teacherId||'';
@@ -17186,7 +17181,7 @@ function etExportPDF() {
     /* ── Page header ── */
     doc.setFillColor(15,23,42); doc.rect(0,0,pw,22,'F');
     doc.setFontSize(14); doc.setFont(undefined,'bold'); doc.setTextColor(248,250,252);
-    doc.text(`<i class="fa-solid fa-calendar-days"></i> Exam Timetable — ${exam?.name||''}`, 12, 11);
+    doc.text(`\u{1F4C5} Exam Timetable \u2014 ${exam?.name||''}`, 12, 11);
     doc.setFontSize(8); doc.setFont(undefined,'normal'); doc.setTextColor(148,163,184);
     doc.text(`Generated: ${new Date().toLocaleDateString()}   •   ${grp.classGroupLabel} (${grp.streamSlots.length} stream(s))`, 12, 18);
     doc.setFontSize(7); doc.text(`All streams sit for the same subject at the same time.`, pw-12, 18, {align:'right'});
@@ -17412,6 +17407,7 @@ function etPrint() {
   const win=window.open('','_blank','width=1200,height=900');
   win.document.write(`<!DOCTYPE html><html><head>
   <title>Exam Timetable — ${exam?.name||'Exam'}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:"Segoe UI",Arial,sans-serif;font-size:9pt;color:#0f172a;padding:12mm 14mm;background:#fff}
