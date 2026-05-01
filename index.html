@@ -1440,7 +1440,7 @@
         <input type="hidden" id="editSubId"/>
         <div class="frow c4">
           <div class="fg"><label>Subject Name *</label><input type="text" id="subName" placeholder="e.g. Mathematics"/></div>
-          <div class="fg"><label>Code *</label><input type="text" id="subCode" placeholder="MTH" maxlength="5"/></div>
+          <input type="hidden" id="subCode"/>
           <div class="fg"><label>Max Marks</label><input type="number" id="subMax" value="100" min="1"/></div>
           <div class="fg"><label>Category</label>
             <select id="subCat"><option>Core</option><option>Elective</option><option>Technical</option><option>Languages</option></select>
@@ -1462,7 +1462,7 @@
         </div>
         <div class="tbl-wrap">
           <table id="subTbl">
-            <thead><tr><th onclick="sortTable('subBody',0,'num')" class="sortable-th"># <span class="sort-ico">⇅</span></th><th onclick="sortTable('subBody',1,'str')" class="sortable-th">Name <span class="sort-ico">⇅</span></th><th onclick="sortTable('subBody',2,'str')" class="sortable-th">Code <span class="sort-ico">⇅</span></th><th onclick="sortTable('subBody',3,'num')" class="sortable-th">Max <span class="sort-ico">⇅</span></th><th onclick="sortTable('subBody',4,'str')" class="sortable-th">Category <span class="sort-ico">⇅</span></th><th onclick="sortTable('subBody',5,'str')" class="sortable-th">Teacher <span class="sort-ico">⇅</span></th><th onclick="sortTable('subBody',6,'num')" class="sortable-th">Enrolled <span class="sort-ico">⇅</span></th><th>Actions</th></tr></thead>
+            <thead><tr><th onclick="sortTable('subBody',0,'num')" class="sortable-th"># <span class="sort-ico">⇅</span></th><th onclick="sortTable('subBody',1,'str')" class="sortable-th">Name <span class="sort-ico">⇅</span></th><th onclick="sortTable('subBody',3,'num')" class="sortable-th">Max <span class="sort-ico">⇅</span></th><th onclick="sortTable('subBody',4,'str')" class="sortable-th">Category <span class="sort-ico">⇅</span></th><th onclick="sortTable('subBody',5,'str')" class="sortable-th">Teacher <span class="sort-ico">⇅</span></th><th onclick="sortTable('subBody',6,'num')" class="sortable-th">Enrolled <span class="sort-ico">⇅</span></th><th>Actions</th></tr></thead>
             <tbody id="subBody"></tbody>
           </table>
         </div>
@@ -2745,9 +2745,6 @@
               +'<input type="text" value="'+escH(s.name)+'" placeholder="Subject name" '
               +'style="flex:1;background:transparent;border:none;color:var(--tt-text);font-size:.75rem;padding:0;outline:none;min-width:0;font-family:inherit" '
               +'oninput="ttSubjectsProxy['+i+'].name=this.value;tt_updateStats()" />'
-              +'<input type="text" value="'+escH(s.code)+'" placeholder="Code" '
-              +'style="width:38px;background:transparent;border:none;color:var(--tt-text2);font-size:.68rem;padding:0;outline:none;text-align:center;font-family:inherit" '
-              +'oninput="ttSubjectsProxy['+i+'].code=this.value" />'
               +'<input type="number" value="'+s.lessonsPerWeek+'" min="1" max="20" title="Lessons/week" '
               +'style="width:30px;background:transparent;border:none;color:var(--tt-gold);font-size:.68rem;padding:0;outline:none;text-align:center;font-family:inherit" '
               +'oninput="ttSubjectsProxy['+i+'].lessonsPerWeek=parseInt(this.value)||1" />'
@@ -3067,7 +3064,7 @@
                 html += '<td><div class="tt-lesson-cell" style="background:'+bg+'22;border-left:3px solid '+bg+(slot.doubleStart?';border-right:3px solid '+bg:'')+(slot.doubleEnd?';border-top:1px dashed '+bg+'66':'')+'">'+
                   (slot.doubleEnd
                     ? '<div style="font-size:.58rem;color:'+bg+';opacity:.7;font-style:italic">'+contMark+'</div>'
-                    : '<div>'+(dblBadge)+'<div class="tt-lesson-subject" style="color:'+bg+'">'+(sub?sub.code||sub.name:'?')+'</div>'
+                    : '<div>'+(dblBadge)+'<div class="tt-lesson-subject" style="color:'+bg+'">'+(sub?sub.name:'?')+'</div>'
                       +'<div class="tt-lesson-teacher">'+(tch?tch.name:'?')+'</div></div>'
                   )+'</div></td>';
               } else {

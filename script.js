@@ -7042,7 +7042,6 @@ function renderSubjects() {
   const subThead=document.querySelector('#subTbl thead tr');
   if(subThead) subThead.innerHTML='<th>#</th>'+
     thSort('subjects','name','Name')+
-    thSort('subjects','code','Code')+
     thSort('subjects','max','Max')+
     thSort('subjects','category','Category')+
     thSort('subjects','teacher','Teacher')+
@@ -7052,7 +7051,6 @@ function renderSubjects() {
     const tch=teachers.find(t=>t.id===s.teacherId);
     return `<tr>
       <td>${i+1}</td><td><strong>${s.name}</strong></td>
-      <td><span class="badge b-blue">${s.code}</span></td>
       <td>${s.max}</td>
       <td><span class="badge ${s.category==='Core'?'b-green':s.category==='Technical'?'b-amber':s.category==='Languages'?'b-teal':'b-purple'}">${s.category}</span></td>
       <td>${tch?`<div style="display:flex;align-items:center;gap:.5rem">${teacherInitialsTag(tch)}<span>${tch.name}</span></div>`:'—'}</td>
@@ -7062,24 +7060,31 @@ function renderSubjects() {
         <button class="icb dl" onclick="deleteSubject('${s.id}')" title="Delete"><i class="fa-solid fa-trash"></i>️</button>
       </div></td>
     </tr>`;
-  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">No subjects yet.</td></tr>';
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">No subjects yet.</td></tr>';
 }
 
 function saveSubject() {
   const name  =document.getElementById('subName').value.trim();
-  const code  =document.getElementById('subCode').value.trim().toUpperCase();
+  const rawCode = document.getElementById('subCode').value.trim().toUpperCase();
   const max   =parseInt(document.getElementById('subMax').value)||100;
   const cat   =document.getElementById('subCat').value;
   const tchId =document.getElementById('subTeacher').value;
-  if(!name||!code){showToast('Name and code required','error');return;}
+  if(!name){showToast('Subject name required','error');return;}
   const editId=document.getElementById('editSubId').value;
+  // Auto-generate code from name if not provided
+  const baseCode = rawCode || name.replace(/[^A-Za-z0-9]/g,'').slice(0,5).toUpperCase() || name.slice(0,3).toUpperCase();
+  let code = baseCode;
+  // Ensure uniqueness
+  if(!editId) {
+    let suffix=1;
+    while(subjects.find(s=>s.code===code)){code=baseCode+suffix;suffix++;}
+  }
   if(editId){
     const i=subjects.findIndex(s=>s.id===editId);
     // Preserve existing studentIds
     if(i>-1)subjects[i]={...subjects[i],name,code,max,category:cat,teacherId:tchId};
     showToast('Subject updated <i class="fa-solid fa-check"></i>','success');
   } else {
-    if(subjects.find(s=>s.code===code)){showToast('Code already exists','error');return;}
     // Auto-enrol all existing students in new subject
     const allStudentIds = students.map(s=>s.id);
     subjects.push({id:uid(),name,code,max,category:cat,teacherId:tchId,studentIds:allStudentIds});
@@ -7098,7 +7103,7 @@ function editSubject(id) {
   const s=subjects.find(x=>x.id===id); if(!s) return;
   document.getElementById('editSubId').value=s.id;
   document.getElementById('subName').value=s.name;
-  document.getElementById('subCode').value=s.code;
+  if(document.getElementById('subCode')) document.getElementById('subCode').value=s.code||'';
   document.getElementById('subMax').value=s.max;
   document.getElementById('subCat').value=s.category;
   document.getElementById('subTeacher').value=s.teacherId||'';
