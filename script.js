@@ -11437,12 +11437,49 @@ function initLang() {
 //  FEES MANAGEMENT MODULE — Charanas Analyzer
 // ══════════════════════════════════════════════════════════
 
-const K_FEES_STRUCT = 'ei_fee_structures';
-const K_FEES_RECORDS = 'ei_fee_records';
+const K_FEES_STRUCT        = 'ei_fee_structures';
+const K_FEES_RECORDS       = 'ei_fee_records';
+const K_FEES_SYNC_CLASSES  = 'ei_fee_sync_classes'; // array of classIds enabled for fees
+const K_FEES_SYNC_STREAMS  = 'ei_fee_sync_streams'; // array of streamIds enabled for fees
 
-let feeStructures = [];   // [{id,classId,term,year,totalFee,breakdown:[{item,amount}]}]
+let feeStructures = [];   // [{id,classId,streamId?,term,year,totalFee,breakdown:[{item,amount}]}]
+                          //   streamId present = stream-specific override; absent = whole class
 let feeRecords = [];      // [{id,studentId,classId,term,year,totalFee,payments:[{id,receiptNo,date,amount,mode,notes,balanceBefore,balanceAfter}]}]
 let lastReceiptHtml = '';
+
+// ── Fee Sync Helpers ──
+function getFeeSyncedClassIds() {
+  try {
+    const v = localStorage.getItem(schoolPrefix() + K_FEES_SYNC_CLASSES);
+    if (v === null) return null; // null = never configured = all classes
+    return JSON.parse(v);
+  } catch { return null; }
+}
+function getFeeSyncedStreamIds() {
+  try {
+    const v = localStorage.getItem(schoolPrefix() + K_FEES_SYNC_STREAMS);
+    if (v === null) return null;
+    return JSON.parse(v);
+  } catch { return null; }
+}
+function saveFeeSyncSettings(classIds, streamIds) {
+  localStorage.setItem(schoolPrefix() + K_FEES_SYNC_CLASSES, JSON.stringify(classIds));
+  localStorage.setItem(schoolPrefix() + K_FEES_SYNC_STREAMS, JSON.stringify(streamIds));
+}
+
+// Returns classes visible in fees (respects sync settings)
+function getFeeVisibleClasses() {
+  const syncedIds = getFeeSyncedClassIds();
+  if (!syncedIds) return classes; // all if never configured
+  return classes.filter(c => syncedIds.includes(c.id));
+}
+// Returns streams visible in fees
+function getFeeVisibleStreams(classId) {
+  const syncedStreamIds = getFeeSyncedStreamIds();
+  const base = classId ? streams.filter(s => s.classId === classId) : streams;
+  if (!syncedStreamIds) return base;
+  return base.filter(s => syncedStreamIds.includes(s.id));
+}
 
 function loadFees() {
   try { feeStructures = JSON.parse(localStorage.getItem(K_FEES_STRUCT)) || []; } catch { feeStructures = []; }
@@ -11467,7 +11504,8 @@ function genReceiptNo() {
 function getOrCreateFeeRecord(studentId, classId, term, year) {
   let rec = feeRecords.find(r => r.studentId===studentId && r.term===term && String(r.year)===String(year));
   if (!rec) {
-    const struct = getFeeStructure(classId, term, year);
+    const stu = students.find(s => s.id === studentId);
+    const struct = stu ? getFeeStructureForStudent(stu, term, year) : getFeeStructure(classId, term, year);
     rec = { id: uid(), studentId, classId, term, year: String(year), totalFee: struct ? struct.totalFee : 0, payments: [] };
     feeRecords.push(rec);
     saveFees();
@@ -11475,8 +11513,20 @@ function getOrCreateFeeRecord(studentId, classId, term, year) {
   return rec;
 }
 
-function getFeeStructure(classId, term, year) {
-  return feeStructures.find(f => f.classId===classId && f.term===term && String(f.year)===String(year));
+function getFeeStructure(classId, term, year, streamId) {
+  // Stream-specific structure takes priority if streamId provided
+  if (streamId) {
+    const streamSpecific = feeStructures.find(f =>
+      f.classId===classId && f.streamId===streamId && f.term===term && String(f.year)===String(year));
+    if (streamSpecific) return streamSpecific;
+  }
+  // Fall back to class-level structure (no streamId = applies to whole class)
+  return feeStructures.find(f => f.classId===classId && !f.streamId && f.term===term && String(f.year)===String(year));
+}
+
+// Resolve the right fee structure for a student (checks stream first, then class)
+function getFeeStructureForStudent(stu, term, year) {
+  return getFeeStructure(stu.classId, term, year, stu.streamId || null);
 }
 
 function getRecordTotalPaid(rec) {
@@ -11505,14 +11555,24 @@ function getPreviousBalance(studentId, term, year) {
     .reduce((sum, r) => sum + getRecordBalance(r), 0);
 
   // Also add full fee from structures where no record exists yet (nothing paid at all)
-  const structTotal = student
-    ? feeStructures
-        .filter(f => f.classId === student.classId && isPrior(f) &&
-                     !feeRecords.some(r => r.studentId === studentId &&
-                                          r.term === f.term &&
-                                          String(r.year) === String(f.year)))
-        .reduce((sum, f) => sum + parseFloat(f.totalFee || 0), 0)
-    : 0;
+  // Use stream-aware lookup: for each prior term where no record exists, get the right structure
+  let structTotal = 0;
+  if (student) {
+    // Collect unique prior term+year combos from all structures for this class
+    const priorTermYears = [...new Set(
+      feeStructures
+        .filter(f => f.classId === student.classId && isPrior(f))
+        .map(f => f.term + '|' + f.year)
+    )];
+    priorTermYears.forEach(key => {
+      const [t, y] = key.split('|');
+      const hasRecord = feeRecords.some(r => r.studentId===studentId && r.term===t && String(r.year)===y);
+      if (!hasRecord) {
+        const struct = getFeeStructureForStudent(student, t, y);
+        if (struct) structTotal += parseFloat(struct.totalFee || 0);
+      }
+    });
+  }
 
   return recordTotal + structTotal;
 }
@@ -11567,6 +11627,7 @@ function openFeesTab(tabId, btn) {
   if (tabId === 'tabFeeStudents')   renderStudentBalances();
   if (tabId === 'tabFeeReminders')  renderFeeReminders();
   if (tabId === 'tabFeeReceipts')   renderReceiptsLog();
+  if (tabId === 'tabFeeSync')       renderFeeSyncSettings();
   if (tabId === 'tabStaffSalary') {
     renderStaffSalaryTable();
     renderBOMSalaryTable();
@@ -11720,10 +11781,11 @@ function populateFeesDropdowns() {
   const teacherStreamIds = isTeacher ? getClassTeacherStreamIds(currentUser.teacherId) : [];
   const teacherClassIds  = isTeacher ? [...new Set(teacherStreamIds.map(sid => { const s=streams.find(x=>x.id===sid); return s?s.classId:null; }).filter(Boolean))] : null;
 
-  // Determine visible classes
+  // Determine visible classes (apply fee sync settings, then teacher filter)
+  const feeSyncedClasses = getFeeVisibleClasses();
   const visibleClasses = teacherClassIds
-    ? classes.filter(c => teacherClassIds.includes(c.id))
-    : classes;
+    ? feeSyncedClasses.filter(c => teacherClassIds.includes(c.id))
+    : feeSyncedClasses;
 
   // Collect all years from structures + records
   const years = [...new Set([
@@ -11747,6 +11809,8 @@ function populateFeesDropdowns() {
   ['fstrClass','fpClass'].forEach(id => {
     const el = document.getElementById(id); if (el) el.innerHTML = strictClassOptions;
   });
+  // Repopulate fstrStream if a class is already selected
+  onFstrClassChange();
 
   // Year dropdowns for payment form
   const yearSelectOptions = years.map(y=>`<option value="${y}">${y}</option>`).join('');
@@ -11812,6 +11876,7 @@ function initFeesSection() {
     tbFeeReceipts  : isFullFees,
     tbFeeImport    : isFullFees,
     tbFeeStudents  : isFullFees || isClassTch,
+    tbFeeSync      : isFullFees,
     tbFeeOverview  : true, // always
   };
   Object.entries(tabs).forEach(([id, show]) => {
@@ -11832,6 +11897,100 @@ function initFeesSection() {
   renderFeeOverview();
 }
 
+
+// ═══════════════════════════════════════════
+// FEE CLASS & STREAM SYNC SETTINGS
+// ═══════════════════════════════════════════
+function renderFeeSyncSettings() {
+  const container = document.getElementById('feeSyncSettingsBody');
+  if (!container) return;
+
+  const syncedClassIds  = getFeeSyncedClassIds();  // null = all enabled
+  const syncedStreamIds = getFeeSyncedStreamIds(); // null = all enabled
+
+  let html = `
+    <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">
+      Select which classes and streams appear in the Fees section.
+      Deselected classes/streams will be hidden from all fee forms and reports.
+    </p>`;
+
+  if (!classes.length) {
+    html += '<p style="color:var(--muted)">No classes found. Add classes first.</p>';
+    container.innerHTML = html;
+    return;
+  }
+
+  classes.forEach(cls => {
+    const clsEnabled = !syncedClassIds || syncedClassIds.includes(cls.id);
+    const clsStreams  = streams.filter(s => s.classId === cls.id);
+    html += `
+      <div class="fee-sync-class-block" style="margin-bottom:1.2rem;padding:1rem;border:1px solid var(--border);border-radius:8px">
+        <label style="display:flex;align-items:center;gap:.6rem;font-weight:700;font-size:.95rem;cursor:pointer;margin-bottom:.5rem">
+          <input type="checkbox" class="fee-sync-cls-chk" data-cls-id="${cls.id}"
+            ${clsEnabled ? 'checked' : ''}
+            onchange="onFeeSyncClassToggle(this)"/>
+          <i class="fa-solid fa-school" style="color:var(--primary)"></i> ${cls.name}
+        </label>`;
+
+    if (clsStreams.length > 0) {
+      html += `<div class="fee-sync-streams" id="feeSyncStreams_${cls.id}" style="margin-left:1.8rem;display:flex;flex-wrap:wrap;gap:.5rem">`;
+      clsStreams.forEach(s => {
+        const sEnabled = !syncedStreamIds || syncedStreamIds.includes(s.id);
+        html += `
+          <label style="display:flex;align-items:center;gap:.4rem;font-size:.85rem;cursor:pointer;
+                        background:var(--surface);padding:.3rem .7rem;border-radius:6px;border:1px solid var(--border)">
+            <input type="checkbox" class="fee-sync-str-chk" data-str-id="${s.id}"
+              ${sEnabled && clsEnabled ? 'checked' : ''} ${!clsEnabled ? 'disabled' : ''}/>
+            <i class="fa-solid fa-layer-group" style="font-size:.75rem;color:var(--muted)"></i> ${s.name}
+          </label>`;
+      });
+      html += '</div>';
+    } else {
+      html += `<div style="margin-left:1.8rem;font-size:.8rem;color:var(--muted)">No streams defined for this class.</div>`;
+    }
+    html += '</div>';
+  });
+
+  html += `
+    <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="applyFeeSyncSettings()">
+        <i class="fa-solid fa-floppy-disk"></i> Save Sync Settings
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="resetFeeSyncSettings()">
+        <i class="fa-solid fa-rotate-left"></i> Enable All (Reset)
+      </button>
+    </div>`;
+
+  container.innerHTML = html;
+}
+
+function onFeeSyncClassToggle(chk) {
+  const clsId = chk.dataset.clsId;
+  const block  = document.getElementById('feeSyncStreams_' + clsId);
+  if (!block) return;
+  block.querySelectorAll('.fee-sync-str-chk').forEach(s => {
+    s.disabled = !chk.checked;
+    if (!chk.checked) s.checked = false;
+    else s.checked = true;
+  });
+}
+
+function applyFeeSyncSettings() {
+  const classIds  = [...document.querySelectorAll('.fee-sync-cls-chk:checked')].map(el => el.dataset.clsId);
+  const streamIds = [...document.querySelectorAll('.fee-sync-str-chk:checked')].map(el => el.dataset.strId);
+  saveFeeSyncSettings(classIds, streamIds);
+  populateFeesDropdowns();
+  showToast('Fee sync settings saved <i class="fa-solid fa-check"></i>', 'success');
+}
+
+function resetFeeSyncSettings() {
+  localStorage.removeItem(schoolPrefix() + K_FEES_SYNC_CLASSES);
+  localStorage.removeItem(schoolPrefix() + K_FEES_SYNC_STREAMS);
+  renderFeeSyncSettings();
+  populateFeesDropdowns();
+  showToast('All classes and streams enabled for fees', 'info');
+}
+
 // ═══════════════════════════════════════════
 // OVERVIEW
 // ═══════════════════════════════════════════
@@ -11847,7 +12006,10 @@ function renderFeeOverview() {
     ? [...new Set(getClassTeacherStreamIds(currentUser.teacherId).map(sid => { const s=streams.find(x=>x.id===sid); return s?s.classId:null; }).filter(Boolean))]
     : null;
 
-  let visibleClasses = teacherClassIds ? classes.filter(c => teacherClassIds.includes(c.id)) : classes;
+  const feeSyncedCls = getFeeVisibleClasses();
+  let visibleClasses = teacherClassIds
+    ? feeSyncedCls.filter(c => teacherClassIds.includes(c.id))
+    : feeSyncedCls;
   if (filterClass) visibleClasses = visibleClasses.filter(c => c.id === filterClass);
 
   // Build summary per class
@@ -11957,9 +12119,20 @@ function addFstrBreakdownRow() {
   container.appendChild(div);
 }
 
+function onFstrClassChange() {
+  const classId = document.getElementById('fstrClass')?.value;
+  const streamSel = document.getElementById('fstrStream');
+  if (!streamSel) return;
+  const classStreams = getFeeVisibleStreams(classId);
+  streamSel.innerHTML = '<option value="">— Whole Class (no stream split) —</option>' +
+    classStreams.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
 function clearFstrForm() {
   document.getElementById('fstrEditId').value = '';
   document.getElementById('fstrClass').value = '';
+  const streamSel = document.getElementById('fstrStream');
+  if (streamSel) streamSel.innerHTML = '<option value="">— Whole Class (no stream split) —</option>';
   document.getElementById('fstrTotal').value = '';
   document.getElementById('fstrBreakdownRows').innerHTML = '';
 }
@@ -11968,11 +12141,12 @@ function saveFeeStructure() {
   const r = currentUser && currentUser.role;
   if (!(r==='superadmin'||r==='admin'||r==='principal'||r==='bursar')) { showToast('Only administrators can edit fee structures','error'); return; }
   loadFees();
-  const editId  = document.getElementById('fstrEditId').value;
-  const classId = document.getElementById('fstrClass').value;
-  const term    = document.getElementById('fstrTerm').value;
-  const year    = document.getElementById('fstrYear').value;
-  const total   = parseFloat(document.getElementById('fstrTotal').value);
+  const editId   = document.getElementById('fstrEditId').value;
+  const classId  = document.getElementById('fstrClass').value;
+  const streamId = document.getElementById('fstrStream')?.value || '';
+  const term     = document.getElementById('fstrTerm').value;
+  const year     = document.getElementById('fstrYear').value;
+  const total    = parseFloat(document.getElementById('fstrTotal').value);
 
   if (!classId || !term || !year || isNaN(total) || total <= 0) {
     showToast('Please fill Class, Term, Year and a valid Total Fee', 'error'); return;
@@ -11986,14 +12160,18 @@ function saveFeeStructure() {
     if (item && amt > 0) breakdown.push({ item, amount: amt });
   });
 
+  const structObj = { classId, term, year: String(year), totalFee: total, breakdown };
+  if (streamId) structObj.streamId = streamId; // stream-specific
+
   if (editId) {
     const i = feeStructures.findIndex(f => f.id === editId);
-    if (i > -1) feeStructures[i] = { ...feeStructures[i], classId, term, year, totalFee: total, breakdown };
+    if (i > -1) feeStructures[i] = { ...feeStructures[i], ...structObj };
   } else {
-    // Check for duplicate
-    const dup = feeStructures.find(f => f.classId===classId && f.term===term && String(f.year)===String(year));
-    if (dup) { showToast('A structure already exists for this class/term/year. Edit it instead.', 'error'); return; }
-    feeStructures.push({ id: uid(), classId, term, year: String(year), totalFee: total, breakdown });
+    // Check for duplicate (same class + stream combo)
+    const dup = feeStructures.find(f =>
+      f.classId===classId && (f.streamId||'')===streamId && f.term===term && String(f.year)===String(year));
+    if (dup) { showToast('A structure already exists for this class/stream/term/year. Edit it instead.', 'error'); return; }
+    feeStructures.push({ id: uid(), ...structObj });
   }
 
   saveFees();
@@ -12010,13 +12188,18 @@ function renderFeeStructureList() {
   if (!feeStructures.length) { el.innerHTML = '<p style="color:var(--muted)">No fee structures yet.</p>'; return; }
 
   el.innerHTML = feeStructures.map(f => {
-    const cls = classes.find(c => c.id === f.classId);
+    const cls    = classes.find(c => c.id === f.classId);
+    const stream = f.streamId ? streams.find(s => s.id === f.streamId) : null;
+    const scopeLabel = stream
+      ? `<span class="badge b-teal" style="font-size:.65rem;margin-left:.4rem"><i class="fa-solid fa-layer-group"></i> ${stream.name}</span>`
+      : `<span class="badge b-blue" style="font-size:.65rem;margin-left:.4rem">Whole Class</span>`;
     return `
       <div class="fee-struct-item">
         <div class="fsi-head">
           <div>
             <strong>${cls?.name || 'Unknown Class'}</strong>
-            <span class="badge b-blue" style="font-size:.65rem;margin-left:.4rem">${f.term} ${f.year}</span>
+            ${scopeLabel}
+            <span class="badge" style="font-size:.65rem;margin-left:.2rem;background:var(--surface);color:var(--muted)">${f.term} ${f.year}</span>
           </div>
           <strong style="color:var(--primary)">KES ${parseFloat(f.totalFee).toLocaleString()}</strong>
         </div>
@@ -12040,6 +12223,12 @@ function editFeeStructure(id) {
   document.getElementById('fstrTerm').value   = f.term;
   document.getElementById('fstrYear').value   = f.year;
   document.getElementById('fstrTotal').value  = f.totalFee;
+  // Populate streams for this class, then set selected stream
+  onFstrClassChange();
+  setTimeout(() => {
+    const streamSel = document.getElementById('fstrStream');
+    if (streamSel && f.streamId) streamSel.value = f.streamId;
+  }, 50);
   const container = document.getElementById('fstrBreakdownRows');
   container.innerHTML = '';
   (f.breakdown||[]).forEach(b => {
@@ -12105,7 +12294,8 @@ function onFpStudentChange() {
     if (card) card.style.display = 'none'; return;
   }
 
-  const struct = getFeeStructure(classId, term, year);
+  const stu_fp  = students.find(s => s.id === stuId);
+  const struct  = stu_fp ? getFeeStructureForStudent(stu_fp, term, year) : getFeeStructure(classId, term, year);
   const rec    = feeRecords.find(r => r.studentId===stuId && r.term===term && String(r.year)===String(year));
   const totalFee = rec ? parseFloat(rec.totalFee||0) : (struct ? parseFloat(struct.totalFee||0) : 0);
   const paid     = rec ? getRecordTotalPaid(rec) : 0;
@@ -12141,11 +12331,12 @@ function recordFeePayment() {
   if (!classId) { showToast('Please select a class', 'error'); return; }
   if (amount <= 0) { showToast('Please enter a valid amount', 'error'); return; }
 
-  const struct   = getFeeStructure(classId, term, year);
+  const stu_pay  = students.find(s => s.id === stuId);
+  const struct   = stu_pay ? getFeeStructureForStudent(stu_pay, term, year) : getFeeStructure(classId, term, year);
   const totalFee = struct ? parseFloat(struct.totalFee||0) : 0;
 
   if (!totalFee) {
-    showToast('No fee structure set for this class/term/year. Create one first.', 'error'); return;
+    showToast('No fee structure set for this class/stream/term/year. Create one first.', 'error'); return;
   }
 
   // Get or create record
@@ -12297,6 +12488,12 @@ function renderStudentBalances() {
     if (teacherClassIds && !teacherClassIds.includes(rec.classId)) return;
 
     const stu = students.find(s => s.id === rec.studentId); if (!stu) return;
+    // Skip if class not synced to fees
+    const feeSyncCls = getFeeSyncedClassIds();
+    if (feeSyncCls && !feeSyncCls.includes(rec.classId)) return;
+    // Skip if student's stream not synced
+    const feeSyncStr = getFeeSyncedStreamIds();
+    if (feeSyncStr && stu.streamId && !feeSyncStr.includes(stu.streamId)) return;
     const cls = classes.find(c => c.id === rec.classId);
     const paid = getRecordTotalPaid(rec);
     const prevBal = getPreviousBalance(rec.studentId, rec.term, rec.year);
@@ -12312,25 +12509,39 @@ function renderStudentBalances() {
   });
 
   // Also add students with NO record if a structure exists for them
+  const sbFeeSyncCls = getFeeSyncedClassIds();
+  const sbFeeSyncStr = getFeeSyncedStreamIds();
   students.forEach(stu => {
     const clsId = stu.classId;
     if (teacherClassIds && !teacherClassIds.includes(clsId)) return;
     if (filterClass && clsId !== filterClass) return;
+    // Respect fee sync settings
+    if (sbFeeSyncCls && !sbFeeSyncCls.includes(clsId)) return;
+    if (sbFeeSyncStr && stu.streamId && !sbFeeSyncStr.includes(stu.streamId)) return;
 
-    const structs = feeStructures.filter(f => f.classId===clsId
-      && (!filterTerm || f.term===filterTerm)
-      && (!filterYear || String(f.year)===filterYear));
+    // Find unique term+year combos where a structure applies to this student
+    const termYearSet = new Set();
+    feeStructures
+      .filter(f => f.classId===clsId
+        && (!filterTerm || f.term===filterTerm)
+        && (!filterYear || String(f.year)===filterYear))
+      .forEach(f => termYearSet.add(f.term + '|' + f.year));
 
-    structs.forEach(struct => {
-      const exists = feeRecords.some(r => r.studentId===stu.id && r.term===struct.term && String(r.year)===struct.year);
+    termYearSet.forEach(key => {
+      const [t, y] = key.split('|');
+      const exists = feeRecords.some(r => r.studentId===stu.id && r.term===t && String(r.year)===y);
       if (exists) return;
+
+      // Get the right structure for this student (stream-aware)
+      const struct = getFeeStructureForStudent(stu, t, y);
+      if (!struct) return;
 
       if (filterStatus && filterStatus !== 'unpaid') return;
       if (search && !stu.name.toLowerCase().includes(search) && !stu.adm.toLowerCase().includes(search)) return;
 
       const cls = classes.find(c => c.id === clsId);
-      const noPrevBal = getPreviousBalance(stu.id, struct.term, struct.year);
-      rows.push({ rec: { id: null, studentId: stu.id, classId: clsId, term: struct.term, year: struct.year, totalFee: struct.totalFee, payments: [] }, stu, cls, paid: 0, bal: struct.totalFee, cumBal: noPrevBal + struct.totalFee, pct: 0, statusKey: 'unpaid' });
+      const noPrevBal = getPreviousBalance(stu.id, t, y);
+      rows.push({ rec: { id: null, studentId: stu.id, classId: clsId, term: t, year: y, totalFee: struct.totalFee, payments: [] }, stu, cls, paid: 0, bal: struct.totalFee, cumBal: noPrevBal + struct.totalFee, pct: 0, statusKey: 'unpaid' });
     });
   });
 

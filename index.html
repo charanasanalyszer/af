@@ -3680,6 +3680,7 @@
         <button class="tb" onclick="openFeesTab('tabFeeImport',this)" id="tbFeeImport">⬆ Import Fees</button>
         <button class="tb" onclick="openFeesTab('tabFeeReminders',this)" id="tbFeeReminders"><i class="fa-solid fa-bell"></i> Reminders</button>
         <button class="tb" onclick="openFeesTab('tabFeeReceipts',this)" id="tbFeeReceipts"><i class="fa-solid fa-receipt"></i> Receipts</button>
+        <button class="tb" onclick="openFeesTab('tabFeeSync',this)" id="tbFeeSync"><i class="fa-solid fa-sliders"></i> Class Sync</button>
       </div>
 
       <!-- ── OVERVIEW TAB ── -->
@@ -3729,10 +3730,24 @@
             <input type="hidden" id="fstrEditId"/>
             <div class="frow c2">
               <div class="fg"><label>Class *</label>
-                <select id="fstrClass"><option value="">— Select Class —</option></select>
+                <select id="fstrClass" onchange="onFstrClassChange()"><option value="">— Select Class —</option></select>
               </div>
               <div class="fg"><label>Term *</label>
                 <select id="fstrTerm"><option>Term 1</option><option>Term 2</option><option>Term 3</option></select>
+              </div>
+            </div>
+            <div class="frow c2" style="margin-top:.5rem">
+              <div class="fg">
+                <label>Stream <span style="font-size:.75rem;color:var(--muted)">(optional)</span></label>
+                <select id="fstrStream">
+                  <option value="">— Whole Class (no stream split) —</option>
+                </select>
+              </div>
+              <div class="fg" style="display:flex;align-items:flex-end">
+                <p style="font-size:.78rem;color:var(--muted);margin:0;padding-bottom:.5rem">
+                  <i class="fa-solid fa-circle-info"></i>
+                  A stream-specific fee overrides the class-level fee for students in that stream.
+                </p>
               </div>
             </div>
             <div class="frow c2">
@@ -3963,6 +3978,16 @@
         </div>
       </div>
 
+
+      <!-- ── SYNC SETTINGS TAB ── -->
+      <div id="tabFeeSync" class="tab-panel">
+        <div class="card">
+          <h3><i class="fa-solid fa-sliders"></i> Class &amp; Stream Sync Settings</h3>
+          <div id="feeSyncSettingsBody">
+            <p style="color:var(--muted)">Loading…</p>
+          </div>
+        </div>
+      </div>
 
       </div><!-- /financeFees -->
 
