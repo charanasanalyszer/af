@@ -6034,6 +6034,268 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
   </div>`;
 }
 
+// ── Gender analysis panel for Merit List ────────────────────────────────────
+// `scored` is the array returned by buildMeritData (each entry has .gender, .mean, .grade, .name, .adm, .points)
+function buildGenderAnalysisMeritHTML(scored, examId) {
+  if (!scored || !scored.length) return '';
+  const gs = getActiveGradingSystem();
+  const gradeKeys = gs.bands.map(b => b.grade);
+
+  const males   = scored.filter(s => s.gender === 'M');
+  const females = scored.filter(s => s.gender === 'F');
+  const total   = scored.length;
+
+  if (!males.length && !females.length) return '';
+
+  function avg(arr, key) {
+    if (!arr.length) return null;
+    return arr.reduce((a, s) => a + (s[key] || 0), 0) / arr.length;
+  }
+
+  const mMean = avg(males,   'mean');
+  const fMean = avg(females, 'mean');
+  const mPts  = avg(males,   'points');
+  const fPts  = avg(females, 'points');
+
+  function topStudent(arr) {
+    if (!arr.length) return null;
+    return arr.reduce((best, s) => s.total > best.total ? s : best, arr[0]);
+  }
+  const mTop = topStudent(males);
+  const fTop = topStudent(females);
+
+  function gradeDist(arr) {
+    const dist = {};
+    gradeKeys.forEach(g => dist[g] = 0);
+    arr.forEach(s => {
+      const g = s.grade?.grade;
+      if (g && dist[g] !== undefined) dist[g]++;
+    });
+    return dist;
+  }
+  const mDist = gradeDist(males);
+  const fDist = gradeDist(females);
+
+  function statCol(arr, mean, pts, top, dist, color, icon, label) {
+    if (!arr.length) return `<div style="flex:1;min-width:160px;opacity:.45;text-align:center;padding:1rem;font-size:.82rem;color:var(--muted)">No ${label} students</div>`;
+    const gradeG = mean !== null ? getMeanGrade((mean / 100) * 8) : null;
+    const ptsG   = pts  !== null ? getPointsGrade(pts) : null;
+    const pct    = Math.round(arr.length / total * 100);
+
+    const distBars = gradeKeys.map(g => {
+      const cnt = dist[g] || 0;
+      if (!cnt) return '';
+      const p = Math.round(cnt / arr.length * 100);
+      return `<div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.2rem">
+        <span style="font-size:.65rem;font-weight:700;width:28px;text-align:right;color:var(--muted)">${g}</span>
+        <div style="flex:1;background:var(--border);border-radius:3px;height:9px;overflow:hidden">
+          <div style="width:${p}%;height:100%;background:${color};border-radius:3px"></div>
+        </div>
+        <span style="font-size:.65rem;color:var(--muted);width:34px">${cnt}(${p}%)</span>
+      </div>`;
+    }).filter(Boolean).join('');
+
+    return `<div style="flex:1;min-width:180px;background:var(--surface,#fff);border:1.5px solid ${color}22;border-radius:10px;padding:.85rem 1rem">
+      <div style="display:flex;align-items:center;gap:.45rem;margin-bottom:.6rem">
+        <span style="font-size:1.1rem">${icon}</span>
+        <strong style="font-size:.9rem;color:${color}">${label}</strong>
+        <span style="margin-left:auto;font-size:.75rem;color:var(--muted)">${arr.length} / ${total} (${pct}%)</span>
+      </div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.65rem">
+        <div style="background:${color}11;border-radius:7px;padding:.3rem .6rem;text-align:center;min-width:72px">
+          <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;font-weight:600">Mean</div>
+          <div style="font-size:1rem;font-weight:700;color:${color}">${mean !== null ? mean.toFixed(1) : '—'}</div>
+          ${gradeG ? `<span class="badge ${gradeG.cls}" style="font-size:.62rem">${gradeG.grade}</span>` : ''}
+        </div>
+        <div style="background:${color}11;border-radius:7px;padding:.3rem .6rem;text-align:center;min-width:72px">
+          <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;font-weight:600">Avg Pts</div>
+          <div style="font-size:1rem;font-weight:700;color:${color}">${pts !== null ? pts.toFixed(1) : '—'}</div>
+          ${ptsG ? `<span class="badge ${ptsG.cls}" style="font-size:.62rem">${ptsG.grade}</span>` : ''}
+        </div>
+        ${top ? `<div style="background:${color}11;border-radius:7px;padding:.3rem .6rem;flex:1;min-width:110px">
+          <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;font-weight:600">Top Student</div>
+          <div style="font-size:.78rem;font-weight:700;color:var(--fg)">${top.name}</div>
+          <div style="font-size:.68rem;color:var(--muted)">${top.adm} &bull; ${top.mean.toFixed(1)} avg</div>
+        </div>` : ''}
+      </div>
+      <div style="font-size:.65rem;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:.3rem">Grade Distribution</div>
+      ${distBars || '<span style="font-size:.75rem;color:var(--muted)">No data</span>'}
+    </div>`;
+  }
+
+  // Summary comparison row
+  let compHTML = '';
+  if (males.length && females.length && mMean !== null && fMean !== null) {
+    const diff = mMean - fMean;
+    const leader = diff > 0.05 ? '♂ Males lead' : diff < -0.05 ? '♀ Females lead' : 'Equally matched';
+    const lColor = diff > 0.05 ? '#3b82f6' : diff < -0.05 ? '#ec4899' : '#6b7280';
+    compHTML = `<div style="margin-top:.75rem;padding:.45rem .9rem;background:var(--primary-lt,#eff6ff);border-radius:8px;font-size:.8rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+      <span style="font-weight:700;color:${lColor}">${leader}</span>
+      <span style="color:var(--muted)">Mean gap: <strong style="color:var(--fg)">${Math.abs(diff).toFixed(2)}</strong> marks</span>
+      <span style="color:var(--muted)">♂ ${males.length} &bull; ♀ ${females.length} &bull; Total ${total}</span>
+    </div>`;
+  }
+
+  return `<div style="margin-top:1rem;padding:.85rem 1rem;background:linear-gradient(135deg,#f8faff 0%,#fef9ff 100%);border:1.5px solid var(--border);border-radius:12px">
+    <div style="font-size:.82rem;font-weight:700;color:var(--primary);margin-bottom:.7rem;display:flex;align-items:center;gap:.4rem">
+      <i class="fa-solid fa-venus-mars"></i> Gender Analysis
+    </div>
+    <div style="display:flex;gap:.85rem;flex-wrap:wrap">
+      ${statCol(males,   mMean, mPts, mTop, mDist, '#3b82f6', '♂', 'Male')}
+      ${statCol(females, fMean, fPts, fTop, fDist, '#ec4899', '♀', 'Female')}
+    </div>
+    ${compHTML}
+  </div>`;
+}
+
+// ── Gender analysis section for Summary Analytics ────────────────────────────
+// `clsStudentData` = [{stu, total, mean}], exam + isConsolidated + sourceExamObjs for subject lookup
+function buildGenderAnalysisSummaryHTML(clsStudentData, exam, isConsolidated, sourceExamObjs) {
+  if (!clsStudentData || !clsStudentData.length) return '';
+  const gs = getActiveGradingSystem();
+  const gradeKeys = gs.bands.map(b => b.grade);
+  const podiumLabels = ['🥇','🥈','🥉'];
+
+  const males   = clsStudentData.filter(d => d.stu.gender === 'M');
+  const females = clsStudentData.filter(d => d.stu.gender === 'F');
+  const total   = clsStudentData.length;
+
+  if (!males.length && !females.length) return '';
+
+  function avgMean(arr) {
+    if (!arr.length) return null;
+    return arr.reduce((a,d) => a + d.mean, 0) / arr.length;
+  }
+
+  const mMean = avgMean(males);
+  const fMean = avgMean(females);
+
+  function gradeDist(arr) {
+    const dist = {};
+    gradeKeys.forEach(g => dist[g] = 0);
+    arr.forEach(d => {
+      const g = getMeanGrade ? getMeanGrade((d.mean / 100) * 8) : null;
+      if (g && dist[g.grade] !== undefined) dist[g.grade]++;
+    });
+    return dist;
+  }
+  const mDist = gradeDist(males);
+  const fDist = gradeDist(females);
+
+  function top3HTML(arr, color) {
+    return arr.slice(0,3).map((d,i) => `<div style="display:flex;align-items:center;gap:.5rem;padding:.28rem 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:.9rem">${podiumLabels[i]||`${i+1}.`}</span>
+      <span style="font-size:.8rem;font-weight:600;flex:1;color:var(--fg)">${d.stu.name}</span>
+      <span style="font-size:.75rem;color:${color};font-weight:700">${d.mean.toFixed(1)}</span>
+    </div>`).join('') || '<span style="font-size:.78rem;color:var(--muted)">No data</span>';
+  }
+
+  function distBarsHTML(dist, arr, color) {
+    return gradeKeys.map(g => {
+      const cnt = dist[g] || 0;
+      if (!cnt) return '';
+      const p = arr.length ? Math.round(cnt / arr.length * 100) : 0;
+      return `<div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.22rem">
+        <span style="font-size:.65rem;font-weight:700;width:30px;text-align:right;color:var(--muted)">${g}</span>
+        <div style="flex:1;background:var(--border);border-radius:3px;height:9px;overflow:hidden">
+          <div style="width:${p}%;height:100%;background:${color};border-radius:3px"></div>
+        </div>
+        <span style="font-size:.65rem;color:var(--muted);width:36px">${cnt}(${p}%)</span>
+      </div>`;
+    }).filter(Boolean).join('') || '<span style="font-size:.75rem;color:var(--muted)">—</span>';
+  }
+
+  // Per-subject gender means
+  const subjectRows = (exam.subjectIds || []).map(sid => {
+    const sub = subjects.find(s => s.id === sid); if (!sub) return null;
+    function genderSubMean(arr) {
+      const vals = arr.map(d => smGetSubjectScore(exam, isConsolidated, sourceExamObjs, d.stu.id, sid)).filter(v => v !== null);
+      return vals.length ? parseFloat((vals.reduce((a,b) => a+b, 0) / vals.length).toFixed(1)) : null;
+    }
+    const mS = males.length   ? genderSubMean(males)   : null;
+    const fS = females.length ? genderSubMean(females) : null;
+    if (mS === null && fS === null) return null;
+    const diff = (mS !== null && fS !== null) ? (mS - fS) : null;
+    const bar = diff !== null
+      ? `<div style="display:flex;align-items:center;gap:.3rem">
+          ${diff > 0.5 ? `<span style="color:#3b82f6;font-size:.7rem">♂+${diff.toFixed(1)}</span>` : diff < -0.5 ? `<span style="color:#ec4899;font-size:.7rem">♀+${Math.abs(diff).toFixed(1)}</span>` : `<span style="font-size:.7rem;color:var(--muted)">≈equal</span>`}
+        </div>`
+      : '';
+    return { sub, mS, fS, bar };
+  }).filter(Boolean);
+
+  const subTableHTML = subjectRows.length ? `
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:.8rem">
+        <thead>
+          <tr style="background:var(--primary-lt,#eff6ff)">
+            <th style="padding:.4rem .6rem;text-align:left;font-weight:700;color:var(--primary)">Subject</th>
+            <th style="padding:.4rem .6rem;text-align:center;color:#3b82f6">♂ Mean</th>
+            <th style="padding:.4rem .6rem;text-align:center;color:#ec4899">♀ Mean</th>
+            <th style="padding:.4rem .6rem;text-align:center;color:var(--muted)">Gap</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${subjectRows.map((r,i) => `<tr style="background:${i%2?'var(--surface,#fff)':'#fafbff'}">
+            <td style="padding:.35rem .6rem;font-weight:600">${r.sub.name} <span class="badge b-blue" style="font-size:.6rem">${r.sub.code}</span></td>
+            <td style="padding:.35rem .6rem;text-align:center;font-weight:700;color:#3b82f6">${r.mS !== null ? r.mS : '—'}</td>
+            <td style="padding:.35rem .6rem;text-align:center;font-weight:700;color:#ec4899">${r.fS !== null ? r.fS : '—'}</td>
+            <td style="padding:.35rem .6rem;text-align:center">${r.bar}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>` : '<span style="font-size:.8rem;color:var(--muted)">No subject data</span>';
+
+  function statCard(arr, mean, dist, color, icon, label) {
+    const pct = Math.round(arr.length / total * 100);
+    const gradeG = mean !== null ? getMeanGrade((mean / 100) * 8) : null;
+    return `<div style="flex:1;min-width:200px;background:var(--surface,#fff);border:1.5px solid ${color}33;border-radius:10px;padding:.8rem 1rem">
+      <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.55rem">
+        <span style="font-size:1rem">${icon}</span>
+        <strong style="color:${color}">${label}</strong>
+        <span style="margin-left:auto;font-size:.72rem;color:var(--muted)">${arr.length} students (${pct}%)</span>
+      </div>
+      <div style="display:flex;gap:.5rem;margin-bottom:.6rem;flex-wrap:wrap">
+        <div style="background:${color}11;border-radius:7px;padding:.3rem .7rem;text-align:center;min-width:80px">
+          <div style="font-size:.63rem;color:var(--muted);font-weight:600;text-transform:uppercase">Class Mean</div>
+          <div style="font-size:1.05rem;font-weight:700;color:${color}">${mean !== null ? mean.toFixed(1) : '—'}</div>
+          ${gradeG ? `<span class="badge ${gradeG.cls}" style="font-size:.6rem">${gradeG.grade}</span>` : ''}
+        </div>
+        <div style="flex:1;min-width:120px">
+          <div style="font-size:.63rem;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:.3rem">Top Performers</div>
+          ${top3HTML(arr, color)}
+        </div>
+      </div>
+      <div style="font-size:.63rem;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:.3rem">Grade Distribution</div>
+      ${distBarsHTML(dist, arr, color)}
+    </div>`;
+  }
+
+  const diff = (mMean !== null && fMean !== null) ? (mMean - fMean) : null;
+  const gapHTML = diff !== null ? (() => {
+    const leader = Math.abs(diff) < 0.5 ? 'Essentially equal performance' : diff > 0 ? '♂ Males outperform' : '♀ Females outperform';
+    const lCol   = Math.abs(diff) < 0.5 ? '#6b7280' : diff > 0 ? '#3b82f6' : '#ec4899';
+    return `<div style="margin-top:.7rem;padding:.45rem .9rem;background:var(--primary-lt,#eff6ff);border-radius:8px;font-size:.8rem;display:flex;gap:1rem;flex-wrap:wrap;align-items:center">
+      <span style="font-weight:700;color:${lCol}">${leader}</span>
+      <span style="color:var(--muted)">Mean gap: <strong>${Math.abs(diff).toFixed(2)}</strong></span>
+      <span style="color:var(--muted)">♂ ${males.length} &bull; ♀ ${females.length}</span>
+    </div>`;
+  })() : '';
+
+  return `<div class="card sm-section" style="border-left:4px solid #8b5cf6">
+    <h4 class="sm-section-title" style="color:#8b5cf6"><i class="fa-solid fa-venus-mars"></i> Gender Analysis</h4>
+    <div style="display:flex;gap:.85rem;flex-wrap:wrap;margin-bottom:.85rem">
+      ${statCard(males,   mMean, mDist, '#3b82f6', '♂', 'Male')}
+      ${statCard(females, fMean, fDist, '#ec4899', '♀', 'Female')}
+    </div>
+    ${gapHTML}
+    <div style="margin-top:.85rem">
+      <div style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:.45rem"><i class="fa-solid fa-table"></i> Subject-by-Subject Gender Comparison</div>
+      ${subTableHTML}
+    </div>
+  </div>`;
+}
+
 // Build the HTML rows for a merit list table (shared by overall + per-stream)
 function buildMeritTableHTML(scored, examId, showStreamCol) {
   const exam       = exams.find(e => e.id === examId); if (!exam) return '';
@@ -6601,6 +6863,9 @@ function renderSummaryAnalytics() {
       }
     }
 
+    // ── 7. Gender analysis ──
+    const genderAnalysisHTML = buildGenderAnalysisSummaryHTML(clsStudentData, exam, isConsolidated, sourceExamObjs);
+
     // ── 6. Per-stream breakdown ──
     const clsStreams = streams.filter(st=>st.classId===cls.id);
     let streamsHTML = '';
@@ -6669,6 +6934,7 @@ function renderSummaryAnalytics() {
 
       ${mostImprovedHTML}
       ${mostImprovedSubHTML}
+      ${genderAnalysisHTML}
 
       ${streamsHTML ? `<div class="card sm-section">
         <h4 class="sm-section-title"> Per-Stream Breakdown</h4>
@@ -8925,6 +9191,7 @@ function renderMeritList() {
       <strong style="color:#1a6fb5;margin-right:.3rem">Points Grade Scale (out of 72):</strong>
       ${POINTS_GRADE_BANDS.slice().reverse().map(b=>`<span class="badge ${b.cls}" style="font-size:.65rem">${b.grade}: ${b.min}–${b.max}</span>`).join('')}
     </div>`;
+    const streamGenderAnalysis = buildGenderAnalysisMeritHTML(streamScored, examId);
     container.innerHTML = ptsLegendStream + `
       <h3 style="margin-bottom:.75rem;font-family:var(--font);font-weight:700">
          ${cls ? cls.name + ' &rsaquo; ' : ''}${str?.name||streamId} &mdash; Stream Merit List
@@ -8933,6 +9200,7 @@ function renderMeritList() {
       <div class="tbl-wrap">
         <table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
       </div>
+      ${streamGenderAnalysis}
       ${subAnalysis}`;
     return;
   }
@@ -8970,6 +9238,7 @@ function renderMeritList() {
 
     const { headerRow: clsHdr, bodyRows: clsRows } = buildMeritTableHTML(classScored, examId, true);
     const clsSubAnalysis = buildSubjectAnalysisHTML(examId, classScored.map(s=>s.id));
+    const clsGenderAnalysis = buildGenderAnalysisMeritHTML(classScored, examId);
 
     let streamSections = '';
     if (type === 'class_overall_and_stream') {
@@ -8984,6 +9253,7 @@ function renderMeritList() {
         if (!strScored.length) return '';
         const { headerRow, bodyRows } = buildMeritTableHTML(strScored, examId, false);
         const strSubAnalysis = buildSubjectAnalysisHTML(examId, strScored.map(s=>s.id));
+        const strGenderAnalysis = buildGenderAnalysisMeritHTML(strScored, examId);
         return `
           <div style="margin-top:1.5rem">
             <h4 style="margin-bottom:.6rem;font-family:var(--font);font-weight:700;color:var(--secondary);font-size:.95rem">
@@ -8993,6 +9263,7 @@ function renderMeritList() {
             <div class="tbl-wrap">
               <table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
             </div>
+            ${strGenderAnalysis}
             ${strSubAnalysis}
           </div>`;
       }).join('');
@@ -9008,6 +9279,7 @@ function renderMeritList() {
         <div class="tbl-wrap">
           <table><thead>${clsHdr}</thead><tbody>${clsRows}</tbody></table>
         </div>
+        ${clsGenderAnalysis}
         ${clsSubAnalysis}
         ${streamSections}
       </div>`;
