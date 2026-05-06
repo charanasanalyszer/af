@@ -5532,6 +5532,82 @@ function printMarksSheet() {
   doc.save(`MarksSheet_${safeName}.pdf`);
 }
 
+// ── Excel Marks Booklet — one sheet per class, all students × all subjects ──
+function downloadMarksBooklet() {
+  const examId = document.getElementById('umExam').value;
+  if (!examId) { showToast('Please select an exam first', 'error'); return; }
+
+  const exam = exams.find(e => e.id === examId);
+  if (!exam) { showToast('Exam not found', 'error'); return; }
+
+  // Subjects for this exam
+  const examSubIds = exam.subjectIds && exam.subjectIds.length
+    ? exam.subjectIds
+    : subjects.map(s => s.id);
+  const examSubjects = subjects.filter(s => examSubIds.includes(s.id));
+  if (!examSubjects.length) { showToast('No subjects found for this exam', 'error'); return; }
+
+  const wb = XLSX.utils.book_new();
+
+  // One sheet per class; if class has streams, one sheet per stream
+  classes.forEach(cls => {
+    const classStreams = streams.filter(s => s.classId === cls.id);
+    const groups = classStreams.length
+      ? classStreams.map(str => ({ label: `${cls.name} ${str.name}`.slice(0, 31), students: students.filter(s => s.classId === cls.id && s.streamId === str.id) }))
+      : [{ label: cls.name.slice(0, 31), students: students.filter(s => s.classId === cls.id) }];
+
+    groups.forEach(group => {
+      if (!group.students.length) return; // skip empty classes/streams
+
+      const stuSorted = [...group.students].sort((a, b) => a.name.localeCompare(b.name));
+
+      // Header row 1: merged title (we'll fake it with a note row)
+      const infoRow = [`Exam: ${exam.name}`, `Class: ${group.label}`, `Term: ${settings.term || ''}`, `Year: ${settings.year || ''}`, `School: ${settings.schoolName || ''}`];
+
+      // Header row 2: column labels
+      const headerRow = ['#', 'Adm No', 'Student Name', 'Gender', ...examSubjects.map(s => s.code || s.name)];
+
+      // Data rows — blank marks cells
+      const dataRows = stuSorted.map((stu, idx) => [
+        idx + 1,
+        stu.adm,
+        stu.name,
+        stu.gender || '',
+        ...examSubjects.map(() => ''),
+      ]);
+
+      // Max marks row at the bottom
+      const maxRow = ['', '', 'MAX MARKS', '', ...examSubjects.map(s => s.max || 100)];
+
+      const wsData = [infoRow, [], headerRow, ...dataRows, [], maxRow];
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+      // Column widths
+      ws['!cols'] = [
+        { wch: 4 },   // #
+        { wch: 12 },  // Adm No
+        { wch: 28 },  // Name
+        { wch: 6 },   // Gender
+        ...examSubjects.map(() => ({ wch: 10 })),
+      ];
+
+      // Freeze the header rows so student names stay visible while scrolling
+      ws['!freeze'] = { xSplit: 0, ySplit: 3 };
+
+      XLSX.utils.book_append_sheet(wb, ws, group.label);
+    });
+  });
+
+  if (wb.SheetNames.length === 0) {
+    showToast('No students found in any class', 'error');
+    return;
+  }
+
+  const fname = `MarksBooklet_${(exam.name || 'exam').replace(/\s+/g, '_')}_${settings.year || ''}.xlsx`;
+  XLSX.writeFile(wb, fname);
+  showToast(`Marks booklet downloaded — ${wb.SheetNames.length} sheet(s) <i class="fa-solid fa-check"></i>`, 'success');
+}
+
 // Download template for ALL subjects (for bulk upload)
 function downloadAllSubjectsTemplate() {
   const examId  = document.getElementById('umExam').value;
