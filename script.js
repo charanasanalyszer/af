@@ -5374,6 +5374,175 @@ function handleMarksUpload(input) {
   input.value = '';
 }
 
+// ── Print Marks Sheet PDF (blank sheet for manual marks entry) ──
+function printMarksSheet() {
+  const examId   = document.getElementById('umExam').value;
+  const classId  = document.getElementById('umClass').value;
+  const streamId = document.getElementById('umStream').value;
+
+  if (!examId) { showToast('Please select an exam first', 'error'); return; }
+  if (!classId) { showToast('Please select a class first', 'error'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const exam    = exams.find(e => e.id === examId);
+  const cls     = classes.find(c => c.id === classId);
+  const stream  = streams.find(s => s.id === streamId);
+
+  // Get subjects for this exam
+  const examSubIds = exam && exam.subjectIds && exam.subjectIds.length
+    ? exam.subjectIds
+    : subjects.map(s => s.id);
+  const examSubjects = subjects.filter(s => examSubIds.includes(s.id));
+
+  // Get students in the selected class/stream
+  let stuList = students.filter(s => s.classId === classId);
+  if (streamId) stuList = stuList.filter(s => s.streamId === streamId);
+  stuList.sort((a, b) => a.name.localeCompare(b.name));
+
+  if (!stuList.length) { showToast('No students found for the selected class/stream', 'error'); return; }
+  if (!examSubjects.length) { showToast('No subjects found for this exam', 'error'); return; }
+
+  // School info from settings
+  const schoolName = settings.schoolName || 'School';
+  const address    = settings.address    || '';
+  const email      = settings.email      || '';
+  const term       = settings.term       || '';
+  const year       = settings.year       || '';
+
+  // Page setup — landscape for many subjects
+  const orientation = examSubjects.length > 5 ? 'landscape' : 'portrait';
+  const doc = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
+  const W   = orientation === 'landscape' ? 297 : 210;
+  const margin = 12;
+
+  const blue    = [26, 111, 181];
+  const darkBg  = [15, 23, 42];
+  const white   = [255, 255, 255];
+  const light   = [241, 245, 249];
+  const muted   = [100, 116, 139];
+  const dark    = [15, 23, 42];
+
+  // ── Letterhead ──
+  doc.setFillColor(...blue);
+  doc.rect(0, 0, W, 28, 'F');
+
+  // School name
+  doc.setTextColor(...white);
+  doc.setFontSize(14);
+  doc.setFont(undefined, 'bold');
+  doc.text(schoolName.toUpperCase(), margin, 10);
+
+  // Address & email on left
+  doc.setFontSize(7.5);
+  doc.setFont(undefined, 'normal');
+  doc.setTextColor(200, 220, 255);
+  const contactParts = [];
+  if (address) contactParts.push('P.O. Box ' + address);
+  if (email)   contactParts.push(email);
+  if (contactParts.length) doc.text(contactParts.join('  |  '), margin, 16.5);
+
+  // Exam title on right
+  doc.setTextColor(...white);
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'bold');
+  doc.text('MARKS ENTRY SHEET', W - margin, 10, { align: 'right' });
+  doc.setFontSize(7.5);
+  doc.setFont(undefined, 'normal');
+  doc.setTextColor(200, 220, 255);
+  const examLabel = [exam?.name, term, year].filter(Boolean).join(' · ');
+  doc.text(examLabel, W - margin, 16.5, { align: 'right' });
+
+  // ── Info bar below header ──
+  let y = 32;
+  doc.setFillColor(...light);
+  doc.rect(margin, y, W - margin * 2, 10, 'F');
+  doc.setFontSize(8);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(...dark);
+  const classLabel = [cls?.name, stream?.name].filter(Boolean).join(' — ');
+  doc.text('Class: ' + classLabel, margin + 3, y + 6.5);
+  doc.text('Students: ' + stuList.length, W - margin - 3, y + 6.5, { align: 'right' });
+
+  y += 15;
+
+  // ── Build table ──
+  // Fixed columns: #, Adm No, Student Name
+  // Then one column per subject (blank for writing marks)
+  // Then Total & Avg at the end
+
+  const fixedHead = ['#', 'Adm No', 'Student Name'];
+  const subHeaders = examSubjects.map(s => s.code || s.name.slice(0, 6));
+  const trailingHead = ['Total', 'Avg', 'Remarks'];
+  const head = [...fixedHead, ...subHeaders, ...trailingHead];
+
+  const body = stuList.map((stu, idx) => [
+    idx + 1,
+    stu.adm,
+    stu.name,
+    ...examSubjects.map(() => ''),   // blank subject columns
+    '', '', ''                        // total, avg, remarks
+  ]);
+
+  // Column widths: fixed cols wider, subject cols equal share
+  const fixedWidths  = [8, 18, 40];
+  const trailWidths  = [14, 10, 22];
+  const usedFixed    = fixedWidths.reduce((a, b) => a + b, 0);
+  const usedTrail    = trailWidths.reduce((a, b) => a + b, 0);
+  const subColW      = Math.max(
+    10,
+    Math.floor((W - margin * 2 - usedFixed - usedTrail) / Math.max(examSubjects.length, 1))
+  );
+  const columnStyles = {};
+  fixedWidths.forEach((w, i)          => { columnStyles[i]                        = { cellWidth: w }; });
+  subHeaders.forEach((_, i)           => { columnStyles[fixedHead.length + i]     = { cellWidth: subColW, halign: 'center' }; });
+  trailWidths.forEach((w, i)          => { columnStyles[fixedHead.length + subHeaders.length + i] = { cellWidth: w, halign: 'center' }; });
+
+  doc.autoTable({
+    startY: y,
+    head: [head],
+    body,
+    theme: 'grid',
+    styles: { fontSize: 7, cellPadding: 2.2, textColor: dark, lineColor: [200, 210, 220], lineWidth: 0.25 },
+    headStyles: { fillColor: blue, textColor: white, fontStyle: 'bold', fontSize: 7, halign: 'center', cellPadding: 2.5 },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles,
+    margin: { left: margin, right: margin },
+    didParseCell(data) {
+      // Make trailing columns (Total, Avg, Remarks) slightly shaded header
+      if (data.section === 'head' && data.column.index >= fixedHead.length + subHeaders.length) {
+        data.cell.styles.fillColor = [22, 78, 140];
+      }
+    }
+  });
+
+  // ── Max marks row reference ──
+  const finalY = doc.lastAutoTable.finalY + 4;
+  doc.setFontSize(6.5);
+  doc.setFont(undefined, 'italic');
+  doc.setTextColor(...muted);
+  const maxRef = examSubjects.map(s => `${s.code||s.name.slice(0,5)}: ${s.max}`).join('  ');
+  doc.text('Max marks — ' + maxRef, margin, finalY);
+
+  // ── Footer ──
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(6.5);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(...muted);
+    doc.text(
+      `${schoolName}  ·  ${examLabel}  ·  Page ${i} of ${pageCount}`,
+      W / 2, doc.internal.pageSize.getHeight() - 5,
+      { align: 'center' }
+    );
+    // Teacher signature line
+    doc.text("Teacher's Signature: _______________________", W - margin, doc.internal.pageSize.getHeight() - 5, { align: 'right' });
+  }
+
+  const safeName = [cls?.name, stream?.name, exam?.name].filter(Boolean).join('_').replace(/\s+/g, '_');
+  doc.save(`MarksSheet_${safeName}.pdf`);
+}
+
 // Download template for ALL subjects (for bulk upload)
 function downloadAllSubjectsTemplate() {
   const examId  = document.getElementById('umExam').value;
