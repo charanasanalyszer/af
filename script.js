@@ -5409,10 +5409,10 @@ function printMarksSheet() {
   const term       = settings.term       || '';
   const year       = settings.year       || '';
 
-  // Page setup — landscape for many subjects
-  const orientation = examSubjects.length > 5 ? 'landscape' : 'portrait';
+  // Page setup — always portrait
+  const orientation = 'portrait';
   const doc = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
-  const W   = orientation === 'landscape' ? 297 : 210;
+  const W   = 210;
   const margin = 12;
 
   const blue    = [26, 111, 181];
@@ -5472,30 +5472,25 @@ function printMarksSheet() {
 
   const fixedHead = ['#', 'Adm No', 'Student Name'];
   const subHeaders = examSubjects.map(s => s.code || s.name.slice(0, 6));
-  const trailingHead = ['Total', 'Avg', 'Remarks'];
-  const head = [...fixedHead, ...subHeaders, ...trailingHead];
+  const head = [...fixedHead, ...subHeaders];
 
   const body = stuList.map((stu, idx) => [
     idx + 1,
     stu.adm,
     stu.name,
     ...examSubjects.map(() => ''),   // blank subject columns
-    '', '', ''                        // total, avg, remarks
   ]);
 
   // Column widths: fixed cols wider, subject cols equal share
   const fixedWidths  = [8, 18, 40];
-  const trailWidths  = [14, 10, 22];
   const usedFixed    = fixedWidths.reduce((a, b) => a + b, 0);
-  const usedTrail    = trailWidths.reduce((a, b) => a + b, 0);
   const subColW      = Math.max(
     10,
-    Math.floor((W - margin * 2 - usedFixed - usedTrail) / Math.max(examSubjects.length, 1))
+    Math.floor((W - margin * 2 - usedFixed) / Math.max(examSubjects.length, 1))
   );
   const columnStyles = {};
   fixedWidths.forEach((w, i)          => { columnStyles[i]                        = { cellWidth: w }; });
   subHeaders.forEach((_, i)           => { columnStyles[fixedHead.length + i]     = { cellWidth: subColW, halign: 'center' }; });
-  trailWidths.forEach((w, i)          => { columnStyles[fixedHead.length + subHeaders.length + i] = { cellWidth: w, halign: 'center' }; });
 
   doc.autoTable({
     startY: y,
@@ -5507,12 +5502,6 @@ function printMarksSheet() {
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles,
     margin: { left: margin, right: margin },
-    didParseCell(data) {
-      // Make trailing columns (Total, Avg, Remarks) slightly shaded header
-      if (data.section === 'head' && data.column.index >= fixedHead.length + subHeaders.length) {
-        data.cell.styles.fillColor = [22, 78, 140];
-      }
-    }
   });
 
   // ── Max marks row reference ──
