@@ -6781,7 +6781,7 @@ function handleStudentUpload(input) {
         const contact=String(row['ParentContact']||row['parent_contact']||'').trim();
         const parent =String(row['ParentName']||row['parent_name']||'').trim();
         if(!adm||!name){skipped++;return;}
-        if(students.find(s=>s.adm===adm)){skipped++;return;}
+        if(students.find(s=>s.adm.toLowerCase()===adm.toLowerCase()&&s.name.toLowerCase()===name.toLowerCase())){skipped++;return;}
         const cls=classes.find(c=>c.name.toLowerCase()===clsName.toLowerCase());
         // Match stream by name AND classId so "East" in Grade 7 ≠ "East" in Grade 8
         const str=streams.find(s=>s.name.toLowerCase()===strName.toLowerCase()&&(!cls||s.classId===cls.id))
@@ -11184,7 +11184,7 @@ function applyTranslations() {
   const T = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
   I18N_MAP.forEach(({ key, sel }) => {
     const el = document.querySelector(sel);
-    if (el && T[key] !== undefined) el.innerHTML = T[key];
+    if (el && T[key] !== undefined) el.textContent = T[key];
   });
   // Also update topbar title to current section
   const activeNav = document.querySelector('.sn.active span');
@@ -17181,7 +17181,7 @@ function etExportPDF() {
     /* ── Page header ── */
     doc.setFillColor(15,23,42); doc.rect(0,0,pw,22,'F');
     doc.setFontSize(14); doc.setFont(undefined,'bold'); doc.setTextColor(248,250,252);
-    doc.text(`\u{1F4C5} Exam Timetable \u2014 ${exam?.name||''}`, 12, 11);
+    doc.text(`<i class="fa-solid fa-calendar-days"></i> Exam Timetable — ${exam?.name||''}`, 12, 11);
     doc.setFontSize(8); doc.setFont(undefined,'normal'); doc.setTextColor(148,163,184);
     doc.text(`Generated: ${new Date().toLocaleDateString()}   •   ${grp.classGroupLabel} (${grp.streamSlots.length} stream(s))`, 12, 18);
     doc.setFontSize(7); doc.text(`All streams sit for the same subject at the same time.`, pw-12, 18, {align:'right'});
@@ -17407,7 +17407,6 @@ function etPrint() {
   const win=window.open('','_blank','width=1200,height=900');
   win.document.write(`<!DOCTYPE html><html><head>
   <title>Exam Timetable — ${exam?.name||'Exam'}</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:"Segoe UI",Arial,sans-serif;font-size:9pt;color:#0f172a;padding:12mm 14mm;background:#fff}
