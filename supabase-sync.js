@@ -2,8 +2,8 @@
 // Place this file next to index.html and script.js
 
 // ===================== PASTE YOUR VALUES HERE =====================
-var SUPABASE_URL      = 'YOUR_SUPABASE_URL';
-var SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+var SUPABASE_URL      = 'YOUR_SUPABASE_URL';https://oqeevttwdhvosdjypslg.supabase.co/rest/v1/
+var SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';sb_publishable_AB18dOT-C73q1XDkeEJMkg_DJrI7_yn
 // =================================================================
 
 var SYNC_INTERVAL_MS  = 45000;
