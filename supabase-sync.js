@@ -1,299 +1,165 @@
-/**
- * ╔══════════════════════════════════════════════════════════════╗
- * ║          CHARANAS ANALYZER — SUPABASE SYNC ADAPTER          ║
- * ║  Drop-in backend for localStorage — zero changes to app     ║
- * ╚══════════════════════════════════════════════════════════════╝
- *
- * HOW TO USE:
- *   1. Replace YOUR_SUPABASE_URL and YOUR_SUPABASE_ANON_KEY below
- *   2. Add this script to index.html BEFORE script.js (no defer):
- *        <script src="supabase-sync.js"></script>
- *        <script src="script.js" defer></script>
- *
- * WHAT THIS DOES:
- *   • On startup  → loads all data from Supabase into localStorage
- *   • On any write → syncs to Supabase automatically (batched)
- *   • Every 45 sec → polls for changes made on other devices
- *   • All existing app code works unchanged
- */
+// CHARANAS ANALYZER - SUPABASE SYNC ADAPTER
+// Place this file next to index.html and script.js
 
-(function () {
-  'use strict';
+// ===================== PASTE YOUR VALUES HERE =====================
+var SUPABASE_URL      = 'YOUR_SUPABASE_URL';
+var SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+// =================================================================
 
-  /* ─────────────────── CONFIGURATION ─────────────────── */
-  const SUPABASE_URL     = 'YOUR_SUPABASE_URL';       https://oqeevttwdhvosdjypslg.supabase.co/rest/v1/
-  const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // your project's anon/public key
-  const SYNC_INTERVAL_MS  = 45_000; // poll for remote changes every 45 seconds
-  const WRITE_DEBOUNCE_MS = 800;    // batch writes within 800ms into one request
+var SYNC_INTERVAL_MS  = 45000;
+var WRITE_DEBOUNCE_MS = 800;
+var LOCAL_ONLY_KEYS   = ['ei_dark','ei_lang','ei_saved_login','ei_session_user','ei_session_school_id'];
 
-  /* ─────────────────── SKIP LIST ─────────────────── */
-  // Keys that should stay local-only (UI state, not data)
-  const LOCAL_ONLY_KEYS = new Set([
-    'ei_dark', 'ei_lang', 'ei_saved_login', 'ei_session_user',
-    'ei_session_school_id',
-  ]);
+function isLocalOnly(key) { return LOCAL_ONLY_KEYS.indexOf(key) !== -1; }
 
-  /* ─────────────────── INTERNALS ─────────────────── */
-  const _lsSet    = localStorage.setItem.bind(localStorage);
-  const _lsGet    = localStorage.getItem.bind(localStorage);
-  const _lsRemove = localStorage.removeItem.bind(localStorage);
-  const _origAEL  = document.addEventListener.bind(document);
+var _lsSet    = localStorage.setItem.bind(localStorage);
+var _lsGet    = localStorage.getItem.bind(localStorage);
+var _lsRemove = localStorage.removeItem.bind(localStorage);
+var _origAEL  = document.addEventListener.bind(document);
 
-  const headers = {
+var domQueue = [];
+var dbReady  = false;
+
+document.addEventListener = function(type, fn, opts) {
+  if (type === 'DOMContentLoaded' && !dbReady) { domQueue.push(fn); }
+  else { _origAEL(type, fn, opts); }
+};
+
+var pendingWrites = {};
+var writeTimer    = null;
+
+localStorage.setItem = function(key, value) {
+  _lsSet(key, value);
+  if (!isLocalOnly(key)) {
+    pendingWrites[key] = { action: 'set', value: value };
+    clearTimeout(writeTimer);
+    writeTimer = setTimeout(flushWrites, WRITE_DEBOUNCE_MS);
+  }
+};
+
+localStorage.removeItem = function(key) {
+  _lsRemove(key);
+  if (!isLocalOnly(key)) {
+    pendingWrites[key] = { action: 'delete' };
+    clearTimeout(writeTimer);
+    writeTimer = setTimeout(flushWrites, WRITE_DEBOUNCE_MS);
+  }
+};
+
+localStorage.clear = function() {
+  console.warn('[SupaSync] clear() blocked to protect remote data.');
+};
+
+function sbHeaders() {
+  return {
     'Content-Type' : 'application/json',
     'apikey'       : SUPABASE_ANON_KEY,
-    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
   };
-  const endpoint = `${SUPABASE_URL}/rest/v1/kv_store`;
+}
 
-  /* ── Queue DOMContentLoaded handlers until DB data is ready ── */
-  const domQueue   = [];
-  let   dbReady    = false;
+var sbEndpoint = '';
+function getEndpoint() {
+  if (!sbEndpoint) sbEndpoint = SUPABASE_URL + '/rest/v1/kv_store';
+  return sbEndpoint;
+}
 
-  document.addEventListener = function (type, fn, opts) {
-    if (type === 'DOMContentLoaded' && !dbReady) {
-      domQueue.push(fn);
-    } else {
-      _origAEL(type, fn, opts);
-    }
-  };
-
-  /* ── localStorage patching ── */
-  let   pendingWrites = {};
-  let   writeTimer    = null;
-
-  localStorage.setItem = function (key, value) {
-    _lsSet(key, value);
-    if (!LOCAL_ONLY_KEYS.has(key)) {
-      pendingWrites[key] = { action: 'set', value };
-      clearTimeout(writeTimer);
-      writeTimer = setTimeout(flushWrites, WRITE_DEBOUNCE_MS);
-    }
-  };
-
-  localStorage.removeItem = function (key) {
-    _lsRemove(key);
-    if (!LOCAL_ONLY_KEYS.has(key)) {
-      pendingWrites[key] = { action: 'delete' };
-      clearTimeout(writeTimer);
-      writeTimer = setTimeout(flushWrites, WRITE_DEBOUNCE_MS);
-    }
-  };
-
-  localStorage.clear = function () {
-    // Prevent accidental wipe of remote DB — use removeItem per key instead
-    console.warn('[SupaSync] localStorage.clear() blocked to protect remote data.');
-  };
-
-  /* ─────────────────── SUPABASE API ─────────────────── */
-
-  async function fetchAll() {
-    const res = await fetch(`${endpoint}?select=key,value`, { headers });
-    if (!res.ok) throw new Error(`Supabase fetch failed: ${res.status}`);
-    return res.json(); // [{key, value}, ...]
-  }
-
-  async function upsertRows(rows) {
-    if (!rows.length) return;
-    const res = await fetch(endpoint, {
-      method : 'POST',
-      headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
-      body   : JSON.stringify(rows),
+function sbFetchAll() {
+  return fetch(getEndpoint() + '?select=key,value', { headers: sbHeaders() })
+    .then(function(res) {
+      if (!res.ok) throw new Error('Fetch failed: ' + res.status);
+      return res.json();
     });
-    if (!res.ok) console.error('[SupaSync] Upsert failed:', res.status, await res.text());
-  }
+}
 
-  async function deleteKey(key) {
-    const res = await fetch(
-      `${endpoint}?key=eq.${encodeURIComponent(key)}`,
-      { method: 'DELETE', headers }
-    );
-    if (!res.ok) console.error('[SupaSync] Delete failed:', res.status);
-  }
+function sbUpsert(rows) {
+  if (!rows.length) return Promise.resolve();
+  var h = sbHeaders();
+  h['Prefer'] = 'resolution=merge-duplicates';
+  return fetch(getEndpoint(), { method: 'POST', headers: h, body: JSON.stringify(rows) });
+}
 
-  /* ─────────────────── WRITE FLUSH ─────────────────── */
+function sbDelete(key) {
+  return fetch(getEndpoint() + '?key=eq.' + encodeURIComponent(key), { method: 'DELETE', headers: sbHeaders() });
+}
 
-  async function flushWrites() {
-    const batch = pendingWrites;
-    pendingWrites = {};
+function flushWrites() {
+  var batch = pendingWrites;
+  pendingWrites = {};
+  var upserts = [];
+  var deletes = [];
+  Object.keys(batch).forEach(function(key) {
+    if (batch[key].action === 'set') upserts.push({ key: key, value: batch[key].value });
+    else deletes.push(key);
+  });
+  sbUpsert(upserts).catch(function(e) { console.error('[SupaSync] write error', e); });
+  deletes.forEach(function(k) { sbDelete(k); });
+}
 
-    const upserts = [];
-    const deletes = [];
-
-    for (const [key, op] of Object.entries(batch)) {
-      if (op.action === 'set')    upserts.push({ key, value: op.value });
-      else                         deletes.push(key);
-    }
-
-    try {
-      await upsertRows(upserts);
-      for (const k of deletes) await deleteKey(k);
-    } catch (err) {
-      console.error('[SupaSync] Flush error:', err);
-      // Re-queue failed writes
-      for (const [k, op] of Object.entries(batch)) {
-        if (!pendingWrites[k]) pendingWrites[k] = op;
-      }
-    }
-  }
-
-  /* ─────────────────── REMOTE POLL (cross-device sync) ─────────────────── */
-
-  let lastPollKeys = {};
-
-  async function pollRemote() {
-    try {
-      const rows = await fetchAll();
-      let changed = 0;
-
-      for (const row of rows) {
-        if (LOCAL_ONLY_KEYS.has(row.key)) continue;
-        const current = _lsGet(row.key);
-        if (current !== row.value) {
-          _lsSet(row.key, row.value);
-          changed++;
-        }
-        lastPollKeys[row.key] = true;
-      }
-
-      // Detect remote deletes
-      for (const key of Object.keys(lastPollKeys)) {
-        if (!rows.find(r => r.key === key) && !LOCAL_ONLY_KEYS.has(key)) {
-          _lsRemove(key);
-          delete lastPollKeys[key];
-          changed++;
-        }
-      }
-
-      if (changed > 0) {
-        console.log(`[SupaSync] Synced ${changed} remote change(s)`);
-        // Soft-reload UI sections that read from localStorage on demand
-        // (Most sections re-read on navigation — full reload only if needed)
-        showSyncBadge();
-      }
-    } catch (err) {
-      console.warn('[SupaSync] Poll error:', err.message);
-    }
-  }
-
-  /* ─────────────────── UI HELPERS ─────────────────── */
-
-  function buildLoader() {
-    const el = document.createElement('div');
-    el.id = 'sb-loader';
-    Object.assign(el.style, {
-      position       : 'fixed',
-      inset          : '0',
-      background     : '#0f172a',
-      display        : 'flex',
-      flexDirection  : 'column',
-      alignItems     : 'center',
-      justifyContent : 'center',
-      zIndex         : '99999',
-      fontFamily     : 'Outfit, system-ui, sans-serif',
-      color          : '#fff',
+var lastPollKeys = {};
+function pollRemote() {
+  sbFetchAll().then(function(rows) {
+    var changed = 0;
+    var rowMap = {};
+    rows.forEach(function(row) {
+      if (isLocalOnly(row.key)) return;
+      rowMap[row.key] = true;
+      if (_lsGet(row.key) !== row.value) { _lsSet(row.key, row.value); changed++; }
     });
-    el.innerHTML = `
-      <style>
-        @keyframes sb-spin { to { transform: rotate(360deg); } }
-        @keyframes sb-fade { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
-      </style>
-      <div style="
-        width:52px; height:52px; border-radius:14px;
-        background:linear-gradient(135deg,#7c3aed,#1a6fb5);
-        display:flex; align-items:center; justify-content:center;
-        font-size:1.3rem; font-weight:800; margin-bottom:20px;
-        animation: sb-fade .4s ease both;
-      ">CA</div>
-      <div style="
-        width:36px; height:36px; border:3px solid #334155;
-        border-top-color:#7c3aed; border-radius:50%;
-        animation: sb-spin .75s linear infinite; margin-bottom:16px;
-      "></div>
-      <p style="font-size:.9rem; color:#94a3b8; margin:0; animation:sb-fade .5s .1s ease both;">
-        Connecting to database…
-      </p>
-      <p id="sb-status" style="font-size:.75rem; color:#475569; margin:6px 0 0; animation:sb-fade .5s .2s ease both;">
-        Loading your data
-      </p>
-    `;
-    return el;
+    Object.keys(lastPollKeys).forEach(function(key) {
+      if (!rowMap[key] && !isLocalOnly(key)) { _lsRemove(key); delete lastPollKeys[key]; changed++; }
+    });
+    lastPollKeys = rowMap;
+    if (changed > 0) { console.log('[SupaSync] ' + changed + ' change(s) synced'); showSyncBadge(); }
+  }).catch(function(e) { console.warn('[SupaSync] poll error', e.message); });
+}
+
+function buildLoader() {
+  var el = document.createElement('div');
+  el.id = 'sb-loader';
+  el.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;font-family:system-ui,sans-serif;color:#fff;';
+  el.innerHTML = '<style>@keyframes sbspin{to{transform:rotate(360deg)}}</style>'
+    + '<div style="width:36px;height:36px;border:3px solid #334155;border-top-color:#7c3aed;border-radius:50%;animation:sbspin .75s linear infinite;margin-bottom:16px;"></div>'
+    + '<p style="font-size:.9rem;color:#94a3b8;margin:0;">Connecting to database...</p>'
+    + '<p id="sb-status" style="font-size:.75rem;color:#475569;margin:6px 0 0;">Loading your data</p>';
+  return el;
+}
+
+function setStatus(msg) { var e = document.getElementById('sb-status'); if (e) e.textContent = msg; }
+
+function showSyncBadge() {
+  var b = document.getElementById('sb-badge');
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'sb-badge';
+    b.style.cssText = 'position:fixed;bottom:18px;right:18px;background:#1e293b;color:#7c3aed;font-size:.75rem;padding:6px 14px;border-radius:999px;z-index:9999;font-family:system-ui,sans-serif;';
+    document.body.appendChild(b);
   }
+  b.textContent = 'Synced from another device - reload to see changes';
+}
 
-  function setLoaderStatus(msg) {
-    const el = document.getElementById('sb-status');
-    if (el) el.textContent = msg;
-  }
+function sbInit() {
+  var loader = buildLoader();
+  document.body.appendChild(loader);
+  setStatus('Fetching from Supabase...');
 
-  function showSyncBadge() {
-    let badge = document.getElementById('sb-sync-badge');
-    if (!badge) {
-      badge = document.createElement('div');
-      badge.id = 'sb-sync-badge';
-      Object.assign(badge.style, {
-        position   : 'fixed',
-        bottom     : '18px',
-        right      : '18px',
-        background : '#1e293b',
-        color      : '#7c3aed',
-        fontSize   : '.75rem',
-        padding    : '6px 14px',
-        borderRadius: '999px',
-        border     : '1px solid #334155',
-        zIndex     : '9999',
-        fontFamily : 'system-ui, sans-serif',
-        boxShadow  : '0 4px 12px rgba(0,0,0,.4)',
-        transition : 'opacity .4s',
-      });
-      document.body.appendChild(badge);
-    }
-    badge.textContent = '⟳ Synced from another device — reload to see changes';
-    badge.style.opacity = '1';
-    setTimeout(() => { badge.style.opacity = '0'; }, 5000);
-  }
-
-  /* ─────────────────── BOOT ─────────────────── */
-
-  async function init() {
-    // Append loader to body (body exists since we wait for DOMContentLoaded)
-    const loader = buildLoader();
-    document.body.appendChild(loader);
-
-    try {
-      setLoaderStatus('Fetching data from Supabase…');
-      const rows = await fetchAll();
-
-      setLoaderStatus(`Loading ${rows.length} records…`);
-      for (const row of rows) {
-        if (!LOCAL_ONLY_KEYS.has(row.key)) {
-          _lsSet(row.key, row.value);
-          lastPollKeys[row.key] = true;
-        }
-      }
-
-      console.log(`[SupaSync] ✓ Loaded ${rows.length} keys from Supabase`);
-    } catch (err) {
-      console.error('[SupaSync] Failed to load from Supabase:', err);
-      setLoaderStatus('⚠ Could not reach database — running from local cache');
-      await new Promise(r => setTimeout(r, 1800)); // show error briefly
-    }
-
-    // Restore normal addEventListener and fire queued handlers
+  sbFetchAll().then(function(rows) {
+    setStatus('Loading ' + rows.length + ' records...');
+    rows.forEach(function(row) {
+      if (!isLocalOnly(row.key)) { _lsSet(row.key, row.value); lastPollKeys[row.key] = true; }
+    });
+    console.log('[SupaSync] Loaded ' + rows.length + ' keys');
+  }).catch(function(err) {
+    console.error('[SupaSync] Failed:', err);
+    setStatus('Cannot reach database - using local data');
+    return new Promise(function(r) { setTimeout(r, 1500); });
+  }).then(function() {
     document.addEventListener = _origAEL;
     dbReady = true;
-
     loader.remove();
-
-    // Fire all queued DOMContentLoaded handlers
-    for (const fn of domQueue) {
-      try { fn(); } catch (e) { console.error('[SupaSync] Handler error:', e); }
-    }
-
-    // Start background polling for cross-device sync
+    domQueue.forEach(function(fn) { try { fn(); } catch(e) { console.error(e); } });
     setInterval(pollRemote, SYNC_INTERVAL_MS);
-  }
+  });
+}
 
-  // Kick off after DOM is available
-  _origAEL('DOMContentLoaded', init, { once: true });
-
-})();
+_origAEL('DOMContentLoaded', sbInit, { once: true });
