@@ -1,10 +1,7 @@
 // CHARANAS ANALYZER - SUPABASE SYNC ADAPTER
-// Place this file next to index.html and script.js
 
-// ===================== PASTE YOUR VALUES HERE =====================
 var SUPABASE_URL      = 'https://oqgeevttwdhvosdjypslg.supabase.co';
 var SUPABASE_ANON_KEY = 'sb_publishable_AB18dOT-C73q1XDkeEJMkg_DJrI7_yn';
-// =================================================================
 
 var SYNC_INTERVAL_MS  = 45000;
 var WRITE_DEBOUNCE_MS = 800;
@@ -47,40 +44,50 @@ localStorage.removeItem = function(key) {
 };
 
 localStorage.clear = function() {
-  console.warn('[SupaSync] clear() blocked to protect remote data.');
+  console.warn('[SupaSync] clear() blocked.');
 };
 
-function sbHeaders() {
-  return {
+var SB_ENDPOINT = SUPABASE_URL + '/rest/v1/kv_store';
+
+function sbHeaders(extra) {
+  var h = {
     'Content-Type' : 'application/json',
     'apikey'       : SUPABASE_ANON_KEY,
     'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
   };
-}
-
-var sbEndpoint = '';
-function getEndpoint() {
-  if (!sbEndpoint) sbEndpoint = SUPABASE_URL + '/rest/v1/kv_store';
-  return sbEndpoint;
+  if (extra) { Object.keys(extra).forEach(function(k){ h[k]=extra[k]; }); }
+  return h;
 }
 
 function sbFetchAll() {
-  return fetch(getEndpoint() + '?select=key,value', { headers: sbHeaders() })
-    .then(function(res) {
-      if (!res.ok) throw new Error('Fetch failed: ' + res.status);
-      return res.json();
-    });
+  return fetch(SB_ENDPOINT + '?select=key,value', {
+    method: 'GET',
+    headers: sbHeaders(),
+    mode: 'cors'
+  }).then(function(res) {
+    if (!res.ok) throw new Error('Fetch failed: ' + res.status);
+    return res.json();
+  });
 }
 
 function sbUpsert(rows) {
   if (!rows.length) return Promise.resolve();
-  var h = sbHeaders();
-  h['Prefer'] = 'resolution=merge-duplicates';
-  return fetch(getEndpoint(), { method: 'POST', headers: h, body: JSON.stringify(rows) });
+  return fetch(SB_ENDPOINT, {
+    method: 'POST',
+    headers: sbHeaders({ 'Prefer': 'resolution=merge-duplicates' }),
+    mode: 'cors',
+    body: JSON.stringify(rows)
+  }).then(function(res) {
+    if (!res.ok) console.error('[SupaSync] Upsert failed:', res.status);
+  });
 }
 
 function sbDelete(key) {
-  return fetch(getEndpoint() + '?key=eq.' + encodeURIComponent(key), { method: 'DELETE', headers: sbHeaders() });
+  return fetch(SB_ENDPOINT + '?key=eq.' + encodeURIComponent(key), {
+    method: 'DELETE',
+    headers: sbHeaders(),
+    mode: 'cors'
+  });
 }
 
 function flushWrites() {
