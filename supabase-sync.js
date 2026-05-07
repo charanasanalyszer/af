@@ -1,6 +1,6 @@
 // CHARANAS ANALYZER - SUPABASE SYNC ADAPTER
 
-var SUPABASE_URL      = 'https://oqgeevttwdhvosdjypslg.supabase.co';
+var SUPABASE_URL      = 'https://oqeevttwdhvosdjypslg.supabase.co';
 var SUPABASE_ANON_KEY = 'sb_publishable_AB18dOT-C73q1XDkeEJMkg_DJrI7_yn';
 
 var SYNC_INTERVAL_MS  = 45000;
