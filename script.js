@@ -12740,6 +12740,7 @@ function renderStudentBalances() {
   const filterTerm   = document.getElementById('fsbTerm')?.value   || '';
   const filterYear   = document.getElementById('fsbYear')?.value   || '';
   const filterStatus = document.getElementById('fsbStatus')?.value || '';
+  const filterMinBal = parseFloat(document.getElementById('fsbMinBalance')?.value || '0') || 0;
   const search       = (document.getElementById('fsbSearch')?.value || '').toLowerCase();
 
   const isTeacher = currentUser && currentUser.role === 'teacher';
@@ -12775,6 +12776,7 @@ function renderStudentBalances() {
     let statusKey = cumBal <= 0 ? 'cleared' : paid > 0 ? 'partial' : 'unpaid';
 
     if (filterStatus && statusKey !== filterStatus) return;
+    if (filterMinBal > 0 && cumBal < filterMinBal) return;
     if (search && !stu.name.toLowerCase().includes(search) && !stu.adm.toLowerCase().includes(search)) return;
 
     rows.push({ rec, stu, cls, paid, bal, cumBal, pct, statusKey });
@@ -12813,7 +12815,9 @@ function renderStudentBalances() {
 
       const cls = classes.find(c => c.id === clsId);
       const noPrevBal = getPreviousBalance(stu.id, t, y);
-      rows.push({ rec: { id: null, studentId: stu.id, classId: clsId, term: t, year: y, totalFee: struct.totalFee, payments: [] }, stu, cls, paid: 0, bal: struct.totalFee, cumBal: noPrevBal + struct.totalFee, pct: 0, statusKey: 'unpaid' });
+      const noCumBal = noPrevBal + struct.totalFee;
+      if (filterMinBal > 0 && noCumBal < filterMinBal) return;
+      rows.push({ rec: { id: null, studentId: stu.id, classId: clsId, term: t, year: y, totalFee: struct.totalFee, payments: [] }, stu, cls, paid: 0, bal: struct.totalFee, cumBal: noCumBal, pct: 0, statusKey: 'unpaid' });
     });
   });
 
@@ -13361,7 +13365,72 @@ function exportFeesSummary() {
 }
 
 function exportStudentBalances() {
-  exportFeesSummary();
+  loadFees();
+  const filterClass  = document.getElementById('fsbClass')?.value  || '';
+  const filterTerm   = document.getElementById('fsbTerm')?.value   || '';
+  const filterYear   = document.getElementById('fsbYear')?.value   || '';
+  const filterStatus = document.getElementById('fsbStatus')?.value || '';
+  const filterMinBal = parseFloat(document.getElementById('fsbMinBalance')?.value || '0') || 0;
+  const search       = (document.getElementById('fsbSearch')?.value || '').toLowerCase();
+
+  const isTeacher = currentUser && currentUser.role === 'teacher';
+  const isFullFeesRole = currentUser && (currentUser.role==='superadmin'||currentUser.role==='admin'||currentUser.role==='principal'||currentUser.role==='bursar');
+  const teacherClassIds = (isTeacher && !isFullFeesRole)
+    ? [...new Set(getClassTeacherStreamIds(currentUser.teacherId).map(sid => { const s=streams.find(x=>x.id===sid); return s?s.classId:null; }).filter(Boolean))]
+    : null;
+
+  const csvSyncCls = getFeeSyncedClassIds();
+  const csvSyncStr = getFeeSyncedStreamIds();
+
+  let rows = [['Student Name','Adm No','Class','Term','Year','Total Fee','Amount Paid','Term Balance','Cumulative Balance','Status']];
+
+  feeRecords.forEach(rec => {
+    if (filterTerm   && rec.term !== filterTerm)              return;
+    if (filterYear   && String(rec.year) !== filterYear)      return;
+    if (filterClass  && rec.classId !== filterClass)          return;
+    if (teacherClassIds && !teacherClassIds.includes(rec.classId)) return;
+    if (csvSyncCls && !csvSyncCls.includes(rec.classId)) return;
+    const stu = students.find(s => s.id === rec.studentId); if (!stu) return;
+    if (csvSyncStr && stu.streamId && !csvSyncStr.includes(stu.streamId)) return;
+    if (search && !stu.name.toLowerCase().includes(search) && !stu.adm.toLowerCase().includes(search)) return;
+    const cls = classes.find(c => c.id === rec.classId);
+    const paid = getRecordTotalPaid(rec);
+    const prevBal = getPreviousBalance(rec.studentId, rec.term, rec.year);
+    const termBal = getRecordBalance(rec);
+    const cumBal  = prevBal + termBal;
+    const status = cumBal <= 0 ? 'Cleared' : paid > 0 ? 'Partial' : 'Unpaid';
+    if (filterStatus && status.toLowerCase() !== filterStatus) return;
+    if (filterMinBal > 0 && cumBal < filterMinBal) return;
+    rows.push([stu.name, stu.adm, cls?.name||'', rec.term, rec.year, rec.totalFee, paid, termBal, cumBal, status]);
+  });
+
+  // Also no-record unpaid students
+  students.forEach(stu => {
+    const clsId = stu.classId;
+    if (teacherClassIds && !teacherClassIds.includes(clsId)) return;
+    if (filterClass && clsId !== filterClass) return;
+    if (csvSyncCls && !csvSyncCls.includes(clsId)) return;
+    if (csvSyncStr && stu.streamId && !csvSyncStr.includes(stu.streamId)) return;
+    if (search && !stu.name.toLowerCase().includes(search) && !stu.adm.toLowerCase().includes(search)) return;
+    const structs = feeStructures.filter(f => f.classId===clsId && (!filterTerm||f.term===filterTerm) && (!filterYear||String(f.year)===filterYear));
+    structs.forEach(struct => {
+      if (feeRecords.some(r => r.studentId===stu.id && r.term===struct.term && String(r.year)===struct.year)) return;
+      if (filterStatus && filterStatus !== 'unpaid') return;
+      const cls = classes.find(c=>c.id===clsId);
+      const noPrevBal = getPreviousBalance(stu.id, struct.term, struct.year);
+      const noCumBal  = noPrevBal + parseFloat(struct.totalFee||0);
+      if (filterMinBal > 0 && noCumBal < filterMinBal) return;
+      rows.push([stu.name, stu.adm, cls?.name||'', struct.term, struct.year, struct.totalFee, 0, struct.totalFee, noCumBal, 'Unpaid']);
+    });
+  });
+
+  const csv = rows.map(r => r.map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `fee_balances_${filterTerm||'all'}_${filterYear||'all'}${filterMinBal>0?'_min'+filterMinBal:''}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  showToast('Fee balances exported <i class="fa-solid fa-check"></i>', 'success');
 }
 
 // ── Fee PDF Statement ──
@@ -13371,6 +13440,7 @@ function downloadFeeStatementPDF() {
   const filterTerm   = document.getElementById('fsbTerm')?.value   || '';
   const filterYear   = document.getElementById('fsbYear')?.value   || '';
   const filterStatus = document.getElementById('fsbStatus')?.value || '';
+  const filterMinBal = parseFloat(document.getElementById('fsbMinBalance')?.value || '0') || 0;
   const search       = (document.getElementById('fsbSearch')?.value || '').toLowerCase();
   const schoolName   = (settings && settings.schoolName) ? settings.schoolName : 'School';
 
@@ -13398,6 +13468,7 @@ function downloadFeeStatementPDF() {
   if (filterTerm)  filterText.push(`Term: ${filterTerm}`);
   if (filterYear)  filterText.push(`Year: ${filterYear}`);
   if (filterStatus) filterText.push(`Status: ${filterStatus.charAt(0).toUpperCase()+filterStatus.slice(1)}`);
+  if (filterMinBal > 0) filterText.push(`Min Balance: KES ${filterMinBal.toLocaleString()}+`);
   if (filterText.length) doc.text('Filters: ' + filterText.join('  |  '), 14, 34);
 
   // Build rows
@@ -13416,6 +13487,11 @@ function downloadFeeStatementPDF() {
     if (filterClass  && rec.classId !== filterClass)          return;
     if (teacherClassIds && !teacherClassIds.includes(rec.classId)) return;
     const stu = students.find(s => s.id === rec.studentId); if (!stu) return;
+    // Respect fee sync settings (mirrors renderStudentBalances)
+    const pdfFeeSyncCls = getFeeSyncedClassIds();
+    if (pdfFeeSyncCls && !pdfFeeSyncCls.includes(rec.classId)) return;
+    const pdfFeeSyncStr = getFeeSyncedStreamIds();
+    if (pdfFeeSyncStr && stu.streamId && !pdfFeeSyncStr.includes(stu.streamId)) return;
     if (search && !stu.name.toLowerCase().includes(search) && !stu.adm.toLowerCase().includes(search)) return;
     const cls   = classes.find(c => c.id === rec.classId);
     const paid  = getRecordTotalPaid(rec);
@@ -13424,27 +13500,34 @@ function downloadFeeStatementPDF() {
     const cumBal  = prevBal + termBal;
     const status = cumBal <= 0 ? 'Cleared' : paid > 0 ? 'Partial' : 'Unpaid';
     if (filterStatus && status.toLowerCase() !== filterStatus) return;
+    if (filterMinBal > 0 && cumBal < filterMinBal) return;
     totalExpected += parseFloat(rec.totalFee||0);
     totalPaid     += paid;
     totalBal      += cumBal;
     rows.push([stu.adm, stu.name, cls?.name||'—', `${rec.term} ${rec.year}`, `KES ${parseFloat(rec.totalFee||0).toLocaleString()}`, `KES ${paid.toLocaleString()}`, `KES ${termBal.toLocaleString()}`, `KES ${cumBal.toLocaleString()}`, status]);
   });
 
-  // Also unpaid rows
+  // Also unpaid rows — with sync + min-balance checks
+  const pdfSyncCls2 = getFeeSyncedClassIds();
+  const pdfSyncStr2 = getFeeSyncedStreamIds();
   students.forEach(stu => {
     const clsId = stu.classId;
     if (teacherClassIds && !teacherClassIds.includes(clsId)) return;
     if (filterClass && clsId !== filterClass) return;
+    // Respect fee sync
+    if (pdfSyncCls2 && !pdfSyncCls2.includes(clsId)) return;
+    if (pdfSyncStr2 && stu.streamId && !pdfSyncStr2.includes(stu.streamId)) return;
     if (search && !stu.name.toLowerCase().includes(search) && !stu.adm.toLowerCase().includes(search)) return;
     const structs = feeStructures.filter(f => f.classId===clsId && (!filterTerm||f.term===filterTerm) && (!filterYear||String(f.year)===filterYear));
     structs.forEach(struct => {
       if (feeRecords.some(r => r.studentId===stu.id && r.term===struct.term && String(r.year)===struct.year)) return;
       if (filterStatus && filterStatus !== 'unpaid') return;
       const cls = classes.find(c=>c.id===clsId);
-      totalExpected += parseFloat(struct.totalFee||0);
-      totalBal      += parseFloat(struct.totalFee||0);
       const noPrevBal2 = getPreviousBalance(stu.id, struct.term, struct.year);
       const noCumBal2  = noPrevBal2 + parseFloat(struct.totalFee||0);
+      if (filterMinBal > 0 && noCumBal2 < filterMinBal) return;
+      totalExpected += parseFloat(struct.totalFee||0);
+      totalBal      += parseFloat(struct.totalFee||0);
       rows.push([stu.adm, stu.name, cls?.name||'—', `${struct.term} ${struct.year}`, `KES ${parseFloat(struct.totalFee||0).toLocaleString()}`, 'KES 0', `KES ${parseFloat(struct.totalFee||0).toLocaleString()}`, `KES ${noCumBal2.toLocaleString()}`, 'Unpaid']);
     });
   });

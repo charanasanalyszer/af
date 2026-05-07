@@ -6,7 +6,8 @@
   <title>Charanas Analyzer — School Exam Management System</title>
   <link rel="stylesheet" href="styles.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
-  <script src="script.js" defer></script>
+<script type="module" src="supabase-sync.js"></script>
+<script src="script.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
@@ -3868,8 +3869,29 @@
               </select>
             </div>
           </div>
-          <div style="margin-top:.5rem">
-            <input type="text" id="fsbSearch" placeholder="Search student name or admission number..." style="width:100%;padding:.5rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem" oninput="renderStudentBalances()"/>
+          <div class="frow c4" style="margin-top:.5rem">
+            <div class="fg"><label>Min Balance (KES)</label>
+              <select id="fsbMinBalance" onchange="renderStudentBalances()">
+                <option value="0">All Balances</option>
+                <option value="100">Above 100</option>
+                <option value="500">Above 500</option>
+                <option value="1000">Above 1,000</option>
+                <option value="1500">Above 1,500</option>
+                <option value="2000">Above 2,000</option>
+                <option value="2500">Above 2,500</option>
+                <option value="5000">Above 5,000</option>
+                <option value="7500">Above 7,500</option>
+                <option value="10000">Above 10,000</option>
+                <option value="12500">Above 12,500</option>
+                <option value="15000">Above 15,000</option>
+                <option value="17500">Above 17,500</option>
+                <option value="20000">Above 20,000</option>
+              </select>
+            </div>
+            <div class="fg" style="grid-column:span 3">
+              <label>Search</label>
+              <input type="text" id="fsbSearch" placeholder="Search student name or admission number..." style="width:100%;padding:.5rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.85rem" oninput="renderStudentBalances()"/>
+            </div>
           </div>
         </div>
         <div class="card">
