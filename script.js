@@ -22,10 +22,10 @@ const PLATFORM_CREDS_KEY    = 'ei_platform_creds';    // {username, password} �
 //  school.username = school admin login (adminname@school)
 // ══════════════════════════════════════════════════════════════════
 const USERNAME_RULES = {
-  platform:    { rx: /^[a-zA-Z0-9_-]{3,40}$/,                    hint: 'Platform Admin username: letters/numbers/_ only (no @)' },
-  schoolAdmin: { rx: /^[a-zA-Z][a-zA-Z0-9_-]*@school$/,          hint: 'School login must be adminname@school  (e.g. john@school)' },
-  teacher:     { rx: /^[a-zA-Z][a-zA-Z0-9_-]*@[a-zA-Z0-9_-]+$/, hint: 'Teacher username: firstname@schoolcode  (e.g. benson@sunrise)' },
-  student:     { rx: /^[A-Za-z0-9_-]+@[a-zA-Z0-9_-]+$/,         hint: 'Student username: admNo@schoolcode  (e.g. A001@sunrise)' },
+  platform:    { rx: /^[a-zA-Z0-9_-]{3,40}$/,                   
+  schoolAdmin: { rx: /^[a-zA-Z][a-zA-Z0-9_-]*@school$/,         
+  teacher:     { rx: /^[a-zA-Z][a-zA-Z0-9_-]*@[a-zA-Z0-9_-]+$/, 
+  student:     { rx: /^[A-Za-z0-9_-]+@[a-zA-Z0-9_-]+$/,         
 };
 
 /** Returns true if valid, false + shows toast if not. Used at creation time. */
