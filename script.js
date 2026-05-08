@@ -12773,7 +12773,8 @@ function renderStudentBalances() {
     const bal  = getRecordBalance(rec);
     const cumBal = prevBal + bal;
     const pct  = rec.totalFee > 0 ? Math.round(paid/rec.totalFee*100) : 0;
-    let statusKey = cumBal <= 0 ? 'cleared' : paid > 0 ? 'partial' : 'unpaid';
+    const cumBalRounded = Math.round(cumBal * 100) / 100;
+    let statusKey = cumBalRounded <= 0 ? 'cleared' : paid > 0 ? 'partial' : 'unpaid';
 
     if (filterStatus && statusKey !== filterStatus) return;
     if (filterMinBal > 0 && cumBal < filterMinBal) return;
@@ -13398,7 +13399,7 @@ function exportStudentBalances() {
     const prevBal = getPreviousBalance(rec.studentId, rec.term, rec.year);
     const termBal = getRecordBalance(rec);
     const cumBal  = prevBal + termBal;
-    const status = cumBal <= 0 ? 'Cleared' : paid > 0 ? 'Partial' : 'Unpaid';
+    const status = Math.round(cumBal * 100) / 100 <= 0 ? 'Cleared' : paid > 0 ? 'Partial' : 'Unpaid';
     if (filterStatus && status.toLowerCase() !== filterStatus) return;
     if (filterMinBal > 0 && cumBal < filterMinBal) return;
     rows.push([stu.name, stu.adm, cls?.name||'', rec.term, rec.year, rec.totalFee, paid, termBal, cumBal, status]);
@@ -13498,7 +13499,7 @@ function downloadFeeStatementPDF() {
     const prevBal = getPreviousBalance(rec.studentId, rec.term, rec.year);
     const termBal = getRecordBalance(rec);
     const cumBal  = prevBal + termBal;
-    const status = cumBal <= 0 ? 'Cleared' : paid > 0 ? 'Partial' : 'Unpaid';
+    const status = Math.round(cumBal * 100) / 100 <= 0 ? 'Cleared' : paid > 0 ? 'Partial' : 'Unpaid';
     if (filterStatus && status.toLowerCase() !== filterStatus) return;
     if (filterMinBal > 0 && cumBal < filterMinBal) return;
     totalExpected += parseFloat(rec.totalFee||0);
