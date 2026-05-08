@@ -21850,43 +21850,97 @@ function acSetSchoolLevel(schoolId, levelIdx) {
 
 function acGetSchoolActive(schoolId) {
   try {
+    // Always read from the canonical school.active flag so Access tab
+    // stays in sync with the Schools tab and login blocking.
+    loadPlatform();
+    const school = platformSchools.find(s => s.id === schoolId);
+    if (school) return school.active !== false;
+    // Fallback to ac_school_active for schools not yet in platform
     const map = JSON.parse(localStorage.getItem('ac_school_active')) || {};
     return map[schoolId] !== false;
   } catch { return true; }
 }
 
 function acToggleSchoolActive(schoolId) {
-  try {
-    const map = JSON.parse(localStorage.getItem('ac_school_active')) || {};
-    map[schoolId] = !acGetSchoolActive(schoolId);
-    localStorage.setItem('ac_school_active', JSON.stringify(map));
+  const currentlyActive = acGetSchoolActive(schoolId);
+  if (currentlyActive) {
+    // Deactivating — delegate to the full suspend flow (confirmation modal + message)
+    loadPlatform();
+    const school = platformSchools.find(s => s.id === schoolId);
+    if (!school) return;
+    openSuspendModal(schoolId, school);
+    // After confirmSuspendSchool runs, sync ac_school_active too
+    const _origConfirm = window._acSuspendHooked;
+    if (!_origConfirm) {
+      window._acSuspendHooked = true;
+      const _baseConfirm = window.confirmSuspendSchool;
+      window.confirmSuspendSchool = function(id) {
+        _baseConfirm(id);
+        try {
+          const map = JSON.parse(localStorage.getItem('ac_school_active')) || {};
+          map[id] = false;
+          localStorage.setItem('ac_school_active', JSON.stringify(map));
+        } catch {}
+        acRenderSchoolList();
+        acUpdateActiveSummary();
+      };
+    }
+  } else {
+    // Re-activating — no confirmation needed
+    loadPlatform();
+    const school = platformSchools.find(s => s.id === schoolId);
+    if (school) {
+      school.active = true;
+      school.deactivationMessage = '';
+      savePlatform();
+    }
+    try {
+      const map = JSON.parse(localStorage.getItem('ac_school_active')) || {};
+      map[schoolId] = true;
+      localStorage.setItem('ac_school_active', JSON.stringify(map));
+    } catch {}
     acRenderSchoolList();
     acUpdateActiveSummary();
-  } catch {}
+    renderPlatformSchoolMgmtList();
+    showToast('<i class="fa-solid fa-circle-check"></i> School access restored — users can log in again', 'success');
+  }
 }
 
 function acActivateAll() {
   try {
     loadPlatform();
     const map = JSON.parse(localStorage.getItem('ac_school_active')) || {};
-    platformSchools.forEach(s => { map[s.id] = true; });
+    platformSchools.forEach(s => {
+      map[s.id] = true;
+      s.active = true;
+      s.deactivationMessage = '';
+    });
     localStorage.setItem('ac_school_active', JSON.stringify(map));
+    savePlatform();
     acRenderSchoolList();
     acUpdateActiveSummary();
-    showToast('<i class="fa-solid fa-circle-check"></i> All schools activated', 'success');
+    renderPlatformSchoolMgmtList();
+    showToast('<i class="fa-solid fa-circle-check"></i> All schools activated — users can log in', 'success');
   } catch {}
 }
 
 function acDeactivateAll() {
-  if (!confirm('Deactivate ALL school subscriptions? Schools will lose access.')) return;
+  if (!confirm('Suspend ALL schools? Their staff and students will be blocked from logging in.\n\nYou can re-activate them individually or use \"Activate All\" to restore access.')) return;
   try {
     loadPlatform();
     const map = JSON.parse(localStorage.getItem('ac_school_active')) || {};
-    platformSchools.forEach(s => { map[s.id] = false; });
+    platformSchools.forEach(s => {
+      map[s.id] = false;
+      s.active = false;
+      if (!s.deactivationMessage) s.deactivationMessage = 'Your school subscription has been suspended. Please contact the platform administrator.';
+      s.suspendedAt = new Date().toISOString();
+    });
     localStorage.setItem('ac_school_active', JSON.stringify(map));
+    savePlatform();
     acRenderSchoolList();
     acUpdateActiveSummary();
-    showToast('<i class="fa-solid fa-circle-xmark"></i> All schools deactivated', 'error');
+    renderPlatformSchoolMgmtList();
+    showToast('<i class="fa-solid fa-circle-xmark"></i> All schools suspended — use Activate All to restore', 'error');
   } catch {}
 }
 
