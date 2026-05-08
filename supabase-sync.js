@@ -5,7 +5,7 @@ var SUPABASE_ANON_KEY = 'sb_publishable_AB18dOT-C73q1XDkeEJMkg_DJrI7_yn';
 
 var SYNC_INTERVAL_MS  = 45000;
 var WRITE_DEBOUNCE_MS = 800;
-var LOCAL_ONLY_KEYS   = ['ei_dark','ei_lang','ei_saved_login','ei_session_user','ei_session_school_id'];
+var LOCAL_ONLY_KEYS   = ['ei_dark','ei_lang'];
 
 function isLocalOnly(key) { return LOCAL_ONLY_KEYS.indexOf(key) !== -1; }
 
