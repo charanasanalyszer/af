@@ -12,10 +12,10 @@ const PLATFORM_CREDS_KEY    = 'ei_platform_creds';    // {username, password} �
 // ══════════════════════════════════════════════════════════════════
 //  USERNAME FORMAT RULES — enforced at creation & login
 //
-//  Platform Admin : any alphanumeric (no @)   e.g.  myplatform
-//  School Admin   : adminname@school          e.g.  john@school
-//  Teacher        : firstname@schoolcode      e.g.  benson@sunrise
-//  Student        : admNo@schoolcode          e.g.  A001@sunrise
+//  Platform Admin : any alphanumeric (no @)   
+//  School Admin   : adminname@school         
+//  Teacher        : firstname@schoolcode     
+//  Student        : admNo@schoolcode          
 //  Guest          : guest  (exact, hardcoded)
 //
 //  school.code  = short school identifier used in teacher/student @suffix
