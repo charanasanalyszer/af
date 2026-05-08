@@ -17986,7 +17986,7 @@ function etExportPDF() {
     /* ── Page header ── */
     doc.setFillColor(15,23,42); doc.rect(0,0,pw,22,'F');
     doc.setFontSize(14); doc.setFont(undefined,'bold'); doc.setTextColor(248,250,252);
-    doc.text(`<i class="fa-solid fa-calendar-days"></i> Exam Timetable — ${exam?.name||''}`, 12, 11);
+    doc.text(`Exam Timetable — ${exam?.name||''}`, 12, 11);
     doc.setFontSize(8); doc.setFont(undefined,'normal'); doc.setTextColor(148,163,184);
     doc.text(`Generated: ${new Date().toLocaleDateString()}   •   ${grp.classGroupLabel} (${grp.streamSlots.length} stream(s))`, 12, 18);
     doc.setFontSize(7); doc.text(`All streams sit for the same subject at the same time.`, pw-12, 18, {align:'right'});
