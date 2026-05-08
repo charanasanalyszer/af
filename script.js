@@ -11694,7 +11694,7 @@ function applyTranslations() {
   const T = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
   I18N_MAP.forEach(({ key, sel }) => {
     const el = document.querySelector(sel);
-    if (el && T[key] !== undefined) el.textContent = T[key];
+    if (el && T[key] !== undefined) el.innerHTML = T[key];
   });
   // Also update topbar title to current section
   const activeNav = document.querySelector('.sn.active span');
