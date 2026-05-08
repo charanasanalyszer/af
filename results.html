@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Results Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a0e1a;
+      --surface: #111827;
+      --surface2: #1a2236;
+      --border: #1e2d45;
+      --accent: #3b82f6;
+      --accent2: #10b981;
+      --accent3: #f59e0b;
+      --danger: #ef4444;
+      --text: #f1f5f9;
+      --muted: #64748b;
+      --label: #94a3b8;
+      --radius: 16px;
+      --shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Sora', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Background mesh ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 20% 10%, rgba(59,130,246,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 40% at 80% 90%, rgba(16,185,129,0.08) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrap { position: relative; z-index: 1; }
+
+    /* ── Hero header ── */
+    .hero {
+      text-align: center;
+      padding: 3rem 1.5rem 2rem;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      background: rgba(59,130,246,0.15);
+      border: 1px solid rgba(59,130,246,0.3);
+      color: #93c5fd;
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: .35rem .9rem;
+      border-radius: 99px;
+      margin-bottom: 1.2rem;
+    }
+    .hero-badge::before { content: '●'; color: #3b82f6; font-size: .55rem; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
+
+    .hero h1 {
+      font-size: clamp(1.8rem, 5vw, 3rem);
+      font-weight: 800;
+      letter-spacing: -.02em;
+      line-height: 1.1;
+      background: linear-gradient(135deg, #f1f5f9 0%, #93c5fd 50%, #6ee7b7 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: .6rem;
+    }
+    .hero p {
+      color: var(--muted);
+      font-size: .95rem;
+      font-weight: 300;
+    }
+
+    /* ── Search card ── */
+    .search-card {
+      max-width: 520px;
+      margin: 0 auto 2.5rem;
+      padding: 0 1.25rem;
+    }
+    .search-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      box-shadow: var(--shadow);
+      transition: border-color .3s;
+    }
+    .search-box:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.12), var(--shadow);
+    }
+
+    .search-label {
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--label);
+      margin-bottom: .65rem;
+      display: block;
+    }
+
+    .input-row {
+      display: flex;
+      gap: .75rem;
+    }
+
+    .adm-input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.05rem;
+      font-weight: 600;
+      letter-spacing: .06em;
+      padding: .75rem 1rem;
+      border-radius: 10px;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .adm-input::placeholder { color: var(--muted); font-weight: 400; }
+    .adm-input:focus { border-color: var(--accent); }
+
+    .btn-search {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: .75rem 1.4rem;
+      font-family: 'Sora', sans-serif;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s, opacity .15s;
+      white-space: nowrap;
+    }
+    .btn-search:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(59,130,246,0.4); }
+    .btn-search:active { transform: translateY(0); }
+    .btn-search:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    .school-select-row {
+      margin-top: 1rem;
+    }
+    .school-select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      font-family: 'Sora', sans-serif;
+      font-size: .85rem;
+      padding: .6rem .9rem;
+      border-radius: 10px;
+      outline: none;
+      cursor: pointer;
+    }
+    .school-select:focus { border-color: var(--accent); }
+
+    /* ── Error / info messages ── */
+    .msg {
+      margin: .75rem 0 0;
+      padding: .65rem 1rem;
+      border-radius: 8px;
+      font-size: .82rem;
+      font-weight: 500;
+      display: none;
+    }
+    .msg.show { display: block; }
+    .msg.error { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.25); color: #fca5a5; }
+    .msg.info  { background: rgba(59,130,246,0.1);  border: 1px solid rgba(59,130,246,0.2);  color: #93c5fd; }
+
+    /* ── Results area ── */
+    #resultsWrap {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 1.25rem 4rem;
+      display: none;
+    }
+    #resultsWrap.show { display: block; }
+
+    /* ── Student card ── */
+    .stu-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      box-shadow: var(--shadow);
+      animation: fadeUp .4s ease;
+    }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:none} }
+
+    .stu-avatar {
+      width: 60px; height: 60px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #3b82f6, #10b981);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; font-weight: 800; color: #fff;
+      flex-shrink: 0;
+    }
+    .stu-meta { flex: 1; }
+    .stu-name { font-size: 1.2rem; font-weight: 700; margin-bottom: .2rem; }
+    .stu-details { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .stu-chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: .2rem .65rem;
+      font-size: .73rem;
+      color: var(--label);
+    }
+    .stu-chip span { color: var(--text); font-weight: 600; }
+
+    /* ── Exam selector ── */
+    .exam-picker {
+      margin-bottom: 1.5rem;
+      animation: fadeUp .45s .05s ease both;
+    }
+    .exam-picker-label {
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--label);
+      margin-bottom: .6rem;
+    }
+    .exam-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+    }
+    .exam-tab {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      color: var(--label);
+      border-radius: 8px;
+      padding: .5rem 1rem;
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .18s;
+    }
+    .exam-tab:hover { border-color: var(--accent); color: var(--text); }
+    .exam-tab.active {
+      background: rgba(59,130,246,0.15);
+      border-color: var(--accent);
+      color: #93c5fd;
+    }
+
+    /* ── Report card ── */
+    .report-wrapper {
+      animation: fadeUp .5s .08s ease both;
+    }
+
+    /* Grade pills */
+    .grade-pill {
+      display: inline-block;
+      padding: .2rem .6rem;
+      border-radius: 99px;
+      font-size: .72rem;
+      font-weight: 700;
+    }
+    .g-green { background: rgba(16,185,129,0.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.3); }
+    .g-teal  { background: rgba(20,184,166,0.15); color: #99f6e4; border: 1px solid rgba(20,184,166,0.3); }
+    .g-blue  { background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); }
+    .g-lblue { background: rgba(56,189,248,0.15); color: #7dd3fc; border: 1px solid rgba(56,189,248,0.3); }
+    .g-amber { background: rgba(245,158,11,0.15); color: #fcd34d; border: 1px solid rgba(245,158,11,0.3); }
+    .g-orange{ background: rgba(249,115,22,0.15); color: #fdba74; border: 1px solid rgba(249,115,22,0.3); }
+    .g-red   { background: rgba(239,68,68,0.15);  color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+    .g-dkred { background: rgba(185,28,28,0.2);   color: #fca5a5; border: 1px solid rgba(185,28,28,0.4); }
+
+    /* stat tiles */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: .75rem;
+      margin-bottom: 1.5rem;
+    }
+    .stat-tile {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      text-align: center;
+    }
+    .stat-value { font-size: 1.5rem; font-weight: 800; margin-bottom: .15rem; }
+    .stat-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+
+    /* marks table */
+    .marks-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+    .marks-head {
+      padding: 1rem 1.25rem;
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--label);
+      border-bottom: 1px solid var(--border);
+    }
+    table.marks-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .marks-table th {
+      background: var(--surface2);
+      padding: .6rem 1rem;
+      text-align: left;
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .marks-table th:not(:first-child) { text-align: center; }
+    .marks-table td {
+      padding: .65rem 1rem;
+      border-bottom: 1px solid rgba(30,45,69,0.7);
+      font-size: .85rem;
+    }
+    .marks-table td:not(:first-child) { text-align: center; }
+    .marks-table tbody tr:last-child td { border-bottom: none; }
+    .marks-table tbody tr:hover td { background: rgba(59,130,246,0.04); }
+    .marks-table .total-row td {
+      background: var(--surface2);
+      font-weight: 700;
+      color: var(--accent);
+      border-top: 2px solid var(--border);
+    }
+    .sub-score { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+    /* remarks */
+    .remarks-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    @media(max-width:640px) { .remarks-row { grid-template-columns: 1fr; } }
+    .remark-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+    }
+    .remark-title {
+      font-size: .68rem;
+      font-weight: 600;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .4rem;
+    }
+    .remark-text { font-size: .85rem; line-height: 1.55; color: var(--text); }
+
+    /* trend */
+    .trend-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .trend-title {
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--label);
+      margin-bottom: 1rem;
+    }
+
+    /* fee section */
+    .fee-banner {
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      font-weight: 600;
+    }
+    .fee-banner.cleared { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); color: #6ee7b7; }
+    .fee-banner.owing   { background: rgba(239,68,68,0.1);  border: 1px solid rgba(239,68,68,0.25);  color: #fca5a5; }
+    .fee-icon { font-size: 1.4rem; }
+
+    /* print / QR section */
+    .actions-bar {
+      display: flex;
+      gap: .75rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+      animation: fadeUp .5s .1s ease both;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .65rem 1.25rem;
+      border-radius: 10px;
+      font-family: 'Sora', sans-serif;
+      font-size: .85rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all .18s;
+    }
+    .btn-primary { background: linear-gradient(135deg,#3b82f6,#2563eb); color:#fff; }
+    .btn-primary:hover { box-shadow: 0 4px 16px rgba(59,130,246,0.35); transform: translateY(-1px); }
+    .btn-outline {
+      background: transparent;
+      border: 1.5px solid var(--border);
+      color: var(--label);
+    }
+    .btn-outline:hover { border-color: var(--accent); color: var(--text); }
+
+    /* QR modal */
+    .modal-bg {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.75);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .modal-bg.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2rem;
+      max-width: 360px;
+      width: 90%;
+      text-align: center;
+      animation: fadeUp .3s ease;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+    }
+    .modal h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: .3rem; }
+    .modal p  { font-size: .82rem; color: var(--muted); margin-bottom: 1.25rem; }
+    #qrCanvas {
+      background: #fff;
+      border-radius: 12px;
+      padding: 12px;
+      display: inline-block;
+      margin-bottom: 1rem;
+    }
+    .modal-close {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: .5rem 1.25rem;
+      cursor: pointer;
+      font-family: 'Sora', sans-serif;
+      font-weight: 600;
+      font-size: .85rem;
+      transition: background .18s;
+    }
+    .modal-close:hover { background: var(--border); }
+
+    /* Loading spinner */
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 2rem auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--muted);
+      font-size: .75rem;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── PRINT STYLES ── */
+    @media print {
+      body { background: #fff; color: #111; }
+      body::before { display: none; }
+      .hero, .search-card, .exam-picker, .actions-bar, footer { display: none !important; }
+      .stu-card, .stat-tile, .marks-wrap, .remark-box, .trend-wrap { background: #fff !important; color: #111 !important; border-color: #ccc !important; }
+      .report-wrapper { display: block !important; }
+      #qrPrintSection { display: block !important; }
+    }
+    #qrPrintSection { display: none; }
+
+    /* ── Fee Statement ── */
+    .fee-statement {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      animation: fadeUp .4s ease .1s both;
+    }
+    .fee-header {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      padding: 1rem 1.25rem;
+      background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(59,130,246,0.08));
+      border-bottom: 1px solid var(--border);
+    }
+    .fee-header-icon { font-size: 1.4rem; }
+    .fee-header-title { font-size: .95rem; font-weight: 700; color: var(--text); }
+    .fee-header-sub   { font-size: .75rem; color: var(--muted); margin-top: .1rem; }
+    .fee-body { padding: 1.25rem; }
+    .fee-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .fee-tile {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: .85rem 1rem;
+    }
+    .fee-tile-label { font-size: .7rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: .35rem; }
+    .fee-tile-value { font-size: 1.2rem; font-weight: 700; }
+    .fee-tile-value.cleared { color: #10b981; }
+    .fee-tile-value.owing   { color: #ef4444; }
+    .fee-tile-value.neutral { color: #3b82f6; }
+    .fee-status-bar {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      padding: .75rem 1rem;
+      border-radius: 10px;
+      font-size: .82rem;
+      font-weight: 600;
+    }
+    .fee-status-bar.cleared { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); color: #6ee7b7; }
+    .fee-status-bar.owing   { background: rgba(239,68,68,0.1);   border: 1px solid rgba(239,68,68,0.25);   color: #fca5a5; }
+    .fee-status-bar.partial { background: rgba(245,158,11,0.1);  border: 1px solid rgba(245,158,11,0.25);  color: #fcd34d; }
+    .fee-history-table { width: 100%; border-collapse: collapse; font-size: .8rem; margin-top: 1rem; }
+    .fee-history-table th { padding: .5rem .75rem; text-align: left; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border); }
+    .fee-history-table td { padding: .5rem .75rem; border-bottom: 1px solid rgba(255,255,255,.04); }
+    .fee-history-table tr:last-child td { border-bottom: none; }
+    .fee-badge { display: inline-block; padding: .2rem .6rem; border-radius: 99px; font-size: .7rem; font-weight: 700; }
+    .fee-badge.paid    { background: rgba(16,185,129,.15); color: #6ee7b7; }
+    .fee-badge.partial { background: rgba(245,158,11,.15); color: #fcd34d; }
+    .fee-badge.unpaid  { background: rgba(239,68,68,.12);  color: #fca5a5; }
+
+    /* ── Platform Papers ── */
+    .papers-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      animation: fadeUp .4s ease .15s both;
+    }
+    .papers-hdr {
+      display: flex; align-items: center; gap: .75rem;
+      padding: 1rem 1.25rem;
+      background: linear-gradient(135deg, rgba(124,58,237,0.12), rgba(59,130,246,0.08));
+      border-bottom: 1px solid var(--border);
+    }
+    .paper-card {
+      display: flex; align-items: center; gap: 1rem;
+      padding: .85rem 1.25rem;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+      transition: background .2s;
+    }
+    .paper-card:last-child { border-bottom: none; }
+    .paper-card:hover { background: var(--surface2); }
+    .paper-icon { font-size: 1.6rem; flex-shrink: 0; }
+    .paper-meta { flex: 1; min-width: 0; }
+    .paper-title { font-size: .88rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .paper-sub   { font-size: .73rem; color: var(--muted); margin-top: .2rem; }
+    .btn-dl { background: linear-gradient(135deg,#3b82f6,#2563eb); color: #fff; border: none; border-radius: 8px; padding: .4rem .9rem; font-family: 'Sora', sans-serif; font-size: .78rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: opacity .2s; }
+    .btn-dl:hover { opacity: .85; }
+
+    /* No data state */
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--muted);
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: .75rem; }
+    .empty-state h3 { font-size: 1rem; font-weight: 600; color: var(--label); margin-bottom: .4rem; }
+    .empty-state p { font-size: .83rem; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">🎓 Live Results Access</div>
+    <h1>Student Results<br>Portal</h1>
+    <p>Enter your admission number to instantly view your academic report</p>
+  </div>
+
+  <!-- SEARCH CARD -->
+  <div class="search-card">
+    <div class="search-box">
+      <label class="search-label">Admission Number</label>
+      <div class="input-row">
+        <input type="text" id="admInput" class="adm-input" placeholder="e.g. 2024/001" autocomplete="off" spellcheck="false" />
+        <button class="btn-search" id="searchBtn" onclick="searchStudent()">View Results</button>
+      </div>
+      <div class="school-select-row" id="schoolPickRow" style="display:none">
+        <select class="school-select" id="schoolPick" onchange="applySchool()">
+          <option value="">— Select School —</option>
+        </select>
+      </div>
+      <div class="msg" id="errMsg"></div>
+    </div>
+  </div>
+
+  <!-- RESULTS AREA -->
+  <div id="resultsWrap">
+    <div id="resultsInner"></div>
+  </div>
+
+  <footer>Powered by EduInsight • Results are generated from school records stored on this device</footer>
+</div>
+
+<!-- QR MODAL -->
+<div class="modal-bg" id="qrModal">
+  <div class="modal">
+    <h3>📱 Scan to Access Results</h3>
+    <p id="qrDesc">Share this QR code so anyone can quickly access these results</p>
+    <div id="qrCanvas"></div>
+    <br>
+    <button class="modal-close" onclick="closeQR()">Close</button>
+  </div>
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────
+let currentSchoolId = null;
+let students=[], subjects=[], exams=[], marks=[], classes=[], streams=[], settings={};
+let currentStudent = null;
+let currentExamId  = null;
+let trendChart = null;
+
+// ─── Init ─────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  // Check URL params for direct access via QR code
+  const params = new URLSearchParams(location.search);
+  const qrAdm   = params.get('adm');
+  const qrSchool = params.get('school');
+  const qrExam   = params.get('exam');
+
+  // Detect available schools
+  const platformSchools = getPlatformSchools();
+
+  if (platformSchools.length > 1) {
+    document.getElementById('schoolPickRow').style.display = 'block';
+    const sel = document.getElementById('schoolPick');
+    platformSchools.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id; opt.textContent = s.name;
+      sel.appendChild(opt);
+    });
+    // Pre-select from QR
+    if (qrSchool) { sel.value = qrSchool; applySchool(false); }
+    else if (platformSchools.length === 1) { sel.value = platformSchools[0].id; applySchool(false); }
+  } else if (platformSchools.length === 1) {
+    currentSchoolId = platformSchools[0].id;
+    loadSchoolData();
+  }
+
+  if (qrAdm) {
+    document.getElementById('admInput').value = qrAdm;
+    // Wait a tick for school data to load
+    setTimeout(() => {
+      searchStudent(qrExam);
+    }, 50);
+  }
+
+  // Allow Enter key
+  document.getElementById('admInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchStudent();
+  });
+});
+
+function getPlatformSchools() {
+  try { return JSON.parse(localStorage.getItem('ei_platform_schools')) || []; }
+  catch { return []; }
+}
+
+function applySchool(doLoad=true) {
+  const sel = document.getElementById('schoolPick');
+  currentSchoolId = sel.value;
+  if (currentSchoolId && doLoad) loadSchoolData();
+}
+
+function loadSchoolData() {
+  const p = currentSchoolId ? currentSchoolId + '_' : '';
+  const load = key => { try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; } };
+  students  = load(p + 'ei_students');
+  subjects  = load(p + 'ei_subjects');
+  exams     = load(p + 'ei_exams');
+  marks     = load(p + 'ei_marks');
+  classes   = load(p + 'ei_classes');
+  streams   = load(p + 'ei_streams');
+  settings  = (load(p + 'ei_settings')[0]) || {};
+}
+
+// ─── Search ──────────────────────────────────────────────────
+function searchStudent(forcedExamId = null) {
+  const admVal = document.getElementById('admInput').value.trim();
+  const errEl  = document.getElementById('errMsg');
+  errEl.className = 'msg'; errEl.textContent = '';
+
+  if (!admVal) {
+    showMsg('Please enter your admission number.', 'error'); return;
+  }
+
+  // If schools exist but not yet loaded
+  if (!students.length) {
+    const schools = getPlatformSchools();
+    if (!schools.length) {
+      showMsg('No school data found. Please ensure the school system is set up on this device.', 'error'); return;
+    }
+    if (!currentSchoolId) {
+      // Try auto-find across all schools
+      let found = null;
+      for (const sch of schools) {
+        const p = sch.id + '_';
+        const stuList = tryLoad(p + 'ei_students');
+        const match = stuList.find(s => s.adm === admVal);
+        if (match) {
+          currentSchoolId = sch.id;
+          loadSchoolData();
+          found = match;
+          break;
+        }
+      }
+      if (!found) {
+        showMsg('Admission number not found. Please check and try again.', 'error'); return;
+      }
+      currentStudent = found;
+    } else {
+      loadSchoolData();
+    }
+  }
+
+  const stu = students.find(s => s.adm === admVal);
+  if (!stu) {
+    // Try all schools
+    const schools = getPlatformSchools();
+    let found = null;
+    for (const sch of schools) {
+      const p = sch.id + '_';
+      const stuList = tryLoad(p + 'ei_students');
+      const match = stuList.find(s => s.adm === admVal);
+      if (match) {
+        currentSchoolId = sch.id;
+        loadSchoolData();
+        found = match;
+        break;
+      }
+    }
+    if (!found) { showMsg('Admission number not found. Please check and try again.', 'error'); return; }
+    currentStudent = found;
+  } else {
+    currentStudent = stu;
+  }
+
+  renderResults(currentStudent, forcedExamId);
+}
+
+function tryLoad(key) {
+  try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; }
+}
+
+function showMsg(text, type) {
+  const el = document.getElementById('errMsg');
+  el.textContent = text;
+  el.className = 'msg show ' + type;
+}
+
+// ─── Render Results ──────────────────────────────────────────
+function renderResults(stu, forcedExamId = null) {
+  const wrap = document.getElementById('resultsWrap');
+  const inner = document.getElementById('resultsInner');
+  wrap.className = 'show';
+
+  // Student has exams?
+  const stuExams = exams.filter(ex => {
+    if (ex.category === 'consolidated') {
+      return (ex.sourceExamIds||[]).some(sid => marks.some(m=>m.examId===sid&&m.studentId===stu.id));
+    }
+    return marks.some(m=>m.examId===ex.id&&m.studentId===stu.id);
+  });
+
+  if (!stuExams.length) {
+    inner.innerHTML = `<div class="empty-state"><div class="icon">📋</div><h3>No results found</h3><p>No exam results have been entered for this student yet.</p></div>`;
+    wrap.scrollIntoView({behavior:'smooth'});
+    return;
+  }
+
+  // Pick exam
+  if (forcedExamId && stuExams.find(e=>e.id===forcedExamId)) {
+    currentExamId = forcedExamId;
+  } else {
+    currentExamId = stuExams[stuExams.length-1].id;
+  }
+
+  const cls    = classes.find(c=>c.id===stu.classId);
+  const stream = streams.find(s=>s.id===stu.streamId);
+
+  // Initials
+  const initials = stu.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+
+  let html = `
+    <!-- STUDENT CARD -->
+    <div class="stu-card">
+      <div class="stu-avatar">${initials}</div>
+      <div class="stu-meta">
+        <div class="stu-name">${stu.name}</div>
+        <div class="stu-details">
+          <div class="stu-chip">Adm: <span>${stu.adm}</span></div>
+          ${cls  ? `<div class="stu-chip">Class: <span>${cls.name}</span></div>` : ''}
+          ${stream ? `<div class="stu-chip">Stream: <span>${stream.name}</span></div>` : ''}
+          <div class="stu-chip">Gender: <span>${stu.gender==='M'?'Male':'Female'}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="actions-bar">
+      <button class="btn btn-primary" onclick="window.print()">🖨 Print Report</button>
+      <button class="btn btn-outline" onclick="showQR()">📱 Get QR Code</button>
+      <button class="btn btn-outline" onclick="copyLink()">🔗 Copy Link</button>
+    </div>
+
+    <!-- EXAM TABS -->
+    <div class="exam-picker">
+      <div class="exam-picker-label">Select Exam</div>
+      <div class="exam-tabs">
+        ${stuExams.map(ex=>`
+          <button class="exam-tab${ex.id===currentExamId?' active':''}"
+            onclick="switchExam('${ex.id}')">
+            ${ex.name}${ex.term?` — ${ex.term}`:''}${ex.year?' '+ex.year:''}
+          </button>`).join('')}
+      </div>
+    </div>
+
+    <!-- REPORT CONTENT -->
+    <div class="report-wrapper" id="reportContent">
+      ${buildReportContent(stu, currentExamId)}
+    </div>
+  `;
+
+  inner.innerHTML = html;
+  wrap.scrollIntoView({behavior:'smooth', block:'start'});
+  renderTrendChart();
+}
+
+function switchExam(examId) {
+  currentExamId = examId;
+  // Update active tab
+  document.querySelectorAll('.exam-tab').forEach(t => {
+    t.classList.toggle('active', t.getAttribute('onclick').includes(`'${examId}'`));
+  });
+  document.getElementById('reportContent').innerHTML = buildReportContent(currentStudent, examId);
+  renderTrendChart();
+}
+
+// ─── Build report content ────────────────────────────────────
+function buildReportContent(stu, examId) {
+  const d = getStudentReport(stu.id, examId);
+  if (!d) return `<div class="empty-state"><div class="icon">⚠️</div><h3>No data for this exam</h3></div>`;
+
+  const ctComment  = generateCTComment(d.mean, d.mGrade.grade, stu.gender, stu.name, d.streamRank, students.length);
+  const prComment  = generatePrincipalComment(d.mean, d.mGrade.grade, d.overallRank, students.length);
+
+  // Grade class mapping
+  const gCls = {EE1:'g-green',EE2:'g-teal',ME1:'g-blue',ME2:'g-lblue',AE1:'g-amber',AE2:'g-orange',BE1:'g-red',BE2:'g-dkred'};
+
+  let html = '';
+
+  // STAT TILES
+  html += `<div class="stat-grid">
+    <div class="stat-tile">
+      <div class="stat-value" style="color:#3b82f6">${d.total}</div>
+      <div class="stat-label">Total Marks</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-value" style="color:#3b82f6">${d.mean.toFixed(2)}</div>
+      <div class="stat-label">Mean Score</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-value" style="color:#10b981">${d.mGrade.grade}</div>
+      <div class="stat-label">${d.mGrade.label}</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-value" style="color:#f59e0b">${d.totalPoints}</div>
+      <div class="stat-label">Total Points</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-value">${d.overallRank > 0 ? '#'+d.overallRank : '—'}</div>
+      <div class="stat-label">Overall Rank</div>
+    </div>
+    ${d.streamRank > 0 ? `<div class="stat-tile">
+      <div class="stat-value">#${d.streamRank}</div>
+      <div class="stat-label">Stream Rank</div>
+    </div>` : ''}
+  </div>`;
+
+  // MARKS TABLE
+  html += `<div class="marks-wrap">
+    <div class="marks-head">📚 Subject Performance — ${d.exam.name}</div>
+    <table class="marks-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Subject</th>
+          <th>Out Of</th>
+          <th>Score</th>
+          <th>Grade</th>
+          <th>Points</th>
+          <th>Remarks</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${d.subjectRows.map((r,i) => `
+          <tr>
+            <td>${i+1}</td>
+            <td>${r.name}</td>
+            <td>${r.max}</td>
+            <td class="sub-score">${r.score !== null ? r.score : '—'}</td>
+            <td><span class="grade-pill ${gCls[r.grade]||'g-blue'}">${r.grade}</span></td>
+            <td class="sub-score">${r.points}</td>
+            <td>${r.label}</td>
+          </tr>`).join('')}
+        <tr class="total-row">
+          <td colspan="3" style="text-align:right">TOTAL / MEAN</td>
+          <td class="sub-score">${d.total} / ${d.mean.toFixed(2)}</td>
+          <td><span class="grade-pill ${gCls[d.mGrade.grade]||'g-blue'}">${d.mGrade.grade}</span></td>
+          <td class="sub-score">${d.totalPoints}</td>
+          <td>${d.mGrade.label}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>`;
+
+  // REMARKS
+  html += `<div class="remarks-row">
+    <div class="remark-box">
+      <div class="remark-title">🧑‍🏫 Class Teacher's Remarks</div>
+      <div class="remark-text">${ctComment}</div>
+    </div>
+    <div class="remark-box">
+      <div class="remark-title">🏫 Principal's Remarks</div>
+      <div class="remark-text">${prComment}</div>
+    </div>
+  </div>`;
+
+  // FEE STATEMENT
+  const feeHTML = buildFeeStatement(stu, d.exam);
+  if (feeHTML) html += feeHTML;
+
+  // PLATFORM REVISION PAPERS
+  const papersHTML = buildPapersList();
+  if (papersHTML) html += papersHTML;
+
+  // TREND CHART (if more than 1 exam)
+  if (d.history && d.history.length > 1) {
+    html += `<div class="trend-wrap">
+      <div class="trend-title">📈 Performance Trend</div>
+      <canvas id="trendChart" height="80"></canvas>
+    </div>`;
+  }
+
+  // SCHOOL INFO FOOTER (for print)
+  const s = settings;
+  html += `<div id="qrPrintSection" style="display:none;margin-top:1rem;padding:1rem;border:1px solid #ccc;border-radius:8px;text-align:center;page-break-inside:avoid">
+    <p style="font-size:.75rem;color:#555;margin-bottom:.4rem">Scan QR code to view this report online</p>
+    <div id="qrPrintCanvas" style="display:inline-block;background:#fff;padding:6px;border-radius:6px"></div>
+    <p style="font-size:.72rem;color:#777;margin-top:.4rem">${s.schoolName||'School'} • Adm: ${stu.adm}</p>
+  </div>`;
+
+  return html;
+}
+
+// ─── Chart ───────────────────────────────────────────────────
+function renderTrendChart() {
+  const d = getStudentReport(currentStudent?.id, currentExamId);
+  if (!d || !d.history || d.history.length < 2) return;
+
+  setTimeout(() => {
+    const canvas = document.getElementById('trendChart');
+    if (!canvas) return;
+    if (trendChart) { trendChart.destroy(); trendChart = null; }
+
+    const ctx = canvas.getContext('2d');
+    trendChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: d.history.map(h=>h.examName),
+        datasets: [
+          {
+            label: 'Mean Score',
+            data: d.history.map(h=>h.mean),
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.1)',
+            tension: 0.4, fill: true,
+            pointRadius: 5, pointBackgroundColor: '#3b82f6'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { labels: { color: '#94a3b8', font: {size:11,family:'Sora'} } } },
+        scales: {
+          x: { grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'#64748b',font:{size:10}} },
+          y: { grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'#64748b',font:{size:10}}, beginAtZero:false }
+        }
+      }
+    });
+  }, 50);
+}
+
+// ─── Fee Statement ───────────────────────────────────────────
+function loadFeeData() {
+  const p = currentSchoolId ? currentSchoolId + '_' : '';
+  const load = key => { try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; } };
+  return {
+    feeRecords:    load(p + 'ei_fee_records'),
+    feeStructures: load(p + 'ei_fee_structures'),
+    feePayments:   load(p + 'ei_fee_payments'),
+  };
+}
+
+function buildFeeStatement(stu, exam) {
+  const { feeRecords, feeStructures, feePayments } = loadFeeData();
+  if (!feeRecords.length && !feeStructures.length) return '';
+
+  // Find all fee records for this student
+  const stuRecs = feeRecords.filter(r => r.studentId === stu.id).sort((a,b)=>{
+    if (a.year !== b.year) return b.year - a.year;
+    const tOrder = {'Term 1':0,'Term 2':1,'Term 3':2};
+    return (tOrder[b.term]||0) - (tOrder[a.term]||0);
+  });
+
+  if (!stuRecs.length) return '';
+
+  // Latest record (current context)
+  const latestRec = stuRecs[0];
+  const balance = parseFloat(latestRec.balance ?? latestRec.amount ?? 0);
+  const totalBilled = parseFloat(latestRec.billed ?? latestRec.amount ?? 0);
+  const totalPaid = parseFloat(latestRec.paid ?? (totalBilled - balance) ?? 0);
+
+  // Status
+  const isCleared = balance <= 0;
+  const isPartial  = !isCleared && totalPaid > 0;
+  const statusClass = isCleared ? 'cleared' : (isPartial ? 'partial' : 'owing');
+  const statusIcon  = isCleared ? '✅' : (isPartial ? '⚠️' : '🔴');
+  const statusText  = isCleared ? 'Fees Fully Cleared' : (isPartial ? `Balance Outstanding: KES ${Math.abs(balance).toLocaleString()}` : `Unpaid: KES ${Math.abs(balance).toLocaleString()}`);
+
+  // Next term fee
+  const termMap = {'Term 1':'Term 2','Term 2':'Term 3','Term 3':'Term 1'};
+  const nxtTerm = termMap[latestRec.term] || '';
+  const nxtYear = latestRec.term === 'Term 3' ? (parseInt(latestRec.year)||0)+1 : latestRec.year;
+  const nxtStruct = feeStructures.find(f => f.classId===stu.classId && f.term===nxtTerm && String(f.year)===String(nxtYear));
+  const nextTermFee = nxtStruct ? parseFloat(nxtStruct.totalFee||0) : null;
+
+  let html = `<div class="fee-statement">
+    <div class="fee-header">
+      <div class="fee-header-icon">💰</div>
+      <div>
+        <div class="fee-header-title">Fee Statement</div>
+        <div class="fee-header-sub">${latestRec.term} ${latestRec.year} — ${stu.name}</div>
+      </div>
+    </div>
+    <div class="fee-body">
+      <div class="fee-grid">
+        <div class="fee-tile">
+          <div class="fee-tile-label">Total Billed</div>
+          <div class="fee-tile-value neutral">KES ${totalBilled.toLocaleString()}</div>
+        </div>
+        <div class="fee-tile">
+          <div class="fee-tile-label">Amount Paid</div>
+          <div class="fee-tile-value cleared">KES ${totalPaid.toLocaleString()}</div>
+        </div>
+        <div class="fee-tile">
+          <div class="fee-tile-label">Balance</div>
+          <div class="fee-tile-value ${isCleared?'cleared':'owing'}">KES ${Math.abs(balance).toLocaleString()}</div>
+        </div>
+        ${nextTermFee !== null ? `<div class="fee-tile">
+          <div class="fee-tile-label">Next Term Fee</div>
+          <div class="fee-tile-value neutral">KES ${nextTermFee.toLocaleString()}</div>
+        </div>` : ''}
+      </div>
+      <div class="fee-status-bar ${statusClass}">${statusIcon} ${statusText}</div>
+      ${stuRecs.length > 1 ? `
+      <div style="margin-top:1rem">
+        <div style="font-size:.75rem;font-weight:700;color:var(--label);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem">Fee History</div>
+        <table class="fee-history-table">
+          <thead><tr><th>Term</th><th>Year</th><th>Billed</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead>
+          <tbody>
+            ${stuRecs.map(r => {
+              const bal = parseFloat(r.balance ?? r.amount ?? 0);
+              const billed = parseFloat(r.billed ?? r.amount ?? 0);
+              const paid = parseFloat(r.paid ?? (billed - bal) ?? 0);
+              const cleared = bal <= 0;
+              const partial = !cleared && paid > 0;
+              const badge = cleared ? 'paid' : (partial ? 'partial' : 'unpaid');
+              const label = cleared ? 'Paid' : (partial ? 'Partial' : 'Unpaid');
+              return `<tr>
+                <td>${r.term||'—'}</td>
+                <td>${r.year||'—'}</td>
+                <td>KES ${billed.toLocaleString()}</td>
+                <td>KES ${paid.toLocaleString()}</td>
+                <td style="color:${cleared?'#10b981':'#ef4444'}">KES ${Math.abs(bal).toLocaleString()}</td>
+                <td><span class="fee-badge ${badge}">${label}</span></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>` : ''}
+      ${!isCleared ? `<div style="margin-top:1rem;font-size:.78rem;color:var(--muted);padding:.65rem .9rem;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);border-radius:8px">
+        ⚠️ Please clear outstanding balance with the school bursar before next term.
+      </div>` : ''}
+    </div>
+  </div>`;
+  return html;
+}
+
+// ─── Platform Revision Papers ─────────────────────────────────
+function buildPapersList() {
+  let papers = [];
+  try { papers = JSON.parse(localStorage.getItem('ei_platform_papers')) || []; } catch {}
+  // Also merge school-level termly papers
+  const p = currentSchoolId ? currentSchoolId + '_' : '';
+  let schoolPapers = [];
+  try { schoolPapers = JSON.parse(localStorage.getItem(p + 'ei_termly_papers')) || []; } catch {}
+  const all = [...papers, ...schoolPapers].filter(p => p && p.title);
+  if (!all.length) return '';
+
+  const fileIcon = name => {
+    const ext = (name||'').split('.').pop().toLowerCase();
+    if (['pdf'].includes(ext)) return '📄';
+    if (['doc','docx'].includes(ext)) return '📝';
+    if (['jpg','jpeg','png'].includes(ext)) return '🖼️';
+    return '📂';
+  };
+
+  const rows = all.map(p => {
+    const icon = fileIcon(p.fileName || p.title);
+    const isFree = !p.price || parseFloat(p.price) <= 0;
+    const canDl = isFree;
+    return `<div class="paper-card">
+      <div class="paper-icon">${icon}</div>
+      <div class="paper-meta">
+        <div class="paper-title">${p.title}</div>
+        <div class="paper-sub">
+          ${p.subject||''} ${p.term ? '• ' + p.term : ''} ${p.year ? p.year : ''}
+          ${p.examType ? '• ' + p.examType : ''}
+          ${!isFree ? ` • <span style="color:#f59e0b;font-weight:600">KES ${parseFloat(p.price).toLocaleString()}</span>` : ' • <span style="color:#10b981;font-weight:600">Free</span>'}
+        </div>
+      </div>
+      ${canDl && p.fileData ? `<button class="btn-dl" onclick="downloadPaper('${p.id}')">⬇ Download</button>` : (canDl ? '' : `<span style="font-size:.75rem;color:var(--muted)">🔒 Paid</span>`)}
+    </div>`;
+  }).join('');
+
+  return `<div class="papers-section">
+    <div class="papers-hdr">
+      <div style="font-size:1.4rem">📚</div>
+      <div>
+        <div style="font-size:.95rem;font-weight:700;color:var(--text)">Revision Papers &amp; Resources</div>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:.1rem">${all.length} paper${all.length!==1?'s':''} available</div>
+      </div>
+    </div>
+    <div>${rows}</div>
+  </div>`;
+}
+
+function downloadPaper(paperId) {
+  let papers = [];
+  try { papers = JSON.parse(localStorage.getItem('ei_platform_papers')) || []; } catch {}
+  const p2 = currentSchoolId ? currentSchoolId + '_' : '';
+  let schoolPapers = [];
+  try { schoolPapers = JSON.parse(localStorage.getItem(p2 + 'ei_termly_papers')) || []; } catch {}
+  const paper = [...papers, ...schoolPapers].find(p => p.id === paperId);
+  if (!paper || !paper.fileData) return;
+  const a = document.createElement('a');
+  a.href = paper.fileData;
+  a.download = paper.fileName || paper.title || 'paper';
+  a.click();
+  // Update download counter
+  try {
+    const idx = papers.findIndex(p => p.id === paperId);
+    if (idx >= 0) {
+      papers[idx].downloads = (papers[idx].downloads||0) + 1;
+      localStorage.setItem('ei_platform_papers', JSON.stringify(papers));
+    }
+  } catch {}
+}
+
+// ─── QR Code ─────────────────────────────────────────────────
+function getResultURL() {
+  const base = location.href.split('?')[0];
+  const params = new URLSearchParams({
+    adm: currentStudent.adm,
+    exam: currentExamId
+  });
+  if (currentSchoolId) params.set('school', currentSchoolId);
+  return `${base}?${params.toString()}`;
+}
+
+function showQR() {
+  const url = getResultURL();
+  const container = document.getElementById('qrCanvas');
+  container.innerHTML = '';
+  new QRCode(container, {
+    text: url,
+    width: 200, height: 200,
+    colorDark: '#1e293b',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.H
+  });
+  document.getElementById('qrDesc').textContent = `QR for ${currentStudent.name} (${currentStudent.adm})`;
+  document.getElementById('qrModal').classList.add('open');
+
+  // Also render QR for print section
+  renderPrintQR(url);
+  document.getElementById('qrPrintSection').style.display = 'block';
+}
+
+function renderPrintQR(url) {
+  const container = document.getElementById('qrPrintCanvas');
+  if (!container) return;
+  container.innerHTML = '';
+  new QRCode(container, {
+    text: url,
+    width: 100, height: 100,
+    colorDark: '#000', colorLight: '#fff',
+    correctLevel: QRCode.CorrectLevel.H
+  });
+}
+
+function closeQR() {
+  document.getElementById('qrModal').classList.remove('open');
+}
+
+function copyLink() {
+  const url = getResultURL();
+  navigator.clipboard.writeText(url).then(() => {
+    showMsg('Link copied to clipboard!', 'info');
+    setTimeout(()=>{ document.getElementById('errMsg').className='msg'; }, 2500);
+  }).catch(() => {
+    prompt('Copy this link:', url);
+  });
+  renderPrintQR(url);
+  document.getElementById('qrPrintSection').style.display = 'block';
+}
+
+// ─── Grade & Report logic (mirrored from main app) ───────────
+function getGrade(score, maxMarks=100) {
+  const bands = [
+    {min:90,max:100,grade:'EE1',points:8,label:'Outstanding',   cls:'b-green'},
+    {min:80,max:89, grade:'EE2',points:7,label:'Excellent',     cls:'b-teal'},
+    {min:65,max:79, grade:'ME1',points:6,label:'Very Good',     cls:'b-blue'},
+    {min:50,max:64, grade:'ME2',points:5,label:'Good',          cls:'b-lblue'},
+    {min:35,max:49, grade:'AE1',points:4,label:'Average',       cls:'b-amber'},
+    {min:25,max:34, grade:'AE2',points:3,label:'Fair',          cls:'b-orange'},
+    {min:13,max:24, grade:'BE1',points:2,label:'Needs Attention',cls:'b-red'},
+    {min:0, max:12, grade:'BE2',points:1,label:'Needs Attention',cls:'b-dkred'}
+  ];
+  const pct = (score/maxMarks)*100;
+  for (const b of bands) if (pct>=b.min && pct<=b.max) return b;
+  return bands[bands.length-1];
+}
+
+function getMeanGrade(pts) {
+  const g = [
+    {min:7.5,grade:'EE1',label:'Outstanding'},
+    {min:6.5,grade:'EE2',label:'Excellent'},
+    {min:5.5,grade:'ME1',label:'Very Good'},
+    {min:4.5,grade:'ME2',label:'Good'},
+    {min:3.5,grade:'AE1',label:'Average'},
+    {min:2.5,grade:'AE2',label:'Fair'},
+    {min:1.5,grade:'BE1',label:'Needs Attention'},
+    {min:0,  grade:'BE2',label:'Needs Attention'}
+  ];
+  for (const b of g) if (pts>=b.min) return b;
+  return g[g.length-1];
+}
+
+function getStudentReport(stuId, examId) {
+  const stu  = students.find(s=>s.id===stuId); if(!stu) return null;
+  const exam = exams.find(e=>e.id===examId);   if(!exam) return null;
+  const cls  = classes.find(c=>c.id===stu.classId);
+  const stream = streams.find(s=>s.id===stu.streamId);
+
+  const isConsolidated = exam.category === 'consolidated';
+  const sourceExamObjs = isConsolidated
+    ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean)
+    : [];
+
+  let subjectRows;
+  if (isConsolidated && sourceExamObjs.length>0) {
+    subjectRows = (exam.subjectIds||[]).map(sid=>{
+      const sub = subjects.find(s=>s.id===sid); if(!sub) return null;
+      const scores = sourceExamObjs.map(src=>{
+        const mk = marks.find(m=>m.examId===src.id&&m.studentId===stuId&&m.subjectId===sid);
+        return mk?mk.score:null;
+      });
+      const valid = scores.filter(sc=>sc!==null);
+      const avg = valid.length ? parseFloat((valid.reduce((a,b)=>a+b,0)/valid.length).toFixed(1)) : null;
+      const g = avg!==null ? getGrade(avg, sub.max) : null;
+      return {name:sub.name,code:sub.code,max:sub.max,score:avg,grade:g?.grade||'—',points:g?.points||'—',label:g?.label||'—'};
+    }).filter(Boolean);
+  } else {
+    const examMarks = marks.filter(m=>m.examId===examId&&m.studentId===stuId);
+    subjectRows = (exam.subjectIds||[]).map(sid=>{
+      const sub = subjects.find(s=>s.id===sid); if(!sub) return null;
+      const mk  = examMarks.find(m=>m.subjectId===sid);
+      const score = mk?mk.score:null;
+      const g = score!==null ? getGrade(score, sub.max) : null;
+      return {name:sub.name,code:sub.code,max:sub.max,score,grade:g?.grade||'—',points:g?.points||'—',label:g?.label||'—'};
+    }).filter(Boolean);
+  }
+
+  const total = subjectRows.reduce((a,r)=>a+(r.score!==null?r.score:0),0);
+  const mean  = (exam.subjectIds||[]).length ? total/(exam.subjectIds||[]).length : 0;
+  const mGrade = getMeanGrade(mean / (subjectRows.reduce((a,r)=>a+(r.max||100),0)/((exam.subjectIds||[]).length||1)||100)*8);
+  const totalPoints = subjectRows.reduce((a,r)=>a+(typeof r.points==='number'?r.points:0),0);
+
+  function getTotal(sId) {
+    if (isConsolidated && sourceExamObjs.length>0) {
+      let any=false;
+      const t = (exam.subjectIds||[]).reduce((acc,sid)=>{
+        const ss=sourceExamObjs.map(src=>{const mk=marks.find(m=>m.examId===src.id&&m.studentId===sId&&m.subjectId===sid);return mk?mk.score:null;}).filter(s=>s!==null);
+        if(ss.length)any=true;
+        return acc+(ss.length?ss.reduce((a,b)=>a+b,0)/ss.length:0);
+      },0);
+      return any?parseFloat(t.toFixed(1)):0;
+    }
+    return marks.filter(m=>m.examId===examId&&m.studentId===sId).reduce((a,m)=>a+m.score,0);
+  }
+
+  const allTotals = students.map(s=>({id:s.id,total:getTotal(s.id)})).filter(s=>s.total>0).sort((a,b)=>b.total-a.total);
+  const overallRank = allTotals.findIndex(s=>s.id===stuId)+1;
+
+  const streamStudents = students.filter(s=>s.streamId===stu.streamId)
+    .map(s=>({id:s.id,total:getTotal(s.id)})).filter(s=>s.total>0).sort((a,b)=>b.total-a.total);
+  const streamRank = streamStudents.findIndex(s=>s.id===stuId)+1;
+
+  const history = exams.filter(ex=>ex.category!=='consolidated').map(ex=>{
+    const exM=marks.filter(m=>m.examId===ex.id&&m.studentId===stuId); if(!exM.length)return null;
+    const exTotal=exM.reduce((a,m)=>a+m.score,0);
+    const exMean=ex.subjectIds?.length?exTotal/ex.subjectIds.length:0;
+    const exG=getMeanGrade(exMean/(subjects.filter(s=>ex.subjectIds?.includes(s.id)).reduce((a,s)=>a+(s.max||100),0)/(ex.subjectIds?.length||1)||100)*8);
+    return {examName:ex.name,term:ex.term,year:ex.year,mean:parseFloat(exMean.toFixed(2)),grade:exG.grade,total:exTotal};
+  }).filter(Boolean);
+
+  return {stu,exam,cls,stream,subjectRows,total,mean,mGrade,totalPoints,overallRank,streamRank,history,isConsolidated};
+}
+
+function generateCTComment(mean, grade, gender, name, rank, total) {
+  const firstName = name.split(' ')[0];
+  const pronoun = gender==='M'?'He':'She';
+  if (grade==='EE1') return `${firstName} has delivered an outstanding performance this term. ${pronoun} demonstrates exceptional dedication and intellectual ability.`;
+  if (grade==='EE2') return `${firstName} has performed excellently, showing strong command across all subjects. ${pronoun} is consistently focused and hardworking.`;
+  if (grade==='ME1') return `${firstName} has shown very good performance this term. ${pronoun} demonstrates a solid understanding of the curriculum.`;
+  if (grade==='ME2') return `${firstName} has shown good performance this term. With continued effort, ${firstName.toLowerCase()} can achieve even better results.`;
+  if (grade==='AE1') return `${firstName} has shown average performance. ${pronoun} should dedicate more time to revision and seek help where needed.`;
+  return `${firstName}'s performance needs improvement. ${pronoun} is encouraged to engage more actively in class and seek additional support.`;
+}
+
+function generatePrincipalComment(mean, grade, rank, total) {
+  if (grade==='EE1'||grade==='EE2') return `A commendable performance. Keep up the excellent work and continue to aim for the highest standards.`;
+  if (grade==='ME1'||grade==='ME2') return `A satisfactory performance. The student shows good potential and is encouraged to put in more effort next term.`;
+  if (grade==='AE1') return `The student must work harder. Regular attendance, revision, and interaction with teachers will yield better results.`;
+  return `The student's performance is below expectation. Parents/guardians are advised to support the student closely. We remain committed to their academic growth.`;
+}
+</script>
+</body>
+</html>
