@@ -312,7 +312,7 @@ function getActiveGradingSystem() {
 }
 function getGradeFromSystem(marks, maxMarks=100, gs=null) {
   if (!gs) gs = getActiveGradingSystem();
-  const pct = (marks / maxMarks) * 100;
+  const pct = Math.round((marks / maxMarks) * 100); // round to avoid decimal gaps between bands
   for (const b of gs.bands) {
     if (pct >= b.min && pct <= b.max) return { grade:b.grade, points:b.points, label:b.label, cls:b.cls };
   }
@@ -6006,8 +6006,8 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
       <td><span class="badge b-red">${lo}</span></td>
       ${distCells}
       <td style="text-align:center"><span class="badge ${mainGrade.cls}">${mainGrade.grade}</span></td>
-      <td style="text-align:center">${mMn}</td>
-      <td style="text-align:center">${fMn}</td>
+      <td style="text-align:center;color:#3b82f6;font-weight:600">${mMn}</td>
+      <td style="text-align:center;color:#ec4899;font-weight:600">${fMn}</td>
     </tr>`;
   }).join('');
 
@@ -6027,8 +6027,8 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
             <th rowspan="2">Low</th>
             <th colspan="${gradeKeys.length}" style="text-align:center;background:var(--primary-lt);color:var(--primary)">Grade Distribution</th>
             <th rowspan="2">Overall Grade</th>
-            <th rowspan="2" style="text-align:center"> Mean</th>
-            <th rowspan="2" style="text-align:center"> Mean</th>
+            <th rowspan="2" style="text-align:center;color:#3b82f6">♂ Male Mean</th>
+            <th rowspan="2" style="text-align:center;color:#ec4899">♀ Female Mean</th>
           </tr>
           <tr>${gradeHeaders}</tr>
         </thead>
@@ -6642,7 +6642,7 @@ function exportMeritPDF() {
         <th style="text-align:left">Subject</th>
         <th>Count</th><th>Mean</th><th>High</th><th>Low</th>
         ${gradeKeys.map(g=>`<th class="green">${g}</th>`).join('')}
-        <th>Grade</th><th> Mean</th><th> Mean</th>
+        <th>Grade</th><th style="color:#3b82f6">♂ Male Mean</th><th style="color:#ec4899">♀ Female Mean</th>
       </tr></thead>
       <tbody>${subAnalysisRows}</tbody>
     </table>
