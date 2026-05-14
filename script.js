@@ -6505,7 +6505,9 @@ function printMeritList() {
   }
   const sch = settings.schoolName || 'School';
   const win = window.open('', '_blank', 'width=1000,height=800');
-  win.document.write(`<!DOCTYPE html><html><head><title>Merit List — ${sch}</title><style>
+  win.document.write(`<!DOCTYPE html><html><head><title>Merit List — ${sch}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
     *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;box-sizing:border-box}
     @page{size:A4 landscape;margin:10mm}
     body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;background:#fff;padding:1rem;font-size:9pt}
@@ -6635,7 +6637,19 @@ function exportMeritPDF() {
     return examMarks.find(m=>m.studentId===stuId&&m.subjectId===subId)?.score??null;
   };
 
-  // ── Build overall merit table rows ──
+  // ── Student counts helper for PDF ──
+  const pdfStatsBar = (arr) => {
+    const tot   = arr.length;
+    const boys  = arr.filter(s => s.gender === 'M').length;
+    const girls = arr.filter(s => s.gender === 'F').length;
+    const other = tot - boys - girls;
+    return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+      <span style="background:#e0f2fe;border:1px solid #7dd3fc;border-radius:5px;padding:3px 10px;font-size:10px;font-weight:700;color:#0369a1">&#128101; Total: ${tot}</span>
+      <span style="background:#dbeafe;border:1px solid #93c5fd;border-radius:5px;padding:3px 10px;font-size:10px;font-weight:700;color:#1d4ed8">&#9794; Boys: ${boys}</span>
+      <span style="background:#fce7f3;border:1px solid #f9a8d4;border-radius:5px;padding:3px 10px;font-size:10px;font-weight:700;color:#be185d">&#9792; Girls: ${girls}</span>
+      ${other > 0 ? `<span style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:5px;padding:3px 10px;font-size:10px;font-weight:700;color:#64748b">Other: ${other}</span>` : ''}
+    </div>`;
+  };
   const overallRows = scored.map((s, i) => {
     const stream   = streams.find(x=>x.id===s.streamId);
     const cls      = classes.find(c=>c.id===s.classId);
@@ -6713,10 +6727,21 @@ function exportMeritPDF() {
         <td style="padding:3px 5px;border:1px solid #ddd;text-align:center">${s.points}</td>
       </tr>`;
     }).join('');
+    const strTot   = strScored.length;
+    const strBoys  = strScored.filter(s => s.gender === 'M').length;
+    const strGirls = strScored.filter(s => s.gender === 'F').length;
+    const strOther = strTot - strBoys - strGirls;
+    const strStatsHtml = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+      <span style="background:#e0f2fe;border:1px solid #7dd3fc;border-radius:5px;padding:3px 10px;font-size:10px;font-weight:700;color:#0369a1">&#128101; Total: ${strTot}</span>
+      <span style="background:#dbeafe;border:1px solid #93c5fd;border-radius:5px;padding:3px 10px;font-size:10px;font-weight:700;color:#1d4ed8">&#9794; Boys: ${strBoys}</span>
+      <span style="background:#fce7f3;border:1px solid #f9a8d4;border-radius:5px;padding:3px 10px;font-size:10px;font-weight:700;color:#be185d">&#9792; Girls: ${strGirls}</span>
+      ${strOther > 0 ? `<span style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:5px;padding:3px 10px;font-size:10px;font-weight:700;color:#64748b">Other: ${strOther}</span>` : ''}
+    </div>`;
     return `
       <div style="page-break-before:always">
         <h2 style="margin-bottom:4px;color:#0d9488"> ${strCls?.name||''} › ${str.name} — Stream Merit List</h2>
-        <div class="meta">${exam.name} &nbsp;|&nbsp; ${exam.term} ${exam.year} &nbsp;|&nbsp; ${strScored.length} students &nbsp;|&nbsp; Printed: ${new Date().toLocaleDateString()}</div>
+        <div class="meta">${exam.name} &nbsp;|&nbsp; ${exam.term} ${exam.year} &nbsp;|&nbsp; Printed: ${new Date().toLocaleDateString()}</div>
+        ${strStatsHtml}
         <table>
           <thead><tr>
             <th>#</th><th>Adm No</th><th>Name</th><th>G</th>
@@ -6760,7 +6785,7 @@ function exportMeritPDF() {
 
   <!-- Overall merit list -->
   <h2><i class="fa-solid fa-trophy"></i> Overall Merit List</h2>
-  <div class="meta">${scored.length} students</div>
+  ${pdfStatsBar(scored)}
   <table>
     <thead><tr>
       <th>#</th><th>Adm No</th><th>Name</th><th>G</th><th>Class</th><th>Stream</th><th>Str.P</th>
