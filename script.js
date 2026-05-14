@@ -6503,17 +6503,64 @@ function printMeritList() {
     showToast('Generate the merit list first', 'warning');
     return;
   }
-  const sch = settings.schoolName || 'School';
-  const win = window.open('', '_blank', 'width=1000,height=800');
-  win.document.write(`<!DOCTYPE html><html><head><title>Merit List — ${sch}</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  const sch     = settings.schoolName || 'School';
+  const examId  = document.getElementById('mlExam')?.value;
+  const exam    = exams.find(e => e.id === examId);
+  const mlType  = document.getElementById('mlType')?.value || '';
+  const clsFilter = document.getElementById('mlClass')?.value || null;
+  const strFilter = mlType === 'class_stream' ? (document.getElementById('mlStream')?.value || null) : null;
+  const scored  = examId ? buildMeritData(examId, strFilter, clsFilter) : [];
+
+  // Build a stats pill HTML using Unicode — no FA dependency needed
+  const makeStatsPills = (arr) => {
+    if (!arr || !arr.length) return '';
+    const tot   = arr.length;
+    const boys  = arr.filter(s => s.gender === 'M').length;
+    const girls = arr.filter(s => s.gender === 'F').length;
+    const other = tot - boys - girls;
+    const pill = (bg, border, color, icon, label) =>
+      `<span style="display:inline-flex;align-items:center;gap:4px;background:${bg};border:1.5px solid ${border};border-radius:7px;padding:4px 12px;font-size:9.5pt;font-weight:700;color:${color};margin-right:5px">${icon} ${label}</span>`;
+    return `<div style="margin:6px 0 12px">
+      ${pill('#e0f2fe','#7dd3fc','#0369a1','&#128101;','Total Students: '+tot)}
+      ${pill('#dbeafe','#93c5fd','#1d4ed8','&#9794;','Boys: '+boys)}
+      ${pill('#fce7f3','#f9a8d4','#be185d','&#9792;','Girls: '+girls)}
+      ${other > 0 ? pill('#f1f5f9','#cbd5e1','#64748b','?','Other: '+other) : ''}
+    </div>`;
+  };
+
+  // Clone the merit wrap and inject stats pills after each heading
+  const clone = wrap.cloneNode(true);
+  // Remove any existing stats bars (they use FA icons that may not render)
+  clone.querySelectorAll('[data-stats-bar]').forEach(el => el.remove());
+  // Inject stats after h3 (class heading) and h4 (stream heading)
+  clone.querySelectorAll('h3, h4').forEach(h => {
+    const streamId = h.getAttribute('data-stream-id');
+    const classId  = h.getAttribute('data-class-id');
+    let subset = scored;
+    if (streamId) subset = scored.filter(s => s.streamId === streamId);
+    else if (classId) subset = scored.filter(s => s.classId === classId);
+    const pills = document.createElement('div');
+    pills.innerHTML = makeStatsPills(subset);
+    h.after(pills.firstElementChild || pills);
+  });
+
+  // If no h3/h4 had data attrs, fall back: inject one top-level bar after first h3
+  const firstH3 = clone.querySelector('h3');
+  if (firstH3 && scored.length && !clone.querySelector('[style*="Total Students"]')) {
+    const pills = document.createElement('div');
+    pills.innerHTML = makeStatsPills(scored);
+    firstH3.after(pills.firstElementChild || pills);
+  }
+
+  const win = window.open('', '_blank', 'width=1100,height=850');
+  win.document.write(`<!DOCTYPE html><html><head><title>Merit List \u2014 ${sch}</title>
     <style>
     *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;box-sizing:border-box}
     @page{size:A4 landscape;margin:10mm}
     body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;background:#fff;padding:1rem;font-size:9pt}
-    h2{color:#1a6fb5;margin:0 0 .5rem;font-size:13pt}
-    h3{color:#1a6fb5;font-size:11pt;margin:.75rem 0 .4rem}
-    h4{color:#16a34a;font-size:10pt;margin:.6rem 0 .3rem}
+    h2{color:#1a6fb5;margin:0 0 .3rem;font-size:13pt}
+    h3{color:#1a6fb5;font-size:11pt;margin:.75rem 0 .2rem}
+    h4{color:#16a34a;font-size:10pt;margin:.6rem 0 .2rem}
     table{width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:.75rem}
     thead{background:#f0f7ff!important}
     th{background:#1a6fb5!important;color:#fff!important;padding:4px 7px;text-align:left;font-weight:700;border:1px solid #a0bdd8;font-size:8pt}
@@ -6521,19 +6568,21 @@ function printMeritList() {
     tr:nth-child(even) td{background:#f8fbff!important}
     tr:first-child td{background:#dbeafe!important;font-weight:700}
     .tbl-wrap{overflow:visible;border-radius:0;border:none}
+    .grade-badge{display:inline-block;padding:1px 5px;border-radius:4px;font-size:7.5pt;font-weight:700}
     @media print{button{display:none!important}.no-print{display:none!important}}
   </style></head><body>
-    <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #1a6fb5;padding-bottom:.5rem;margin-bottom:1rem">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;border-bottom:3px solid #1a6fb5;padding-bottom:.6rem;margin-bottom:.9rem">
       <div>
-        <div style="font-size:14pt;font-weight:800;color:#1a6fb5">${sch}</div>
-        <div style="font-size:9pt;color:#64748b">Merit List &bull; Printed: ${new Date().toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'})}</div>
+        <div style="font-size:15pt;font-weight:900;color:#1a6fb5">${sch}</div>
+        <div style="font-size:9pt;color:#64748b;margin-top:2px">Merit List &bull; ${exam ? exam.name+' &bull; '+exam.term+' '+exam.year : ''} &bull; Printed: ${new Date().toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'})}</div>
+        ${makeStatsPills(scored)}
       </div>
-      <button class="no-print" onclick="window.print()" style="padding:.4rem 1.2rem;background:#1a6fb5;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.85rem"><i class="fa-solid fa-print"></i> Print</button>
+      <button class="no-print" onclick="window.print()" style="padding:.4rem 1.2rem;background:#1a6fb5;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;margin-top:4px">&#128438; Print</button>
     </div>
-    ${wrap.innerHTML}
+    ${clone.innerHTML}
   </body></html>`);
   win.document.close();
-  setTimeout(() => { win.focus(); win.print(); }, 500);
+  setTimeout(() => { win.focus(); win.print(); }, 400);
 }
 
 function exportMeritExcel() {
@@ -9359,7 +9408,7 @@ function renderMeritList() {
     </div>`;
     const streamGenderAnalysis = buildGenderAnalysisMeritHTML(streamScored, examId);
     container.innerHTML = ptsLegendStream + `
-      <h3 style="margin-bottom:.5rem;font-family:var(--font);font-weight:700">
+      <h3 data-stream-id="${streamId}" style="margin-bottom:.5rem;font-family:var(--font);font-weight:700">
          ${cls ? cls.name + ' &rsaquo; ' : ''}${str?.name||streamId} &mdash; Stream Merit List
         <span style="font-size:.78rem;font-weight:400;color:var(--muted);margin-left:.5rem">${exam?.name||''}</span>
       </h3>
@@ -9423,7 +9472,7 @@ function renderMeritList() {
         const strGenderAnalysis = buildGenderAnalysisMeritHTML(strScored, examId);
         return `
           <div style="margin-top:1.5rem">
-            <h4 style="margin-bottom:.4rem;font-family:var(--font);font-weight:700;color:var(--secondary);font-size:.95rem">
+            <h4 data-stream-id="${str.id}" style="margin-bottom:.4rem;font-family:var(--font);font-weight:700;color:var(--secondary);font-size:.95rem">
                ${str.name} Stream
             </h4>
             ${buildMeritStatsBar(strScored)}
@@ -9439,7 +9488,7 @@ function renderMeritList() {
     const pageBreak = ci > 0 ? 'margin-top:2.5rem;padding-top:1.5rem;border-top:2px solid var(--border);' : '';
     return `
       <div style="${pageBreak}">
-        <h3 style="margin-bottom:.5rem;font-family:var(--font);font-weight:700;color:var(--primary)">
+        <h3 data-class-id="${cls.id}" style="margin-bottom:.5rem;font-family:var(--font);font-weight:700;color:var(--primary)">
           <i class="fa-solid fa-trophy"></i> ${cls.name} &mdash; Class Merit List
           <span style="font-size:.78rem;font-weight:400;color:var(--muted);margin-left:.5rem">${exam?.name||''}</span>
         </h3>
