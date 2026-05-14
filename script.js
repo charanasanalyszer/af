@@ -6150,6 +6150,31 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
   </div>`;
 }
 
+// ── Student count summary bar for Merit List ────────────────────────────────
+function buildMeritStatsBar(scored) {
+  if (!scored || !scored.length) return '';
+  const total = scored.length;
+  const boys  = scored.filter(s => s.gender === 'M').length;
+  const girls = scored.filter(s => s.gender === 'F').length;
+  const other = total - boys - girls;
+  return `
+    <div style="display:flex;gap:.55rem;flex-wrap:wrap;align-items:center;margin-bottom:.75rem">
+      <div style="display:flex;align-items:center;gap:.35rem;background:#f0f9ff;border:1px solid #bae6fd;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#0369a1">
+        <i class="fa-solid fa-users" style="font-size:.78rem"></i>
+        <span>Total Students: ${total}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:.35rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#1d4ed8">
+        <i class="fa-solid fa-mars" style="font-size:.78rem"></i>
+        <span>Boys: ${boys}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:.35rem;background:#fdf2f8;border:1px solid #f9a8d4;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#be185d">
+        <i class="fa-solid fa-venus" style="font-size:.78rem"></i>
+        <span>Girls: ${girls}</span>
+      </div>
+      ${other > 0 ? `<div style="display:flex;align-items:center;gap:.35rem;background:#f9fafb;border:1px solid #e5e7eb;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#6b7280"><i class="fa-solid fa-circle-question" style="font-size:.78rem"></i><span>Other: ${other}</span></div>` : ''}
+    </div>`;
+}
+
 // ── Gender analysis panel for Merit List ────────────────────────────────────
 // `scored` is the array returned by buildMeritData (each entry has .gender, .mean, .grade, .name, .adm, .points)
 function buildGenderAnalysisMeritHTML(scored, examId) {
@@ -9309,10 +9334,11 @@ function renderMeritList() {
     </div>`;
     const streamGenderAnalysis = buildGenderAnalysisMeritHTML(streamScored, examId);
     container.innerHTML = ptsLegendStream + `
-      <h3 style="margin-bottom:.75rem;font-family:var(--font);font-weight:700">
+      <h3 style="margin-bottom:.5rem;font-family:var(--font);font-weight:700">
          ${cls ? cls.name + ' &rsaquo; ' : ''}${str?.name||streamId} &mdash; Stream Merit List
         <span style="font-size:.78rem;font-weight:400;color:var(--muted);margin-left:.5rem">${exam?.name||''}</span>
       </h3>
+      ${buildMeritStatsBar(streamScored)}
       <div class="tbl-wrap">
         <table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
       </div>
@@ -9372,10 +9398,10 @@ function renderMeritList() {
         const strGenderAnalysis = buildGenderAnalysisMeritHTML(strScored, examId);
         return `
           <div style="margin-top:1.5rem">
-            <h4 style="margin-bottom:.6rem;font-family:var(--font);font-weight:700;color:var(--secondary);font-size:.95rem">
+            <h4 style="margin-bottom:.4rem;font-family:var(--font);font-weight:700;color:var(--secondary);font-size:.95rem">
                ${str.name} Stream
-              <span style="font-size:.75rem;font-weight:400;color:var(--muted);margin-left:.4rem">${strScored.length} student${strScored.length!==1?'s':''}</span>
             </h4>
+            ${buildMeritStatsBar(strScored)}
             <div class="tbl-wrap">
               <table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
             </div>
@@ -9388,10 +9414,11 @@ function renderMeritList() {
     const pageBreak = ci > 0 ? 'margin-top:2.5rem;padding-top:1.5rem;border-top:2px solid var(--border);' : '';
     return `
       <div style="${pageBreak}">
-        <h3 style="margin-bottom:.75rem;font-family:var(--font);font-weight:700;color:var(--primary)">
+        <h3 style="margin-bottom:.5rem;font-family:var(--font);font-weight:700;color:var(--primary)">
           <i class="fa-solid fa-trophy"></i> ${cls.name} &mdash; Class Merit List
-          <span style="font-size:.78rem;font-weight:400;color:var(--muted);margin-left:.5rem">${exam?.name||''} &bull; ${classScored.length} students</span>
+          <span style="font-size:.78rem;font-weight:400;color:var(--muted);margin-left:.5rem">${exam?.name||''}</span>
         </h3>
+        ${buildMeritStatsBar(classScored)}
         <div class="tbl-wrap">
           <table><thead>${clsHdr}</thead><tbody>${clsRows}</tbody></table>
         </div>
