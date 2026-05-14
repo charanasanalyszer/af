@@ -151,6 +151,7 @@ const K = {
   get msgLog()     { return schoolPrefix() + 'ei_msglog';    },
   get dark()       { return schoolPrefix() + 'ei_dark';      },
   get smsCredits() { return schoolPrefix() + 'ei_sms';       },
+  get heldExams()  { return schoolPrefix() + 'ei_held_exams'; },
 };
 const load = k => { try { return JSON.parse(localStorage.getItem(k)) || []; } catch { return []; } };
 const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
@@ -159,6 +160,7 @@ const uid  = () => 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2
 // ═══════════════ APP STATE ═══════════════
 let students=[], subjects=[], teachers=[], classes=[], streams=[];
 let exams=[], marks=[], settings={}, admins=[], msgLog=[];
+let heldExams=[];  // examIds held from teachers by admin
 let currentUser = null;   // { username, role, name, canAnalyse, canReport, canMerit }
 
 // ── Sort state for each list table ──
@@ -3873,6 +3875,7 @@ function loadSchoolContext(school) {
   streams  = load(K.streams);  exams    = load(K.exams);
   marks    = load(K.marks);    settings = load(K.settings)[0] || defaultSettings();
   admins   = load(K.admins);   msgLog   = load(K.msgLog);
+  heldExams = load(K.heldExams);
   smsCredits = parseInt(localStorage.getItem(K.smsCredits) || '0');
   // Inherit platform-level API key into school settings if not already set
   if (!settings.ebApiKey) {
@@ -4069,6 +4072,7 @@ document.addEventListener('keydown', e => {
 function doLogout() {
   currentUser = null;
   currentSchoolId = null;
+  heldExams = [];
   clearSession();
   // Restore body scroll (may have been locked for guest/login)
   document.body.style.overflow = '';
@@ -5282,6 +5286,114 @@ function saveAllMarks() {
   renderDashboard();
   // Refresh subject status panel
   setTimeout(renderUmSubjectStatusPanel, 100);
+}
+
+// ═══════════════ DELETE MARKS ═══════════════
+
+/** Delete all marks for the currently selected exam+stream+subject */
+function deleteSubjectMarks() {
+  const examId    = document.getElementById('umExam')?.value;
+  const subjectId = document.getElementById('umSubject')?.value;
+  const streamId  = document.getElementById('umStream')?.value;
+  if (!examId || !subjectId) { showToast('Select an exam and subject first', 'error'); return; }
+  const sub  = subjects.find(s => s.id === subjectId);
+  const exam = exams.find(e => e.id === examId);
+  const stuInStream = streamId ? students.filter(s => s.streamId === streamId) : students;
+  const stuIds = new Set(stuInStream.map(s => s.id));
+  const before = marks.length;
+  marks = marks.filter(m => !(m.examId === examId && m.subjectId === subjectId && stuIds.has(m.studentId)));
+  const removed = before - marks.length;
+  if (!removed) { showToast('No marks found to delete for this selection', 'info'); return; }
+  if (!confirm(`Delete ${removed} mark entry(ies) for "${sub?.name || 'subject'}" in "${exam?.name || 'exam'}"${streamId ? ' (selected stream)' : ''}? This cannot be undone.`)) { marks = load(K.marks); return; }
+  save(K.marks, marks);
+  loadUmStudents();
+  setTimeout(renderUmSubjectStatusPanel, 100);
+  showToast(`<i class="fa-solid fa-trash"></i> Deleted ${removed} mark(s) for ${sub?.name || 'subject'}`, 'success');
+}
+
+/** Delete ALL marks for the currently selected exam (all subjects, all students) */
+function deleteAllExamMarks() {
+  const examId = document.getElementById('umExam')?.value;
+  if (!examId) { showToast('Select an exam first', 'error'); return; }
+  const exam = exams.find(e => e.id === examId);
+  const count = marks.filter(m => m.examId === examId).length;
+  if (!count) { showToast('No marks found for this exam', 'info'); return; }
+  if (!confirm(`Delete ALL ${count} mark entries for "${exam?.name || 'exam'}"?\n\nThis will erase marks for every subject and student. This cannot be undone.`)) return;
+  marks = marks.filter(m => m.examId !== examId);
+  save(K.marks, marks);
+  loadUmStudents();
+  setTimeout(renderUmSubjectStatusPanel, 100);
+  renderDashboard();
+  showToast(`<i class="fa-solid fa-trash"></i> All marks deleted for ${exam?.name || 'exam'}`, 'success');
+}
+
+// ═══════════════ HOLD / RELEASE / UNPUBLISH RESULTS ═══════════════
+
+function isExamHeld(examId) {
+  return Array.isArray(heldExams) && heldExams.includes(examId);
+}
+
+function holdExamResults(examId) {
+  if (!heldExams.includes(examId)) {
+    heldExams.push(examId);
+    save(K.heldExams, heldExams);
+  }
+  showToast('<i class="fa-solid fa-lock"></i> Results held — teachers cannot view analysis for this exam', 'warning');
+  refreshAnalyseActionBar(examId);
+}
+
+function releaseExamResults(examId) {
+  heldExams = heldExams.filter(id => id !== examId);
+  save(K.heldExams, heldExams);
+  showToast('<i class="fa-solid fa-lock-open"></i> Results released — teachers can now view analysis', 'success');
+  refreshAnalyseActionBar(examId);
+}
+
+function unpublishAnalysedResults(examId) {
+  // Wipe analysis data from the exam record (works for both local and platform)
+  const idx = exams.findIndex(e => e.id === examId);
+  if (idx > -1 && exams[idx].analysed) {
+    exams[idx].analysed = false;
+    delete exams[idx].analysedAt;
+    save(K.exams, exams);
+  }
+  // Also release hold if any
+  heldExams = heldExams.filter(id => id !== examId);
+  save(K.heldExams, heldExams);
+  const res = document.getElementById('analyseResults');
+  if (res) res.innerHTML = '<p style="color:var(--muted)">Results have been unpublished. Run analysis again to regenerate.</p>';
+  const panel = document.getElementById('anSubjectReviewPanel');
+  if (panel) panel.style.display = 'none';
+  showToast('<i class="fa-solid fa-eye-slash"></i> Analysis unpublished — results cleared', 'success');
+  refreshAnalyseActionBar(examId);
+}
+
+function refreshAnalyseActionBar(examId) {
+  const bar = document.getElementById('anActionBar');
+  if (bar) bar.innerHTML = buildAnalyseActionBarHTML(examId);
+}
+
+function buildAnalyseActionBarHTML(examId) {
+  const isSuperAdmin = currentUser && (currentUser.role === 'superadmin' || currentUser.role === 'admin');
+  if (!isSuperAdmin || !examId) return '';
+  const held = isExamHeld(examId);
+  const exam = exams.find(e => e.id === examId);
+  const hasAnalysed = exam && exam.analysed;
+  return `
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;padding:.6rem .85rem;background:${held?'#fffbeb':'var(--surface)'};border:1.5px solid ${held?'#fcd34d':'var(--border)'};border-radius:9px;margin-bottom:1rem">
+      <span style="font-size:.8rem;font-weight:700;color:${held?'#92400e':'var(--text)'}">
+        <i class="fa-solid fa-${held?'lock':'lock-open'}"></i>
+        ${held ? 'Results are HELD — teachers cannot see analysis' : 'Results are visible to teachers'}
+      </span>
+      <div style="margin-left:auto;display:flex;gap:.5rem;flex-wrap:wrap">
+        ${held
+          ? `<button class="btn btn-sm" style="background:#16a34a;color:#fff;border:none;font-size:.76rem;padding:.28rem .75rem;border-radius:6px;cursor:pointer" onclick="releaseExamResults('${examId}')"><i class="fa-solid fa-lock-open"></i> Release to Teachers</button>`
+          : `<button class="btn btn-sm" style="background:#f59e0b;color:#fff;border:none;font-size:.76rem;padding:.28rem .75rem;border-radius:6px;cursor:pointer" onclick="holdExamResults('${examId}')"><i class="fa-solid fa-lock"></i> Hold Results</button>`}
+        ${hasAnalysed || document.getElementById('analyseResults')?.innerHTML?.length > 100
+          ? `<button class="btn btn-sm" style="background:#dc2626;color:#fff;border:none;font-size:.76rem;padding:.28rem .75rem;border-radius:6px;cursor:pointer" onclick="if(confirm('Unpublish and clear the current analysis? Teachers will no longer see results until you run analysis again.')) unpublishAnalysedResults('${examId}')"><i class="fa-solid fa-eye-slash"></i> Unpublish Analysis</button>`
+          : ''}
+      </div>
+    </div>`;
 }
 
 // ═══════════════ MARKS EXCEL UPLOAD ═══════════════
@@ -14437,7 +14549,31 @@ function runAnalysis() {
   if (selGs) setActiveGradingSystem(selGs);
   // Show subject review panel (admin/class teacher can edit before running)
   renderAnSubjectReviewPanel(examId);
+
+  // Inject / refresh hold-release action bar for admins
+  const isSuperAdmin = currentUser && (currentUser.role==='superadmin'||currentUser.role==='admin');
+  let actionBar = document.getElementById('anActionBar');
+  if (!actionBar) {
+    actionBar = document.createElement('div');
+    actionBar.id = 'anActionBar';
+    const panel = document.getElementById('anSubjectReviewPanel');
+    if (panel && panel.parentNode) panel.parentNode.insertBefore(actionBar, panel);
+  }
+  if (examId) actionBar.innerHTML = buildAnalyseActionBarHTML(examId);
+  else actionBar.innerHTML = '';
+
   if (!examId) { if(res) res.innerHTML='<p style="color:var(--muted)">Select an exam to begin.</p>'; return; }
+
+  // If results are held and user is a teacher, block view
+  const isTeacher = currentUser && currentUser.role === 'teacher';
+  if (isTeacher && isExamHeld(examId)) {
+    if (res) res.innerHTML = `<div style="text-align:center;padding:2.5rem 1rem">
+      <div style="font-size:2.5rem;margin-bottom:.75rem"><i class="fa-solid fa-lock"></i></div>
+      <h3 style="color:var(--muted);margin-bottom:.5rem">Results Held</h3>
+      <p style="color:var(--muted);font-size:.9rem">The administrator has not yet released results for this exam.<br>Please check back later.</p>
+    </div>`;
+    return;
+  }
 
   const exam = exams.find(e=>e.id===examId);
   const isConsolidated  = exam?.category === 'consolidated';
@@ -14463,8 +14599,6 @@ function runAnalysis() {
     if(res) res.innerHTML='<p style="color:var(--muted)">This consolidated exam has no source exams linked.</p>'; return;
   }
 
-  const isTeacher    = currentUser && currentUser.role === 'teacher';
-  const isSuperAdmin = currentUser && (currentUser.role==='superadmin'||currentUser.role==='admin');
   const isClassTch   = currentUserIsClassTeacher();
 
   // Determine which students to include
