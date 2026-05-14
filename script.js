@@ -6552,7 +6552,25 @@ function printMeritList() {
     firstH3.after(pills.firstElementChild || pills);
   }
 
-  const win = window.open('', '_blank', 'width=1100,height=850');
+  // Build points grade scale legend for print
+  const bandColors = {
+    'b-green':'#16a34a','b-teal':'#0d9488','b-blue':'#1d4ed8',
+    'b-lblue':'#0ea5e9','b-amber':'#b45309','b-orange':'#ea580c',
+    'b-red':'#dc2626','b-dkred':'#7f1d1d'
+  };
+  const bandBg = {
+    'b-green':'#dcfce7','b-teal':'#ccfbf1','b-blue':'#dbeafe',
+    'b-lblue':'#e0f2fe','b-amber':'#fef3c7','b-orange':'#ffedd5',
+    'b-red':'#fee2e2','b-dkred':'#fecaca'
+  };
+  const ptsLegendHtml = `<div style="margin:8px 0 12px;padding:7px 12px;background:#f0f7ff;border:1.5px solid #bfdbfe;border-radius:8px;font-size:8.5pt;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center">
+    <strong style="color:#1a6fb5;margin-right:4px">Points Grade Scale (out of 72):</strong>
+    ${POINTS_GRADE_BANDS.slice().reverse().map(b =>
+      `<span style="display:inline-block;background:${bandBg[b.cls]||'#f1f5f9'};color:${bandColors[b.cls]||'#334155'};border-radius:5px;padding:2px 8px;font-weight:700;font-size:8pt">
+        ${b.grade}: ${b.min}–${b.max} <span style="font-weight:400;opacity:.85">${b.label}</span>
+      </span>`
+    ).join('')}
+  </div>`;
   win.document.write(`<!DOCTYPE html><html><head><title>Merit List \u2014 ${sch}</title>
     <style>
     *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;box-sizing:border-box}
@@ -6579,6 +6597,7 @@ function printMeritList() {
       </div>
       <button class="no-print" onclick="window.print()" style="padding:.4rem 1.2rem;background:#1a6fb5;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;margin-top:4px">&#128438; Print</button>
     </div>
+    ${ptsLegendHtml}
     ${clone.innerHTML}
   </body></html>`);
   win.document.close();
