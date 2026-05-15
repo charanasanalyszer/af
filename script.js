@@ -4483,7 +4483,7 @@ function renderDashboard() {
     <div class="stat-card sc-teal"><div class="sc-num">${subjects.length}</div><div class="sc-lbl">Subjects</div><div class="sc-ico"><i class="fa-solid fa-book"></i></div></div>
     <div class="stat-card sc-amber"><div class="sc-num">${exams.length}</div><div class="sc-lbl">Exams</div><div class="sc-ico"><i class="fa-solid fa-file-pen"></i></div></div>
     <div class="stat-card sc-purple"><div class="sc-num">${classMean}</div><div class="sc-lbl">Latest Mean</div><div class="sc-ico"><i class="fa-solid fa-chart-bar"></i></div></div>
-    <div class="stat-card sc-cyan"><div class="sc-num">${students.filter(s=>s.gender==='F').length}</div><div class="sc-lbl">Female Students</div><div class="sc-ico"><i class="fa-solid fa-person"></i></div></div>
+    <div class="stat-card sc-cyan"><div class="sc-num">${students.filter(s=>s.gender==='F').length}</div><div class="sc-lbl">Girls</div><div class="sc-ico"><i class="fa-solid fa-person"></i></div></div>
   `;
 
   // Subject performance chart
@@ -4511,7 +4511,7 @@ function renderDashboard() {
     const f = students.filter(s=>s.gender==='F').length;
     dashCharts.gender = new Chart(document.getElementById('dashGenderChart'), {
       type:'doughnut',
-      data:{ labels:['Male','Female'], datasets:[{data:[m,f],backgroundColor:['#1a6fb5','#db2777'],borderWidth:0}]},
+      data:{ labels:['Boys','Girls'], datasets:[{data:[m,f],backgroundColor:['#1a6fb5','#db2777'],borderWidth:0}]},
       options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}} }
     });
   }
@@ -6139,8 +6139,8 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
             <th rowspan="2">Low</th>
             <th colspan="${gradeKeys.length}" style="text-align:center;background:var(--primary-lt);color:var(--primary)">Grade Distribution</th>
             <th rowspan="2">Overall Grade</th>
-            <th rowspan="2" style="text-align:center;color:#3b82f6">♂ Male Mean</th>
-            <th rowspan="2" style="text-align:center;color:#ec4899">♀ Female Mean</th>
+            <th rowspan="2" style="text-align:center;color:#3b82f6">♂ Boys Mean</th>
+            <th rowspan="2" style="text-align:center;color:#ec4899">♀ Girls Mean</th>
           </tr>
           <tr>${gradeHeaders}</tr>
         </thead>
@@ -6268,7 +6268,7 @@ function buildGenderAnalysisMeritHTML(scored, examId) {
   let compHTML = '';
   if (males.length && females.length && mMean !== null && fMean !== null) {
     const diff = mMean - fMean;
-    const leader = diff > 0.05 ? '♂ Males lead' : diff < -0.05 ? '♀ Females lead' : 'Equally matched';
+    const leader = diff > 0.05 ? '♂ Boys lead' : diff < -0.05 ? '♀ Girls lead' : 'Equally matched';
     const lColor = diff > 0.05 ? '#3b82f6' : diff < -0.05 ? '#ec4899' : '#6b7280';
     compHTML = `<div style="margin-top:.75rem;padding:.45rem .9rem;background:var(--primary-lt,#eff6ff);border-radius:8px;font-size:.8rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
       <span style="font-weight:700;color:${lColor}">${leader}</span>
@@ -6282,8 +6282,8 @@ function buildGenderAnalysisMeritHTML(scored, examId) {
       <i class="fa-solid fa-venus-mars"></i> Gender Analysis
     </div>
     <div style="display:flex;gap:.85rem;flex-wrap:wrap">
-      ${statCol(males,   mMean, mPts, mTop, mDist, '#3b82f6', '♂', 'Male')}
-      ${statCol(females, fMean, fPts, fTop, fDist, '#ec4899', '♀', 'Female')}
+      ${statCol(males,   mMean, mPts, mTop, mDist, '#3b82f6', '♂', 'Boys')}
+      ${statCol(females, fMean, fPts, fTop, fDist, '#ec4899', '♀', 'Girls')}
     </div>
     ${compHTML}
   </div>`;
@@ -6414,7 +6414,7 @@ function buildGenderAnalysisSummaryHTML(clsStudentData, exam, isConsolidated, so
 
   const diff = (mMean !== null && fMean !== null) ? (mMean - fMean) : null;
   const gapHTML = diff !== null ? (() => {
-    const leader = Math.abs(diff) < 0.5 ? 'Essentially equal performance' : diff > 0 ? '♂ Males outperform' : '♀ Females outperform';
+    const leader = Math.abs(diff) < 0.5 ? 'Essentially equal performance' : diff > 0 ? '♂ Boys outperform' : '♀ Girls outperform';
     const lCol   = Math.abs(diff) < 0.5 ? '#6b7280' : diff > 0 ? '#3b82f6' : '#ec4899';
     return `<div style="margin-top:.7rem;padding:.45rem .9rem;background:var(--primary-lt,#eff6ff);border-radius:8px;font-size:.8rem;display:flex;gap:1rem;flex-wrap:wrap;align-items:center">
       <span style="font-weight:700;color:${lCol}">${leader}</span>
@@ -6426,8 +6426,8 @@ function buildGenderAnalysisSummaryHTML(clsStudentData, exam, isConsolidated, so
   return `<div class="card sm-section" style="border-left:4px solid #8b5cf6">
     <h4 class="sm-section-title" style="color:#8b5cf6"><i class="fa-solid fa-venus-mars"></i> Gender Analysis</h4>
     <div style="display:flex;gap:.85rem;flex-wrap:wrap;margin-bottom:.85rem">
-      ${statCard(males,   mMean, mDist, '#3b82f6', '♂', 'Male')}
-      ${statCard(females, fMean, fDist, '#ec4899', '♀', 'Female')}
+      ${statCard(males,   mMean, mDist, '#3b82f6', '♂', 'Boys')}
+      ${statCard(females, fMean, fDist, '#ec4899', '♀', 'Girls')}
     </div>
     ${gapHTML}
     <div style="margin-top:.85rem">
@@ -6668,8 +6668,8 @@ function exportMeritExcel() {
     const femV   = scored.filter(s=>s.gender==='F').map(s=>{ const sc = isConsolidated && sourceExamObjs.length > 0 ? (()=>{const ss=sourceExamObjs.map(src=>{const mk=marks.find(m=>m.examId===src.id&&m.studentId===s.id&&m.subjectId===sid);return mk?mk.score:null;}).filter(sc=>sc!==null);return ss.length?ss.reduce((a,b)=>a+b,0)/ss.length:null;})() : (examMarks.find(m=>m.studentId===s.id&&m.subjectId===sid)?.score??null); return sc; }).filter(v=>v!==null);
     const row = { Subject:sub.name, Entries:vals.length, Mean:mn.toFixed(1), Highest:vals.length?Math.max(...vals):'', Lowest:vals.length?Math.min(...vals):'' };
     gradeKeys.forEach(g=>row[g]=dist[g]);
-    row['Male Mean']   = maleV.length   ? (maleV.reduce((a,b)=>a+b,0)/maleV.length).toFixed(1) : '';
-    row['Female Mean'] = femV.length    ? (femV.reduce((a,b)=>a+b,0)/femV.length).toFixed(1) : '';
+    row['Boys Mean']   = maleV.length   ? (maleV.reduce((a,b)=>a+b,0)/maleV.length).toFixed(1) : '';
+    row['Girls Mean'] = femV.length    ? (femV.reduce((a,b)=>a+b,0)/femV.length).toFixed(1) : '';
     return row;
   }).filter(Boolean);
   const ws2 = XLSX.utils.json_to_sheet(subRows);
@@ -6872,7 +6872,7 @@ function exportMeritPDF() {
         <th style="text-align:left">Subject</th>
         <th>Count</th><th>Mean</th><th>High</th><th>Low</th>
         ${gradeKeys.map(g=>`<th class="green">${g}</th>`).join('')}
-        <th>Grade</th><th style="color:#3b82f6">♂ Male Mean</th><th style="color:#ec4899">♀ Female Mean</th>
+        <th>Grade</th><th style="color:#3b82f6">♂ Boys Mean</th><th style="color:#ec4899">♀ Girls Mean</th>
       </tr></thead>
       <tbody>${subAnalysisRows}</tbody>
     </table>
@@ -8958,34 +8958,272 @@ function exportAnalysisExcel() {
 function exportSummaryAnalyticsPDF() {
   const examId = document.getElementById('smExam').value;
   if (!examId) { showToast('Select an exam first','error'); return; }
-  // Trigger browser print on the rendered results
   const res = document.getElementById('smResults');
   if (!res || !res.innerHTML.trim()) { showToast('Generate the report first','error'); return; }
-  const exam = exams.find(e=>e.id===examId);
+  const exam     = exams.find(e=>e.id===examId);
+  const sch      = settings.schoolName || 'School';
+  const printDate = new Date().toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'});
+
+  // ── Build chart data from current DOM state ──────────────────────────────
+  const classFilter = document.getElementById('smClass')?.value || null;
+  const isConsolidated = exam?.category === 'consolidated';
+  const sourceExamObjs = isConsolidated ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
+  const targetClasses  = classFilter ? classes.filter(c=>c.id===classFilter) : classes;
+
+  // Collect per-class summary rows for chart data
+  const classSummaries = targetClasses.map(cls => {
+    const clsStu = students.filter(s=>s.classId===cls.id);
+    if (!clsStu.length) return null;
+    const means = clsStu.map(s=>smGetStudentMean(exam,isConsolidated,sourceExamObjs,s.id)).filter(v=>v!==null);
+    if (!means.length) return null;
+    const avg   = parseFloat((means.reduce((a,b)=>a+b,0)/means.length).toFixed(1));
+    const boys  = clsStu.filter(s=>s.gender==='M').length;
+    const girls = clsStu.filter(s=>s.gender==='F').length;
+    const boysM = parseFloat((clsStu.filter(s=>s.gender==='M').map(s=>smGetStudentMean(exam,isConsolidated,sourceExamObjs,s.id)).filter(v=>v!==null).reduce((a,b,_,arr)=>a+b/arr.length,0)||0).toFixed(1));
+    const girlsM= parseFloat((clsStu.filter(s=>s.gender==='F').map(s=>smGetStudentMean(exam,isConsolidated,sourceExamObjs,s.id)).filter(v=>v!==null).reduce((a,b,_,arr)=>a+b/arr.length,0)||0).toFixed(1));
+    return { name: cls.name, avg, boys, girls, boysM, girlsM, total: means.length };
+  }).filter(Boolean);
+
+  // Build subject performance data
+  const subjectSummaries = (exam?.subjectIds||[]).map(sid=>{
+    const sub = subjects.find(s=>s.id===sid); if(!sub) return null;
+    const allStu = classSummaries.length ? students.filter(s=>targetClasses.some(c=>c.id===s.classId)) : students;
+    const vals   = allStu.map(s=>smGetSubjectScore(exam,isConsolidated,sourceExamObjs,s.id,sid)).filter(v=>v!==null);
+    if (!vals.length) return null;
+    const mean = parseFloat((vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1));
+    return { name: sub.name, code: sub.code||sub.name.slice(0,4).toUpperCase(), mean };
+  }).filter(Boolean).sort((a,b)=>b.mean-a.mean);
+
+  // Grade distribution across all classes
+  const gs = getActiveGradingSystem();
+  const gradeKeys = gs.bands.map(b=>b.grade);
+  const allStudentData = classSummaries.flatMap(cs=>{
+    const clsStu = students.filter(s=>classes.find(c=>c.name===cs.name)?.id===s.classId);
+    return clsStu.map(s=>({ mean: smGetStudentMean(exam,isConsolidated,sourceExamObjs,s.id) })).filter(d=>d.mean!==null);
+  });
+  const gradeDist = {};
+  gradeKeys.forEach(g=>gradeDist[g]=0);
+  allStudentData.forEach(d=>{
+    const g = getMeanGrade ? getMeanGrade((d.mean/100)*8) : null;
+    if (g && gradeDist[g.grade]!==undefined) gradeDist[g.grade]++;
+  });
+
+  // ── Generate inline SVG bar chart ────────────────────────────────────────
+  function makeSVGBarChart(data, labelKey, value1Key, value2Key, color1, color2, label1, label2, title, maxVal) {
+    if (!data.length) return '';
+    const W=520,H=200,padL=38,padR=10,padT=30,padB=55;
+    const chartW=W-padL-padR, chartH=H-padT-padB;
+    const n=data.length, grpW=chartW/n, barW=Math.min(grpW*0.35,18);
+    const max=maxVal||Math.max(...data.flatMap(d=>[d[value1Key]||0,d[value2Key]||0]),1)*1.1;
+    let bars='',xLabels='',gridLines='';
+    // Grid lines
+    [0,25,50,75,100].forEach(p=>{
+      if(p>max) return;
+      const y=padT+chartH-(p/max)*chartH;
+      gridLines+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#e2e8f0" stroke-width="0.5"/>`;
+      gridLines+=`<text x="${padL-3}" y="${y+3}" text-anchor="end" font-size="7" fill="#94a3b8">${p}</text>`;
+    });
+    data.forEach((d,i)=>{
+      const cx=padL+(i+0.5)*grpW;
+      const v1=d[value1Key]||0, v2=d[value2Key]||0;
+      const h1=(v1/max)*chartH, h2=(v2/max)*chartH;
+      const x1=cx-barW, x2=cx+1;
+      bars+=`<rect x="${x1.toFixed(1)}" y="${(padT+chartH-h1).toFixed(1)}" width="${barW}" height="${h1.toFixed(1)}" fill="${color1}" rx="2"/>`;
+      if(value2Key){ bars+=`<rect x="${x2.toFixed(1)}" y="${(padT+chartH-h2).toFixed(1)}" width="${barW}" height="${h2.toFixed(1)}" fill="${color2}" rx="2"/>`; }
+      // value labels
+      if(h1>10) bars+=`<text x="${(x1+barW/2).toFixed(1)}" y="${(padT+chartH-h1-2).toFixed(1)}" text-anchor="middle" font-size="6.5" fill="${color1}" font-weight="700">${v1}</text>`;
+      if(value2Key&&h2>10) bars+=`<text x="${(x2+barW/2).toFixed(1)}" y="${(padT+chartH-h2-2).toFixed(1)}" text-anchor="middle" font-size="6.5" fill="${color2}" font-weight="700">${v2}</text>`;
+      const lbl=d[labelKey]; const lblX=cx.toFixed(1); const lblY=(padT+chartH+10).toFixed(1);
+      xLabels+=`<text x="${lblX}" y="${lblY}" text-anchor="middle" font-size="7.5" fill="#475569" font-weight="600">${lbl.length>8?lbl.slice(0,7)+'…':lbl}</text>`;
+    });
+    const legY=H-10;
+    const legend=`<rect x="${padL}" y="${legY-7}" width="10" height="7" fill="${color1}" rx="1.5"/>
+      <text x="${padL+13}" y="${legY}" font-size="8" fill="#475569">${label1}</text>
+      ${value2Key?`<rect x="${padL+70}" y="${legY-7}" width="10" height="7" fill="${color2}" rx="1.5"/>
+      <text x="${padL+83}" y="${legY}" font-size="8" fill="#475569">${label2}</text>`:''}`;
+    return `<div style="margin-bottom:.75rem">
+      <div style="font-size:9pt;font-weight:700;color:#1a6fb5;margin-bottom:4px">${title}</div>
+      <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;display:block">
+        <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+chartH}" stroke="#94a3b8" stroke-width="1"/>
+        <line x1="${padL}" y1="${padT+chartH}" x2="${W-padR}" y2="${padT+chartH}" stroke="#94a3b8" stroke-width="1"/>
+        ${gridLines}${bars}${xLabels}${legend}
+      </svg></div>`;
+  }
+
+  function makeSVGGradeChart(dist, keys, title) {
+    if (!keys.length) return '';
+    const gradeColors={'A':'#16a34a','A-':'#22c55e','B+':'#0ea5e9','B':'#3b82f6','B-':'#6366f1','C+':'#8b5cf6','C':'#a855f7','C-':'#f59e0b','D+':'#f97316','D':'#ef4444','D-':'#dc2626','E':'#991b1b'};
+    const W=300,H=160,padL=28,padR=10,padT=20,padB=42;
+    const chartW=W-padL-padR,chartH=H-padT-padB;
+    const vals=keys.map(g=>dist[g]||0);
+    const max=Math.max(...vals,1)*1.1;
+    const barW=Math.min(chartW/keys.length*0.6,18);
+    let bars='',xLbls='',gridLines='';
+    [0].forEach(p=>{ const y=padT+chartH; gridLines+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#94a3b8" stroke-width="0.8"/>`; });
+    const topVal=Math.ceil(Math.max(...vals)/5)*5||5;
+    [0,Math.round(topVal/2),topVal].forEach(p=>{ const y=padT+chartH-(p/max)*chartH; gridLines+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#e2e8f0" stroke-width="0.5"/>`;gridLines+=`<text x="${padL-3}" y="${y+3}" text-anchor="end" font-size="7" fill="#94a3b8">${p}</text>`; });
+    keys.forEach((g,i)=>{
+      const cnt=dist[g]||0; if(!cnt) { xLbls+=`<text x="${(padL+(i+0.5)*(chartW/keys.length)).toFixed(1)}" y="${(padT+chartH+10).toFixed(1)}" text-anchor="middle" font-size="8" fill="#94a3b8">${g}</text>`; return; }
+      const h=(cnt/max)*chartH; const x=padL+(i+0.5)*(chartW/keys.length)-barW/2;
+      const col=gradeColors[g]||'#64748b';
+      bars+=`<rect x="${x.toFixed(1)}" y="${(padT+chartH-h).toFixed(1)}" width="${barW}" height="${h.toFixed(1)}" fill="${col}" rx="2"/>`;
+      if(h>10) bars+=`<text x="${(x+barW/2).toFixed(1)}" y="${(padT+chartH-h-2).toFixed(1)}" text-anchor="middle" font-size="7" fill="${col}" font-weight="700">${cnt}</text>`;
+      xLbls+=`<text x="${(padL+(i+0.5)*(chartW/keys.length)).toFixed(1)}" y="${(padT+chartH+10).toFixed(1)}" text-anchor="middle" font-size="8" fill="#475569" font-weight="600">${g}</text>`;
+    });
+    return `<div>
+      <div style="font-size:9pt;font-weight:700;color:#1a6fb5;margin-bottom:4px">${title}</div>
+      <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;display:block">
+        ${gridLines}${bars}${xLbls}
+      </svg></div>`;
+  }
+
+  // Charts HTML
+  const classChartHTML = classSummaries.length >= 2
+    ? makeSVGBarChart(classSummaries,'name','avg','',  '#1a6fb5','','Class Mean','','Class Mean Scores (%)',100)
+    : '';
+  const genderChartHTML = classSummaries.length
+    ? makeSVGBarChart(classSummaries,'name','boysM','girlsM','#3b82f6','#ec4899','Boys','Girls','Boys vs Girls Mean Score by Class (%)',100)
+    : '';
+  const gradeChartHTML  = allStudentData.length
+    ? makeSVGGradeChart(gradeDist, gradeKeys, 'Overall Grade Distribution')
+    : '';
+  const subChartHTML = subjectSummaries.length >= 2
+    ? makeSVGBarChart(subjectSummaries,'code','mean','','#0ea5e9','','Mean','','Subject Performance Comparison (%)',100)
+    : '';
+
+  const summaryTableHTML = classSummaries.length ? `
+    <table>
+      <thead><tr>
+        <th>Class</th><th style="text-align:center">Students</th>
+        <th style="text-align:center">Boys</th><th style="text-align:center">Girls</th>
+        <th style="text-align:center">Overall Mean</th>
+        <th style="text-align:center;color:#3b82f6">Boys Mean</th>
+        <th style="text-align:center;color:#ec4899">Girls Mean</th>
+      </tr></thead>
+      <tbody>${classSummaries.map((c,i)=>`<tr style="background:${i%2?'#fff':'#f8fbff'}">
+        <td><strong>${c.name}</strong></td>
+        <td style="text-align:center">${c.total}</td>
+        <td style="text-align:center;color:#1d4ed8">${c.boys}</td>
+        <td style="text-align:center;color:#be185d">${c.girls}</td>
+        <td style="text-align:center;font-weight:700;color:#1a6fb5">${c.avg}</td>
+        <td style="text-align:center;font-weight:700;color:#3b82f6">${c.boysM||'—'}</td>
+        <td style="text-align:center;font-weight:700;color:#ec4899">${c.girlsM||'—'}</td>
+      </tr>`).join('')}</tbody>
+    </table>` : '';
+
   const win = window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><title>Summary Analytics — ${exam?.name||''}</title>
+  if (!win) { showToast('Allow pop-ups to print','warning'); return; }
+  win.document.write(`<!DOCTYPE html><html><head>
+  <meta charset="UTF-8">
+  <title>Summary Analytics — ${sch}</title>
   <style>
-    body{font-family:Arial,sans-serif;font-size:11px;color:#111;padding:15px}
-    h3{margin:.5rem 0 .25rem;color:#1a6fb5}h4{margin:.4rem 0 .2rem;color:#334155}
-    table{border-collapse:collapse;width:100%;margin-bottom:.75rem}
-    th,td{border:1px solid #cbd5e1;padding:3px 6px;text-align:left;font-size:10px}
-    thead th{background:#1a6fb5;color:#fff}
-    .sm-class-section{page-break-before:auto;margin-bottom:1.5rem}
-    .sm-podium{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:.5rem}
-    .sm-podium-card{border:1px solid #e2e8f0;padding:8px;border-radius:6px;min-width:130px}
-    .sm-subgrid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:.5rem}
-    .sm-subcard{border:1px solid #e2e8f0;padding:6px;border-radius:5px;min-width:120px}
-    .sm-subcard-title{font-weight:700;font-size:10px;margin-bottom:3px;color:#1a6fb5}
-    .sm-top3-row{display:flex;gap:4px;font-size:9px;margin:1px 0}
-    @media print{.sm-class-section{page-break-before:always}}
-    @media print{.sm-class-section:first-child{page-break-before:avoid}}
-  </style></head><body>
-  <h2 style="color:#1a6fb5">${settings.schoolName||'School'} — Summary Analytics</h2>
-  <p style="color:#64748b;font-size:10px">${exam?.name||''} | ${exam?.term||''} ${exam?.year||''}</p>
-  ${res.innerHTML}
+    *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;box-sizing:border-box;margin:0;padding:0}
+    @page{size:A4 portrait;margin:12mm 14mm}
+    body{font-family:'Segoe UI',Arial,sans-serif;font-size:10pt;color:#1e293b;background:#fff;padding:0}
+
+    /* ── Header ── */
+    .page-header{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:3px solid #1a6fb5;padding-bottom:10px;margin-bottom:14px}
+    .school-name{font-size:16pt;font-weight:900;color:#1a6fb5;line-height:1.1}
+    .report-title{font-size:10pt;font-weight:700;color:#334155;margin-top:3px}
+    .report-meta{font-size:8.5pt;color:#64748b;margin-top:2px}
+    .header-badge{background:#1a6fb5;color:#fff;padding:5px 14px;border-radius:8px;font-size:9pt;font-weight:700;white-space:nowrap}
+
+    /* ── Section cards ── */
+    .section{border:1.5px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:12px;break-inside:avoid}
+    .section-title{font-size:9.5pt;font-weight:800;color:#1a6fb5;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid #dbeafe;display:flex;align-items:center;gap:6px}
+    .section-title .dot{width:10px;height:10px;border-radius:50%;background:#1a6fb5;flex-shrink:0}
+
+    /* ── Tables ── */
+    table{border-collapse:collapse;width:100%;font-size:9pt;margin-top:4px}
+    th{background:#1a6fb5!important;color:#fff!important;padding:5px 8px;font-weight:700;border:1px solid #93c5fd;font-size:8.5pt}
+    td{padding:4px 8px;border:1px solid #dde5ef;vertical-align:middle;font-size:8.5pt}
+    tr:nth-child(even) td{background:#f0f6ff!important}
+
+    /* ── Charts layout ── */
+    .charts-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+    .chart-box{flex:1;min-width:200px;border:1px solid #e2e8f0;border-radius:7px;padding:8px;background:#fafcff}
+    .chart-box-wide{width:100%;border:1px solid #e2e8f0;border-radius:7px;padding:8px;background:#fafcff;margin-bottom:10px}
+
+    /* ── Gender pills ── */
+    .gender-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+    .pill-boys{background:#dbeafe;border:1.5px solid #93c5fd;border-radius:6px;padding:5px 14px;font-weight:700;color:#1d4ed8;font-size:9pt}
+    .pill-girls{background:#fce7f3;border:1.5px solid #f9a8d4;border-radius:6px;padding:5px 14px;font-weight:700;color:#be185d;font-size:9pt}
+    .pill-total{background:#f0fdf4;border:1.5px solid #86efac;border-radius:6px;padding:5px 14px;font-weight:700;color:#15803d;font-size:9pt}
+
+    /* ── Class section separator ── */
+    .class-break{page-break-before:always}
+    .class-break:first-child{page-break-before:avoid}
+
+    /* ── Misc ── */
+    .badge{display:inline-block;padding:1px 7px;border-radius:4px;font-size:7.5pt;font-weight:700}
+    .b-blue{background:#dbeafe;color:#1d4ed8}
+    .b-green{background:#dcfce7;color:#15803d}
+    .b-red{background:#fee2e2;color:#dc2626}
+    .footer-bar{margin-top:16px;padding-top:8px;border-top:1.5px solid #e2e8f0;display:flex;justify-content:space-between;font-size:7.5pt;color:#94a3b8}
+    .no-print{display:none!important}
+    @media print{.no-print{display:none!important}.class-break{page-break-before:always}.class-break:first-child{page-break-before:avoid}}
+  </style>
+  </head><body>
+
+  <!-- ══ PAGE HEADER ═════════════════════════════════════════════════ -->
+  <div class="page-header">
+    <div>
+      <div class="school-name">${sch}</div>
+      <div class="report-title">Summary Analytics Report</div>
+      <div class="report-meta">${exam?.name||''} &nbsp;|&nbsp; ${exam?.term||''} ${exam?.year||''} &nbsp;|&nbsp; Printed: ${printDate}</div>
+    </div>
+    <div>
+      <div class="header-badge">📊 Summary Analytics</div>
+      <button class="no-print" onclick="window.print()" style="display:block;margin-top:8px;padding:6px 16px;background:#1a6fb5;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:9pt;font-weight:700">🖨️ Print / Save PDF</button>
+    </div>
+  </div>
+
+  <!-- ══ OVERVIEW STATS ══════════════════════════════════════════════ -->
+  ${classSummaries.length ? `<div class="section">
+    <div class="section-title"><div class="dot"></div> School Overview</div>
+    <div class="gender-row">
+      <div class="pill-total">👥 Total Students: ${classSummaries.reduce((a,c)=>a+c.total,0)}</div>
+      <div class="pill-boys">♂ Boys: ${classSummaries.reduce((a,c)=>a+c.boys,0)}</div>
+      <div class="pill-girls">♀ Girls: ${classSummaries.reduce((a,c)=>a+c.girls,0)}</div>
+      <div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:6px;padding:5px 14px;font-weight:700;color:#0369a1;font-size:9pt">📚 Classes: ${classSummaries.length}</div>
+    </div>
+    ${summaryTableHTML}
+  </div>` : ''}
+
+  <!-- ══ CHARTS ══════════════════════════════════════════════════════ -->
+  ${(classChartHTML||genderChartHTML||gradeChartHTML||subChartHTML) ? `<div class="section">
+    <div class="section-title"><div class="dot" style="background:#8b5cf6"></div> Performance Charts</div>
+    <div class="charts-row">
+      ${classChartHTML  ? `<div class="chart-box">${classChartHTML}</div>` : ''}
+      ${gradeChartHTML  ? `<div class="chart-box">${gradeChartHTML}</div>` : ''}
+    </div>
+    ${genderChartHTML ? `<div class="chart-box-wide">${genderChartHTML}</div>` : ''}
+    ${subChartHTML    ? `<div class="chart-box-wide">${subChartHTML}</div>` : ''}
+  </div>` : ''}
+
+  <!-- ══ DETAILED CLASS RESULTS (from rendered DOM) ══════════════════ -->
+  <div id="smResultsClone">
+    ${res.innerHTML}
+  </div>
+
+  <div class="footer-bar">
+    <span>Generated by Charanas Analyzer — ${sch}</span>
+    <span>${exam?.name||''} ${exam?.term||''} ${exam?.year||''} | ${printDate}</span>
+  </div>
+
+  <script>
+    // Clean up interactive elements that don't print well
+    document.querySelectorAll('button,input,select,.no-print').forEach(el=>el.remove());
+    // Fix table overflow for print
+    document.querySelectorAll('.tbl-wrap').forEach(el=>{el.style.overflow='visible';el.style.borderRadius='0';el.style.border='none';});
+    // Ensure color printing
+    document.querySelectorAll('[style]').forEach(el=>{
+      if(el.style.background) el.style.webkitPrintColorAdjust='exact';
+    });
+    window.onload=function(){ window.print(); };
+  <\/script>
   </body></html>`);
   win.document.close();
-  setTimeout(()=>win.print(), 600);
   showToast('Print dialog opened <i class="fa-solid fa-check"></i>','success');
 }
 
@@ -14933,7 +15171,7 @@ function runAnalysis() {
         if (anCharts['gen']) anCharts['gen'].destroy();
         anCharts['gen'] = new Chart(genCtx, {
           type:'doughnut',
-          data:{ labels:['Male','Female'], datasets:[{ data:[parseFloat(mMean.toFixed(1)),parseFloat(fMean.toFixed(1))], backgroundColor:['#1a6fb5','#e91e8c'] }] },
+          data:{ labels:['Boys','Girls'], datasets:[{ data:[parseFloat(mMean.toFixed(1)),parseFloat(fMean.toFixed(1))], backgroundColor:['#1a6fb5','#e91e8c'] }] },
           options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}} }
         });
       }
