@@ -6413,6 +6413,82 @@ function buildGenderAnalysisSummaryHTML(clsStudentData, exam, isConsolidated, so
   }
 
   const diff = (mMean !== null && fMean !== null) ? (mMean - fMean) : null;
+
+  // ── Mini Boys vs Girls comparison chart ──
+  function buildGenderMiniChart() {
+    if (mMean === null && fMean === null) return '';
+    const maxVal = Math.max(mMean || 0, fMean || 0, 1);
+    const bW = mMean !== null ? Math.round((mMean / maxVal) * 120) : 0;
+    const gW = fMean !== null ? Math.round((fMean / maxVal) * 120) : 0;
+    const bPct = Math.round(males.length / (total || 1) * 100);
+    const gPct = Math.round(females.length / (total || 1) * 100);
+    // Donut data
+    const r = 28, cx = 36, cy = 36, circ = 2 * Math.PI * r;
+    const boyShare = total > 0 ? males.length / total : 0.5;
+    const boyDash  = (boyShare * circ).toFixed(1);
+    const girlDash = ((1 - boyShare) * circ).toFixed(1);
+    return `
+    <div style="display:flex;gap:1.2rem;align-items:center;flex-wrap:wrap;margin-top:.6rem;padding:.6rem .9rem;background:var(--surface,#fff);border-radius:10px;border:1px solid var(--border)">
+      <!-- Donut: gender split -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:.3rem">
+        <svg width="72" height="72" viewBox="0 0 72 72">
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#e5e7eb" stroke-width="10"/>
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#3b82f6" stroke-width="10"
+            stroke-dasharray="${boyDash} ${circ.toFixed(1)}"
+            stroke-dashoffset="${(circ * 0.25).toFixed(1)}"
+            stroke-linecap="round"/>
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#ec4899" stroke-width="10"
+            stroke-dasharray="${girlDash} ${circ.toFixed(1)}"
+            stroke-dashoffset="${(-boyDash + circ * 0.25).toFixed(1)}"
+            stroke-linecap="round"/>
+          <text x="${cx}" y="${cy - 4}" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">${total}</text>
+          <text x="${cx}" y="${cy + 8}" text-anchor="middle" font-size="7" fill="#6b7280">students</text>
+        </svg>
+        <div style="display:flex;gap:.5rem;font-size:.65rem">
+          <span style="color:#3b82f6;font-weight:700">♂ ${bPct}%</span>
+          <span style="color:#ec4899;font-weight:700">♀ ${gPct}%</span>
+        </div>
+      </div>
+      <!-- Bar comparison: mean scores -->
+      <div style="flex:1;min-width:160px">
+        <div style="font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:.5rem;letter-spacing:.04em">Class Mean Comparison</div>
+        ${mMean !== null ? `
+        <div style="margin-bottom:.4rem">
+          <div style="display:flex;justify-content:space-between;margin-bottom:.18rem">
+            <span style="font-size:.7rem;color:#3b82f6;font-weight:700">♂ Boys</span>
+            <span style="font-size:.7rem;color:#3b82f6;font-weight:700">${mMean.toFixed(1)}</span>
+          </div>
+          <div style="background:#e5e7eb;border-radius:4px;height:10px;overflow:hidden">
+            <div style="width:${bW}px;max-width:100%;height:100%;background:linear-gradient(90deg,#3b82f6,#60a5fa);border-radius:4px;transition:width .4s"></div>
+          </div>
+        </div>` : ''}
+        ${fMean !== null ? `
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:.18rem">
+            <span style="font-size:.7rem;color:#ec4899;font-weight:700">♀ Girls</span>
+            <span style="font-size:.7rem;color:#ec4899;font-weight:700">${fMean.toFixed(1)}</span>
+          </div>
+          <div style="background:#e5e7eb;border-radius:4px;height:10px;overflow:hidden">
+            <div style="width:${gW}px;max-width:100%;height:100%;background:linear-gradient(90deg,#ec4899,#f472b6);border-radius:4px;transition:width .4s"></div>
+          </div>
+        </div>` : ''}
+      </div>
+      <!-- Count chips -->
+      <div style="display:flex;flex-direction:column;gap:.4rem">
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:.3rem .7rem;text-align:center">
+          <div style="font-size:.62rem;color:#3b82f6;font-weight:600">BOYS</div>
+          <div style="font-size:1.1rem;font-weight:800;color:#1d4ed8">${males.length}</div>
+        </div>
+        <div style="background:#fdf2f8;border:1px solid #fbcfe8;border-radius:7px;padding:.3rem .7rem;text-align:center">
+          <div style="font-size:.62rem;color:#ec4899;font-weight:600">GIRLS</div>
+          <div style="font-size:1.1rem;font-weight:800;color:#be185d">${females.length}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  const genderMiniChart = buildGenderMiniChart();
+
   const gapHTML = diff !== null ? (() => {
     const leader = Math.abs(diff) < 0.5 ? 'Essentially equal performance' : diff > 0 ? '♂ Boys outperform' : '♀ Girls outperform';
     const lCol   = Math.abs(diff) < 0.5 ? '#6b7280' : diff > 0 ? '#3b82f6' : '#ec4899';
@@ -6425,7 +6501,8 @@ function buildGenderAnalysisSummaryHTML(clsStudentData, exam, isConsolidated, so
 
   return `<div class="card sm-section" style="border-left:4px solid #8b5cf6">
     <h4 class="sm-section-title" style="color:#8b5cf6"><i class="fa-solid fa-venus-mars"></i> Gender Analysis</h4>
-    <div style="display:flex;gap:.85rem;flex-wrap:wrap;margin-bottom:.85rem">
+    ${genderMiniChart}
+    <div style="display:flex;gap:.85rem;flex-wrap:wrap;margin-bottom:.85rem;margin-top:.85rem">
       ${statCard(males,   mMean, mDist, '#3b82f6', '♂', 'Boys')}
       ${statCard(females, fMean, fDist, '#ec4899', '♀', 'Girls')}
     </div>
@@ -7018,6 +7095,30 @@ function renderSummaryAnalytics() {
       <td style="text-align:center"><span class="badge ${r.grd.cls}">${r.grd.grade}</span></td>
     </tr>`).join('');
 
+    // ── Subject Performance mini horizontal bar chart ──
+    const subChartHTML = (() => {
+      if (!subjectRankRows.length) return '';
+      const maxMn = Math.max(...subjectRankRows.map(r => r.mn), 1);
+      const chartColors = ['#6366f1','#3b82f6','#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316'];
+      const bars = subjectRankRows.map((r, i) => {
+        const barPct = Math.round((r.mn / maxMn) * 100);
+        const col = chartColors[i % chartColors.length];
+        const maxPct = r.mx !== undefined ? Math.round((r.mx / (r.sub.max || 100)) * 100) : null;
+        return `<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.32rem">
+          <div style="width:90px;font-size:.68rem;font-weight:600;color:var(--fg);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${r.sub.name}">${r.sub.name}</div>
+          <div style="flex:1;position:relative;background:#f3f4f6;border-radius:5px;height:16px;overflow:hidden">
+            <div style="width:${barPct}%;height:100%;background:${col};border-radius:5px;opacity:.85;transition:width .5s"></div>
+            <span style="position:absolute;left:${barPct > 30 ? barPct - 2 : barPct + 1}%;top:50%;transform:translateY(-50%);font-size:.6rem;font-weight:700;color:${barPct > 30 ? '#fff' : '#374151'};white-space:nowrap">${r.mn}</span>
+          </div>
+          <span class="badge ${r.grd.cls}" style="font-size:.6rem;min-width:26px;text-align:center">${r.grd.grade}</span>
+        </div>`;
+      }).join('');
+      return `<div style="margin-top:.75rem;padding:.7rem .9rem;background:var(--surface,#fff);border:1px solid var(--border);border-radius:10px">
+        <div style="font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.55rem"><i class="fa-solid fa-chart-bar" style="margin-right:.3rem;color:#6366f1"></i>Subject Mean — Visual Ranking</div>
+        ${bars}
+      </div>`;
+    })();
+
     // ── 3. Best 3 per subject ──
     const bestPerSubHTML = (exam.subjectIds||[]).map(sid=>{
       const sub = subjects.find(s=>s.id===sid); if(!sub) return '';
@@ -7159,6 +7260,7 @@ function renderSummaryAnalytics() {
           <thead><tr><th>#</th><th>Subject</th><th>Mean</th><th>Highest</th><th>Lowest</th><th>Entries</th><th>Grade</th></tr></thead>
           <tbody>${subRankHTML||'<tr><td colspan="7" style="text-align:center;color:var(--muted)">No data</td></tr>'}</tbody>
         </table></div>
+        ${subChartHTML}
       </div>
 
       <div class="card sm-section">
