@@ -6151,6 +6151,166 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
 }
 
 // ── Student count summary bar for Merit List ────────────────────────────────
+// ── Stream vs Class comparison panel — shown in every stream merit list ───────
+// Shows: class mean card, all-streams comparison cards, per-subject table with ±class
+function buildStreamVsClassHTML(examId, classId, activeStreamId) {
+  const exam = exams.find(e => e.id === examId); if (!exam) return '';
+  const isConsolidated = exam.category === 'consolidated';
+  const sourceExamObjs = isConsolidated ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
+
+  // All streams in this class that have data
+  const clsStreams = streams.filter(s => s.classId === classId);
+  if (clsStreams.length < 2) return ''; // nothing to compare
+
+  // All students in class with marks
+  const clsStudents = students.filter(s => s.classId === classId);
+  const allScored = buildMeritData(examId, null, classId);
+  if (!allScored.length) return '';
+
+  const classMean = allScored.reduce((a,s) => a + s.mean, 0) / allScored.length;
+  const classGrd  = getMeanGrade(classMean / 100 * 8);
+
+  // Per-stream overall mean
+  const streamPerf = clsStreams.map(str => {
+    const grp = allScored.filter(s => s.streamId === str.id);
+    if (!grp.length) return null;
+    const mn = grp.reduce((a,s) => a + s.mean, 0) / grp.length;
+    return { str, mn, count: grp.length };
+  }).filter(Boolean);
+
+  if (streamPerf.length < 2) return '';
+
+  // Helper: subject mean for a set of student ids
+  function subjectMeanForStudents(sid, stuIds) {
+    const vals = stuIds.map(stuId => {
+      if (isConsolidated) {
+        const ss = sourceExamObjs.map(src => {
+          const mk = marks.find(m => m.examId===src.id && m.studentId===stuId && m.subjectId===sid);
+          return mk ? mk.score : null;
+        }).filter(v => v !== null);
+        return ss.length ? ss.reduce((a,b)=>a+b,0)/ss.length : null;
+      } else {
+        const mk = marks.find(m => m.examId===examId && m.studentId===stuId && m.subjectId===sid);
+        return mk ? mk.score : null;
+      }
+    }).filter(v => v !== null);
+    return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+  }
+
+  const allStuIds = allScored.map(s => s.id);
+
+  // Build per-subject rows
+  const subjectRows = exam.subjectIds.map(sid => {
+    const sub = subjects.find(s => s.id === sid); if (!sub) return '';
+    const classSubMean = subjectMeanForStudents(sid, allStuIds);
+    if (classSubMean === null) return '';
+    const classSubGrd = getGrade(classSubMean, sub.max||100);
+
+    const streamCells = streamPerf.map(sp => {
+      const stuIds = allScored.filter(s => s.streamId === sp.str.id).map(s => s.id);
+      const mn = subjectMeanForStudents(sid, stuIds);
+      if (mn === null) return '<td colspan="2" style="text-align:center;color:var(--muted)">—</td>';
+      const diff = mn - classSubMean;
+      const sign = diff >= 0 ? '+' : '';
+      const clr  = diff > 1 ? '#16a34a' : diff < -1 ? '#dc2626' : '#6b7280';
+      const sg   = getGrade(mn, sub.max||100);
+      const isActive = sp.str.id === activeStreamId;
+      return `<td style="text-align:center;font-weight:${isActive?'800':'600'};background:${isActive?'#fafaf0':''}">${mn.toFixed(1)} <span class="badge ${sg.cls}" style="font-size:.58rem">${sg.grade}</span></td>`
+           + `<td style="text-align:center;font-size:.73rem;font-weight:700;color:${clr}">${sign}${diff.toFixed(1)}</td>`;
+    }).join('');
+
+    return `<tr>
+      <td><strong>${sub.name}</strong> <span class="badge b-blue" style="font-size:.58rem">${sub.code}</span></td>
+      <td style="text-align:center;font-weight:700;background:#eef4ff;color:var(--primary)">${classSubMean.toFixed(1)} <span class="badge ${classSubGrd.cls}" style="font-size:.58rem">${classSubGrd.grade}</span></td>
+      ${streamCells}
+    </tr>`;
+  }).join('');
+
+  // Overall mean summary row
+  const overallRow = `<tr style="background:#eef4ff;font-weight:700">
+    <td><i class="fa-solid fa-sigma"></i> <strong>Overall Mean</strong></td>
+    <td style="text-align:center;background:#dbeafe;color:var(--primary);font-weight:800">${classMean.toFixed(2)} <span class="badge ${classGrd.cls}" style="font-size:.6rem">${classGrd.grade}</span></td>
+    ${streamPerf.map(sp => {
+      const diff = sp.mn - classMean;
+      const sign = diff >= 0 ? '+' : '';
+      const clr  = diff > 0.5 ? '#16a34a' : diff < -0.5 ? '#dc2626' : '#6b7280';
+      const sg   = getMeanGrade(sp.mn / 100 * 8);
+      const isActive = sp.str.id === activeStreamId;
+      return `<td style="text-align:center;font-weight:800;background:${isActive?'#fafaf0':''}">${sp.mn.toFixed(2)} <span class="badge ${sg.cls}" style="font-size:.6rem">${sg.grade}</span></td>`
+           + `<td style="text-align:center;font-size:.76rem;font-weight:800;color:${clr}">${sign}${diff.toFixed(2)}</td>`;
+    }).join('')}
+  </tr>`;
+
+  const streamHeaders = streamPerf.map(sp =>
+    `<th colspan="2" style="text-align:center;${sp.str.id===activeStreamId?'background:#fefce8;color:#92400e;border-bottom:2px solid #d97706':''}">`
+    + (sp.str.id===activeStreamId ? '<i class="fa-solid fa-location-dot" style="font-size:.65rem;margin-right:.2rem"></i>' : '')
+    + sp.str.name
+    + (sp.str.id===activeStreamId ? ' <span style="font-size:.62rem;font-weight:400">(this)</span>' : '')
+    + `</th>`
+  ).join('');
+
+  // Headline stat cards
+  const headlineCards = `
+    <div style="display:flex;gap:.55rem;flex-wrap:wrap;margin-bottom:.85rem;align-items:stretch">
+      <div style="flex:0 0 auto;min-width:115px;background:#eef4ff;border:2px solid var(--primary);border-radius:10px;padding:.5rem .85rem;text-align:center">
+        <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">CLASS MEAN</div>
+        <div style="font-size:1.25rem;font-weight:800;color:var(--primary)">${classMean.toFixed(2)}</div>
+        <span class="badge ${classGrd.cls}" style="font-size:.62rem">${classGrd.grade}</span>
+        <div style="font-size:.65rem;color:var(--muted);margin-top:.1rem">${allScored.length} students</div>
+      </div>
+      ${streamPerf.map(sp => {
+        const diff = sp.mn - classMean;
+        const sign = diff >= 0 ? '+' : '';
+        const clr  = diff > 0.5 ? '#16a34a' : diff < -0.5 ? '#dc2626' : '#6b7280';
+        const sg   = getMeanGrade(sp.mn / 100 * 8);
+        const isActive = sp.str.id === activeStreamId;
+        return `<div style="flex:1;min-width:115px;background:${isActive?'#fefce8':'var(--surface,#fff)'};border:${isActive?'2px solid #d97706':'1.5px solid '+clr+'33'};border-radius:10px;padding:.5rem .85rem;text-align:center">`
+          + `<div style="font-size:.6rem;font-weight:700;color:${isActive?'#92400e':'var(--muted)'};text-transform:uppercase;letter-spacing:.04em">${sp.str.name}${isActive?' ★':''}</div>`
+          + `<div style="font-size:1.15rem;font-weight:800;color:var(--text)">${sp.mn.toFixed(2)}</div>`
+          + `<div style="display:flex;gap:.25rem;justify-content:center;flex-wrap:wrap;margin-top:.15rem">`
+          + `<span class="badge ${sg.cls}" style="font-size:.6rem">${sg.grade}</span>`
+          + `<span style="font-size:.68rem;font-weight:700;color:${clr}">${sign}${diff.toFixed(2)}</span>`
+          + `</div>`
+          + `<div style="font-size:.63rem;color:var(--muted);margin-top:.1rem">${sp.count} students</div>`
+          + `</div>`;
+      }).join('')}
+    </div>`;
+
+  return `
+  <div style="margin-top:1.25rem;padding:1rem;background:var(--surface,#fff);border:1.5px solid var(--border);border-radius:12px">
+    <h4 style="font-family:var(--font);font-weight:700;font-size:.92rem;margin-bottom:.7rem;color:var(--primary)">
+      <i class="fa-solid fa-code-compare"></i> Stream vs Class Comparison
+      <span style="font-size:.72rem;font-weight:400;color:var(--muted);margin-left:.4rem">— all streams in this class</span>
+    </h4>
+    ${headlineCards}
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="min-width:110px">Subject</th>
+            <th style="text-align:center;background:#eef4ff;color:var(--primary)">Class Mean</th>
+            ${streamHeaders}
+          </tr>
+          <tr style="font-size:.68rem;color:var(--muted)">
+            <th></th><th></th>
+            ${streamPerf.map(() => '<th style="text-align:center">Mean</th><th style="text-align:center">±Class</th>').join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${subjectRows}
+          ${overallRow}
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:.68rem;color:var(--muted);margin-top:.4rem">
+      <i class="fa-solid fa-circle-info"></i>
+      ★ = this stream &nbsp;|&nbsp; ± = deviation from class mean &nbsp;|&nbsp;
+      <span style="color:#16a34a;font-weight:700">Green</span> = above class &nbsp;|&nbsp;
+      <span style="color:#dc2626;font-weight:700">Red</span> = below class
+    </p>
+  </div>`;
+}
+
 function buildMeritStatsBar(scored) {
   if (!scored || !scored.length) return '';
   const total    = scored.length;
@@ -9757,6 +9917,7 @@ function renderMeritList() {
       ${POINTS_GRADE_BANDS.slice().reverse().map(b=>`<span class="badge ${b.cls}" style="font-size:.65rem">${b.grade}: ${b.min}–${b.max}</span>`).join('')}
     </div>`;
     const streamGenderAnalysis = buildGenderAnalysisMeritHTML(streamScored, examId);
+    const streamVsClass = buildStreamVsClassHTML(examId, str?.classId||classId||null, streamId);
     container.innerHTML = ptsLegendStream + `
       <h3 data-stream-id="${streamId}" style="margin-bottom:.5rem;font-family:var(--font);font-weight:700">
          ${cls ? cls.name + ' &rsaquo; ' : ''}${str?.name||streamId} &mdash; Stream Merit List
@@ -9767,6 +9928,7 @@ function renderMeritList() {
         <table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
       </div>
       ${streamGenderAnalysis}
+      ${streamVsClass}
       ${subAnalysis}`;
     return;
   }
@@ -9820,6 +9982,7 @@ function renderMeritList() {
         const { headerRow, bodyRows } = buildMeritTableHTML(strScored, examId, false);
         const strSubAnalysis = buildSubjectAnalysisHTML(examId, strScored.map(s=>s.id));
         const strGenderAnalysis = buildGenderAnalysisMeritHTML(strScored, examId);
+        const strVsClass = buildStreamVsClassHTML(examId, cls.id, str.id);
         return `
           <div style="margin-top:1.5rem">
             <h4 data-stream-id="${str.id}" style="margin-bottom:.4rem;font-family:var(--font);font-weight:700;color:var(--secondary);font-size:.95rem">
@@ -9830,6 +9993,7 @@ function renderMeritList() {
               <table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
             </div>
             ${strGenderAnalysis}
+            ${strVsClass}
             ${strSubAnalysis}
           </div>`;
       }).join('');
