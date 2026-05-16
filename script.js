@@ -6153,23 +6153,32 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
 // ── Student count summary bar for Merit List ────────────────────────────────
 function buildMeritStatsBar(scored) {
   if (!scored || !scored.length) return '';
-  const total = scored.length;
-  const boys  = scored.filter(s => s.gender === 'M').length;
-  const girls = scored.filter(s => s.gender === 'F').length;
-  const other = total - boys - girls;
+  const total    = scored.length;
+  const boys     = scored.filter(s => s.gender === 'M').length;
+  const girls    = scored.filter(s => s.gender === 'F').length;
+  const other    = total - boys - girls;
+  const meanVal  = scored.reduce((a, s) => a + (s.mean || 0), 0) / total;
+  const meanGrd  = typeof getMeanGrade === 'function' ? getMeanGrade(meanVal / 100 * 8) : null;
+  const boysM    = boys  ? (scored.filter(s=>s.gender==='M').reduce((a,s)=>a+s.mean,0)/boys).toFixed(1)  : null;
+  const girlsM   = girls ? (scored.filter(s=>s.gender==='F').reduce((a,s)=>a+s.mean,0)/girls).toFixed(1) : null;
   return `
     <div style="display:flex;gap:.55rem;flex-wrap:wrap;align-items:center;margin-bottom:.75rem">
       <div style="display:flex;align-items:center;gap:.35rem;background:#f0f9ff;border:1px solid #bae6fd;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#0369a1">
         <i class="fa-solid fa-users" style="font-size:.78rem"></i>
         <span>Total Students: ${total}</span>
       </div>
+      <div style="display:flex;align-items:center;gap:.35rem;background:#faf5ff;border:1.5px solid #c084fc;border-radius:7px;padding:.28rem .85rem;font-size:.8rem;font-weight:700;color:#7c3aed">
+        <i class="fa-solid fa-chart-line" style="font-size:.78rem"></i>
+        <span>Mean: ${meanVal.toFixed(2)}</span>
+        ${meanGrd ? `<span class="badge ${meanGrd.cls}" style="font-size:.65rem;margin-left:.2rem">${meanGrd.grade}</span>` : ''}
+      </div>
       <div style="display:flex;align-items:center;gap:.35rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#1d4ed8">
         <i class="fa-solid fa-mars" style="font-size:.78rem"></i>
-        <span>Boys: ${boys}</span>
+        <span>Boys: ${boys}${boysM ? ` &bull; Mean: ${boysM}` : ''}</span>
       </div>
       <div style="display:flex;align-items:center;gap:.35rem;background:#fdf2f8;border:1px solid #f9a8d4;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#be185d">
         <i class="fa-solid fa-venus" style="font-size:.78rem"></i>
-        <span>Girls: ${girls}</span>
+        <span>Girls: ${girls}${girlsM ? ` &bull; Mean: ${girlsM}` : ''}</span>
       </div>
       ${other > 0 ? `<div style="display:flex;align-items:center;gap:.35rem;background:#f9fafb;border:1px solid #e5e7eb;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#6b7280"><i class="fa-solid fa-circle-question" style="font-size:.78rem"></i><span>Other: ${other}</span></div>` : ''}
     </div>`;
@@ -15188,6 +15197,94 @@ function runAnalysis() {
       </div>
       ${streamPerf.length>1?`<div class="chart-box"><h3><i class="fa-solid fa-school"></i> Stream Comparison</h3><canvas id="anStreamChart" style="max-height:220px"></canvas></div>`:''}
     </div>
+    ${streamPerf.length>1?`
+    <div class="card" style="margin-top:1rem">
+      <h3><i class="fa-solid fa-code-compare"></i> Stream vs Class &mdash; Full Comparison
+        <span style="font-size:.75rem;font-weight:400;color:var(--muted);margin-left:.5rem">Class Mean: <strong style="color:var(--primary)">${classMean.toFixed(2)}</strong></span>
+      </h3>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem">
+        <div style="flex:0 0 auto;background:#f8fafc;border:1.5px solid var(--primary);border-radius:10px;padding:.55rem 1rem;min-width:130px;text-align:center">
+          <div style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">CLASS MEAN</div>
+          <div style="font-size:1.35rem;font-weight:800;color:var(--primary)">${classMean.toFixed(2)}</div>
+          <div style="font-size:.7rem;color:var(--muted)">${studentTotals.length} students</div>
+        </div>
+        ${streamPerf.map(sp=>{
+          const diff = sp.mn - classMean;
+          const sign = diff>=0?'+':'';
+          const clr  = diff>0.5?'#16a34a':diff<-0.5?'#dc2626':'#6b7280';
+          const strGrd = getMeanGrade(sp.mn/100*8);
+          return '<div style="flex:1;min-width:130px;background:var(--surface,#fff);border:1.5px solid '+clr+'44;border-radius:10px;padding:.55rem 1rem;text-align:center">'
+            +'<div style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">'+sp.str.name+'</div>'
+            +'<div style="font-size:1.25rem;font-weight:800;color:var(--text)">'+sp.mn.toFixed(2)+'</div>'
+            +'<div style="display:flex;gap:.3rem;justify-content:center;flex-wrap:wrap;margin-top:.2rem">'
+            +'<span class="badge '+strGrd.cls+'" style="font-size:.62rem">'+strGrd.grade+'</span>'
+            +'<span style="font-size:.7rem;font-weight:700;color:'+clr+'">'+sign+diff.toFixed(2)+'</span>'
+            +'</div>'
+            +'<div style="font-size:.68rem;color:var(--muted);margin-top:.15rem">'+sp.count+' students</div>'
+            +'</div>';
+        }).join('')}
+      </div>
+      <div style="margin-top:.75rem">
+        <div style="font-size:.8rem;font-weight:700;color:var(--primary);margin-bottom:.4rem"><i class="fa-solid fa-table"></i> Subject Mean &mdash; Stream Breakdown vs Class</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="min-width:120px">Subject</th>
+                <th style="text-align:center;background:#f0f7ff;color:var(--primary)">Class Mean</th>
+                ${streamPerf.map(sp=>'<th style="text-align:center">'+sp.str.name+'</th><th style="text-align:center;font-size:.7rem;color:var(--muted)">\u00b1Class</th>').join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${exam.subjectIds.map(sid=>{
+                const sub = subjects.find(s=>s.id===sid); if(!sub) return '';
+                const allVals = studentsWithData.map(stu=>{
+                  if(isConsolidated){const ss=sourceExamObjs.map(src=>{const mk=marks.find(m=>m.examId===src.id&&m.studentId===stu.id&&m.subjectId===sid);return mk?mk.score:null;}).filter(v=>v!==null);return ss.length?ss.reduce((a,b)=>a+b,0)/ss.length:null;}
+                  else{const mk=marks.find(m=>m.examId===examId&&m.studentId===stu.id&&m.subjectId===sid);return mk?mk.score:null;}
+                }).filter(v=>v!==null);
+                if(!allVals.length) return '';
+                const classSub = allVals.reduce((a,b)=>a+b,0)/allVals.length;
+                const subGrade = getGrade(classSub, sub.max||100);
+                const streamCols = streamPerf.map(sp=>{
+                  const stus = studentsWithData.filter(s=>s.streamId===sp.str.id);
+                  const vals = stus.map(stu=>{
+                    if(isConsolidated){const ss=sourceExamObjs.map(src=>{const mk=marks.find(m=>m.examId===src.id&&m.studentId===stu.id&&m.subjectId===sid);return mk?mk.score:null;}).filter(v=>v!==null);return ss.length?ss.reduce((a,b)=>a+b,0)/ss.length:null;}
+                    else{const mk=marks.find(m=>m.examId===examId&&m.studentId===stu.id&&m.subjectId===sid);return mk?mk.score:null;}
+                  }).filter(v=>v!==null);
+                  if(!vals.length) return '<td colspan="2" style="text-align:center;color:var(--muted)">&mdash;</td>';
+                  const strSub = vals.reduce((a,b)=>a+b,0)/vals.length;
+                  const diff   = strSub - classSub;
+                  const sign   = diff>=0?'+':'';
+                  const clr    = diff>1?'#16a34a':diff<-1?'#dc2626':'#6b7280';
+                  const sg     = getGrade(strSub, sub.max||100);
+                  return '<td style="text-align:center;font-weight:700">'+strSub.toFixed(1)+' <span class="badge '+sg.cls+'" style="font-size:.6rem">'+sg.grade+'</span></td>'
+                        +'<td style="text-align:center;font-size:.75rem;font-weight:700;color:'+clr+'">'+sign+diff.toFixed(1)+'</td>';
+                }).join('');
+                return '<tr>'
+                  +'<td><strong>'+sub.name+'</strong> <span class="badge b-blue" style="font-size:.6rem">'+sub.code+'</span><br><span style="font-size:.65rem;color:var(--muted)">Max: '+(sub.max||100)+'</span></td>'
+                  +'<td style="text-align:center;font-weight:700;background:#f0f7ff;color:var(--primary)">'+classSub.toFixed(1)+' <span class="badge '+subGrade.cls+'" style="font-size:.6rem">'+subGrade.grade+'</span></td>'
+                  +streamCols
+                  +'</tr>';
+              }).join('')}
+              <tr style="background:var(--primary-lt,#eef4ff);font-weight:700">
+                <td><strong><i class="fa-solid fa-sigma"></i> Overall Mean</strong></td>
+                <td style="text-align:center;background:#e0eeff;color:var(--primary);font-weight:800">${classMean.toFixed(2)}</td>
+                ${streamPerf.map(sp=>{
+                  const diff = sp.mn - classMean;
+                  const sign = diff>=0?'+':'';
+                  const clr  = diff>0.5?'#16a34a':diff<-0.5?'#dc2626':'#6b7280';
+                  const sg   = getMeanGrade(sp.mn/100*8);
+                  return '<td style="text-align:center;font-weight:800">'+sp.mn.toFixed(2)+' <span class="badge '+sg.cls+'" style="font-size:.6rem">'+sg.grade+'</span></td>'
+                        +'<td style="text-align:center;font-size:.78rem;font-weight:700;color:'+clr+'">'+sign+diff.toFixed(2)+'</td>';
+                }).join('')}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:.7rem;color:var(--muted);margin-top:.35rem"><i class="fa-solid fa-circle-info"></i> \u00b1 values show each stream&#39;s deviation from the class mean. Green = above class mean &bull; Red = below class mean.</p>
+      </div>
+    </div>
+    `:''}
     <div class="card" style="margin-top:1rem">
       <h3><i class="fa-solid fa-clipboard-list"></i> Subject Breakdown${isConsolidated?' <span style="font-size:.78rem;font-weight:400;color:var(--muted)">&mdash; averages across ' + sourceExamObjs.map(e=>e.name).join(', ') + '</span>':''}</h3>
       <div class="tbl-wrap">
