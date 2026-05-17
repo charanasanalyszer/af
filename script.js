@@ -7118,6 +7118,204 @@ function printMeritList() {
     });
   }
 
+  // ── Subject Ranking table ─────────────────────────────────────────────────
+  // Ranks subjects by mean score for a given scored array
+  function renderSubjectRanking(scored, titlePrefix) {
+    if (!examSubs.length || !scored.length) return;
+    const subData = examSubs.map(sub => {
+      const vals = scored.map(s => {
+        if (isConsolidated && sourceExamObjs.length > 0) {
+          const sc = sourceExamObjs.map(src => {
+            const mk = marks.find(m => m.examId===src.id && m.studentId===s.id && m.subjectId===sub.id);
+            return mk ? mk.score : null;
+          }).filter(v => v !== null);
+          return sc.length ? sc.reduce((a,b)=>a+b,0)/sc.length : null;
+        }
+        const mk = examMarks.find(m => m.studentId===s.id && m.subjectId===sub.id);
+        return mk ? mk.score : null;
+      }).filter(v => v !== null);
+      if (!vals.length) return null;
+      const mn = vals.reduce((a,b)=>a+b,0)/vals.length;
+      const mx = Math.max(...vals);
+      const lo = Math.min(...vals);
+      const subMax = sub.max || 100;
+      const grd = getGrade(mn, subMax);
+      const pts = getGrade(mn, subMax).points;
+      return { sub, mn, mx, lo, subMax, grd, pts, n: vals.length };
+    }).filter(Boolean).sort((a,b) => b.mn - a.mn);
+
+    if (!subData.length) return;
+    let y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 3 : 40;
+    if (y > PH - 30) { doc.addPage(); addLetterhead('MERIT LIST', examInfo); y = 19; }
+    y = addSectionTitle(`${titlePrefix} — Subject Ranking (by Mean Score)`, y);
+
+    const head = ['#', 'Subject', 'Code', 'Students', 'Mean', 'Mean%', 'Highest', 'Lowest', 'Pts', 'Grade'];
+    const body = subData.map((r, i) => [
+      i + 1,
+      r.sub.name,
+      r.sub.code,
+      r.n,
+      r.mn.toFixed(1),
+      `${((r.mn/r.subMax)*100).toFixed(1)}%`,
+      r.mx,
+      r.lo,
+      r.pts,
+      r.grd.grade,
+    ]);
+
+    doc.autoTable({
+      startY: y,
+      head: [head],
+      body,
+      theme: 'striped',
+      styles: { fontSize: 6, cellPadding: 1, textColor: dark },
+      headStyles: { fillColor: purple, textColor: white, fontStyle: 'bold', fontSize: 6.5, halign: 'center' },
+      alternateRowStyles: { fillColor: [248,250,252] },
+      columnStyles: {
+        0: { cellWidth: 7,  halign:'center' },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 13, halign:'center' },
+        3: { cellWidth: 16, halign:'center' },
+        4: { cellWidth: 15, halign:'center' },
+        5: { cellWidth: 16, halign:'center' },
+        6: { cellWidth: 15, halign:'center' },
+        7: { cellWidth: 15, halign:'center' },
+        8: { cellWidth: 10, halign:'center' },
+        9: { cellWidth: 14, halign:'center' },
+      },
+      margin: { left: M, right: M },
+      didParseCell(data) {
+        if (data.section === 'body') {
+          // Rank medal colours
+          if (data.column.index === 0) {
+            if (data.row.index === 0) { data.cell.styles.fillColor=[255,247,205]; data.cell.styles.textColor=[180,100,0]; data.cell.styles.fontStyle='bold'; }
+            else if (data.row.index === 1) { data.cell.styles.fillColor=[241,245,249]; data.cell.styles.fontStyle='bold'; }
+            else if (data.row.index === 2) { data.cell.styles.fillColor=[255,237,213]; data.cell.styles.fontStyle='bold'; }
+          }
+          // Grade colour
+          if (data.column.index === 9) {
+            const v = String(data.cell.raw);
+            if (v.startsWith('A')) data.cell.styles.textColor=[22,163,74];
+            else if (v.startsWith('B')) data.cell.styles.textColor=[26,111,181];
+            else if (v.startsWith('C')) data.cell.styles.textColor=[14,116,144];
+            else if (v.startsWith('D')) data.cell.styles.textColor=[217,119,6];
+            else if (v.startsWith('E')) data.cell.styles.textColor=[234,88,12];
+            else data.cell.styles.textColor=[220,38,38];
+          }
+        }
+      },
+    });
+  }
+
+  // ── Stream vs Class subject comparison table ──────────────────────────────
+  // Shows per-subject mean for each stream alongside class mean with ±deviation
+  function renderStreamComparison(classScored, classId, titlePrefix) {
+    if (!classId || !examSubs.length || !classScored.length) return;
+    const clsStreams = streams
+      .filter(s => s.classId === classId)
+      .filter(str => classScored.some(s => s.streamId === str.id))
+      .sort((a,b) => a.name.localeCompare(b.name));
+    if (clsStreams.length < 2) return;
+
+    function subMeanForStudents(subId, stuIds) {
+      const vals = stuIds.map(stuId => {
+        if (isConsolidated && sourceExamObjs.length > 0) {
+          const sc = sourceExamObjs.map(src => {
+            const mk = marks.find(m => m.examId===src.id && m.studentId===stuId && m.subjectId===subId);
+            return mk ? mk.score : null;
+          }).filter(v => v !== null);
+          return sc.length ? sc.reduce((a,b)=>a+b,0)/sc.length : null;
+        }
+        const mk = examMarks.find(m => m.studentId===stuId && m.subjectId===subId);
+        return mk ? mk.score : null;
+      }).filter(v => v !== null);
+      return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+    }
+
+    const allStuIds = classScored.map(s => s.id);
+    let y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 3 : 40;
+    if (y > PH - 32) { doc.addPage(); addLetterhead('MERIT LIST', examInfo); y = 19; }
+    y = addSectionTitle(`${titlePrefix} — Stream vs Class Subject Comparison`, y);
+
+    // Build header: Subject | Code | Class Mean | Str1 Mean | Str1 ± | Str2 Mean | Str2 ± ...
+    const head = ['Subject', 'Code', 'Class Mean', ...clsStreams.flatMap(str => [str.name, '±Class'])];
+
+    const body = examSubs.map(sub => {
+      const classMean = subMeanForStudents(sub.id, allStuIds);
+      if (classMean === null) return null;
+      const clsGrd = getGrade(classMean, sub.max||100);
+      const row = [sub.name, sub.code, `${classMean.toFixed(1)} (${clsGrd.grade})`];
+      clsStreams.forEach(str => {
+        const stuIds = classScored.filter(s => s.streamId === str.id).map(s => s.id);
+        const mn = subMeanForStudents(sub.id, stuIds);
+        if (mn === null) { row.push('—'); row.push('—'); return; }
+        const sg = getGrade(mn, sub.max||100);
+        const diff = mn - classMean;
+        row.push(`${mn.toFixed(1)} (${sg.grade})`);
+        row.push(`${diff >= 0 ? '+' : ''}${diff.toFixed(1)}`);
+      });
+      return row;
+    }).filter(Boolean);
+
+    // Also add overall mean row
+    const classMeanOverall = rankBy==='points'
+      ? classScored.reduce((a,s)=>a+s.points,0)/classScored.length
+      : classScored.reduce((a,s)=>a+s.mean,0)/classScored.length;
+    const overallRow = [`Overall ${rankBy==='points'?'Mean Pts':'Mean%'}`, '', classMeanOverall.toFixed(2),
+      ...clsStreams.flatMap(str => {
+        const grp = classScored.filter(s => s.streamId === str.id);
+        if (!grp.length) return ['—','—'];
+        const mn = rankBy==='points'
+          ? grp.reduce((a,s)=>a+s.points,0)/grp.length
+          : grp.reduce((a,s)=>a+s.mean,0)/grp.length;
+        const diff = mn - classMeanOverall;
+        return [`${mn.toFixed(2)}`, `${diff>=0?'+':''}${diff.toFixed(2)}`];
+      })
+    ];
+    body.push(overallRow);
+
+    if (!body.length) return;
+    const colStyles = {
+      0: { cellWidth: 38 },
+      1: { cellWidth: 11, halign:'center' },
+      2: { cellWidth: 22, halign:'center' },
+    };
+    let col = 3;
+    clsStreams.forEach(() => {
+      colStyles[col++] = { cellWidth: 22, halign:'center' };
+      colStyles[col++] = { cellWidth: 14, halign:'center' };
+    });
+
+    doc.autoTable({
+      startY: y,
+      head: [head],
+      body,
+      theme: 'grid',
+      styles: { fontSize: 6, cellPadding: 1, textColor: dark },
+      headStyles: { fillColor: blue, textColor: white, fontStyle: 'bold', fontSize: 6.5, halign: 'center' },
+      alternateRowStyles: { fillColor: [248,250,252] },
+      columnStyles: colStyles,
+      margin: { left: M, right: M },
+      didParseCell(data) {
+        if (data.section === 'body') {
+          // Highlight ±Class deviation columns (index 4,6,8... i.e. col>=4 and (col-3)%2===1)
+          if (data.column.index >= 4 && (data.column.index - 3) % 2 === 1) {
+            const n = parseFloat(String(data.cell.raw));
+            if (!isNaN(n)) {
+              if (n > 1)  { data.cell.styles.textColor=[22,163,74];  data.cell.styles.fontStyle='bold'; }
+              else if (n < -1) { data.cell.styles.textColor=[220,38,38]; data.cell.styles.fontStyle='bold'; }
+              else data.cell.styles.textColor=[107,114,128];
+            }
+          }
+          // Class Mean column slight tint
+          if (data.column.index === 2) data.cell.styles.fillColor = [238,244,255];
+          // Last row (overall) bold
+          if (data.row.index === body.length - 1) data.cell.styles.fontStyle = 'bold';
+        }
+      },
+    });
+  }
+
   // ══════════════════ MAIN RENDER LOGIC ══════════════════════════════════
   let isFirst = true;
 
@@ -7131,6 +7329,13 @@ function printMeritList() {
     renderSection(scored, title, false, true);
     renderSubjectAnalysis(scored, str?.name||'Stream');
     renderGenderTable(scored, str?.name||'Stream');
+    renderSubjectRanking(scored, str?.name||'Stream');
+    // Stream comparison: build class-level scored for full picture
+    const classIdForStr = str?.classId || classFilter || null;
+    if (classIdForStr) {
+      const classScored = buildMeritData(examId, null, classIdForStr);
+      renderStreamComparison(classScored, classIdForStr, cls?.name||'Class');
+    }
 
   } else {
     // Class overall (+ streams) view
@@ -7153,6 +7358,8 @@ function printMeritList() {
       isFirst = false;
       renderSubjectAnalysis(classScored, cls.name);
       renderGenderTable(classScored, cls.name);
+      renderSubjectRanking(classScored, cls.name);
+      renderStreamComparison(classScored, cls.id, cls.name);
 
       if (mlType === 'class_overall_and_stream') {
         const clsStreamIds = [...new Set(classScored.map(s=>s.streamId).filter(Boolean))];
@@ -7163,6 +7370,7 @@ function printMeritList() {
           renderSection(strScored, `${cls.name} › ${str.name} — Stream Merit List`, false, false);
           renderSubjectAnalysis(strScored, `${cls.name} › ${str.name}`);
           renderGenderTable(strScored, `${cls.name} › ${str.name}`);
+          renderSubjectRanking(strScored, `${cls.name} › ${str.name}`);
         });
       }
     });
