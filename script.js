@@ -6112,15 +6112,17 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
       if (distCounts[g.grade] !== undefined) distCounts[g.grade]++;
     });
 
-    const mMn = maleVals.length   ? ((maleVals.reduce((a,b)=>a+b,0)/maleVals.length / (sub.max||100) * 100).toFixed(1) + '%')   : '—';
-    const fMn = femaleVals.length ? ((femaleVals.reduce((a,b)=>a+b,0)/femaleVals.length / (sub.max||100) * 100).toFixed(1) + '%') : '—';
+    const mMnRaw = maleVals.length   ? (maleVals.reduce((a,b)=>a+b,0)/maleVals.length)   : null;
+    const fMnRaw = femaleVals.length ? (femaleVals.reduce((a,b)=>a+b,0)/femaleVals.length) : null;
+    const subMax = sub.max||100;
+    const mMn = mMnRaw !== null ? `${mMnRaw.toFixed(1)} <span style="font-size:.68rem;color:var(--muted)">(${((mMnRaw/subMax)*100).toFixed(1)}%)</span>` : '—';
+    const fMn = fMnRaw !== null ? `${fMnRaw.toFixed(1)} <span style="font-size:.68rem;color:var(--muted)">(${((fMnRaw/subMax)*100).toFixed(1)}%)</span>` : '—';
 
     const distCells = gradeKeys.map(g =>
       `<td style="text-align:center;font-size:.78rem">${distCounts[g] || ''}</td>`
     ).join('');
 
     const mainGrade = getGrade(mn, sub.max);
-    const subMax = sub.max||100;
     const mnPct = ((mn/subMax)*100).toFixed(1);
     const mxPct = ((mx/subMax)*100).toFixed(1);
     const loPct = ((lo/subMax)*100).toFixed(1);
@@ -6128,9 +6130,9 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
     return `<tr>
       <td><strong>${sub.name}</strong></td>
       <td>${vals.length}</td>
-      <td><strong style="color:var(--primary)">${mnPct}%</strong></td>
-      <td><span class="badge b-green">${mxPct}%</span></td>
-      <td><span class="badge b-red">${loPct}%</span></td>
+      <td><strong style="color:var(--primary)">${mn.toFixed(1)}</strong> <span style="font-size:.72rem;color:var(--muted);font-weight:500">(${mnPct}%)</span></td>
+      <td><span class="badge b-green">${mx}</span> <span style="font-size:.68rem;color:var(--muted)">(${mxPct}%)</span></td>
+      <td><span class="badge b-red">${lo}</span> <span style="font-size:.68rem;color:var(--muted)">(${loPct}%)</span></td>
       ${distCells}
       <td style="text-align:center"><span class="badge ${mainGrade.cls}">${mainGrade.grade}</span></td>
       <td style="text-align:center;color:#3b82f6;font-weight:600">${mMn}</td>
@@ -6149,13 +6151,13 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
           <tr>
             <th rowspan="2">Subject</th>
             <th rowspan="2">Entries</th>
-            <th rowspan="2">Mean %</th>
-            <th rowspan="2">High %</th>
-            <th rowspan="2">Low %</th>
+            <th rowspan="2">Mean</th>
+            <th rowspan="2">High</th>
+            <th rowspan="2">Low</th>
             <th colspan="${gradeKeys.length}" style="text-align:center;background:var(--primary-lt);color:var(--primary)">Grade Distribution</th>
             <th rowspan="2">Overall Grade</th>
-            <th rowspan="2" style="text-align:center;color:#3b82f6">♂ Boys Mean %</th>
-            <th rowspan="2" style="text-align:center;color:#ec4899">♀ Girls Mean %</th>
+            <th rowspan="2" style="text-align:center;color:#3b82f6">♂ Boys Mean</th>
+            <th rowspan="2" style="text-align:center;color:#ec4899">♀ Girls Mean</th>
           </tr>
           <tr>${gradeHeaders}</tr>
         </thead>
@@ -7525,9 +7527,9 @@ function renderSummaryAnalytics() {
       return `<tr>
       <td style="text-align:center;font-weight:700;color:var(--muted)">${i+1}</td>
       <td><strong>${r.sub.name}</strong> <span class="badge b-blue" style="font-size:.62rem">${r.sub.code}</span></td>
-      <td style="text-align:center"><strong style="color:var(--primary)">${mnPct}%</strong></td>
-      <td style="text-align:center"><span class="badge b-green" style="font-size:.72rem">${mxPct}%</span></td>
-      <td style="text-align:center"><span class="badge b-red" style="font-size:.72rem">${loPct}%</span></td>
+      <td style="text-align:center"><strong style="color:var(--primary)">${r.mn}</strong> <span style="font-size:.72rem;color:var(--muted);font-weight:500">(${mnPct}%)</span></td>
+      <td style="text-align:center"><span class="badge b-green" style="font-size:.72rem">${r.mx}</span> <span style="font-size:.68rem;color:var(--muted)">(${mxPct}%)</span></td>
+      <td style="text-align:center"><span class="badge b-red" style="font-size:.72rem">${r.lo}</span> <span style="font-size:.68rem;color:var(--muted)">(${loPct}%)</span></td>
       <td style="text-align:center">${r.n}</td>
       <td style="text-align:center"><span class="badge ${r.grd.cls}">${r.grd.grade}</span></td>
     </tr>`;
@@ -7696,7 +7698,7 @@ function renderSummaryAnalytics() {
       <div class="card sm-section">
         <h4 class="sm-section-title"><i class="fa-solid fa-chart-bar"></i> Subject Ranking by Mean</h4>
         <div class="tbl-wrap"><table>
-          <thead><tr><th>#</th><th>Subject</th><th>Mean %</th><th>Highest %</th><th>Lowest %</th><th>Entries</th><th>Grade</th></tr></thead>
+          <thead><tr><th>#</th><th>Subject</th><th>Mean</th><th>Highest</th><th>Lowest</th><th>Entries</th><th>Grade</th></tr></thead>
           <tbody>${subRankHTML||'<tr><td colspan="7" style="text-align:center;color:var(--muted)">No data</td></tr>'}</tbody>
         </table></div>
         ${subChartHTML}
@@ -15731,7 +15733,7 @@ function runAnalysis() {
       <h3><i class="fa-solid fa-clipboard-list"></i> Subject Breakdown${isConsolidated?' <span style="font-size:.78rem;font-weight:400;color:var(--muted)">&mdash; averages across ' + sourceExamObjs.map(e=>e.name).join(', ') + '</span>':''}</h3>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>Subject</th><th>Students</th><th>Mean %</th><th>Highest %</th><th>Lowest %</th><th>Grade</th></tr></thead>
+          <thead><tr><th>Subject</th><th>Students</th><th>Mean</th><th>Highest</th><th>Lowest</th><th>Grade</th></tr></thead>
           <tbody>${subjectStats.map(sm=>{
             const g=getGrade(sm.mn, sm.sub.max||100);
             const subMax = sm.sub.max||100;
@@ -15741,9 +15743,9 @@ function runAnalysis() {
             return `<tr>
               <td><strong>${sm.sub.name}</strong> <span class="badge b-blue" style="font-size:.65rem">${sm.sub.code}</span></td>
               <td>${sm.count}</td>
-              <td style="font-weight:700;color:var(--primary)">${mnPct}%</td>
-              <td style="color:var(--success)">${mxPct}%</td>
-              <td style="color:var(--danger)">${loPct}%</td>
+              <td style="font-weight:700;color:var(--primary)">${sm.mn.toFixed(1)} <span style="font-size:.72rem;color:var(--muted);font-weight:500">(${mnPct}%)</span></td>
+              <td style="color:var(--success)">${sm.mx} <span style="font-size:.68rem;color:var(--muted)">(${mxPct}%)</span></td>
+              <td style="color:var(--danger)">${sm.lo.toFixed ? sm.lo.toFixed(1) : sm.lo} <span style="font-size:.68rem;color:var(--muted)">(${loPct}%)</span></td>
               <td>${gradeTag(g)}</td>
             </tr>`;
           }).join('')}</tbody>
