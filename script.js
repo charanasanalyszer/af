@@ -6744,437 +6744,119 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
 // renderMeritList — full implementation is at the bottom of this file (overrides this stub)
 
 
+
 function printMeritList() {
   const wrap = document.getElementById('meritListWrap');
   if (!wrap || !wrap.innerHTML.trim() || wrap.innerHTML.includes('Select an exam')) {
-    showToast('Generate the merit list first', 'warning');
-    return;
+    showToast('Generate the merit list first', 'warning'); return;
   }
   const win = window.open('', '_blank');
   if (!win) { showToast('Allow pop-ups to print', 'warning'); return; }
 
-  const sch       = settings.schoolName || 'School';
-  const examId    = document.getElementById('mlExam')?.value;
-  const exam      = exams.find(e => e.id === examId);
-  const mlType    = document.getElementById('mlType')?.value || 'class_overall_and_stream';
-  const clsFilter = document.getElementById('mlClass')?.value || null;
-  const strFilter = mlType === 'class_stream' ? (document.getElementById('mlStream')?.value || null) : null;
-  if (!exam) { showToast('No exam selected', 'error'); return; }
+  const sch    = settings.schoolName || 'School';
+  const examId = document.getElementById('mlExam')?.value;
+  const exam   = exams.find(e => e.id === examId);
 
-  const isConsolidated = exam.category === 'consolidated';
-  const sourceExamObjs = isConsolidated
-    ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
-  const examSubs  = (exam.subjectIds||[]).map(sid=>subjects.find(s=>s.id===sid)).filter(Boolean);
-  const examMarks = isConsolidated ? [] : marks.filter(m=>m.examId===examId);
-  const gs        = getActiveGradingSystem();
-
-  // ── colour helpers (no CSS vars, works in popup) ──────────────────────
-  const GradeColors = {
-    'b-green':'#16a34a','b-teal':'#0d9488','b-blue':'#1d4ed8',
-    'b-lblue':'#0ea5e9','b-amber':'#b45309','b-orange':'#ea580c',
-    'b-red':'#dc2626','b-dkred':'#7f1d1d'
-  };
-  const GradeBg = {
-    'b-green':'#dcfce7','b-teal':'#ccfbf1','b-blue':'#dbeafe',
-    'b-lblue':'#e0f2fe','b-amber':'#fef3c7','b-orange':'#ffedd5',
-    'b-red':'#fee2e2','b-dkred':'#fecaca'
-  };
-  function badge(cls, text) {
-    const c = GradeColors[cls]||'#334155', bg = GradeBg[cls]||'#f1f5f9';
-    return `<span style="display:inline-block;background:${bg};color:${c};border:1px solid ${c}44;border-radius:4px;padding:1px 6px;font-size:7.5pt;font-weight:700;white-space:nowrap">${text}</span>`;
+  // ── 1. Collect every stylesheet from the host page ─────────────────────
+  let allCSS = '';
+  for (const sheet of document.styleSheets) {
+    try {
+      const rules = sheet.cssRules || sheet.rules;
+      for (const rule of rules) allCSS += rule.cssText + '\n';
+    } catch(e) { /* cross-origin sheet — skip */ }
   }
-  function gradeB(g) { return g ? badge(g.cls, g.grade) : ''; }
 
-  // ── score for one student/subject ──────────────────────────────────────
-  function getScore(stuId, subId) {
-    if (isConsolidated) {
-      const ss = sourceExamObjs.map(src=>{
-        const mk=marks.find(m=>m.examId===src.id&&m.studentId===stuId&&m.subjectId===subId);
-        return mk?mk.score:null;
-      }).filter(v=>v!==null);
-      return ss.length ? parseFloat((ss.reduce((a,b)=>a+b,0)/ss.length).toFixed(1)) : null;
+  // ── 2. Resolve every CSS custom property from :root on the live document ─
+  const rootStyle = getComputedStyle(document.documentElement);
+  const propNames = [...new Set(
+    (allCSS.match(/var\(--[\w-]+\)/g) || []).map(v => v.slice(4, -1))
+  )];
+  let resolvedVars = ':root {\n';
+  propNames.forEach(p => {
+    const val = rootStyle.getPropertyValue(p).trim();
+    if (val) resolvedVars += `  ${p}: ${val};\n`;
+  });
+  resolvedVars += '}\n';
+
+  // ── 3. Clone the live merit list DOM exactly ───────────────────────────
+  const clone = wrap.cloneNode(true);
+
+  // Remove canvas elements (charts can't clone) – replace with placeholder
+  clone.querySelectorAll('canvas').forEach(c => {
+    const ph = document.createElement('div');
+    ph.style.cssText = 'height:8px;background:#e2e8f0;border-radius:4px;margin:4px 0;opacity:.4';
+    c.parentNode.replaceChild(ph, c);
+  });
+
+  // Remove the interactive "no-print" elements (buttons inside the wrap)
+  clone.querySelectorAll('button, .no-print').forEach(el => el.remove());
+
+  // ── 4. Print-specific override CSS ────────────────────────────────────
+  const printCSS = `
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+    @page { size: A4 landscape; margin: 9mm 8mm; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; box-sizing: border-box; }
+    body { font-family: var(--font, 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif); font-size: 8pt; color: #1e293b; background: #fff; margin: 0; padding: 6px 8px; }
+    .tbl-wrap { overflow: visible !important; border-radius: 0 !important; }
+    table { width: 100%; border-collapse: collapse; font-size: 7.5pt; margin-bottom: 8px; }
+    th { padding: 3px 5px !important; font-size: 7pt !important; border: 1px solid #a0bdd8 !important; }
+    td { padding: 2px 5px !important; border: 1px solid #d1dfe8 !important; font-size: 7.5pt !important; }
+    h2, h3 { margin: .4rem 0 .2rem !important; font-size: 10pt !important; }
+    h4 { margin: .3rem 0 .15rem !important; font-size: 9pt !important; }
+    .card { padding: .6rem !important; margin-bottom: .5rem !important; box-shadow: none !important; border-radius: 6px !important; }
+    .chart-box { display: none !important; }
+    button, .no-print, .print-btn { display: none !important; }
+    .badge { padding: 1px 5px !important; font-size: 6.5pt !important; border-radius: 4px !important; }
+    .sm-section { margin-bottom: .6rem !important; }
+    .an-card { padding: .5rem !important; }
+    /* keep background colours when printing */
+    [style*="background"] { -webkit-print-color-adjust: exact !important; }
+    /* page breaks between major class sections */
+    .print-page-break { page-break-before: always; }
+    /* ensure the stream vs class table fits */
+    .stream-cmp-wrap { overflow: visible !important; }
+    /* shrink grade dist mini charts for print */
+    .grade-bar-wrap { height: 60px !important; }
+    @media print {
+      button, .no-print { display: none !important; }
     }
-    const mk = examMarks.find(m=>m.studentId===stuId&&m.subjectId===subId);
-    return mk ? mk.score : null;
-  }
+  `;
 
-  // ── Stats bar ──────────────────────────────────────────────────────────
-  function statsBar(arr) {
-    if (!arr.length) return '';
-    const tot   = arr.length;
-    const boys  = arr.filter(s=>s.gender==='M');
-    const girls = arr.filter(s=>s.gender==='F');
-    const mn    = arr.reduce((a,s)=>a+s.mean,0)/tot;
-    const mMn   = boys.length  ? boys.reduce((a,s)=>a+s.mean,0)/boys.length  : null;
-    const fMn   = girls.length ? girls.reduce((a,s)=>a+s.mean,0)/girls.length : null;
-    const mGrd  = getMeanGrade(mn/100*8);
-    const pill  = (bg,border,col,txt) =>
-      `<span style="display:inline-flex;align-items:center;gap:3px;background:${bg};border:1.5px solid ${border};border-radius:6px;padding:3px 10px;font-size:8.5pt;font-weight:700;color:${col};margin-right:4px">${txt}</span>`;
-    return `<div style="margin:5px 0 10px;display:flex;flex-wrap:wrap;gap:3px;align-items:center">
-      ${pill('#e0f2fe','#7dd3fc','#0369a1','&#128101; Students: '+tot)}
-      ${pill('#faf5ff','#c084fc','#7c3aed','&#x1f4c8; Mean: '+mn.toFixed(2)+' '+badge(mGrd.cls,mGrd.grade))}
-      ${pill('#dbeafe','#93c5fd','#1d4ed8','&#9794; Boys: '+boys.length+(mMn?' &bull; Mean: '+mMn.toFixed(1):''))}
-      ${pill('#fce7f3','#f9a8d4','#be185d','&#9792; Girls: '+girls.length+(fMn?' &bull; Mean: '+fMn.toFixed(1):''))}
-    </div>`;
-  }
+  // ── 5. Write the full document into the popup ──────────────────────────
+  const dateStr = new Date().toLocaleDateString('en-KE', {day:'2-digit', month:'long', year:'numeric'});
+  const examInfo = exam ? `${exam.name} &bull; ${exam.term} ${exam.year}` : '';
 
-  // ── Merit table ─────────────────────────────────────────────────────────
-  function meritTable(scored, showStream) {
-    if (!scored.length) return '<p style="color:#94a3b8;padding:.5rem">No data.</p>';
-    const subHdr = examSubs.map(s=>`<th title="${s.name}">${s.code}<br><span style="font-weight:400;font-size:6.5pt">/${s.max||100}</span></th>`).join('');
-    const rows = scored.map((s,i) => {
-      const str  = streams.find(x=>x.id===s.streamId);
-      const subCells = examSubs.map(sub=>{
-        const sc = getScore(s.id, sub.id);
-        const g  = sc!==null ? getGrade(sc, sub.max||100) : null;
-        const bg = sc===null?'':g?.cls==='b-green'?'#dcfce7':g?.cls==='b-teal'?'#ccfbf1':g?.cls==='b-red'?'#fee2e2':g?.cls==='b-dkred'?'#fecaca':'';
-        return `<td style="text-align:center;background:${bg}">${sc!==null?`<strong>${sc}</strong><br><span style="font-size:6.5pt;color:#64748b">${g?.grade||''}</span>`:'—'}</td>`;
-      }).join('');
-      const rnkBg = s.overallRank===1?'#fef3c7':s.overallRank<=3?'#dbeafe':'';
-      const rnkC  = s.overallRank===1?'#b45309':s.overallRank<=3?'#1d4ed8':'#1e293b';
-      return `<tr style="background:${i%2===0?'#f8fbff':'#fff'}">
-        <td style="text-align:center;background:${rnkBg};color:${rnkC};font-weight:800">${s.overallRank===1?'★':s.overallRank===2?'✦':s.overallRank}</td>
-        <td style="font-family:monospace;font-size:7.5pt">${s.adm}</td>
-        <td style="font-weight:700">${s.name}</td>
-        <td style="text-align:center">${s.gender==='M'?'<span style="color:#1d4ed8;font-weight:700">M</span>':'<span style="color:#be185d;font-weight:700">F</span>'}</td>
-        ${showStream?`<td>${str?.name||'—'}</td><td style="text-align:center">#${s.streamRank}</td>`:''}
-        ${subCells}
-        <td style="font-weight:800;text-align:center">${s.total}</td>
-        <td style="text-align:center;font-weight:700;color:#1d4ed8">${(s.total/examSubs.length).toFixed(1)}</td>
-        <td style="text-align:center;font-weight:700">${s.mean.toFixed(2)}</td>
-        <td style="text-align:center">${gradeB(s.grade)}</td>
-        <td style="text-align:center;font-weight:700">${s.points}</td>
-        <td style="text-align:center">${gradeB(getPointsGrade(s.points))}</td>
-      </tr>`;
-    }).join('');
-    return `<table>
-      <thead><tr>
-        <th>Rank</th><th>Adm</th><th>Name</th><th>G</th>
-        ${showStream?'<th>Stream</th><th>Str#</th>':''}
-        ${subHdr}
-        <th>Total</th><th>Avg</th><th>Mean</th><th>Grade</th><th>Pts</th><th>Pts Grd</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-  }
-
-  // ── Grade distribution bar ─────────────────────────────────────────────
-  function gradeDist(scored) {
-    const dist = {}; gs.bands.forEach(b=>dist[b.grade]=0);
-    scored.forEach(s=>{ if(dist[s.grade?.grade]!==undefined) dist[s.grade.grade]++; });
-    const n = scored.length;
-    const bars = gs.bands.map(b=>{
-      const cnt=dist[b.grade]||0; if(!cnt) return '';
-      const pct=Math.round(cnt/n*100);
-      const c=GradeColors[b.cls]||'#64748b', bg=GradeBg[b.cls]||'#f1f5f9';
-      return `<div style="display:inline-flex;flex-direction:column;align-items:center;margin:0 3px;min-width:28px">
-        <div style="font-size:7pt;font-weight:700;color:#64748b">${cnt}</div>
-        <div style="height:${Math.max(pct*1.2,3)}px;width:22px;background:${c};border-radius:3px 3px 0 0"></div>
-        <span style="background:${bg};color:${c};border-radius:3px;padding:1px 4px;font-size:6.5pt;font-weight:700;margin-top:2px">${b.grade}</span>
-        <div style="font-size:6pt;color:#94a3b8">${pct}%</div>
-      </div>`;
-    }).join('');
-    return `<div style="margin:6px 0;padding:6px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px">
-      <div style="font-size:7.5pt;font-weight:700;color:#1a6fb5;margin-bottom:4px">Grade Distribution</div>
-      <div style="display:flex;align-items:flex-end;flex-wrap:wrap;gap:2px">${bars}</div>
-    </div>`;
-  }
-
-  // ── Gender analysis table ──────────────────────────────────────────────
-  function genderTable(scored) {
-    const boys  = scored.filter(s=>s.gender==='M');
-    const girls = scored.filter(s=>s.gender==='F');
-    if (!boys.length && !girls.length) return '';
-    const mMn = boys.length  ? boys.reduce((a,s)=>a+s.mean,0)/boys.length   : null;
-    const fMn = girls.length ? girls.reduce((a,s)=>a+s.mean,0)/girls.length : null;
-    const mTop = boys.length  ? boys.reduce((a,s)=>s.total>a.total?s:a,  boys[0])  : null;
-    const fTop = girls.length ? girls.reduce((a,s)=>s.total>a.total?s:a, girls[0]) : null;
-    // subject breakdown
-    const subRows = examSubs.map(sub=>{
-      const bv = boys.map(s=>getScore(s.id,sub.id)).filter(v=>v!==null);
-      const gv = girls.map(s=>getScore(s.id,sub.id)).filter(v=>v!==null);
-      const bm = bv.length ? bv.reduce((a,b)=>a+b,0)/bv.length : null;
-      const gm = gv.length ? gv.reduce((a,b)=>a+b,0)/gv.length : null;
-      const diff = (bm!==null&&gm!==null) ? bm-gm : null;
-      const leader = diff===null?'—':Math.abs(diff)<0.5?'≈':diff>0?'♂':'♀';
-      const lc     = diff===null?'#94a3b8':Math.abs(diff)<0.5?'#64748b':diff>0?'#1d4ed8':'#be185d';
-      return `<tr>
-        <td><strong>${sub.name}</strong> <span style="color:#64748b;font-size:7pt">${sub.code}</span></td>
-        <td style="text-align:center;color:#1d4ed8;font-weight:700">${bm!==null?bm.toFixed(1):'—'}</td>
-        <td style="text-align:center;color:#be185d;font-weight:700">${gm!==null?gm.toFixed(1):'—'}</td>
-        <td style="text-align:center;font-weight:700;color:${lc}">${leader}</td>
-        <td style="text-align:center;color:#64748b;font-size:7.5pt">${diff!==null?(diff>=0?'+':'')+diff.toFixed(1):'—'}</td>
-      </tr>`;
-    }).join('');
-    const mG = mMn!==null?getMeanGrade(mMn/100*8):null;
-    const fG = fMn!==null?getMeanGrade(fMn/100*8):null;
-    return `<div style="margin-top:8px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
-      <div style="background:#8b5cf6;color:#fff;padding:5px 10px;font-size:8.5pt;font-weight:700">&#9898; Gender Analysis</div>
-      <div style="display:flex;gap:0;border-bottom:1px solid #e2e8f0">
-        <div style="flex:1;padding:7px 10px;background:#eff6ff;border-right:1px solid #e2e8f0">
-          <div style="font-size:7pt;font-weight:700;color:#1d4ed8;text-transform:uppercase">Boys (${boys.length})</div>
-          <div style="font-size:13pt;font-weight:800;color:#1d4ed8">${mMn!==null?mMn.toFixed(2):'—'} ${mG?gradeB(mG):''}</div>
-          ${mTop?`<div style="font-size:7pt;color:#64748b;margin-top:2px">Top: <strong>${mTop.name}</strong> — ${mTop.total} pts</div>`:''}
-        </div>
-        <div style="flex:1;padding:7px 10px;background:#fdf2f8">
-          <div style="font-size:7pt;font-weight:700;color:#be185d;text-transform:uppercase">Girls (${girls.length})</div>
-          <div style="font-size:13pt;font-weight:800;color:#be185d">${fMn!==null?fMn.toFixed(2):'—'} ${fG?gradeB(fG):''}</div>
-          ${fTop?`<div style="font-size:7pt;color:#64748b;margin-top:2px">Top: <strong>${fTop.name}</strong> — ${fTop.total} pts</div>`:''}
-        </div>
-      </div>
-      <table style="margin:0">
-        <thead><tr>
-          <th>Subject</th>
-          <th style="text-align:center;color:#1d4ed8">&#9794; Boys Mean</th>
-          <th style="text-align:center;color:#be185d">&#9792; Girls Mean</th>
-          <th style="text-align:center">Leader</th>
-          <th style="text-align:center">Gap</th>
-        </tr></thead>
-        <tbody>${subRows}</tbody>
-      </table>
-    </div>`;
-  }
-
-  // ── Stream vs Class panel ──────────────────────────────────────────────
-  function streamVsClass(classId, activeStreamId) {
-    const clsStreams = streams.filter(s=>s.classId===classId);
-    if (clsStreams.length < 2) return '';
-    const allScored = buildMeritData(examId, null, classId);
-    if (!allScored.length) return '';
-    const classMean = allScored.reduce((a,s)=>a+s.mean,0)/allScored.length;
-    const classGrd  = getMeanGrade(classMean/100*8);
-
-    const strPerf = clsStreams.map(str=>{
-      const grp=allScored.filter(s=>s.streamId===str.id);
-      return grp.length?{str,mn:grp.reduce((a,s)=>a+s.mean,0)/grp.length,count:grp.length,ids:grp.map(s=>s.id)}:null;
-    }).filter(Boolean);
-    if (strPerf.length < 2) return '';
-
-    function subMean(sid, stuIds) {
-      const vals = stuIds.map(id=>getScore(id,sid)).filter(v=>v!==null);
-      return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
-    }
-    const allIds = allScored.map(s=>s.id);
-
-    // Headline cards
-    const cards = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-      <div style="flex:0 0 auto;min-width:100px;background:#eef4ff;border:2px solid #1a6fb5;border-radius:8px;padding:6px 10px;text-align:center">
-        <div style="font-size:6.5pt;font-weight:700;color:#64748b;text-transform:uppercase">CLASS MEAN</div>
-        <div style="font-size:14pt;font-weight:800;color:#1a6fb5">${classMean.toFixed(2)}</div>
-        ${gradeB(classGrd)}
-        <div style="font-size:6.5pt;color:#94a3b8;margin-top:2px">${allScored.length} students</div>
-      </div>
-      ${strPerf.map(sp=>{
-        const diff=sp.mn-classMean; const sign=diff>=0?'+':'';
-        const clr=diff>0.5?'#16a34a':diff<-0.5?'#dc2626':'#64748b';
-        const sg=getMeanGrade(sp.mn/100*8); const isActive=sp.str.id===activeStreamId;
-        return `<div style="flex:1;min-width:100px;background:${isActive?'#fefce8':'#fff'};border:${isActive?'2px solid #d97706':'1.5px solid #e2e8f0'};border-radius:8px;padding:6px 10px;text-align:center">
-          <div style="font-size:6.5pt;font-weight:700;color:${isActive?'#92400e':'#64748b'};text-transform:uppercase">${sp.str.name}${isActive?' ★':''}</div>
-          <div style="font-size:13pt;font-weight:800;color:#1e293b">${sp.mn.toFixed(2)}</div>
-          <div style="display:flex;gap:3px;justify-content:center;flex-wrap:wrap;margin-top:2px">
-            ${gradeB(sg)}
-            <span style="font-size:7.5pt;font-weight:700;color:${clr}">${sign}${diff.toFixed(2)}</span>
-          </div>
-          <div style="font-size:6.5pt;color:#94a3b8;margin-top:2px">${sp.count} students</div>
-        </div>`;
-      }).join('')}
-    </div>`;
-
-    // Subject table
-    const subRows2 = examSubs.map(sub=>{
-      const cv=subMean(sub.id,allIds); if(cv===null) return '';
-      const cg=getGrade(cv,sub.max||100);
-      const sCols=strPerf.map(sp=>{
-        const sv=subMean(sub.id,sp.ids); if(sv===null) return '<td colspan="2" style="text-align:center;color:#94a3b8">—</td>';
-        const d=sv-cv; const sign=d>=0?'+':''; const clr=d>1?'#16a34a':d<-1?'#dc2626':'#64748b';
-        const sg=getGrade(sv,sub.max||100); const isActive=sp.str.id===activeStreamId;
-        return `<td style="text-align:center;background:${isActive?'#fefce8':''}"><strong>${sv.toFixed(1)}</strong> ${gradeB(sg)}</td>`
-             + `<td style="text-align:center;font-size:7pt;font-weight:700;color:${clr}">${sign}${d.toFixed(1)}</td>`;
-      }).join('');
-      return `<tr><td><strong>${sub.name}</strong> <span style="color:#64748b;font-size:7pt">${sub.code}</span></td>
-        <td style="text-align:center;background:#eef4ff;font-weight:700">${cv.toFixed(1)} ${gradeB(cg)}</td>${sCols}</tr>`;
-    }).join('');
-
-    const overallRow=`<tr style="background:#eef4ff;font-weight:800">
-      <td>&#931; Overall Mean</td>
-      <td style="text-align:center;background:#dbeafe;color:#1a6fb5">${classMean.toFixed(2)} ${gradeB(classGrd)}</td>
-      ${strPerf.map(sp=>{
-        const d=sp.mn-classMean; const sign=d>=0?'+':''; const clr=d>0.5?'#16a34a':d<-0.5?'#dc2626':'#64748b';
-        const sg=getMeanGrade(sp.mn/100*8); const isActive=sp.str.id===activeStreamId;
-        return `<td style="text-align:center;background:${isActive?'#fefce8':''}">${sp.mn.toFixed(2)} ${gradeB(sg)}</td>`
-             + `<td style="text-align:center;font-size:7.5pt;font-weight:800;color:${clr}">${sign}${d.toFixed(2)}</td>`;
-      }).join('')}
-    </tr>`;
-
-    const strHdrs=strPerf.map(sp=>`<th colspan="2" style="text-align:center;${sp.str.id===activeStreamId?'background:#fef3c7;color:#92400e':''}">${sp.str.name}${sp.str.id===activeStreamId?' &#9733;':''}</th>`).join('');
-
-    return `<div style="margin-top:8px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
-      <div style="background:#1a6fb5;color:#fff;padding:5px 10px;font-size:8.5pt;font-weight:700">&#8651; Stream vs Class Comparison — all streams in class</div>
-      <div style="padding:8px">${cards}</div>
-      <table style="margin:0">
-        <thead>
-          <tr>
-            <th>Subject</th>
-            <th style="text-align:center;background:#eef4ff;color:#1a6fb5">Class Mean</th>
-            ${strHdrs}
-          </tr>
-          <tr style="font-size:6.5pt;color:#94a3b8">
-            <th></th><th></th>
-            ${strPerf.map(()=>'<th style="text-align:center">Mean</th><th style="text-align:center">±Class</th>').join('')}
-          </tr>
-        </thead>
-        <tbody>${subRows2}${overallRow}</tbody>
-      </table>
-      <div style="padding:4px 8px;font-size:6.5pt;color:#94a3b8">★ = this stream &nbsp;|&nbsp; ± = deviation from class mean &nbsp;|&nbsp; Green = above | Red = below</div>
-    </div>`;
-  }
-
-  // ── Subject analysis table ─────────────────────────────────────────────
-  function subjectAnalysis(scored) {
-    const gradeKeys = gs.bands.map(b=>b.grade);
-    const rows = examSubs.map(sub=>{
-      const vals=[]; const bv=[]; const gv=[];
-      scored.forEach(s=>{
-        const sc=getScore(s.id,sub.id); if(sc===null) return;
-        vals.push(sc);
-        if(s.gender==='M') bv.push(sc); else if(s.gender==='F') gv.push(sc);
-      });
-      if(!vals.length) return '';
-      const mn=vals.reduce((a,b)=>a+b,0)/vals.length;
-      const mx=Math.max(...vals); const lo=Math.min(...vals);
-      const dist={}; gradeKeys.forEach(g=>dist[g]=0);
-      vals.forEach(v=>{const g=getGrade(v,sub.max||100);if(dist[g.grade]!==undefined)dist[g.grade]++;});
-      const bm=bv.length?bv.reduce((a,b)=>a+b,0)/bv.length:null;
-      const gm=gv.length?gv.reduce((a,b)=>a+b,0)/gv.length:null;
-      const g=getGrade(mn,sub.max||100);
-      const distCells=gradeKeys.map(gk=>`<td style="text-align:center;font-size:7pt">${dist[gk]||''}</td>`).join('');
-      return `<tr>
-        <td><strong>${sub.name}</strong> <span style="color:#64748b;font-size:7pt">${sub.code}</span></td>
-        <td style="text-align:center">${vals.length}</td>
-        <td style="text-align:center;font-weight:700;color:#1a6fb5">${mn.toFixed(1)}</td>
-        <td style="text-align:center;color:#16a34a;font-weight:700">${mx}</td>
-        <td style="text-align:center;color:#dc2626;font-weight:700">${lo}</td>
-        ${distCells}
-        <td style="text-align:center">${gradeB(g)}</td>
-        <td style="text-align:center;font-weight:700;color:#1d4ed8">${bm!==null?bm.toFixed(1):'—'}</td>
-        <td style="text-align:center;font-weight:700;color:#be185d">${gm!==null?gm.toFixed(1):'—'}</td>
-      </tr>`;
-    }).join('');
-    const gradeHdrs=gradeKeys.map(g=>`<th style="text-align:center;font-size:6.5pt">${g}</th>`).join('');
-    return `<div style="margin-top:8px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
-      <div style="background:#0d9488;color:#fff;padding:5px 10px;font-size:8.5pt;font-weight:700">&#9783; Subject Analysis — Grade Distribution & Gender Performance</div>
-      <table style="margin:0">
-        <thead>
-          <tr>
-            <th rowspan="2">Subject</th><th rowspan="2">n</th><th rowspan="2">Mean</th>
-            <th rowspan="2">High</th><th rowspan="2">Low</th>
-            <th colspan="${gradeKeys.length}" style="text-align:center;background:#eef4ff;color:#1a6fb5">Grade Distribution</th>
-            <th rowspan="2">Grade</th>
-            <th rowspan="2" style="color:#1d4ed8">&#9794; Mean</th>
-            <th rowspan="2" style="color:#be185d">&#9792; Mean</th>
-          </tr>
-          <tr>${gradeHdrs}</tr>
-        </thead>
-        <tbody>${rows||'<tr><td colspan="20" style="text-align:center;color:#94a3b8">No data</td></tr>'}</tbody>
-      </table>
-    </div>`;
-  }
-
-  // ── Points grade legend ────────────────────────────────────────────────
-  const ptsLegend = `<div style="margin:6px 0 10px;padding:6px 10px;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:7px;font-size:7.5pt;display:flex;flex-wrap:wrap;gap:3px 7px;align-items:center">
-    <strong style="color:#1a6fb5;margin-right:3px">Points Scale (out of 72):</strong>
-    ${POINTS_GRADE_BANDS.slice().reverse().map(b=>`<span style="background:${GradeBg[b.cls]||'#f1f5f9'};color:${GradeColors[b.cls]||'#334155'};border-radius:4px;padding:1px 6px;font-size:7pt;font-weight:700">${b.grade}: ${b.min}–${b.max} <span style="font-weight:400;opacity:.8">${b.label}</span></span>`).join('')}
-  </div>`;
-
-  // ── Build sections ─────────────────────────────────────────────────────
-  let bodyHTML = '';
-
-  if (mlType === 'class_stream' && strFilter) {
-    const str = streams.find(s=>s.id===strFilter);
-    const cls = classes.find(c=>c.id===str?.classId);
-    const sc  = buildMeritData(examId, strFilter, str?.classId||clsFilter||null);
-    bodyHTML = `
-      <h2 style="color:#1a6fb5;margin-bottom:2px">${cls?cls.name+' › ':''}${str?.name||strFilter} — Stream Merit List</h2>
-      <div style="font-size:8pt;color:#64748b;margin-bottom:6px">${exam.name} &bull; ${exam.term} ${exam.year}</div>
-      ${ptsLegend}
-      ${statsBar(sc)}
-      ${gradeDist(sc)}
-      ${meritTable(sc, false)}
-      ${genderTable(sc)}
-      ${streamVsClass(str?.classId||clsFilter||null, strFilter)}
-      ${subjectAnalysis(sc)}`;
-  } else {
-    // class_overall or class_overall_and_stream
-    const allScored = buildMeritData(examId, null, clsFilter||null);
-    const cids = clsFilter
-      ? [clsFilter]
-      : [...new Set(allScored.map(s=>s.classId).filter(Boolean))].sort();
-
-    bodyHTML = cids.map((cid, ci) => {
-      const cls = classes.find(c=>c.id===cid);
-      const clsScored = buildMeritData(examId, null, cid);
-      if (!clsScored.length) return '';
-      const clsStreams = mlType==='class_overall_and_stream'
-        ? [...new Set(clsScored.map(s=>s.streamId).filter(Boolean))].map(sid=>streams.find(x=>x.id===sid)).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name))
-        : [];
-      const pb = ci>0?'page-break-before:always;':'';
-      let streamBlocks = '';
-      if (clsStreams.length) {
-        streamBlocks = clsStreams.map(str=>{
-          const sc=buildMeritData(examId, str.id, cid);
-          if(!sc.length) return '';
-          return `<div style="margin-top:14px;padding-top:10px;border-top:1.5px dashed #cbd5e1">
-            <h3 style="color:#16a34a;margin-bottom:3px">&#9654; ${str.name} Stream</h3>
-            ${statsBar(sc)}
-            ${gradeDist(sc)}
-            ${meritTable(sc, false)}
-            ${genderTable(sc)}
-            ${streamVsClass(cid, str.id)}
-            ${subjectAnalysis(sc)}
-          </div>`;
-        }).join('');
-      }
-      return `<div style="${pb}margin-bottom:18px">
-        <h2 style="color:#1a6fb5;border-bottom:2px solid #1a6fb5;padding-bottom:4px;margin-bottom:5px">
-          &#127942; ${cls?cls.name:'Class'} — Class Merit List
-          <span style="font-size:9pt;font-weight:400;color:#64748b;margin-left:8px">${exam.name} &bull; ${exam.term} ${exam.year}</span>
-        </h2>
-        ${ptsLegend}
-        ${statsBar(clsScored)}
-        ${gradeDist(clsScored)}
-        ${meritTable(clsScored, clsStreams.length>0)}
-        ${genderTable(clsScored)}
-        ${streamBlocks}
-      </div>`;
-    }).join('');
-  }
-
-  // ── Write print window ─────────────────────────────────────────────────
-  const totalScored = buildMeritData(examId, strFilter, clsFilter||null);
-  win.document.write(`<!DOCTYPE html><html><head><title>Merit List — ${sch}</title>
-  <style>
-    *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;box-sizing:border-box}
-    @page{size:A4 landscape;margin:9mm 8mm}
-    body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;background:#fff;font-size:8.5pt;margin:0;padding:6px 8px}
-    h2{color:#1a6fb5;font-size:11pt;margin:.5rem 0 .15rem}
-    h3{color:#16a34a;font-size:9.5pt;margin:.4rem 0 .15rem}
-    table{width:100%;border-collapse:collapse;font-size:7.5pt;margin-bottom:8px;table-layout:auto}
-    th{background:#1a6fb5!important;color:#fff!important;padding:3px 5px;text-align:left;font-weight:700;border:1px solid #a0bdd8;font-size:7pt}
-    td{padding:2px 5px;border:1px solid #d1dfe8;vertical-align:middle}
-    .no-print{display:none}
-    @media print{.no-print{display:none!important}.print-btn{display:none!important}}
-  </style></head><body>
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2.5px solid #1a6fb5;padding-bottom:5px;margin-bottom:8px">
+  win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Merit List &mdash; ${sch}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>${resolvedVars}</style>
+  <style>${allCSS}</style>
+  <style>${printCSS}</style>
+</head>
+<body>
+  <!-- ── Page header ── -->
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;border-bottom:2.5px solid var(--primary,#7c3aed);padding-bottom:5px;margin-bottom:8px">
     <div>
-      <div style="font-size:14pt;font-weight:900;color:#1a6fb5">${sch}</div>
-      <div style="font-size:8pt;color:#64748b">Merit List &bull; ${exam.name} &bull; ${exam.term} ${exam.year} &bull; Printed: ${new Date().toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'})}</div>
+      <div style="font-size:14pt;font-weight:900;color:var(--primary,#7c3aed)">${sch}</div>
+      <div style="font-size:7.5pt;color:var(--muted,#64748b);margin-top:1px">Merit List &bull; ${examInfo} &bull; Printed: ${dateStr}</div>
     </div>
-    <button class="print-btn" onclick="window.print()" style="padding:4px 14px;background:#1a6fb5;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:8pt">&#128438; Print</button>
+    <button class="print-btn no-print" onclick="window.print()" style="padding:4px 14px;background:var(--primary,#7c3aed);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:8pt">
+      <i class="fa-solid fa-print"></i> Print
+    </button>
   </div>
-  ${bodyHTML}
-  </body></html>`);
+
+  <!-- ── Cloned merit list content ── -->
+  ${clone.innerHTML}
+
+</body>
+</html>`);
+
   win.document.close();
-  setTimeout(()=>{win.focus();win.print();},500);
+  // Wait for FA + fonts to load before triggering print
+  setTimeout(() => { win.focus(); win.print(); }, 900);
 }
 
 
