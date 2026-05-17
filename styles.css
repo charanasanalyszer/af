@@ -488,63 +488,212 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
 .toast.warning { background:#78350f;border:1px solid #92400e; }
 
 /* Print */
+/* ════════════════════════════════════════════════════════════
+   MERIT LIST DIRECT PRINT  (body.printing-merit + @media print)
+   ═══════════════════════════════════════════════════════════ */
+
+/* Print header — hidden on screen, shown only when printing */
+#ml-print-header { display: none; }
+
 @media print {
-  @page { size: A4 portrait; margin: 0; }
 
-  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+  /* ── Page setup ── */
+  @page { size: A4 landscape; margin: 8mm 9mm; }
 
-  body { background:#fff!important; margin:0; padding:0; }
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    box-sizing: border-box;
+  }
 
-  /* Hide all UI chrome */
-  .sidebar,.topbar,.ph,.tab-bar,.btn,.toast,.modal-overlay,
-  .card:not(#meritListWrap):not(.report-form),
-  #meritListWrap .card-toolbar,
-  .rf-export-btn, .rpControls, #reportControls,
-  .mbn-item, .mobile-bottom-nav, #mobileBottomNav, #mbnRestoreTab { display:none!important; }
+  /* ── When body.printing-merit: hide everything except the merit wrap ── */
+  body.printing-merit .sidebar,
+  body.printing-merit .topbar,
+  body.printing-merit .ph,
+  body.printing-merit .tab-bar,
+  body.printing-merit .mbn-item,
+  body.printing-merit .mobile-bottom-nav,
+  body.printing-merit #mobileBottomNav,
+  body.printing-merit #mbnRestoreTab,
+  body.printing-merit .toast,
+  body.printing-merit .modal-overlay,
+  body.printing-merit #tabExams > .card:first-child,
+  body.printing-merit .btn-row-compact,
+  body.printing-merit .tab-panel:not(#tabExams),
+  body.printing-merit #tabExams .tab-panel,
+  body.printing-merit #tabSummaryAnalytics,
+  body.printing-merit #tabReportForms,
+  body.printing-merit #ptsLegendWrap .chart-box,
+  body.printing-merit .chart-box { display: none !important; }
 
-  .main { margin:0!important;padding:0!important;max-width:100%!important;width:100%!important;overflow:visible!important; }
+  /* Show the print header */
+  body.printing-merit #ml-print-header { display: block !important; }
+  body.printing-merit #__ml_print_hdr__ { display: block !important; }
 
-  /* ── Report Form: exactly one A4 page ── */
-  .report-form {
-    width: 210mm !important;
-    min-height: 0 !important;
-    max-height: 297mm !important;
-    height: 297mm !important;
-    overflow: hidden !important;
-    margin: 0 !important;
-    padding: 10mm 12mm !important;
+  body.printing-merit .main {
+    margin: 0 !important; padding: 0 !important;
+    max-width: 100% !important; width: 100% !important;
+    overflow: visible !important; height: auto !important;
+  }
+
+  body.printing-merit #meritListWrap {
+    padding: 0 !important;
     border: none !important;
     box-shadow: none !important;
-    page-break-after: always !important;
-    break-after: page !important;
-    box-sizing: border-box !important;
-    display: flex !important;
-    flex-direction: column !important;
+    overflow: visible !important;
+    width: 100% !important;
   }
 
-  /* Preserve all table borders and backgrounds */
-  .rf-marks-table, .rf-marks-table th, .rf-marks-table td {
-    border-color: #a0bdd8 !important;
+  /* ── Non-merit-list print (report forms, timetables etc.) ── */
+  body:not(.printing-merit) .sidebar,
+  body:not(.printing-merit) .topbar,
+  body:not(.printing-merit) .ph,
+  body:not(.printing-merit) .tab-bar,
+  body:not(.printing-merit) .btn,
+  body:not(.printing-merit) .toast,
+  body:not(.printing-merit) .modal-overlay,
+  body:not(.printing-merit) .mbn-item,
+  body:not(.printing-merit) .mobile-bottom-nav,
+  body:not(.printing-merit) #mobileBottomNav,
+  body:not(.printing-merit) #mbnRestoreTab { display: none !important; }
+
+  body:not(.printing-merit) .main {
+    margin: 0 !important; padding: 0 !important;
+    max-width: 100% !important; width: 100% !important;
+    overflow: visible !important;
   }
-  .rf-marks-table th { background: #f0f7ff !important; color: #1a6fb5 !important; }
+
+  /* ── Typography & sizing for print ── */
+  body { background: #fff !important; font-size: 8pt !important; }
+  h2   { font-size: 11pt !important; margin: .4rem 0 .2rem !important; }
+  h3   { font-size: 10pt !important; margin: .35rem 0 .15rem !important; }
+  h4   { font-size: 9pt  !important; margin: .3rem 0 .1rem !important; }
+
+  /* ── Merit table ── */
+  #meritListWrap table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 7pt !important;
+    margin-bottom: 6px !important;
+    page-break-inside: auto !important;
+  }
+  #meritListWrap thead { display: table-header-group !important; }
+  #meritListWrap tr    { page-break-inside: avoid !important; }
+  #meritListWrap th {
+    background: #1a6fb5 !important; color: #fff !important;
+    padding: 3px 4px !important; font-size: 6.5pt !important;
+    border: 1px solid #a0bdd8 !important; font-weight: 700 !important;
+  }
+  #meritListWrap td {
+    padding: 2px 4px !important;
+    border: 1px solid #d1dfe8 !important;
+    font-size: 7pt !important;
+    vertical-align: middle !important;
+  }
+  #meritListWrap tr:nth-child(even) td { background: #f8fbff !important; }
+  #meritListWrap tr:first-child td     { background: #dbeafe !important; }
+
+  /* ── Cards & sections ── */
+  #meritListWrap .card {
+    padding: .55rem .7rem !important;
+    margin-bottom: .5rem !important;
+    box-shadow: none !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 6px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  #meritListWrap .tbl-wrap {
+    overflow: visible !important;
+    border-radius: 0 !important;
+    border: none !important;
+  }
+
+  /* ── Badges ── */
+  #meritListWrap .badge {
+    padding: 1px 4px !important;
+    font-size: 6.5pt !important;
+    border-radius: 3px !important;
+    font-weight: 700 !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+  .b-green  { background: #dcfce7 !important; color: #16a34a !important; }
+  .b-teal   { background: #ccfbf1 !important; color: #0d9488 !important; }
+  .b-blue   { background: #ede9fe !important; color: #7c3aed !important; }
+  .b-lblue  { background: #cffafe !important; color: #0891b2 !important; }
+  .b-amber  { background: #fef3c7 !important; color: #d97706 !important; }
+  .b-orange { background: #ffedd5 !important; color: #ea580c !important; }
+  .b-red    { background: #fee2e2 !important; color: #dc2626 !important; }
+  .b-dkred  { background: #7f1d1d !important; color: #fca5a5 !important; }
+  .b-m      { background: #ede9fe !important; color: #5b21b6 !important; }
+  .b-f      { background: #fce7f3 !important; color: #9d174d !important; }
+
+  /* ── Stats bar pills ── */
+  #meritListWrap [style*="border-radius:7px"],
+  #meritListWrap [style*="border-radius: 7px"] {
+    padding: 3px 8px !important;
+    font-size: 7.5pt !important;
+  }
+
+  /* ── Gender analysis bars ── */
+  #meritListWrap [style*="linear-gradient"] {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  #meritListWrap [style*="background:#e5e7eb"] { background: #e5e7eb !important; }
+
+  /* ── Stream vs class panel ── */
+  #meritListWrap [style*="border:1.5px solid"],
+  #meritListWrap [style*="border: 1.5px solid"] {
+    -webkit-print-color-adjust: exact !important;
+  }
+
+  /* ── Points legend ── */
+  #meritListWrap [style*="background:#f0f7ff"] { background: #f0f7ff !important; }
+
+  /* ── Page breaks between class sections ── */
+  #meritListWrap [style*="page-break-before:always"],
+  #meritListWrap [style*="page-break-before: always"] {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+  #meritListWrap [style*="margin-top:1.5rem"] { page-break-before: auto !important; }
+
+  /* ── Hide only the interactive controls inside merit wrap ── */
+  #meritListWrap button { display: none !important; }
+  #meritListWrap .no-print { display: none !important; }
+
+  /* ── Chart canvases can't print — hide chart boxes ── */
+  #meritListWrap .chart-box { display: none !important; }
+
+  /* ── Report form keeps A4 portrait ── */
+  .report-form {
+    width: 210mm !important; min-height: 0 !important;
+    max-height: 297mm !important; height: 297mm !important;
+    overflow: hidden !important; margin: 0 !important;
+    padding: 10mm 12mm !important; border: none !important;
+    box-shadow: none !important;
+    page-break-after: always !important; break-after: page !important;
+    box-sizing: border-box !important;
+    display: flex !important; flex-direction: column !important;
+  }
+  .rf-marks-table th  { background: #f0f7ff !important; color: #1a6fb5 !important; }
   .rf-marks-table tr:nth-child(even) td { background: #f8fbff !important; }
   .rf-marks-table .total-row td { background: #dbeafe !important; border-top: 2px solid #1a6fb5 !important; }
-
   .rf-section-title { background: #7c3aed !important; color: #fff !important; }
-  .rf-section-body { border-color: #1a6fb5 !important; }
-  .rf-header { border-bottom-color: #7c3aed !important; }
-  .rf-footer { border-top-color: #16a34a !important; }
+  .rf-section-body  { border-color: #1a6fb5 !important; }
+  .rf-header        { border-bottom-color: #7c3aed !important; }
+  .rf-footer        { border-top-color:   #16a34a !important; }
 
-  /* Merit list: keep borders and alternating rows */
-  #meritListWrap { border:none!important; box-shadow:none!important; padding:0!important; }
-  #meritListWrap table { font-size: 8.5pt !important; }
-  #meritListWrap th { background: #f0f7ff !important; }
-  #meritListWrap tr:nth-child(even) td { background: #f8fbff !important; }
+  /* Timetable print */
+  .tt-wrap { border: none; }
+  .tt-tch-wrap { border: none; }
+  #ttTabBar { display: none !important; }
 
-  table { font-size:9pt!important; }
-  .tbl-wrap { border:none!important; }
-  h3 { font-size:12pt!important; }
-  [style*="page-break-before"] { page-break-before:always; }
+  /* Exam builder print */
+  #ebExamPreview { padding: 0; border: none; }
+  #ebExamPreview .ebep-mcq-grid { grid-template-columns: 1fr 1fr; }
 }
 
 /* Merit list wrap is a card but also a container */

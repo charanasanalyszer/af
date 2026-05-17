@@ -6750,113 +6750,62 @@ function printMeritList() {
   if (!wrap || !wrap.innerHTML.trim() || wrap.innerHTML.includes('Select an exam')) {
     showToast('Generate the merit list first', 'warning'); return;
   }
-  const win = window.open('', '_blank');
-  if (!win) { showToast('Allow pop-ups to print', 'warning'); return; }
 
   const sch    = settings.schoolName || 'School';
   const examId = document.getElementById('mlExam')?.value;
   const exam   = exams.find(e => e.id === examId);
-
-  // ── 1. Collect every stylesheet from the host page ─────────────────────
-  let allCSS = '';
-  for (const sheet of document.styleSheets) {
-    try {
-      const rules = sheet.cssRules || sheet.rules;
-      for (const rule of rules) allCSS += rule.cssText + '\n';
-    } catch(e) { /* cross-origin sheet — skip */ }
-  }
-
-  // ── 2. Resolve every CSS custom property from :root on the live document ─
-  const rootStyle = getComputedStyle(document.documentElement);
-  const propNames = [...new Set(
-    (allCSS.match(/var\(--[\w-]+\)/g) || []).map(v => v.slice(4, -1))
-  )];
-  let resolvedVars = ':root {\n';
-  propNames.forEach(p => {
-    const val = rootStyle.getPropertyValue(p).trim();
-    if (val) resolvedVars += `  ${p}: ${val};\n`;
-  });
-  resolvedVars += '}\n';
-
-  // ── 3. Clone the live merit list DOM exactly ───────────────────────────
-  const clone = wrap.cloneNode(true);
-
-  // Remove canvas elements (charts can't clone) – replace with placeholder
-  clone.querySelectorAll('canvas').forEach(c => {
-    const ph = document.createElement('div');
-    ph.style.cssText = 'height:8px;background:#e2e8f0;border-radius:4px;margin:4px 0;opacity:.4';
-    c.parentNode.replaceChild(ph, c);
-  });
-
-  // Remove the interactive "no-print" elements (buttons inside the wrap)
-  clone.querySelectorAll('button, .no-print').forEach(el => el.remove());
-
-  // ── 4. Print-specific override CSS ────────────────────────────────────
-  const printCSS = `
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
-    @page { size: A4 landscape; margin: 9mm 8mm; }
-    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; box-sizing: border-box; }
-    body { font-family: var(--font, 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif); font-size: 8pt; color: #1e293b; background: #fff; margin: 0; padding: 6px 8px; }
-    .tbl-wrap { overflow: visible !important; border-radius: 0 !important; }
-    table { width: 100%; border-collapse: collapse; font-size: 7.5pt; margin-bottom: 8px; }
-    th { padding: 3px 5px !important; font-size: 7pt !important; border: 1px solid #a0bdd8 !important; }
-    td { padding: 2px 5px !important; border: 1px solid #d1dfe8 !important; font-size: 7.5pt !important; }
-    h2, h3 { margin: .4rem 0 .2rem !important; font-size: 10pt !important; }
-    h4 { margin: .3rem 0 .15rem !important; font-size: 9pt !important; }
-    .card { padding: .6rem !important; margin-bottom: .5rem !important; box-shadow: none !important; border-radius: 6px !important; }
-    .chart-box { display: none !important; }
-    button, .no-print, .print-btn { display: none !important; }
-    .badge { padding: 1px 5px !important; font-size: 6.5pt !important; border-radius: 4px !important; }
-    .sm-section { margin-bottom: .6rem !important; }
-    .an-card { padding: .5rem !important; }
-    /* keep background colours when printing */
-    [style*="background"] { -webkit-print-color-adjust: exact !important; }
-    /* page breaks between major class sections */
-    .print-page-break { page-break-before: always; }
-    /* ensure the stream vs class table fits */
-    .stream-cmp-wrap { overflow: visible !important; }
-    /* shrink grade dist mini charts for print */
-    .grade-bar-wrap { height: 60px !important; }
-    @media print {
-      button, .no-print { display: none !important; }
-    }
-  `;
-
-  // ── 5. Write the full document into the popup ──────────────────────────
   const dateStr = new Date().toLocaleDateString('en-KE', {day:'2-digit', month:'long', year:'numeric'});
   const examInfo = exam ? `${exam.name} &bull; ${exam.term} ${exam.year}` : '';
 
-  win.document.write(`<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Merit List &mdash; ${sch}</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-  <style>${resolvedVars}</style>
-  <style>${allCSS}</style>
-  <style>${printCSS}</style>
-</head>
-<body>
-  <!-- ── Page header ── -->
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;border-bottom:2.5px solid var(--primary,#7c3aed);padding-bottom:5px;margin-bottom:8px">
-    <div>
-      <div style="font-size:14pt;font-weight:900;color:var(--primary,#7c3aed)">${sch}</div>
-      <div style="font-size:7.5pt;color:var(--muted,#64748b);margin-top:1px">Merit List &bull; ${examInfo} &bull; Printed: ${dateStr}</div>
-    </div>
-    <button class="print-btn no-print" onclick="window.print()" style="padding:4px 14px;background:var(--primary,#7c3aed);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:8pt">
-      <i class="fa-solid fa-print"></i> Print
-    </button>
-  </div>
+  // ── Inject a temporary print-only header at the top of the wrap ─────────
+  const hdrId = '__ml_print_hdr__';
+  let hdr = document.getElementById(hdrId);
+  if (!hdr) {
+    hdr = document.createElement('div');
+    hdr.id = hdrId;
+    wrap.prepend(hdr);
+  }
+  hdr.style.cssText = 'display:none'; // hidden on screen
+  hdr.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;
+                border-bottom:2.5px solid var(--primary,#7c3aed);
+                padding-bottom:6px;margin-bottom:10px">
+      <div>
+        <div style="font-size:14pt;font-weight:900;color:var(--primary,#7c3aed)">${sch}</div>
+        <div style="font-size:8pt;color:var(--muted,#64748b);margin-top:1px">
+          Merit List &bull; ${examInfo} &bull; Printed: ${dateStr}
+        </div>
+      </div>
+    </div>`;
 
-  <!-- ── Cloned merit list content ── -->
-  ${clone.innerHTML}
+  // Make the header visible only during print via CSS:
+  // body.printing-merit #__ml_print_hdr__ { display:block !important }
+  hdr.setAttribute('data-print-only', '1');
 
-</body>
-</html>`);
+  // ── Add body class → triggers our @media print CSS rules ────────────────
+  document.body.classList.add('printing-merit');
 
-  win.document.close();
-  // Wait for FA + fonts to load before triggering print
-  setTimeout(() => { win.focus(); win.print(); }, 900);
+  // Force the print header to display during print
+  const tmpStyle = document.createElement('style');
+  tmpStyle.id = '__ml_print_tmp_style__';
+  tmpStyle.textContent = `
+    @media print {
+      #__ml_print_hdr__ { display: block !important; }
+      body.printing-merit { background: #fff !important; }
+    }
+  `;
+  document.head.appendChild(tmpStyle);
+
+  // ── Trigger print ─────────────────────────────────────────────────────
+  window.print();
+
+  // ── Clean up after print dialog closes ───────────────────────────────
+  window.addEventListener('afterprint', () => {
+    document.body.classList.remove('printing-merit');
+    const ts = document.getElementById('__ml_print_tmp_style__');
+    if (ts) ts.remove();
+    // keep hdr div so next print is instant; it's hidden on screen
+  }, { once: true });
 }
 
 
