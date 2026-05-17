@@ -6818,6 +6818,367 @@ function printMeritList() {
   if (!wrap || !wrap.innerHTML.trim() || wrap.innerHTML.includes('Select an exam')) {
     showToast('Generate the merit list first', 'warning'); return;
   }
+  if (!window.jspdf) { showToast('jsPDF not loaded — try refreshing', 'error'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const examId  = document.getElementById('mlExam')?.value;
+  const exam    = exams.find(e => e.id === examId);
+  if (!exam) { showToast('Exam not found', 'error'); return; }
+
+  const mlType      = document.getElementById('mlType')?.value || 'class_overall_and_stream';
+  const classFilter = document.getElementById('mlClass')?.value || null;
+  const streamFilter = mlType === 'class_stream' ? (document.getElementById('mlStream')?.value||null) : null;
+  const rankBy      = document.getElementById('mlRankBy')?.value || 'points';
+
+  const sch      = settings.schoolName || 'School';
+  const address  = settings.address || '';
+  const dateStr  = new Date().toLocaleDateString('en-KE', {day:'2-digit', month:'long', year:'numeric'});
+  const examInfo = [exam.name, exam.term, exam.year].filter(Boolean).join(' · ');
+  const safeName = `MeritList_${(exam.name||'export').replace(/\s+/g,'_')}.pdf`;
+
+  const isConsolidated  = exam.category === 'consolidated';
+  const sourceExamObjs  = isConsolidated ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
+  const examMarks       = isConsolidated ? [] : marks.filter(m => m.examId === examId);
+  const examSubs        = (exam.subjectIds||[]).map(sid=>subjects.find(s=>s.id===sid)).filter(Boolean);
+
+  showToast('<i class="fa-solid fa-spinner fa-spin"></i> Building PDF — please wait…', 'info');
+
+  const doc    = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const PW     = 297;
+  const PH     = 210;
+  const M      = 8;   // margin
+  const blue   = [26, 111, 181];
+  const purple = [124, 58, 237];
+  const white  = [255, 255, 255];
+  const light  = [241, 245, 249];
+  const muted  = [100, 116, 139];
+  const dark   = [15, 23, 42];
+  const green  = [22, 163, 74];
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+  function addLetterhead(titleLine1, titleLine2) {
+    doc.setFillColor(...blue);
+    doc.rect(0, 0, PW, 22, 'F');
+    doc.setTextColor(...white);
+    doc.setFontSize(13); doc.setFont(undefined,'bold');
+    doc.text(sch.toUpperCase(), M, 9);
+    doc.setFontSize(7); doc.setFont(undefined,'normal');
+    doc.setTextColor(200,220,255);
+    if (address) doc.text(address, M, 14);
+    doc.setFontSize(9); doc.setFont(undefined,'bold');
+    doc.setTextColor(...white);
+    doc.text(titleLine1, PW-M, 9, {align:'right'});
+    doc.setFontSize(7); doc.setFont(undefined,'normal');
+    doc.setTextColor(200,220,255);
+    doc.text(titleLine2||examInfo, PW-M, 14, {align:'right'});
+  }
+
+  function addFooter() {
+    const n = doc.getNumberOfPages();
+    for (let i = 1; i <= n; i++) {
+      doc.setPage(i);
+      doc.setFontSize(6.5); doc.setFont(undefined,'normal'); doc.setTextColor(...muted);
+      doc.text(`${sch}  ·  ${examInfo}  ·  Printed: ${dateStr}  ·  Page ${i} of ${n}`,
+        PW/2, PH-3.5, {align:'center'});
+    }
+  }
+
+  function addSectionTitle(label, y) {
+    doc.setFillColor(...light);
+    doc.rect(M, y, PW-M*2, 7, 'F');
+    doc.setFontSize(8); doc.setFont(undefined,'bold'); doc.setTextColor(...blue);
+    doc.text(label, M+3, y+5);
+    return y + 10;
+  }
+
+  // ── Build data for a given scored array ───────────────────────────────────
+  function buildTableData(scored, showStream) {
+    const fixedHead = ['#', 'Adm No', 'Name', 'G'];
+    if (showStream) fixedHead.push('Stream', 'Str#');
+    const subHead = examSubs.map(s => s.code);
+    const tail    = ['Total', 'Avg', 'Mean%', 'Grade', 'Pts', 'Pts Grd'];
+    const head    = [...fixedHead, ...subHead, ...tail];
+
+    const body = scored.map(s => {
+      const stream = streams.find(x=>x.id===s.streamId);
+      const row = [
+        `#${s.overallRank}`,
+        s.adm,
+        s.name,
+        s.gender,
+      ];
+      if (showStream) { row.push(stream?.name||'—', `#${s.streamRank}`); }
+      examSubs.forEach(sub => {
+        let score = null;
+        if (isConsolidated && sourceExamObjs.length > 0) {
+          const sc = sourceExamObjs.map(src=>{const mk=marks.find(m=>m.examId===src.id&&m.studentId===s.id&&m.subjectId===sub.id);return mk?mk.score:null;}).filter(v=>v!==null);
+          score = sc.length ? parseFloat((sc.reduce((a,b)=>a+b,0)/sc.length).toFixed(1)) : null;
+        } else {
+          const mk = examMarks.find(m=>m.studentId===s.id&&m.subjectId===sub.id);
+          score = mk ? mk.score : null;
+        }
+        const g = score !== null ? getGrade(score, sub.max) : null;
+        row.push(score !== null ? `${score}\n(${g?.grade||''})` : '—');
+      });
+      const avg = examSubs.length ? (s.total/examSubs.length).toFixed(1) : '—';
+      const meanPct = s.mean !== undefined ? s.mean.toFixed(1)+'%' : '—';
+      const pg = getPointsGrade(s.points);
+      row.push(s.total, avg, meanPct, s.grade?.grade||'—', s.points, pg?.grade||'—');
+      return row;
+    });
+
+    return { head, body };
+  }
+
+  // ── Column width calculator ───────────────────────────────────────────────
+  function buildColStyles(showStream) {
+    const styles = {};
+    let col = 0;
+    styles[col++] = { cellWidth: 10, halign:'center' };  // rank
+    styles[col++] = { cellWidth: 16, halign:'center' };  // adm
+    styles[col++] = { cellWidth: 30 };                   // name
+    styles[col++] = { cellWidth:  7, halign:'center' };  // gender
+    if (showStream) {
+      styles[col++] = { cellWidth: 14 };                 // stream
+      styles[col++] = { cellWidth:  9, halign:'center'}; // str pos
+    }
+    // Subject columns — share remaining width
+    const usedFixed = Object.values(styles).reduce((a,c)=>a+(c.cellWidth||0),0);
+    const tailW = 10+10+12+12+9+12; // Total Avg Mean% Grade Pts PtsGrd
+    const avail = PW - M*2 - usedFixed - tailW;
+    const subW  = Math.max(8, Math.floor(avail / Math.max(examSubs.length,1)));
+    examSubs.forEach(() => { styles[col++] = { cellWidth: subW, halign:'center', cellPadding:{top:1,bottom:1,left:1,right:1} }; });
+    styles[col++] = { cellWidth: 10, halign:'center' }; // total
+    styles[col++] = { cellWidth: 10, halign:'center' }; // avg
+    styles[col++] = { cellWidth: 12, halign:'center' }; // mean%
+    styles[col++] = { cellWidth: 12, halign:'center' }; // grade
+    styles[col++] = { cellWidth:  9, halign:'center' }; // pts
+    styles[col++] = { cellWidth: 12, halign:'center' }; // pts grade
+    return styles;
+  }
+
+  // ── AutoTable common options ─────────────────────────────────────────────
+  function tableOpts(head, body, startY, showStream) {
+    return {
+      startY,
+      head: [head],
+      body,
+      theme: 'grid',
+      styles: {
+        fontSize: 6.2,
+        cellPadding: 1.5,
+        textColor: dark,
+        lineColor: [210,220,230],
+        lineWidth: 0.2,
+        overflow: 'linebreak',
+        minCellHeight: 6,
+      },
+      headStyles: {
+        fillColor: blue, textColor: white, fontStyle: 'bold',
+        fontSize: 6.5, halign: 'center', cellPadding: 2,
+      },
+      alternateRowStyles: { fillColor: [248,250,252] },
+      columnStyles: buildColStyles(showStream),
+      margin: { left: M, right: M },
+      didParseCell(data) {
+        // Colour grade cells in tail columns
+        const tailStart = 4 + (showStream?2:0) + examSubs.length;
+        if (data.section === 'body' && data.column.index === tailStart+2) { // Grade col
+          const v = data.cell.raw;
+          if (typeof v === 'string') {
+            if (v.startsWith('A')) data.cell.styles.textColor = [22,163,74];
+            else if (v.startsWith('B')) data.cell.styles.textColor = [26,111,181];
+            else if (v.startsWith('C')) data.cell.styles.textColor = [14,116,144];
+            else if (v.startsWith('D')) data.cell.styles.textColor = [217,119,6];
+            else if (v.startsWith('E')) data.cell.styles.textColor = [234,88,12];
+            else data.cell.styles.textColor = [220,38,38];
+          }
+        }
+        // Top 3 rank highlight
+        if (data.section === 'body' && data.column.index === 0) {
+          const v = String(data.cell.raw);
+          if (v==='#1') { data.cell.styles.fillColor=[255,247,205]; data.cell.styles.textColor=[180,100,0]; data.cell.styles.fontStyle='bold'; }
+          else if (v==='#2') { data.cell.styles.fillColor=[241,245,249]; data.cell.styles.fontStyle='bold'; }
+          else if (v==='#3') { data.cell.styles.fillColor=[255,237,213]; data.cell.styles.fontStyle='bold'; }
+        }
+      },
+    };
+  }
+
+  // ── Render one merit section (class or stream) ────────────────────────────
+  function renderSection(scored, sectionTitle, showStream, isFirst) {
+    const curPage = doc.getNumberOfPages();
+    if (!isFirst) doc.addPage();
+    addLetterhead('MERIT LIST', examInfo);
+
+    let y = 26;
+    // Section title bar
+    doc.setFillColor(...purple);
+    doc.rect(M, y, PW-M*2, 8, 'F');
+    doc.setFontSize(9); doc.setFont(undefined,'bold'); doc.setTextColor(...white);
+    doc.text(sectionTitle, M+4, y+5.5);
+    doc.setFontSize(7.5); doc.setFont(undefined,'normal');
+    doc.text(`${scored.length} students  ·  Ranked by ${rankBy==='points'?'Mean Points':'Total Marks'}`, PW-M-4, y+5.5, {align:'right'});
+    y += 11;
+
+    // Stats bar
+    const totalStudents = scored.length;
+    const mStudents = scored.filter(s=>s.gender==='M').length;
+    const fStudents = scored.filter(s=>s.gender==='F').length;
+    const meanVal   = scored.length ? (scored.reduce((a,s)=>a+(rankBy==='points'?s.points:s.mean),0)/scored.length).toFixed(2) : '—';
+    const top1      = scored[0];
+    doc.setFillColor(...light);
+    doc.rect(M, y, PW-M*2, 8, 'F');
+    doc.setFontSize(7); doc.setFont(undefined,'normal'); doc.setTextColor(...dark);
+    doc.text(`Students: ${totalStudents}  (Boys: ${mStudents}  Girls: ${fStudents})`, M+3, y+5);
+    doc.text(`Class Mean: ${meanVal}${rankBy==='points'?' pts':'%'}`, PW/2, y+5, {align:'center'});
+    if (top1) doc.text(`Top: ${top1.name} (${rankBy==='points'?top1.points+'pts':top1.mean.toFixed(1)+'%'})`, PW-M-3, y+5, {align:'right'});
+    y += 11;
+
+    const { head, body } = buildTableData(scored, showStream);
+    doc.autoTable({ ...tableOpts(head, body, y, showStream) });
+  }
+
+  // ── Subject analysis mini-table ───────────────────────────────────────────
+  function renderSubjectAnalysis(scored, titlePrefix) {
+    const subData = examSubs.map(sub => {
+      const vals = scored.map(s => {
+        if (isConsolidated && sourceExamObjs.length>0) {
+          const sc = sourceExamObjs.map(src=>{const mk=marks.find(m=>m.examId===src.id&&m.studentId===s.id&&m.subjectId===sub.id);return mk?mk.score:null;}).filter(v=>v!==null);
+          return sc.length ? sc.reduce((a,b)=>a+b,0)/sc.length : null;
+        }
+        const mk = examMarks.find(m=>m.studentId===s.id&&m.subjectId===sub.id);
+        return mk ? mk.score : null;
+      }).filter(v=>v!==null);
+      if (!vals.length) return null;
+      const mn  = vals.reduce((a,b)=>a+b,0)/vals.length;
+      const mx  = Math.max(...vals);
+      const lo  = Math.min(...vals);
+      const subMax = sub.max||100;
+      const g   = getGrade(mn, subMax);
+      return [sub.name, sub.code, vals.length,
+        `${mn.toFixed(1)} (${((mn/subMax)*100).toFixed(0)}%)`,
+        `${mx} (${((mx/subMax)*100).toFixed(0)}%)`,
+        `${lo} (${((lo/subMax)*100).toFixed(0)}%)`,
+        g?.grade||'—'];
+    }).filter(Boolean);
+
+    if (!subData.length) return;
+    let y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 5 : 50;
+    if (y > PH - 40) { doc.addPage(); addLetterhead('MERIT LIST', examInfo); y = 26; }
+
+    y = addSectionTitle(`${titlePrefix} — Subject Analysis`, y);
+    doc.autoTable({
+      startY: y,
+      head: [['Subject','Code','Students','Mean (%)','Highest (%)','Lowest (%)','Grade']],
+      body: subData,
+      theme: 'striped',
+      styles: { fontSize: 7, cellPadding: 2, textColor: dark },
+      headStyles: { fillColor: [26,111,181], textColor: white, fontStyle:'bold', fontSize:7 },
+      alternateRowStyles: { fillColor: [248,250,252] },
+      columnStyles: {
+        0:{cellWidth:40}, 1:{cellWidth:14,halign:'center'}, 2:{cellWidth:18,halign:'center'},
+        3:{cellWidth:30,halign:'center'}, 4:{cellWidth:30,halign:'center'},
+        5:{cellWidth:30,halign:'center'}, 6:{cellWidth:18,halign:'center'},
+      },
+      margin: { left: M, right: M },
+    });
+  }
+
+  // ── Gender breakdown mini-table ───────────────────────────────────────────
+  function renderGenderTable(scored, titlePrefix) {
+    const male   = scored.filter(s=>s.gender==='M');
+    const female = scored.filter(s=>s.gender==='F');
+    if (!male.length && !female.length) return;
+
+    const mMean  = male.length   ? (male.reduce((a,s)=>a+s.mean,0)/male.length).toFixed(2)   : '—';
+    const fMean  = female.length ? (female.reduce((a,s)=>a+s.mean,0)/female.length).toFixed(2) : '—';
+    const mPts   = male.length   ? (male.reduce((a,s)=>a+s.points,0)/male.length).toFixed(1)   : '—';
+    const fPts   = female.length ? (female.reduce((a,s)=>a+s.points,0)/female.length).toFixed(1) : '—';
+
+    let y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 5 : 50;
+    if (y > PH - 35) { doc.addPage(); addLetterhead('MERIT LIST', examInfo); y = 26; }
+    y = addSectionTitle(`${titlePrefix} — Gender Analysis`, y);
+
+    doc.autoTable({
+      startY: y,
+      head:[['Gender','Count','Mean %','Mean Points','Top Student','Top Score']],
+      body:[
+        ['Boys (M)', male.length, mMean+'%', mPts+' pts',
+          male[0]?.name||'—', rankBy==='points'?(male[0]?.points||'—')+'pts':(male[0]?.mean?.toFixed(1)||'—')+'%'],
+        ['Girls (F)', female.length, fMean+'%', fPts+' pts',
+          female[0]?.name||'—', rankBy==='points'?(female[0]?.points||'—')+'pts':(female[0]?.mean?.toFixed(1)||'—')+'%'],
+      ],
+      theme: 'striped',
+      styles: { fontSize: 7.5, cellPadding: 2.5, textColor: dark },
+      headStyles: { fillColor: [124,58,237], textColor: white, fontStyle:'bold' },
+      columnStyles: { 0:{cellWidth:20}, 1:{cellWidth:16,halign:'center'}, 2:{cellWidth:22,halign:'center'},
+        3:{cellWidth:24,halign:'center'}, 4:{cellWidth:50}, 5:{cellWidth:24,halign:'center'} },
+      margin: { left: M, right: M },
+    });
+  }
+
+  // ══════════════════ MAIN RENDER LOGIC ══════════════════════════════════
+  let isFirst = true;
+
+  if (mlType === 'class_stream') {
+    // Single stream view
+    const str = streams.find(s=>s.id===streamFilter);
+    const cls = classes.find(c=>c.id===str?.classId);
+    const scored = buildMeritData(examId, streamFilter, str?.classId||classFilter||null);
+    if (!scored.length) { showToast('No data to export','warning'); return; }
+    const title = `${cls?.name||''} › ${str?.name||''} — Stream Merit List`;
+    renderSection(scored, title, false, true);
+    renderSubjectAnalysis(scored, str?.name||'Stream');
+    renderGenderTable(scored, str?.name||'Stream');
+
+  } else {
+    // Class overall (+ streams) view
+    let targetClasses;
+    if (classFilter) {
+      const cls = classes.find(c=>c.id===classFilter);
+      targetClasses = cls ? [cls] : [];
+    } else {
+      const allScored = buildMeritData(examId, null, null);
+      const cids = [...new Set(allScored.map(s=>s.classId).filter(Boolean))];
+      targetClasses = cids.map(id=>classes.find(c=>c.id===id)).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name));
+    }
+    if (!targetClasses.length) { showToast('No data to export','warning'); return; }
+
+    targetClasses.forEach((cls, ci) => {
+      const classScored = buildMeritData(examId, null, cls.id);
+      if (!classScored.length) return;
+
+      renderSection(classScored, `${cls.name} — Class Overall Merit List`, true, isFirst);
+      isFirst = false;
+      renderSubjectAnalysis(classScored, cls.name);
+      renderGenderTable(classScored, cls.name);
+
+      if (mlType === 'class_overall_and_stream') {
+        const clsStreamIds = [...new Set(classScored.map(s=>s.streamId).filter(Boolean))];
+        const clsStreams = clsStreamIds.map(sid=>streams.find(x=>x.id===sid)).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name));
+        clsStreams.forEach(str => {
+          const strScored = buildMeritData(examId, str.id, cls.id);
+          if (!strScored.length) return;
+          renderSection(strScored, `${cls.name} › ${str.name} — Stream Merit List`, false, false);
+          renderSubjectAnalysis(strScored, `${cls.name} › ${str.name}`);
+          renderGenderTable(strScored, `${cls.name} › ${str.name}`);
+        });
+      }
+    });
+  }
+
+  addFooter();
+  doc.save(safeName);
+  showToast('<i class="fa-solid fa-check"></i> PDF saved!', 'success');
+}
+
+// ── LEGACY: old html2canvas path kept for reference (unused) ──
+function _printMeritList_legacy() {
+  const wrap = document.getElementById('meritListWrap');
+  if (!wrap || !wrap.innerHTML.trim() || wrap.innerHTML.includes('Select an exam')) {
+    showToast('Generate the merit list first', 'warning'); return;
+  }
   if (!window.html2canvas) { showToast('html2canvas not loaded — try refreshing', 'error'); return; }
   if (!window.jspdf)       { showToast('jsPDF not loaded — try refreshing', 'error'); return; }
 
@@ -6831,117 +7192,50 @@ function printMeritList() {
 
   showToast('<i class="fa-solid fa-spinner fa-spin"></i> Preparing PDF — please wait…', 'info');
 
-  // ── Build a self-contained clone for capture ─────────────────────────────
   const clone = wrap.cloneNode(true);
-
-  // Remove interactive controls from clone
   clone.querySelectorAll('button, .no-print, select').forEach(el => el.remove());
-
-  // Inject a print header into the clone
-  const hdrDiv = document.createElement('div');
-  hdrDiv.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;
-                border-bottom:2.5px solid #1a6fb5;padding-bottom:8px;margin-bottom:12px;font-family:sans-serif">
-      <div>
-        <div style="font-size:15pt;font-weight:900;color:#1a6fb5">${sch}</div>
-        <div style="font-size:8.5pt;color:#64748b;margin-top:2px">${examInfo} &bull; Printed: ${dateStr}</div>
-      </div>
-      <div style="font-size:8pt;color:#64748b;text-align:right">
-        <i>Generated by AcadFlow</i>
-      </div>
-    </div>`;
-  clone.prepend(hdrDiv);
-
-  // Style the clone for clean capture
-  clone.style.cssText = `
-    position:fixed; left:-9999px; top:0; z-index:-1;
-    width:1100px; background:#fff; padding:18px 22px;
-    box-shadow:none; border:none; border-radius:0;
-    font-family:sans-serif; font-size:8pt; color:#1e293b;
-  `;
-
-  // Make chart canvases in clone visible (they are hidden by print CSS but
-  // will be visible in the clone since it's not inside @media print)
-  clone.querySelectorAll('.chart-box').forEach(box => {
-    box.style.display = 'block';
-    box.style.pageBreakInside = 'avoid';
-  });
-
-  // Copy live canvas image data into clone's canvas elements
+  clone.style.cssText = `position:fixed;left:-9999px;top:0;z-index:-1;width:1100px;background:#fff;padding:18px 22px;box-shadow:none;border:none;border-radius:0;font-family:sans-serif;font-size:8pt;color:#1e293b;`;
+  clone.querySelectorAll('.chart-box').forEach(box => { box.style.display='block'; });
   const liveCanvases  = wrap.querySelectorAll('canvas');
   const cloneCanvases = clone.querySelectorAll('canvas');
-  liveCanvases.forEach((lc, i) => {
-    if (cloneCanvases[i]) {
-      try {
-        cloneCanvases[i].width  = lc.width;
-        cloneCanvases[i].height = lc.height;
-        const ctx = cloneCanvases[i].getContext('2d');
-        ctx.drawImage(lc, 0, 0);
-      } catch(e) {}
-    }
-  });
-
+  liveCanvases.forEach((lc,i)=>{ if(cloneCanvases[i]){try{cloneCanvases[i].width=lc.width;cloneCanvases[i].height=lc.height;const ctx=cloneCanvases[i].getContext('2d');ctx.drawImage(lc,0,0);}catch(e){}} });
   document.body.appendChild(clone);
 
-  // ── Capture with html2canvas then slice into A4 pages ──────────────────
-  setTimeout(() => {
-    html2canvas(clone, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-      width: 1100,
-      windowWidth: 1100,
-    }).then(canvas => {
+  setTimeout(()=>{
+    html2canvas(clone,{scale:2,useCORS:true,allowTaint:true,backgroundColor:'#ffffff',logging:false,width:1100,windowWidth:1100}).then(canvas=>{
       document.body.removeChild(clone);
-
-      const imgData  = canvas.toDataURL('image/jpeg', 0.92);
-      const doc      = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const PW       = 297; // A4 landscape width mm
-      const PH       = 210; // A4 landscape height mm
-      const margin   = 8;
-      const usableW  = PW - margin * 2;
-      const usableH  = PH - margin * 2;
-
-      // Scale: fit width, then calculate total height in mm
-      const scale    = usableW / canvas.width;
-      const totalH   = canvas.height * scale;
-      const pages    = Math.ceil(totalH / usableH);
-
-      for (let p = 0; p < pages; p++) {
-        if (p > 0) doc.addPage();
-        // srcY in canvas pixels for this page
-        const srcY   = Math.round((p * usableH) / scale);
-        const srcH   = Math.round(usableH / scale);
-
-        // Slice the canvas to this page's strip
-        const strip  = document.createElement('canvas');
-        strip.width  = canvas.width;
-        strip.height = Math.min(srcH, canvas.height - srcY);
-        const sctx   = strip.getContext('2d');
-        sctx.drawImage(canvas, 0, -srcY);
-
-        const stripData  = strip.toDataURL('image/jpeg', 0.92);
-        const stripH     = strip.height * scale;
-        doc.addImage(stripData, 'JPEG', margin, margin, usableW, Math.min(stripH, usableH));
-
-        // Page number footer
-        doc.setFontSize(7);
-        doc.setTextColor(150);
-        doc.text(`${sch} — ${examInfo}   |   Page ${p+1} of ${pages}   |   ${dateStr}`,
-          PW / 2, PH - 3, { align: 'center' });
-      }
-
-      doc.save(safeName);
-      showToast('<i class="fa-solid fa-check"></i> PDF saved!', 'success');
-    }).catch(err => {
-      if (document.body.contains(clone)) document.body.removeChild(clone);
-      console.error('Merit PDF error:', err);
-      showToast('PDF export failed — try again', 'error');
-    });
-  }, 300);
+      const doc2=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+      const PW2=297,PH2=210,margin2=8,usableW2=PW2-margin2*2,usableH2=PH2-margin2*2;
+      const scale2=usableW2/canvas.width,totalH2=canvas.height*scale2,pages2=Math.ceil(totalH2/usableH2);
+      for(let p=0;p<pages2;p++){if(p>0)doc2.addPage();const srcY=Math.round((p*usableH2)/scale2),srcH=Math.round(usableH2/scale2);const strip=document.createElement('canvas');strip.width=canvas.width;strip.height=Math.min(srcH,canvas.height-srcY);const sctx=strip.getContext('2d');sctx.drawImage(canvas,0,-srcY);const stripData=strip.toDataURL('image/jpeg',0.92);const stripH=strip.height*scale2;doc2.addImage(stripData,'JPEG',margin2,margin2,usableW2,Math.min(stripH,usableH2));doc2.setFontSize(7);doc2.setTextColor(150);doc2.text(`${sch} — ${examInfo}   |   Page ${p+1} of ${pages2}   |   ${dateStr}`,PW2/2,PH2-3,{align:'center'});}
+      doc2.save(safeName);
+    }).catch(err=>{if(document.body.contains(clone))document.body.removeChild(clone);showToast('PDF export failed','error');});
+  },300);
 }
+
+// ── DEAD CODE PLACEHOLDER (real printMeritList is above) ──
+function __printMeritList_old_window_print() {
+  const wrap = document.getElementById('meritListWrap');
+  const sch    = settings.schoolName || 'School';
+  const examId = document.getElementById('mlExam')?.value;
+  const exam   = exams.find(e => e.id === examId);
+  const dateStr = new Date().toLocaleDateString('en-KE', {day:'2-digit', month:'long', year:'numeric'});
+  const examInfo = exam ? `${exam.name} &bull; ${exam.term} ${exam.year}` : '';
+  const hdrId = '__ml_print_hdr__';
+  let hdr = document.getElementById(hdrId);
+  if (!hdr) { hdr = document.createElement('div'); hdr.id = hdrId; wrap.prepend(hdr); }
+  hdr.style.cssText = 'display:none';
+  hdr.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2.5px solid var(--primary,#7c3aed);padding-bottom:6px;margin-bottom:10px"><div><div style="font-size:14pt;font-weight:900;color:var(--primary,#7c3aed)">${sch}</div><div style="font-size:8pt;color:var(--muted,#64748b);margin-top:1px">Merit List &bull; ${examInfo} &bull; Printed: ${dateStr}</div></div></div>`;
+  hdr.setAttribute('data-print-only','1');
+  document.body.classList.add('printing-merit');
+  const tmpStyle = document.createElement('style');
+  tmpStyle.id = '__ml_print_tmp_style__';
+  tmpStyle.textContent = `@media print{#__ml_print_hdr__{display:block!important}body.printing-merit{background:#fff!important}}`;
+  document.head.appendChild(tmpStyle);
+  window.print();
+  window.addEventListener('afterprint',()=>{document.body.classList.remove('printing-merit');const ts=document.getElementById('__ml_print_tmp_style__');if(ts)ts.remove();},{once:true});
+}
+
 
 
 function exportMeritExcel() {
