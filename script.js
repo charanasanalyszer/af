@@ -6846,7 +6846,7 @@ function printMeritList() {
   const doc    = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const PW     = 297;
   const PH     = 210;
-  const M      = 8;   // margin
+  const M      = 5;   // margin (tighter for more content)
   const blue   = [26, 111, 181];
   const purple = [124, 58, 237];
   const white  = [255, 255, 255];
@@ -6858,19 +6858,19 @@ function printMeritList() {
   // ── helpers ──────────────────────────────────────────────────────────────
   function addLetterhead(titleLine1, titleLine2) {
     doc.setFillColor(...blue);
-    doc.rect(0, 0, PW, 22, 'F');
+    doc.rect(0, 0, PW, 16, 'F');
     doc.setTextColor(...white);
-    doc.setFontSize(13); doc.setFont(undefined,'bold');
-    doc.text(sch.toUpperCase(), M, 9);
-    doc.setFontSize(7); doc.setFont(undefined,'normal');
+    doc.setFontSize(11); doc.setFont(undefined,'bold');
+    doc.text(sch.toUpperCase(), M, 7);
+    doc.setFontSize(6); doc.setFont(undefined,'normal');
     doc.setTextColor(200,220,255);
-    if (address) doc.text(address, M, 14);
-    doc.setFontSize(9); doc.setFont(undefined,'bold');
+    if (address) doc.text(address, M, 11);
+    doc.setFontSize(8); doc.setFont(undefined,'bold');
     doc.setTextColor(...white);
-    doc.text(titleLine1, PW-M, 9, {align:'right'});
-    doc.setFontSize(7); doc.setFont(undefined,'normal');
+    doc.text(titleLine1, PW-M, 7, {align:'right'});
+    doc.setFontSize(6); doc.setFont(undefined,'normal');
     doc.setTextColor(200,220,255);
-    doc.text(titleLine2||examInfo, PW-M, 14, {align:'right'});
+    doc.text(titleLine2||examInfo, PW-M, 11, {align:'right'});
   }
 
   function addFooter() {
@@ -6885,10 +6885,10 @@ function printMeritList() {
 
   function addSectionTitle(label, y) {
     doc.setFillColor(...light);
-    doc.rect(M, y, PW-M*2, 7, 'F');
-    doc.setFontSize(8); doc.setFont(undefined,'bold'); doc.setTextColor(...blue);
-    doc.text(label, M+3, y+5);
-    return y + 10;
+    doc.rect(M, y, PW-M*2, 5, 'F');
+    doc.setFontSize(7); doc.setFont(undefined,'bold'); doc.setTextColor(...blue);
+    doc.text(label, M+2, y+3.5);
+    return y + 7;
   }
 
   // ── Build data for a given scored array ───────────────────────────────────
@@ -6934,26 +6934,26 @@ function printMeritList() {
   function buildColStyles(showStream) {
     const styles = {};
     let col = 0;
-    styles[col++] = { cellWidth: 10, halign:'center' };  // rank
-    styles[col++] = { cellWidth: 16, halign:'center' };  // adm
-    styles[col++] = { cellWidth: 30 };                   // name
-    styles[col++] = { cellWidth:  7, halign:'center' };  // gender
+    styles[col++] = { cellWidth:  7, halign:'center' };  // rank
+    styles[col++] = { cellWidth: 13, halign:'center' };  // adm
+    styles[col++] = { cellWidth: 26 };                   // name
+    styles[col++] = { cellWidth:  5, halign:'center' };  // gender
     if (showStream) {
-      styles[col++] = { cellWidth: 14 };                 // stream
-      styles[col++] = { cellWidth:  9, halign:'center'}; // str pos
+      styles[col++] = { cellWidth: 12 };                 // stream
+      styles[col++] = { cellWidth:  7, halign:'center'}; // str pos
     }
     // Subject columns — share remaining width
     const usedFixed = Object.values(styles).reduce((a,c)=>a+(c.cellWidth||0),0);
-    const tailW = 10+10+12+12+9+12; // Total Avg Mean% Grade Pts PtsGrd
+    const tailW = 8+8+10+10+7+10; // Total Avg Mean% Grade Pts PtsGrd
     const avail = PW - M*2 - usedFixed - tailW;
-    const subW  = Math.max(8, Math.floor(avail / Math.max(examSubs.length,1)));
-    examSubs.forEach(() => { styles[col++] = { cellWidth: subW, halign:'center', cellPadding:{top:1,bottom:1,left:1,right:1} }; });
-    styles[col++] = { cellWidth: 10, halign:'center' }; // total
-    styles[col++] = { cellWidth: 10, halign:'center' }; // avg
-    styles[col++] = { cellWidth: 12, halign:'center' }; // mean%
-    styles[col++] = { cellWidth: 12, halign:'center' }; // grade
-    styles[col++] = { cellWidth:  9, halign:'center' }; // pts
-    styles[col++] = { cellWidth: 12, halign:'center' }; // pts grade
+    const subW  = Math.max(7, Math.floor(avail / Math.max(examSubs.length,1)));
+    examSubs.forEach(() => { styles[col++] = { cellWidth: subW, halign:'center', cellPadding:{top:0.5,bottom:0.5,left:0.5,right:0.5} }; });
+    styles[col++] = { cellWidth:  8, halign:'center' }; // total
+    styles[col++] = { cellWidth:  8, halign:'center' }; // avg
+    styles[col++] = { cellWidth: 10, halign:'center' }; // mean%
+    styles[col++] = { cellWidth: 10, halign:'center' }; // grade
+    styles[col++] = { cellWidth:  7, halign:'center' }; // pts
+    styles[col++] = { cellWidth: 10, halign:'center' }; // pts grade
     return styles;
   }
 
@@ -6965,17 +6965,17 @@ function printMeritList() {
       body,
       theme: 'grid',
       styles: {
-        fontSize: 6.2,
-        cellPadding: 1.5,
+        fontSize: 5.5,
+        cellPadding: 0.8,
         textColor: dark,
         lineColor: [210,220,230],
-        lineWidth: 0.2,
+        lineWidth: 0.15,
         overflow: 'linebreak',
-        minCellHeight: 6,
+        minCellHeight: 4,
       },
       headStyles: {
         fillColor: blue, textColor: white, fontStyle: 'bold',
-        fontSize: 6.5, halign: 'center', cellPadding: 2,
+        fontSize: 6, halign: 'center', cellPadding: 1.2,
       },
       alternateRowStyles: { fillColor: [248,250,252] },
       columnStyles: buildColStyles(showStream),
@@ -7011,15 +7011,15 @@ function printMeritList() {
     if (!isFirst) doc.addPage();
     addLetterhead('MERIT LIST', examInfo);
 
-    let y = 26;
+    let y = 19;
     // Section title bar
     doc.setFillColor(...purple);
-    doc.rect(M, y, PW-M*2, 8, 'F');
-    doc.setFontSize(9); doc.setFont(undefined,'bold'); doc.setTextColor(...white);
-    doc.text(sectionTitle, M+4, y+5.5);
-    doc.setFontSize(7.5); doc.setFont(undefined,'normal');
-    doc.text(`${scored.length} students  ·  Ranked by ${rankBy==='points'?'Mean Points':'Total Marks'}`, PW-M-4, y+5.5, {align:'right'});
-    y += 11;
+    doc.rect(M, y, PW-M*2, 6, 'F');
+    doc.setFontSize(8); doc.setFont(undefined,'bold'); doc.setTextColor(...white);
+    doc.text(sectionTitle, M+3, y+4.2);
+    doc.setFontSize(6.5); doc.setFont(undefined,'normal');
+    doc.text(`${scored.length} students  ·  Ranked by ${rankBy==='points'?'Mean Points':'Total Marks'}`, PW-M-3, y+4.2, {align:'right'});
+    y += 8;
 
     // Stats bar
     const totalStudents = scored.length;
@@ -7028,12 +7028,12 @@ function printMeritList() {
     const meanVal   = scored.length ? (scored.reduce((a,s)=>a+(rankBy==='points'?s.points:s.mean),0)/scored.length).toFixed(2) : '—';
     const top1      = scored[0];
     doc.setFillColor(...light);
-    doc.rect(M, y, PW-M*2, 8, 'F');
-    doc.setFontSize(7); doc.setFont(undefined,'normal'); doc.setTextColor(...dark);
-    doc.text(`Students: ${totalStudents}  (Boys: ${mStudents}  Girls: ${fStudents})`, M+3, y+5);
-    doc.text(`Class Mean: ${meanVal}${rankBy==='points'?' pts':'%'}`, PW/2, y+5, {align:'center'});
-    if (top1) doc.text(`Top: ${top1.name} (${rankBy==='points'?top1.points+'pts':top1.mean.toFixed(1)+'%'})`, PW-M-3, y+5, {align:'right'});
-    y += 11;
+    doc.rect(M, y, PW-M*2, 6, 'F');
+    doc.setFontSize(6.5); doc.setFont(undefined,'normal'); doc.setTextColor(...dark);
+    doc.text(`Students: ${totalStudents}  (Boys: ${mStudents}  Girls: ${fStudents})`, M+2, y+4);
+    doc.text(`Class Mean: ${meanVal}${rankBy==='points'?' pts':'%'}`, PW/2, y+4, {align:'center'});
+    if (top1) doc.text(`Top: ${top1.name} (${rankBy==='points'?top1.points+'pts':top1.mean.toFixed(1)+'%'})`, PW-M-2, y+4, {align:'right'});
+    y += 8;
 
     const { head, body } = buildTableData(scored, showStream);
     doc.autoTable({ ...tableOpts(head, body, y, showStream) });
@@ -7064,8 +7064,8 @@ function printMeritList() {
     }).filter(Boolean);
 
     if (!subData.length) return;
-    let y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 5 : 50;
-    if (y > PH - 40) { doc.addPage(); addLetterhead('MERIT LIST', examInfo); y = 26; }
+    let y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 3 : 40;
+    if (y > PH - 30) { doc.addPage(); addLetterhead('MERIT LIST', examInfo); y = 19; }
 
     y = addSectionTitle(`${titlePrefix} — Subject Analysis`, y);
     doc.autoTable({
@@ -7073,13 +7073,13 @@ function printMeritList() {
       head: [['Subject','Code','Students','Mean (%)','Highest (%)','Lowest (%)','Grade']],
       body: subData,
       theme: 'striped',
-      styles: { fontSize: 7, cellPadding: 2, textColor: dark },
-      headStyles: { fillColor: [26,111,181], textColor: white, fontStyle:'bold', fontSize:7 },
+      styles: { fontSize: 6, cellPadding: 1.2, textColor: dark },
+      headStyles: { fillColor: [26,111,181], textColor: white, fontStyle:'bold', fontSize:6 },
       alternateRowStyles: { fillColor: [248,250,252] },
       columnStyles: {
-        0:{cellWidth:40}, 1:{cellWidth:14,halign:'center'}, 2:{cellWidth:18,halign:'center'},
-        3:{cellWidth:30,halign:'center'}, 4:{cellWidth:30,halign:'center'},
-        5:{cellWidth:30,halign:'center'}, 6:{cellWidth:18,halign:'center'},
+        0:{cellWidth:36}, 1:{cellWidth:12,halign:'center'}, 2:{cellWidth:16,halign:'center'},
+        3:{cellWidth:26,halign:'center'}, 4:{cellWidth:26,halign:'center'},
+        5:{cellWidth:26,halign:'center'}, 6:{cellWidth:16,halign:'center'},
       },
       margin: { left: M, right: M },
     });
@@ -7096,8 +7096,8 @@ function printMeritList() {
     const mPts   = male.length   ? (male.reduce((a,s)=>a+s.points,0)/male.length).toFixed(1)   : '—';
     const fPts   = female.length ? (female.reduce((a,s)=>a+s.points,0)/female.length).toFixed(1) : '—';
 
-    let y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 5 : 50;
-    if (y > PH - 35) { doc.addPage(); addLetterhead('MERIT LIST', examInfo); y = 26; }
+    let y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 3 : 40;
+    if (y > PH - 25) { doc.addPage(); addLetterhead('MERIT LIST', examInfo); y = 19; }
     y = addSectionTitle(`${titlePrefix} — Gender Analysis`, y);
 
     doc.autoTable({
@@ -7110,10 +7110,10 @@ function printMeritList() {
           female[0]?.name||'—', rankBy==='points'?(female[0]?.points||'—')+'pts':(female[0]?.mean?.toFixed(1)||'—')+'%'],
       ],
       theme: 'striped',
-      styles: { fontSize: 7.5, cellPadding: 2.5, textColor: dark },
-      headStyles: { fillColor: [124,58,237], textColor: white, fontStyle:'bold' },
-      columnStyles: { 0:{cellWidth:20}, 1:{cellWidth:16,halign:'center'}, 2:{cellWidth:22,halign:'center'},
-        3:{cellWidth:24,halign:'center'}, 4:{cellWidth:50}, 5:{cellWidth:24,halign:'center'} },
+      styles: { fontSize: 6.5, cellPadding: 1.5, textColor: dark },
+      headStyles: { fillColor: [124,58,237], textColor: white, fontStyle:'bold', fontSize:6.5 },
+      columnStyles: { 0:{cellWidth:18}, 1:{cellWidth:14,halign:'center'}, 2:{cellWidth:20,halign:'center'},
+        3:{cellWidth:22,halign:'center'}, 4:{cellWidth:46}, 5:{cellWidth:22,halign:'center'} },
       margin: { left: M, right: M },
     });
   }
