@@ -702,6 +702,24 @@
               <select id="mlStream" onchange="renderMeritList()"><option value="">— Select Stream —</option></select>
             </div>
           </div>
+          <div class="frow c2" style="margin-bottom:.75rem">
+            <div class="fg">
+              <label>Rank By
+                <span style="font-size:.72rem;font-weight:400;color:var(--muted);margin-left:.3rem">— how students are ordered &amp; numbered</span>
+              </label>
+              <select id="mlRankBy" onchange="renderMeritList()">
+                <option value="mean" selected>Mean Score (tie-break: total marks)</option>
+                <option value="total">Total Marks (raw sum)</option>
+              </select>
+            </div>
+            <div class="fg" style="display:flex;align-items:flex-end">
+              <div style="background:var(--primary-lt,#eef4ff);border:1px solid var(--border);border-radius:8px;padding:.45rem .85rem;font-size:.78rem;color:var(--muted);width:100%">
+                <i class="fa-solid fa-circle-info" style="color:var(--primary)"></i>
+                <strong style="color:var(--primary)">Mean Score:</strong> ranks by average across subjects; ties broken by total marks.<br>
+                <strong style="color:var(--primary)">Total Marks:</strong> ranks by raw sum of all subject scores.
+              </div>
+            </div>
+          </div>
           <div class="btn-row-compact">
             <button class="btn btn-primary btn-sm" onclick="renderMeritList()"><i class="fa-solid fa-rotate"></i> Generate</button>
             <button class="btn btn-outline btn-sm" onclick="printMeritList()"><i class="fa-solid fa-print"></i> Print</button>

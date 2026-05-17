@@ -5977,6 +5977,9 @@ function buildMeritData(examId, filterStreamId, filterClassId) {
   const examMarks = isConsolidated ? [] : marks.filter(m => m.examId === examId);
   const totalSubs = exam.subjectIds.length || 1;
 
+  // ── Read ranking preference from UI (fallback: 'mean') ────────────────
+  const rankBy = document.getElementById('mlRankBy')?.value || 'mean';
+
   // Determine effective classId restriction
   const effectiveClassId = filterClassId || exam.classId || null;
 
@@ -6014,7 +6017,15 @@ function buildMeritData(examId, filterStreamId, filterClassId) {
     const maxAvg = (exam.subjectIds.map(sid=>subjects.find(s=>s.id===sid)?.max||100).reduce((a,b)=>a+b,0)/totalSubs) || 100;
     const g      = getMeanGrade(mean / maxAvg * 8);
     return { ...stu, total, mean, grade:g, points:pts };
-  }).filter(Boolean).sort((a,b) => b.total - a.total);
+  }).filter(Boolean).sort((a, b) => {
+    if (rankBy === 'total') {
+      // Rank by total marks; tie-break by mean (shouldn't differ, but safety)
+      return b.total !== a.total ? b.total - a.total : b.mean - a.mean;
+    } else {
+      // Rank by mean; if tied on mean → higher total marks wins
+      return b.mean !== a.mean ? b.mean - a.mean : b.total - a.total;
+    }
+  });
 
   // ── Rank within class (overallRank = position in this class, not whole school) ──
   if (filterStreamId) {
@@ -10095,10 +10106,14 @@ function renderMeritList() {
     </div>`;
     const streamGenderAnalysis = buildGenderAnalysisMeritHTML(streamScored, examId);
     const streamVsClass = buildStreamVsClassHTML(examId, str?.classId||classId||null, streamId);
+    const rankByLabel = (document.getElementById('mlRankBy')?.value||'mean')==='mean'
+      ? '<span style="font-size:.68rem;font-weight:600;background:#eef4ff;color:var(--primary);border:1px solid #c7d7f0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-chart-line" style="font-size:.6rem"></i> Ranked by Mean</span>'
+      : '<span style="font-size:.68rem;font-weight:600;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-sigma" style="font-size:.6rem"></i> Ranked by Total Marks</span>';
     container.innerHTML = ptsLegendStream + `
       <h3 data-stream-id="${streamId}" style="margin-bottom:.5rem;font-family:var(--font);font-weight:700">
          ${cls ? cls.name + ' &rsaquo; ' : ''}${str?.name||streamId} &mdash; Stream Merit List
         <span style="font-size:.78rem;font-weight:400;color:var(--muted);margin-left:.5rem">${exam?.name||''}</span>
+        ${rankByLabel}
       </h3>
       ${buildMeritStatsBar(streamScored)}
       <div class="tbl-wrap">
@@ -10176,12 +10191,16 @@ function renderMeritList() {
       }).join('');
     }
 
+    const rankByLabelCls = (document.getElementById('mlRankBy')?.value||'mean')==='mean'
+      ? '<span style="font-size:.68rem;font-weight:600;background:#eef4ff;color:var(--primary);border:1px solid #c7d7f0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-chart-line" style="font-size:.6rem"></i> Ranked by Mean</span>'
+      : '<span style="font-size:.68rem;font-weight:600;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-sigma" style="font-size:.6rem"></i> Ranked by Total Marks</span>';
     const pageBreak = ci > 0 ? 'margin-top:2.5rem;padding-top:1.5rem;border-top:2px solid var(--border);' : '';
     return `
       <div style="${pageBreak}">
         <h3 data-class-id="${cls.id}" style="margin-bottom:.5rem;font-family:var(--font);font-weight:700;color:var(--primary)">
           <i class="fa-solid fa-trophy"></i> ${cls.name} &mdash; Class Merit List
           <span style="font-size:.78rem;font-weight:400;color:var(--muted);margin-left:.5rem">${exam?.name||''}</span>
+          ${rankByLabelCls}
         </h3>
         ${buildMeritStatsBar(classScored)}
         <div class="tbl-wrap">
