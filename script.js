@@ -5977,8 +5977,8 @@ function buildMeritData(examId, filterStreamId, filterClassId) {
   const examMarks = isConsolidated ? [] : marks.filter(m => m.examId === examId);
   const totalSubs = exam.subjectIds.length || 1;
 
-  // ── Read ranking preference from UI (fallback: 'mean') ────────────────
-  const rankBy = document.getElementById('mlRankBy')?.value || 'mean';
+  // ── Read ranking preference from UI (fallback: 'points') ─────────────
+  const rankBy = document.getElementById('mlRankBy')?.value || 'points';
 
   // Determine effective classId restriction
   const effectiveClassId = filterClassId || exam.classId || null;
@@ -6018,12 +6018,12 @@ function buildMeritData(examId, filterStreamId, filterClassId) {
     const g      = getMeanGrade(mean / maxAvg * 8);
     return { ...stu, total, mean, grade:g, points:pts };
   }).filter(Boolean).sort((a, b) => {
-    if (rankBy === 'total') {
-      // Rank by total marks; tie-break by mean (shouldn't differ, but safety)
+    if (rankBy === 'marks') {
+      // Rank by total raw marks; tie-break by mean
       return b.total !== a.total ? b.total - a.total : b.mean - a.mean;
     } else {
-      // Rank by mean; if tied on mean → higher total marks wins
-      return b.mean !== a.mean ? b.mean - a.mean : b.total - a.total;
+      // Rank by grade points; tie-break by total raw marks
+      return b.points !== a.points ? b.points - a.points : b.total - a.total;
     }
   });
 
@@ -6178,20 +6178,30 @@ function buildStreamVsClassHTML(examId, classId, activeStreamId) {
   const allScored = buildMeritData(examId, null, classId);
   if (!allScored.length) return '';
 
-  const classMean = allScored.reduce((a,s) => a + s.mean, 0) / allScored.length;
-  const classGrd  = getMeanGrade(classMean / 100 * 8);
+  const rankBy    = document.getElementById('mlRankBy')?.value || 'points';
+  const usePoints = rankBy === 'points';
 
-  // Per-stream overall mean
+  // Class mean — points or marks based on mode
+  const classMean = usePoints
+    ? allScored.reduce((a,s) => a + s.points, 0) / allScored.length
+    : allScored.reduce((a,s) => a + s.mean, 0)   / allScored.length;
+  const classGrd  = usePoints
+    ? getPointsGrade(classMean)
+    : getMeanGrade(classMean / 100 * 8);
+
+  // Per-stream overall mean (points or marks)
   const streamPerf = clsStreams.map(str => {
     const grp = allScored.filter(s => s.streamId === str.id);
     if (!grp.length) return null;
-    const mn = grp.reduce((a,s) => a + s.mean, 0) / grp.length;
+    const mn = usePoints
+      ? grp.reduce((a,s) => a + s.points, 0) / grp.length
+      : grp.reduce((a,s) => a + s.mean, 0)   / grp.length;
     return { str, mn, count: grp.length };
   }).filter(Boolean);
 
   if (streamPerf.length < 2) return '';
 
-  // Helper: subject mean for a set of student ids
+  // Helper: subject mean (marks) for a set of student ids
   function subjectMeanForStudents(sid, stuIds) {
     const vals = stuIds.map(stuId => {
       if (isConsolidated) {
@@ -6208,44 +6218,71 @@ function buildStreamVsClassHTML(examId, classId, activeStreamId) {
     return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
   }
 
+  // Helper: subject mean in POINTS for a set of student ids
+  function subjectPointsMeanForStudents(sid, stuIds) {
+    const sub = subjects.find(s => s.id === sid);
+    const vals = stuIds.map(stuId => {
+      let score;
+      if (isConsolidated) {
+        const ss = sourceExamObjs.map(src => {
+          const mk = marks.find(m => m.examId===src.id && m.studentId===stuId && m.subjectId===sid);
+          return mk ? mk.score : null;
+        }).filter(v => v !== null);
+        score = ss.length ? ss.reduce((a,b)=>a+b,0)/ss.length : null;
+      } else {
+        const mk = marks.find(m => m.examId===examId && m.studentId===stuId && m.subjectId===sid);
+        score = mk ? mk.score : null;
+      }
+      return score !== null ? getGrade(score, sub?.max||100).points : null;
+    }).filter(v => v !== null);
+    return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+  }
+
+  const subjectMeanFn = usePoints ? subjectPointsMeanForStudents : subjectMeanForStudents;
+
   const allStuIds = allScored.map(s => s.id);
 
   // Build per-subject rows
   const subjectRows = exam.subjectIds.map(sid => {
     const sub = subjects.find(s => s.id === sid); if (!sub) return '';
-    const classSubMean = subjectMeanForStudents(sid, allStuIds);
+    const classSubMean = subjectMeanFn(sid, allStuIds);
     if (classSubMean === null) return '';
-    const classSubGrd = getGrade(classSubMean, sub.max||100);
+    // Grade badge: if points mode, derive grade from rounded points; else from marks
+    const classSubGrd = usePoints
+      ? (getActiveGradingSystem().bands.find(b=>b.points===Math.round(classSubMean)) || getActiveGradingSystem().bands.slice(-1)[0])
+      : getGrade(classSubMean, sub.max||100);
 
     const streamCells = streamPerf.map(sp => {
       const stuIds = allScored.filter(s => s.streamId === sp.str.id).map(s => s.id);
-      const mn = subjectMeanForStudents(sid, stuIds);
+      const mn = subjectMeanFn(sid, stuIds);
       if (mn === null) return '<td colspan="2" style="text-align:center;color:var(--muted)">—</td>';
       const diff = mn - classSubMean;
       const sign = diff >= 0 ? '+' : '';
-      const clr  = diff > 1 ? '#16a34a' : diff < -1 ? '#dc2626' : '#6b7280';
-      const sg   = getGrade(mn, sub.max||100);
+      const clr  = diff > (usePoints?0.3:1) ? '#16a34a' : diff < -(usePoints?0.3:1) ? '#dc2626' : '#6b7280';
+      const sg   = usePoints
+        ? (getActiveGradingSystem().bands.find(b=>b.points===Math.round(mn)) || getActiveGradingSystem().bands.slice(-1)[0])
+        : getGrade(mn, sub.max||100);
       const isActive = sp.str.id === activeStreamId;
-      return `<td style="text-align:center;font-weight:${isActive?'800':'600'};background:${isActive?'#fafaf0':''}">${mn.toFixed(1)} <span class="badge ${sg.cls}" style="font-size:.58rem">${sg.grade}</span></td>`
-           + `<td style="text-align:center;font-size:.73rem;font-weight:700;color:${clr}">${sign}${diff.toFixed(1)}</td>`;
+      return `<td style="text-align:center;font-weight:${isActive?'800':'600'};background:${isActive?'#fafaf0':''}">${mn.toFixed(usePoints?1:1)} <span class="badge ${sg.cls}" style="font-size:.58rem">${sg.grade}</span></td>`
+           + `<td style="text-align:center;font-size:.73rem;font-weight:700;color:${clr}">${sign}${diff.toFixed(usePoints?2:1)}</td>`;
     }).join('');
 
     return `<tr>
       <td><strong>${sub.name}</strong> <span class="badge b-blue" style="font-size:.58rem">${sub.code}</span></td>
-      <td style="text-align:center;font-weight:700;background:#eef4ff;color:var(--primary)">${classSubMean.toFixed(1)} <span class="badge ${classSubGrd.cls}" style="font-size:.58rem">${classSubGrd.grade}</span></td>
+      <td style="text-align:center;font-weight:700;background:#eef4ff;color:var(--primary)">${classSubMean.toFixed(usePoints?1:1)} <span class="badge ${classSubGrd.cls}" style="font-size:.58rem">${classSubGrd.grade}</span></td>
       ${streamCells}
     </tr>`;
   }).join('');
 
   // Overall mean summary row
   const overallRow = `<tr style="background:#eef4ff;font-weight:700">
-    <td><i class="fa-solid fa-sigma"></i> <strong>Overall Mean</strong></td>
+    <td><i class="fa-solid fa-sigma"></i> <strong>${usePoints?'Overall Mean Pts':'Overall Mean'}</strong></td>
     <td style="text-align:center;background:#dbeafe;color:var(--primary);font-weight:800">${classMean.toFixed(2)} <span class="badge ${classGrd.cls}" style="font-size:.6rem">${classGrd.grade}</span></td>
     ${streamPerf.map(sp => {
       const diff = sp.mn - classMean;
       const sign = diff >= 0 ? '+' : '';
       const clr  = diff > 0.5 ? '#16a34a' : diff < -0.5 ? '#dc2626' : '#6b7280';
-      const sg   = getMeanGrade(sp.mn / 100 * 8);
+      const sg   = usePoints ? getPointsGrade(sp.mn) : getMeanGrade(sp.mn / 100 * 8);
       const isActive = sp.str.id === activeStreamId;
       return `<td style="text-align:center;font-weight:800;background:${isActive?'#fafaf0':''}">${sp.mn.toFixed(2)} <span class="badge ${sg.cls}" style="font-size:.6rem">${sg.grade}</span></td>`
            + `<td style="text-align:center;font-size:.76rem;font-weight:800;color:${clr}">${sign}${diff.toFixed(2)}</td>`;
@@ -6324,14 +6361,28 @@ function buildStreamVsClassHTML(examId, classId, activeStreamId) {
 
 function buildMeritStatsBar(scored) {
   if (!scored || !scored.length) return '';
-  const total    = scored.length;
-  const boys     = scored.filter(s => s.gender === 'M').length;
-  const girls    = scored.filter(s => s.gender === 'F').length;
-  const other    = total - boys - girls;
-  const meanVal  = scored.reduce((a, s) => a + (s.mean || 0), 0) / total;
-  const meanGrd  = typeof getMeanGrade === 'function' ? getMeanGrade(meanVal / 100 * 8) : null;
-  const boysM    = boys  ? (scored.filter(s=>s.gender==='M').reduce((a,s)=>a+s.mean,0)/boys).toFixed(1)  : null;
-  const girlsM   = girls ? (scored.filter(s=>s.gender==='F').reduce((a,s)=>a+s.mean,0)/girls).toFixed(1) : null;
+  const rankBy  = document.getElementById('mlRankBy')?.value || 'points';
+  const total   = scored.length;
+  const boysArr = scored.filter(s => s.gender === 'M');
+  const girlsArr= scored.filter(s => s.gender === 'F');
+  const boys    = boysArr.length;
+  const girls   = girlsArr.length;
+  const other   = total - boys - girls;
+
+  let meanVal, meanGrd, boysM, girlsM, meanLabel;
+  if (rankBy === 'points') {
+    meanVal   = scored.reduce((a,s) => a + s.points, 0) / total;
+    meanGrd   = getPointsGrade(meanVal);
+    boysM     = boys  ? (boysArr.reduce((a,s)=>a+s.points,0)/boys).toFixed(1)   : null;
+    girlsM    = girls ? (girlsArr.reduce((a,s)=>a+s.points,0)/girls).toFixed(1) : null;
+    meanLabel = 'Mean Pts';
+  } else {
+    meanVal   = scored.reduce((a,s) => a + (s.mean||0), 0) / total;
+    meanGrd   = typeof getMeanGrade === 'function' ? getMeanGrade(meanVal / 100 * 8) : null;
+    boysM     = boys  ? (boysArr.reduce((a,s)=>a+s.mean,0)/boys).toFixed(1)   : null;
+    girlsM    = girls ? (girlsArr.reduce((a,s)=>a+s.mean,0)/girls).toFixed(1) : null;
+    meanLabel = 'Mean';
+  }
   return `
     <div style="display:flex;gap:.55rem;flex-wrap:wrap;align-items:center;margin-bottom:.75rem">
       <div style="display:flex;align-items:center;gap:.35rem;background:#f0f9ff;border:1px solid #bae6fd;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#0369a1">
@@ -6340,16 +6391,16 @@ function buildMeritStatsBar(scored) {
       </div>
       <div style="display:flex;align-items:center;gap:.35rem;background:#faf5ff;border:1.5px solid #c084fc;border-radius:7px;padding:.28rem .85rem;font-size:.8rem;font-weight:700;color:#7c3aed">
         <i class="fa-solid fa-chart-line" style="font-size:.78rem"></i>
-        <span>Mean: ${meanVal.toFixed(2)}</span>
+        <span>${meanLabel}: ${meanVal.toFixed(2)}</span>
         ${meanGrd ? `<span class="badge ${meanGrd.cls}" style="font-size:.65rem;margin-left:.2rem">${meanGrd.grade}</span>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:.35rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#1d4ed8">
         <i class="fa-solid fa-mars" style="font-size:.78rem"></i>
-        <span>Boys: ${boys}${boysM ? ` &bull; Mean: ${boysM}` : ''}</span>
+        <span>Boys: ${boys}${boysM ? ` &bull; ${meanLabel}: ${boysM}` : ''}</span>
       </div>
       <div style="display:flex;align-items:center;gap:.35rem;background:#fdf2f8;border:1px solid #f9a8d4;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#be185d">
         <i class="fa-solid fa-venus" style="font-size:.78rem"></i>
-        <span>Girls: ${girls}${girlsM ? ` &bull; Mean: ${girlsM}` : ''}</span>
+        <span>Girls: ${girls}${girlsM ? ` &bull; ${meanLabel}: ${girlsM}` : ''}</span>
       </div>
       ${other > 0 ? `<div style="display:flex;align-items:center;gap:.35rem;background:#f9fafb;border:1px solid #e5e7eb;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#6b7280"><i class="fa-solid fa-circle-question" style="font-size:.78rem"></i><span>Other: ${other}</span></div>` : ''}
     </div>`;
@@ -6912,6 +6963,8 @@ function exportMeritPDF() {
   const gs             = getActiveGradingSystem();
   const gradeKeys      = gs.bands.map(b=>b.grade);
   const sch            = settings;
+  const rankBy         = document.getElementById('mlRankBy')?.value || 'points';
+  const usePoints      = rankBy === 'points';
 
   // ── helpers ──────────────────────────────────────────────────────────────
   const getScore = (stuId, subId) => {
@@ -6933,17 +6986,27 @@ function exportMeritPDF() {
     const tot   = arr.length;
     const boys  = arr.filter(s=>s.gender==='M');
     const girls = arr.filter(s=>s.gender==='F');
-    const mn    = arr.reduce((a,s)=>a+s.mean,0)/tot;
-    const mMn   = boys.length  ? boys.reduce((a,s)=>a+s.mean,0)/boys.length   : null;
-    const fMn   = girls.length ? girls.reduce((a,s)=>a+s.mean,0)/girls.length : null;
-    const mGrd  = getMeanGrade(mn/100*8);
+    let mn, mMn, fMn, mGrd, meanLabel;
+    if (usePoints) {
+      mn    = arr.reduce((a,s)=>a+s.points,0)/tot;
+      mMn   = boys.length  ? boys.reduce((a,s)=>a+s.points,0)/boys.length   : null;
+      fMn   = girls.length ? girls.reduce((a,s)=>a+s.points,0)/girls.length : null;
+      mGrd  = getPointsGrade(mn);
+      meanLabel = 'Mean Pts';
+    } else {
+      mn    = arr.reduce((a,s)=>a+s.mean,0)/tot;
+      mMn   = boys.length  ? boys.reduce((a,s)=>a+s.mean,0)/boys.length   : null;
+      fMn   = girls.length ? girls.reduce((a,s)=>a+s.mean,0)/girls.length : null;
+      mGrd  = getMeanGrade(mn/100*8);
+      meanLabel = 'Mean';
+    }
     const pill  = (bg,border,col,txt) =>
       `<span style="display:inline-flex;align-items:center;gap:3px;background:${bg};border:1.5px solid ${border};border-radius:6px;padding:4px 10px;font-size:9px;font-weight:700;color:${col};white-space:nowrap">${txt}</span>`;
     return `<div style="display:flex;gap:5px;flex-wrap:wrap;margin:6px 0 10px">
       ${pill('#e0f2fe','#7dd3fc','#0369a1','&#128101; Total Students: '+tot)}
-      ${pill('#faf5ff','#c084fc','#7c3aed','&#x1f4c8; Mean: '+mn.toFixed(2)+' '+gradeB(mGrd))}
-      ${pill('#dbeafe','#93c5fd','#1d4ed8','&#9794; Boys: '+boys.length+(mMn?' &bull; Mean: '+mMn.toFixed(1):''))}
-      ${pill('#fce7f3','#f9a8d4','#be185d','&#9792; Girls: '+girls.length+(fMn?' &bull; Mean: '+fMn.toFixed(1):''))}
+      ${pill('#faf5ff','#c084fc','#7c3aed','&#x1f4c8; '+meanLabel+': '+mn.toFixed(2)+' '+gradeB(mGrd))}
+      ${pill('#dbeafe','#93c5fd','#1d4ed8','&#9794; Boys: '+boys.length+(mMn?' &bull; '+meanLabel+': '+mMn.toFixed(1):''))}
+      ${pill('#fce7f3','#f9a8d4','#be185d','&#9792; Girls: '+girls.length+(fMn?' &bull; '+meanLabel+': '+fMn.toFixed(1):''))}
     </div>`;
   };
 
@@ -7161,16 +7224,24 @@ function exportMeritPDF() {
 
   // ── Subject analysis table ────────────────────────────────────────────
   const subjectAnalysis = (arr) => {
+    const getSubPts = (stuId, subId) => {
+      const sc = getScore(stuId, subId);
+      if (sc === null) return null;
+      const sub2 = subjects.find(s=>s.id===subId);
+      return getGrade(sc, sub2?.max||100).points;
+    };
     const rows = examSubs.map(sub=>{
-      const vals=arr.map(s=>getScore(s.id,sub.id)).filter(v=>v!==null); if(!vals.length) return '';
-      const mn=vals.reduce((a,b)=>a+b,0)/vals.length;
+      const rawVals = arr.map(s=>getScore(s.id,sub.id)).filter(v=>v!==null); if(!rawVals.length) return '';
+      const ptsVals = arr.map(s=>getSubPts(s.id,sub.id)).filter(v=>v!==null);
+      const vals = usePoints ? ptsVals : rawVals;
+      const mn = vals.reduce((a,b)=>a+b,0)/vals.length;
       const dist={}; gradeKeys.forEach(g=>dist[g]=0);
-      vals.forEach(v=>{const g=getGrade(v,sub.max||100);if(dist[g.grade]!==undefined)dist[g.grade]++;});
+      vals.forEach(v=>{const g=usePoints?(gs.bands.find(b=>b.points===Math.round(v))||gs.bands[gs.bands.length-1]):getGrade(v,sub.max||100);if(dist[g.grade]!==undefined)dist[g.grade]++;});
       const bv=arr.filter(s=>s.gender==='M').map(s=>getScore(s.id,sub.id)).filter(v=>v!==null);
       const gv=arr.filter(s=>s.gender==='F').map(s=>getScore(s.id,sub.id)).filter(v=>v!==null);
       const bm=bv.length?(bv.reduce((a,b)=>a+b,0)/bv.length).toFixed(1):'—';
       const fm=gv.length?(gv.reduce((a,b)=>a+b,0)/gv.length).toFixed(1):'—';
-      const grd=getGrade(mn,sub.max||100);
+      const grd = usePoints ? (gs.bands.find(b=>b.points===Math.round(mn))||gs.bands[gs.bands.length-1]) : getGrade(mn,sub.max||100);
       return `<tr><td style="padding:3px 5px;border:1px solid #e2e8f0;font-weight:600;font-size:8px">${sub.name} <span style="color:#64748b;font-size:7px">${sub.code}</span></td>
         <td style="text-align:center;padding:3px 4px;border:1px solid #e2e8f0;font-size:8px">${vals.length}</td>
         <td style="text-align:center;padding:3px 4px;border:1px solid #e2e8f0;font-weight:700;color:#7c3aed;font-size:8px">${mn.toFixed(1)}</td>
@@ -7178,8 +7249,8 @@ function exportMeritPDF() {
         <td style="text-align:center;padding:3px 4px;border:1px solid #e2e8f0;color:#dc2626;font-weight:700;font-size:8px">${Math.min(...vals)}</td>
         ${gradeKeys.map(g=>`<td style="text-align:center;padding:3px 4px;border:1px solid #e2e8f0;font-size:8px">${dist[g]||''}</td>`).join('')}
         <td style="text-align:center;padding:3px 4px;border:1px solid #e2e8f0;font-size:8px">${gradeB(grd)}</td>
-        <td style="text-align:center;padding:3px 4px;border:1px solid #e2e8f0;color:#1d4ed8;font-weight:700;font-size:8px">${bm}</td>
-        <td style="text-align:center;padding:3px 4px;border:1px solid #e2e8f0;color:#be185d;font-weight:700;font-size:8px">${fm}</td>
+        <td style="text-align:center;padding:3px 4px;border:1px solid #e2e8f0;color:#1d4ed8;font-weight:700;font-size:8px">${bm2}</td>
+        <td style="text-align:center;padding:3px 4px;border:1px solid #e2e8f0;color:#be185d;font-weight:700;font-size:8px">${fm2}</td>
       </tr>`;
     }).join('');
     const gradeHdrs=gradeKeys.map(g=>`<th style="text-align:center;background:#16a34a;color:#fff;padding:3px 4px;border:1px solid #16a34a;font-size:7.5px">${g}</th>`).join('');
@@ -10106,8 +10177,8 @@ function renderMeritList() {
     </div>`;
     const streamGenderAnalysis = buildGenderAnalysisMeritHTML(streamScored, examId);
     const streamVsClass = buildStreamVsClassHTML(examId, str?.classId||classId||null, streamId);
-    const rankByLabel = (document.getElementById('mlRankBy')?.value||'mean')==='mean'
-      ? '<span style="font-size:.68rem;font-weight:600;background:#eef4ff;color:var(--primary);border:1px solid #c7d7f0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-chart-line" style="font-size:.6rem"></i> Ranked by Mean</span>'
+    const rankByLabel = (document.getElementById('mlRankBy')?.value||'points')==='points'
+      ? '<span style="font-size:.68rem;font-weight:600;background:#eef4ff;color:var(--primary);border:1px solid #c7d7f0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-chart-line" style="font-size:.6rem"></i> Ranked by Mean Points</span>'
       : '<span style="font-size:.68rem;font-weight:600;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-sigma" style="font-size:.6rem"></i> Ranked by Total Marks</span>';
     container.innerHTML = ptsLegendStream + `
       <h3 data-stream-id="${streamId}" style="margin-bottom:.5rem;font-family:var(--font);font-weight:700">
@@ -10191,7 +10262,7 @@ function renderMeritList() {
       }).join('');
     }
 
-    const rankByLabelCls = (document.getElementById('mlRankBy')?.value||'mean')==='mean'
+    const rankByLabelCls = (document.getElementById('mlRankBy')?.value||'points')==='points'
       ? '<span style="font-size:.68rem;font-weight:600;background:#eef4ff;color:var(--primary);border:1px solid #c7d7f0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-chart-line" style="font-size:.6rem"></i> Ranked by Mean</span>'
       : '<span style="font-size:.68rem;font-weight:600;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-sigma" style="font-size:.6rem"></i> Ranked by Total Marks</span>';
     const pageBreak = ci > 0 ? 'margin-top:2.5rem;padding-top:1.5rem;border-top:2px solid var(--border);' : '';
