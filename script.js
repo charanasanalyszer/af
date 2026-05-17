@@ -7824,8 +7824,8 @@ function exportMeritPDF() {
         <td style="text-align:center;padding:3px 4px;border:1px solid #e2e8f0;color:#dc2626;font-weight:700;font-size:8px">${Math.min(...vals)}</td>
         ${gradeKeys.map(g=>`<td style="text-align:center;padding:3px 4px;border:1px solid #e2e8f0;font-size:8px">${dist[g]||''}</td>`).join('')}
         <td style="text-align:center;padding:3px 4px;border:1px solid #e2e8f0;font-size:8px">${gradeB(grd)}</td>
-        <td style="text-align:center;padding:3px 4px;border:1px solid #e2e8f0;color:#1d4ed8;font-weight:700;font-size:8px">${bm2}</td>
-        <td style="text-align:center;padding:3px 4px;border:1px solid #e2e8f0;color:#be185d;font-weight:700;font-size:8px">${fm2}</td>
+        <td style="text-align:center;padding:3px 4px;border:1px solid #e2e8f0;color:#1d4ed8;font-weight:700;font-size:8px">${bm}</td>
+        <td style="text-align:center;padding:3px 4px;border:1px solid #e2e8f0;color:#be185d;font-weight:700;font-size:8px">${fm}</td>
       </tr>`;
     }).join('');
     const gradeHdrs=gradeKeys.map(g=>`<th style="text-align:center;background:#16a34a;color:#fff;padding:3px 4px;border:1px solid #16a34a;font-size:7.5px">${g}</th>`).join('');
@@ -7930,6 +7930,7 @@ function exportMeritPDF() {
         ${statsBar(clsSc)}
         ${meritTable(clsSc, clsStrs.length>0)}
         ${genderSection(clsSc)}
+        ${subjectAnalysis(clsSc)}
         ${strBlocks}
       </div>`;
     }).join('');
