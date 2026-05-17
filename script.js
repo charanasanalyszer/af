@@ -6112,21 +6112,25 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
       if (distCounts[g.grade] !== undefined) distCounts[g.grade]++;
     });
 
-    const mMn = maleVals.length   ? (maleVals.reduce((a,b)=>a+b,0)/maleVals.length).toFixed(1)   : '—';
-    const fMn = femaleVals.length ? (femaleVals.reduce((a,b)=>a+b,0)/femaleVals.length).toFixed(1) : '—';
+    const mMn = maleVals.length   ? ((maleVals.reduce((a,b)=>a+b,0)/maleVals.length / (sub.max||100) * 100).toFixed(1) + '%')   : '—';
+    const fMn = femaleVals.length ? ((femaleVals.reduce((a,b)=>a+b,0)/femaleVals.length / (sub.max||100) * 100).toFixed(1) + '%') : '—';
 
     const distCells = gradeKeys.map(g =>
       `<td style="text-align:center;font-size:.78rem">${distCounts[g] || ''}</td>`
     ).join('');
 
     const mainGrade = getGrade(mn, sub.max);
+    const subMax = sub.max||100;
+    const mnPct = ((mn/subMax)*100).toFixed(1);
+    const mxPct = ((mx/subMax)*100).toFixed(1);
+    const loPct = ((lo/subMax)*100).toFixed(1);
 
     return `<tr>
       <td><strong>${sub.name}</strong></td>
       <td>${vals.length}</td>
-      <td><strong style="color:var(--primary)">${mn.toFixed(1)}</strong></td>
-      <td><span class="badge b-green">${mx}</span></td>
-      <td><span class="badge b-red">${lo}</span></td>
+      <td><strong style="color:var(--primary)">${mnPct}%</strong></td>
+      <td><span class="badge b-green">${mxPct}%</span></td>
+      <td><span class="badge b-red">${loPct}%</span></td>
       ${distCells}
       <td style="text-align:center"><span class="badge ${mainGrade.cls}">${mainGrade.grade}</span></td>
       <td style="text-align:center;color:#3b82f6;font-weight:600">${mMn}</td>
@@ -6145,13 +6149,13 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
           <tr>
             <th rowspan="2">Subject</th>
             <th rowspan="2">Entries</th>
-            <th rowspan="2">Mean</th>
-            <th rowspan="2">High</th>
-            <th rowspan="2">Low</th>
+            <th rowspan="2">Mean %</th>
+            <th rowspan="2">High %</th>
+            <th rowspan="2">Low %</th>
             <th colspan="${gradeKeys.length}" style="text-align:center;background:var(--primary-lt);color:var(--primary)">Grade Distribution</th>
             <th rowspan="2">Overall Grade</th>
-            <th rowspan="2" style="text-align:center;color:#3b82f6">♂ Boys Mean</th>
-            <th rowspan="2" style="text-align:center;color:#ec4899">♀ Girls Mean</th>
+            <th rowspan="2" style="text-align:center;color:#3b82f6">♂ Boys Mean %</th>
+            <th rowspan="2" style="text-align:center;color:#ec4899">♀ Girls Mean %</th>
           </tr>
           <tr>${gradeHeaders}</tr>
         </thead>
@@ -7513,15 +7517,21 @@ function renderSummaryAnalytics() {
       return { sub, mn, mx, lo, grd, n:vals.length };
     }).filter(Boolean).sort((a,b)=>b.mn-a.mn);
 
-    const subRankHTML = subjectRankRows.map((r,i)=>`<tr>
+    const subRankHTML = subjectRankRows.map((r,i)=>{
+      const subMax = r.sub.max||100;
+      const mnPct = parseFloat(((r.mn/subMax)*100).toFixed(1));
+      const mxPct = parseFloat(((r.mx/subMax)*100).toFixed(1));
+      const loPct = parseFloat(((r.lo/subMax)*100).toFixed(1));
+      return `<tr>
       <td style="text-align:center;font-weight:700;color:var(--muted)">${i+1}</td>
       <td><strong>${r.sub.name}</strong> <span class="badge b-blue" style="font-size:.62rem">${r.sub.code}</span></td>
-      <td style="text-align:center"><strong style="color:var(--primary)">${r.mn}</strong></td>
-      <td style="text-align:center"><span class="badge b-green" style="font-size:.72rem">${r.mx}</span></td>
-      <td style="text-align:center"><span class="badge b-red" style="font-size:.72rem">${r.lo}</span></td>
+      <td style="text-align:center"><strong style="color:var(--primary)">${mnPct}%</strong></td>
+      <td style="text-align:center"><span class="badge b-green" style="font-size:.72rem">${mxPct}%</span></td>
+      <td style="text-align:center"><span class="badge b-red" style="font-size:.72rem">${loPct}%</span></td>
       <td style="text-align:center">${r.n}</td>
       <td style="text-align:center"><span class="badge ${r.grd.cls}">${r.grd.grade}</span></td>
-    </tr>`).join('');
+    </tr>`;
+    }).join('');
 
     // ── Subject Performance mini horizontal bar chart ──
     const subChartHTML = (() => {
@@ -7529,14 +7539,15 @@ function renderSummaryAnalytics() {
       const maxMn = Math.max(...subjectRankRows.map(r => r.mn), 1);
       const chartColors = ['#6366f1','#3b82f6','#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316'];
       const bars = subjectRankRows.map((r, i) => {
-        const barPct = Math.round((r.mn / maxMn) * 100);
+        const subMax = r.sub.max||100;
+        const mnPct = parseFloat(((r.mn/subMax)*100).toFixed(1));
+        const barPct = Math.round(mnPct);
         const col = chartColors[i % chartColors.length];
-        const maxPct = r.mx !== undefined ? Math.round((r.mx / (r.sub.max || 100)) * 100) : null;
         return `<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.32rem">
           <div style="width:90px;font-size:.68rem;font-weight:600;color:var(--fg);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${r.sub.name}">${r.sub.name}</div>
           <div style="flex:1;position:relative;background:#f3f4f6;border-radius:5px;height:16px;overflow:hidden">
             <div style="width:${barPct}%;height:100%;background:${col};border-radius:5px;opacity:.85;transition:width .5s"></div>
-            <span style="position:absolute;left:${barPct > 30 ? barPct - 2 : barPct + 1}%;top:50%;transform:translateY(-50%);font-size:.6rem;font-weight:700;color:${barPct > 30 ? '#fff' : '#374151'};white-space:nowrap">${r.mn}</span>
+            <span style="position:absolute;left:${barPct > 30 ? barPct - 2 : barPct + 1}%;top:50%;transform:translateY(-50%);font-size:.6rem;font-weight:700;color:${barPct > 30 ? '#fff' : '#374151'};white-space:nowrap">${mnPct}%</span>
           </div>
           <span class="badge ${r.grd.cls}" style="font-size:.6rem;min-width:26px;text-align:center">${r.grd.grade}</span>
         </div>`;
@@ -7685,7 +7696,7 @@ function renderSummaryAnalytics() {
       <div class="card sm-section">
         <h4 class="sm-section-title"><i class="fa-solid fa-chart-bar"></i> Subject Ranking by Mean</h4>
         <div class="tbl-wrap"><table>
-          <thead><tr><th>#</th><th>Subject</th><th>Mean</th><th>Highest</th><th>Lowest</th><th>Entries</th><th>Grade</th></tr></thead>
+          <thead><tr><th>#</th><th>Subject</th><th>Mean %</th><th>Highest %</th><th>Lowest %</th><th>Entries</th><th>Grade</th></tr></thead>
           <tbody>${subRankHTML||'<tr><td colspan="7" style="text-align:center;color:var(--muted)">No data</td></tr>'}</tbody>
         </table></div>
         ${subChartHTML}
@@ -15720,15 +15731,19 @@ function runAnalysis() {
       <h3><i class="fa-solid fa-clipboard-list"></i> Subject Breakdown${isConsolidated?' <span style="font-size:.78rem;font-weight:400;color:var(--muted)">&mdash; averages across ' + sourceExamObjs.map(e=>e.name).join(', ') + '</span>':''}</h3>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>Subject</th><th>Students</th><th>Mean</th><th>Highest</th><th>Lowest</th><th>Grade</th></tr></thead>
+          <thead><tr><th>Subject</th><th>Students</th><th>Mean %</th><th>Highest %</th><th>Lowest %</th><th>Grade</th></tr></thead>
           <tbody>${subjectStats.map(sm=>{
             const g=getGrade(sm.mn, sm.sub.max||100);
+            const subMax = sm.sub.max||100;
+            const mnPct = parseFloat(((sm.mn/subMax)*100).toFixed(1));
+            const mxPct = parseFloat(((sm.mx/subMax)*100).toFixed(1));
+            const loPct = parseFloat(((sm.lo/subMax)*100).toFixed(1));
             return `<tr>
               <td><strong>${sm.sub.name}</strong> <span class="badge b-blue" style="font-size:.65rem">${sm.sub.code}</span></td>
               <td>${sm.count}</td>
-              <td style="font-weight:700;color:var(--primary)">${sm.mn.toFixed(1)}</td>
-              <td style="color:var(--success)">${sm.mx}</td>
-              <td style="color:var(--danger)">${sm.lo.toFixed ? sm.lo.toFixed(1) : sm.lo}</td>
+              <td style="font-weight:700;color:var(--primary)">${mnPct}%</td>
+              <td style="color:var(--success)">${mxPct}%</td>
+              <td style="color:var(--danger)">${loPct}%</td>
               <td>${gradeTag(g)}</td>
             </tr>`;
           }).join('')}</tbody>
@@ -15767,13 +15782,13 @@ function runAnalysis() {
           data:{
             labels: subjectStats.map(s=>s.sub.code),
             datasets:[{
-              label:'Mean Score',
-              data: subjectStats.map(s=>parseFloat(s.mn.toFixed(1))),
+              label:'Mean %',
+              data: subjectStats.map(s=>parseFloat(((s.mn/(s.sub.max||100))*100).toFixed(1))),
               backgroundColor: subjectStats.map((s,i)=>`hsla(${i*37+200},70%,55%,0.8)`),
               borderRadius:6
             }]
           },
-          options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true, max: subjectStats[0]?.sub?.max||100, title:{display:true,text:'Mean Score'}} } }
+          options:{ responsive:true, plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y}%`}}}, scales:{ y:{beginAtZero:true, max:100, title:{display:true,text:'Mean %'}, ticks:{callback:v=>v+'%'}} } }
         });
       }
     } catch(e) {}
