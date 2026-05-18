@@ -7595,8 +7595,11 @@ function printMeritList() {
     });
 
     if (!rows.length) return;
-    let y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 3 : 40;
-    if (y > PH - 30) { doc.addPage(); addLetterhead('MERIT LIST', examInfo); y = 19; }
+
+    // Always add a fresh page so the table is never buried or hidden
+    doc.addPage();
+    addLetterhead('MERIT LIST', examInfo);
+    let y = 19;
     y = addSectionTitle(`${titlePrefix} — Grade Distribution (${rankBy === 'points' ? 'Mean Points' : 'Avg Mark'})`, y);
 
     // Grade colour map
@@ -7611,13 +7614,13 @@ function printMeritList() {
       head: [['Grade', 'Label', 'No. of Learners', '% of Total']],
       body: rows,
       theme: 'striped',
-      styles: { fontSize: 7, cellPadding: 1.5, textColor: dark },
-      headStyles: { fillColor: [26,111,181], textColor: white, fontStyle: 'bold', fontSize: 7, halign: 'center' },
+      styles: { fontSize: 9, cellPadding: 2.5, textColor: dark },
+      headStyles: { fillColor: [26,111,181], textColor: white, fontStyle: 'bold', fontSize: 9, halign: 'center' },
       columnStyles: {
-        0: { cellWidth: 18, halign: 'center', fontStyle: 'bold' },
-        1: { cellWidth: 48 },
-        2: { cellWidth: 32, halign: 'center', fontStyle: 'bold' },
-        3: { cellWidth: 24, halign: 'center' },
+        0: { cellWidth: 28, halign: 'center', fontStyle: 'bold' },
+        1: { cellWidth: 70 },
+        2: { cellWidth: 50, halign: 'center', fontStyle: 'bold' },
+        3: { cellWidth: 36, halign: 'center' },
       },
       margin: { left: M, right: M },
       didParseCell(data) {
