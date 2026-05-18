@@ -7661,17 +7661,19 @@ function exportMeritPDF() {
   const statsBar = (arr) => {
     if (!arr.length) return '';
     const tot   = arr.length;
-    const boys  = arr.filter(s=>s.gender==='M');
-    const girls = arr.filter(s=>s.gender==='F');
+    const cArr  = arr.filter(s=>!s.incomplete); // complete students only for mean
+    const boys  = cArr.filter(s=>s.gender==='M');
+    const girls = cArr.filter(s=>s.gender==='F');
+    const incCount = arr.filter(s=>s.incomplete).length;
     let mn, mMn, fMn, mGrd, meanLabel;
     if (usePoints) {
-      mn    = arr.reduce((a,s)=>a+s.points,0)/tot;
+      mn    = cArr.length ? cArr.reduce((a,s)=>a+s.points,0)/cArr.length : 0;
       mMn   = boys.length  ? boys.reduce((a,s)=>a+s.points,0)/boys.length   : null;
       fMn   = girls.length ? girls.reduce((a,s)=>a+s.points,0)/girls.length : null;
       mGrd  = getPointsGrade(mn);
       meanLabel = 'Mean Pts';
     } else {
-      mn    = arr.reduce((a,s)=>a+s.mean,0)/tot;
+      mn    = cArr.length ? cArr.reduce((a,s)=>a+s.mean,0)/cArr.length : 0;
       mMn   = boys.length  ? boys.reduce((a,s)=>a+s.mean,0)/boys.length   : null;
       fMn   = girls.length ? girls.reduce((a,s)=>a+s.mean,0)/girls.length : null;
       mGrd  = getMeanGrade(mn/100*8);
@@ -7684,6 +7686,7 @@ function exportMeritPDF() {
       ${pill('#faf5ff','#c084fc','#7c3aed','&#x1f4c8; '+meanLabel+': '+mn.toFixed(2)+' '+gradeB(mGrd))}
       ${pill('#dbeafe','#93c5fd','#1d4ed8','&#9794; Boys: '+boys.length+(mMn?' &bull; '+meanLabel+': '+mMn.toFixed(1):''))}
       ${pill('#fce7f3','#f9a8d4','#be185d','&#9792; Girls: '+girls.length+(fMn?' &bull; '+meanLabel+': '+fMn.toFixed(1):''))}
+      ${incCount > 0 ? pill('#fee2e2','#fca5a5','#dc2626','&#10007; Incomplete (X): '+incCount+' — excl. from mean') : ''}
     </div>`;
   };
 
@@ -7694,10 +7697,27 @@ function exportMeritPDF() {
       const str  = streams.find(x=>x.id===s.streamId);
       const subCells = examSubs.map(sub=>{
         const sc=getScore(s.id,sub.id); const g=sc!==null?getGrade(sc,sub.max||100):null;
+        // Show X for missing subjects on incomplete students
+        if (sc === null && s.incomplete) {
+          return `<td style="text-align:center;background:#fee2e2;padding:2px 4px;border:1px solid #d1dfe8"><strong style="color:#dc2626;font-size:10px">X</strong></td>`;
+        }
         const bg=!g?'':g.cls==='b-green'?'#dcfce7':g.cls==='b-teal'?'#ccfbf1':g.cls==='b-red'?'#fee2e2':g.cls==='b-dkred'?'#fecaca':'';
         return `<td style="text-align:center;background:${bg};padding:2px 4px;border:1px solid #d1dfe8">`
           +(sc!==null?`<strong>${sc}</strong><br><span style="font-size:8px;color:#64748b">${g?.grade||''}</span>`:'—')+'</td>';
       }).join('');
+      if (s.incomplete) {
+        const xCell = `<td style="font-weight:800;text-align:center;color:#dc2626;padding:2px 4px;border:1px solid #d1dfe8">X</td>`;
+        const rowBg = i%2===0?'#fff8f8':'#fff0f0';
+        return `<tr style="background:${rowBg}">
+          <td style="text-align:center;background:#fee2e2;color:#dc2626;font-weight:800;padding:2px 4px;border:1px solid #d1dfe8">DQ</td>
+          <td style="font-family:monospace;font-size:8px;padding:2px 4px;border:1px solid #d1dfe8">${s.adm}</td>
+          <td style="font-weight:700;padding:2px 4px;border:1px solid #d1dfe8">${s.name}</td>
+          <td style="text-align:center;padding:2px 4px;border:1px solid #d1dfe8">${s.gender==='M'?'<span style="color:#1d4ed8;font-weight:700">M</span>':'<span style="color:#be185d;font-weight:700">F</span>'}</td>
+          ${showStream?`<td style="padding:2px 4px;border:1px solid #d1dfe8">${str?.name||'—'}</td><td style="text-align:center;padding:2px 4px;border:1px solid #d1dfe8">—</td>`:''}
+          ${subCells}
+          ${xCell}${xCell}${xCell}${xCell}${xCell}
+        </tr>`;
+      }
       const rnkBg=s.overallRank===1?'#fef3c7':s.overallRank<=3?'#dbeafe':'';
       const rnkC=s.overallRank===1?'#b45309':s.overallRank<=3?'#1d4ed8':'#1e293b';
       const ptG=getPointsGrade(s.points);
