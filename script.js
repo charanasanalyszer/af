@@ -7492,6 +7492,85 @@ function printMeritList() {
     if (top1) doc.text(`Top: ${top1.name} (${rankBy==='points'?top1.points+'pts':top1.mean.toFixed(1)+'%'})`, PW-M-2, y+4, {align:'right'});
     y += 8;
 
+    // ── Inline Grade Distribution bars ───────────────────────────────────────
+    const complete = scored.filter(s => !s.incomplete);
+    if (complete.length) {
+      const bands = rankBy === 'points' ? POINTS_GRADE_BANDS : getActiveGradingSystem().bands;
+      const dist = bands.map(b => {
+        const count = complete.filter(s =>
+          rankBy === 'points'
+            ? getPointsGrade(s.points).grade === b.grade
+            : (s.grade && (s.grade.grade || s.grade) === b.grade)
+        ).length;
+        return { ...b, count };
+      }).filter(d => d.count > 0);
+
+      if (dist.length) {
+        const gradeColorMap = {
+          'EE1':[22,163,74], 'EE2':[13,148,136], 'ME1':[37,99,235],
+          'ME2':[14,165,233], 'AE1':[217,119,6], 'AE2':[234,88,12],
+          'BE1':[220,38,38], 'BE2':[153,27,27]
+        };
+        const maxCount  = Math.max(...dist.map(d => d.count));
+        const barH      = 3.8;
+        const barGap    = 1.3;
+        const labelW    = 40;
+        const countW    = 16;
+        const barAreaW  = PW - M * 2 - labelW - countW;
+        const totalH    = dist.length * (barH + barGap) + 7;
+
+        // Section header row
+        doc.setFillColor(240, 245, 255);
+        doc.rect(M, y, PW - M * 2, 5.5, 'F');
+        doc.setFontSize(6.5); doc.setFont(undefined, 'bold'); doc.setTextColor(...blue);
+        doc.text('\u25A0 Grade Distribution', M + 2, y + 3.8);
+        doc.setFontSize(5.8); doc.setFont(undefined, 'normal'); doc.setTextColor(...muted);
+        doc.text(
+          `${complete.length} learner${complete.length !== 1 ? 's' : ''} · by ${rankBy === 'points' ? 'mean points' : 'avg mark'}`,
+          PW - M - 2, y + 3.8, { align: 'right' }
+        );
+        y += 6.5;
+
+        dist.forEach(d => {
+          const color  = gradeColorMap[d.grade] || [107, 114, 128];
+          const barW   = maxCount ? (d.count / maxCount) * barAreaW : 0;
+          const pct    = ((d.count / complete.length) * 100).toFixed(0);
+
+          // Grade badge
+          doc.setFillColor(...color);
+          doc.roundedRect(M, y, 9.5, barH, 0.8, 0.8, 'F');
+          doc.setFontSize(5.5); doc.setFont(undefined, 'bold'); doc.setTextColor(255, 255, 255);
+          doc.text(d.grade, M + 4.75, y + barH * 0.68, { align: 'center' });
+
+          // Label
+          doc.setFontSize(5.5); doc.setFont(undefined, 'normal'); doc.setTextColor(...dark);
+          doc.text(d.label, M + 11, y + barH * 0.68);
+
+          // Bar track
+          doc.setFillColor(228, 232, 240);
+          doc.roundedRect(M + labelW, y, barAreaW, barH, 0.8, 0.8, 'F');
+
+          // Bar fill
+          if (barW > 1) {
+            doc.setFillColor(...color);
+            doc.roundedRect(M + labelW, y, barW, barH, 0.8, 0.8, 'F');
+          }
+
+          // Count
+          doc.setFontSize(6); doc.setFont(undefined, 'bold'); doc.setTextColor(...color);
+          doc.text(`${d.count}`, PW - M - countW + 1, y + barH * 0.68);
+          // Percentage
+          doc.setFont(undefined, 'normal'); doc.setTextColor(...muted);
+          doc.text(`(${pct}%)`, PW - M - countW + 7, y + barH * 0.68);
+
+          y += barH + barGap;
+        });
+
+        y += 3;
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const { head, body } = buildTableData(scored, showStream);
     doc.autoTable({ ...tableOpts(head, body, y, showStream) });
   }
@@ -8407,6 +8486,47 @@ function exportMeritPDF() {
     </div>`;
   };
 
+  // ── Grade Distribution panel ──────────────────────────────────────────
+  const gradeDistribution = (arr) => {
+    const complete = arr.filter(s => !s.incomplete);
+    if (!complete.length) return '';
+    const bands = usePoints ? POINTS_GRADE_BANDS : getActiveGradingSystem().bands;
+    const dist = bands.map(b => {
+      const count = complete.filter(s =>
+        usePoints
+          ? getPointsGrade(s.points).grade === b.grade
+          : (s.grade && (s.grade.grade || s.grade) === b.grade)
+      ).length;
+      return { ...b, count };
+    }).filter(d => d.count > 0);
+    if (!dist.length) return '';
+    const maxCount = Math.max(...dist.map(d => d.count));
+    const bandC = {'b-green':'#16a34a','b-teal':'#0d9488','b-blue':'#2563eb','b-lblue':'#0ea5e9','b-amber':'#d97706','b-orange':'#ea580c','b-red':'#dc2626','b-dkred':'#991b1b'};
+    const bandB = {'b-green':'#dcfce7','b-teal':'#ccfbf1','b-blue':'#dbeafe','b-lblue':'#e0f2fe','b-amber':'#fef3c7','b-orange':'#ffedd5','b-red':'#fee2e2','b-dkred':'#fecaca'};
+    const rows = dist.map(d => {
+      const color = bandC[d.cls] || '#6b7280';
+      const bg    = bandB[d.cls] || '#f1f5f9';
+      const pct   = ((d.count / complete.length) * 100).toFixed(0);
+      const barW  = maxCount ? Math.round((d.count / maxCount) * 200) : 0;
+      return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span style="background:${bg};color:${color};border:1px solid ${color}44;border-radius:4px;padding:1px 6px;font-size:8px;font-weight:700;min-width:32px;text-align:center">${d.grade}</span>
+        <span style="font-size:8px;color:#64748b;min-width:80px">${d.label}</span>
+        <div style="flex:1;background:#e5e7eb;border-radius:3px;height:10px;overflow:hidden">
+          <div style="width:${barW}px;max-width:100%;height:100%;background:${color};border-radius:3px"></div>
+        </div>
+        <span style="font-size:8px;font-weight:700;color:${color};min-width:18px;text-align:right">${d.count}</span>
+        <span style="font-size:7.5px;color:#94a3b8;min-width:32px">(${pct}%)</span>
+      </div>`;
+    }).join('');
+    return `<div style="margin:8px 0;padding:8px 12px;background:#f8faff;border:1.5px solid #dbeafe;border-radius:8px;page-break-inside:avoid">
+      <div style="font-size:9px;font-weight:700;color:#1a6fb5;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+        &#9646; Grade Distribution
+        <span style="font-size:8px;font-weight:400;color:#64748b">(${complete.length} learner${complete.length!==1?'s':''} · by ${usePoints?'mean points':'avg mark'})</span>
+      </div>
+      ${rows}
+    </div>`;
+  };
+
   // ── Section divider ───────────────────────────────────────────────────
   const sectionHdr = (title, color, icon) =>
     `<div style="border-left:4px solid ${color};padding:4px 10px;background:${color}11;border-radius:0 6px 6px 0;margin:10px 0 6px">
@@ -8430,6 +8550,7 @@ function exportMeritPDF() {
       ${sectionHdr(`${cls?cls.name+' &rsaquo; ':''}${str?.name||''} — Stream Merit List`, '#1a6fb5', '&#127942;')}
       ${ptsLegend()}
       ${statsBar(sc)}
+      ${gradeDistribution(sc)}
       ${meritTable(sc, false)}
       ${genderSection(sc)}
       ${streamVsClass(str?.classId||classFilter||null, filterStr)}
@@ -8458,6 +8579,7 @@ function exportMeritPDF() {
           return `<div style="margin-top:18px;padding-top:14px;border-top:2px dashed #cbd5e1">
             ${sectionHdr(`${str.name} Stream`, '#16a34a', '&#9654;')}
             ${statsBar(sc)}
+            ${gradeDistribution(sc)}
             ${meritTable(sc, false)}
             ${genderSection(sc)}
             ${streamVsClass(cid, str.id)}
@@ -8470,6 +8592,7 @@ function exportMeritPDF() {
         ${sectionHdr(`${cls?cls.name:'Class'} — Class Merit List`, '#7c3aed', '&#127942;')}
         ${ptsLegend()}
         ${statsBar(clsSc)}
+        ${gradeDistribution(clsSc)}
         ${meritTable(clsSc, clsStrs.length>0)}
         ${genderSection(clsSc)}
         ${subjectAnalysis(clsSc)}
