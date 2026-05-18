@@ -7280,6 +7280,65 @@ function printMeritList() {
     });
   }
 
+  // ── Grade Distribution table ──────────────────────────────────────────────
+  function renderGradeDistribution(scored, titlePrefix) {
+    const complete = scored.filter(s => !s.incomplete);
+    if (!complete.length) return;
+
+    const bands = rankBy === 'points' ? POINTS_GRADE_BANDS : getActiveGradingSystem().bands;
+    const rows = [];
+    bands.forEach(b => {
+      const count = complete.filter(s =>
+        rankBy === 'points'
+          ? getPointsGrade(s.points).grade === b.grade
+          : (s.grade && (s.grade.grade || s.grade) === b.grade)
+      ).length;
+      if (count > 0) {
+        const pct = ((count / complete.length) * 100).toFixed(1);
+        rows.push([b.grade, b.label, count, `${pct}%`]);
+      }
+    });
+
+    if (!rows.length) return;
+    let y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 3 : 40;
+    if (y > PH - 30) { doc.addPage(); addLetterhead('MERIT LIST', examInfo); y = 19; }
+    y = addSectionTitle(`${titlePrefix} — Grade Distribution (${rankBy === 'points' ? 'Mean Points' : 'Avg Mark'})`, y);
+
+    // Grade colour map
+    const gradeColorMap = {
+      'EE1':[22,163,74], 'EE2':[13,148,136], 'ME1':[37,99,235],
+      'ME2':[14,165,233], 'AE1':[217,119,6], 'AE2':[234,88,12],
+      'BE1':[220,38,38], 'BE2':[153,27,27]
+    };
+
+    doc.autoTable({
+      startY: y,
+      head: [['Grade', 'Label', 'No. of Learners', '% of Total']],
+      body: rows,
+      theme: 'striped',
+      styles: { fontSize: 7, cellPadding: 1.5, textColor: dark },
+      headStyles: { fillColor: [26,111,181], textColor: white, fontStyle: 'bold', fontSize: 7, halign: 'center' },
+      columnStyles: {
+        0: { cellWidth: 18, halign: 'center', fontStyle: 'bold' },
+        1: { cellWidth: 48 },
+        2: { cellWidth: 32, halign: 'center', fontStyle: 'bold' },
+        3: { cellWidth: 24, halign: 'center' },
+      },
+      margin: { left: M, right: M },
+      didParseCell(data) {
+        if (data.section === 'body' && data.column.index === 0) {
+          const grade = String(data.cell.raw);
+          const col = gradeColorMap[grade];
+          if (col) { data.cell.styles.textColor = col; }
+        }
+        if (data.section === 'body' && data.column.index === 2) {
+          const col = gradeColorMap[rows[data.row.index]?.[0]];
+          if (col) { data.cell.styles.textColor = col; }
+        }
+      },
+    });
+  }
+
   // ── Subject Ranking table ─────────────────────────────────────────────────
   // Ranks subjects by mean score for a given scored array
   function renderSubjectRanking(scored, titlePrefix) {
@@ -7489,6 +7548,7 @@ function printMeritList() {
     if (!scored.length) { showToast('No data to export','warning'); return; }
     const title = `${cls?.name||''} › ${str?.name||''} — Stream Merit List`;
     renderSection(scored, title, false, true);
+    renderGradeDistribution(scored, str?.name||'Stream');
     renderSubjectAnalysis(scored, str?.name||'Stream');
     renderGenderTable(scored, str?.name||'Stream');
     renderSubjectRanking(scored, str?.name||'Stream');
@@ -7518,6 +7578,7 @@ function printMeritList() {
 
       renderSection(classScored, `${cls.name} — Class Overall Merit List`, true, isFirst);
       isFirst = false;
+      renderGradeDistribution(classScored, cls.name);
       renderSubjectAnalysis(classScored, cls.name);
       renderGenderTable(classScored, cls.name);
       renderSubjectRanking(classScored, cls.name);
@@ -7530,6 +7591,7 @@ function printMeritList() {
           const strScored = buildMeritData(examId, str.id, cls.id);
           if (!strScored.length) return;
           renderSection(strScored, `${cls.name} › ${str.name} — Stream Merit List`, false, false);
+          renderGradeDistribution(strScored, `${cls.name} › ${str.name}`);
           renderSubjectAnalysis(strScored, `${cls.name} › ${str.name}`);
           renderGenderTable(strScored, `${cls.name} › ${str.name}`);
           renderSubjectRanking(strScored, `${cls.name} › ${str.name}`);
