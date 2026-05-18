@@ -4452,7 +4452,302 @@ function setUmUploadMode(mode, btn) {
   document.getElementById('umAllHint').style.display    = mode==='all'    ? '' : 'none';
 }
 
-// ═══════════════ DARK MODE ═══════════════
+// ═══════════════ UPLOAD MARKS: By-Learner view ═══════════════
+
+function setUmView(mode, btn) {
+  // Toggle button styles
+  ['umViewSubject','umViewStudent'].forEach(id => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    const active = (id === 'umViewSubject' && mode === 'subject') || (id === 'umViewStudent' && mode === 'student');
+    b.style.background = active ? 'var(--primary)' : 'transparent';
+    b.style.color      = active ? '#fff' : 'var(--primary)';
+  });
+  document.getElementById('umSubjectView').style.display = mode === 'subject' ? '' : 'none';
+  document.getElementById('umStudentView').style.display = mode === 'student' ? '' : 'none';
+  if (mode === 'student') {
+    // Reset and focus search
+    const inp = document.getElementById('umStuSearch');
+    if (inp) { inp.value = ''; inp.focus(); }
+    document.getElementById('umStuMarksPanel').style.display = 'none';
+    document.getElementById('umStuEmpty').style.display = '';
+    document.getElementById('umStuDropWrap').style.display = 'none';
+  }
+}
+
+let _umStuDropIdx = -1; // keyboard nav index
+
+function umFilterStudents() {
+  const examId = document.getElementById('umExam')?.value;
+  if (!examId) { showToast('Select an exam first', 'warning'); return; }
+  const q = (document.getElementById('umStuSearch')?.value || '').trim().toLowerCase();
+  const drop = document.getElementById('umStuDrop');
+  const wrap = document.getElementById('umStuDropWrap');
+  if (!drop || !wrap) return;
+
+  if (!q) { wrap.style.display = 'none'; drop.innerHTML = ''; _umStuDropIdx = -1; return; }
+
+  const exam = exams.find(e => e.id === examId);
+  const examSubIds = exam?.subjectIds || [];
+  // Only show students who are in streams relevant to the exam's subjects
+  let pool = [...students];
+  // Filter by selected class/stream if set
+  const classId  = document.getElementById('umClass')?.value;
+  const streamId = document.getElementById('umStream')?.value;
+  if (streamId)  pool = pool.filter(s => s.streamId === streamId);
+  else if (classId) pool = pool.filter(s => s.classId === classId);
+
+  const matched = pool.filter(s =>
+    s.name.toLowerCase().includes(q) || (s.adm||'').toLowerCase().includes(q)
+  ).slice(0, 12);
+
+  _umStuDropIdx = -1;
+  if (!matched.length) {
+    drop.innerHTML = `<div style="padding:.6rem 1rem;color:var(--muted);font-size:.82rem">No learners found</div>`;
+    wrap.style.display = '';
+    return;
+  }
+
+  drop.innerHTML = matched.map((s, i) => {
+    const str = streams.find(x => x.id === s.streamId);
+    return `<div class="um-stu-opt" data-i="${i}" data-id="${s.id}"
+      style="padding:.55rem 1rem;cursor:pointer;font-size:.85rem;display:flex;gap:.75rem;align-items:center;border-bottom:1px solid var(--border)"
+      onmousedown="umSelectStudent('${s.id}')"
+      onmouseover="umDropHover(this)">
+      <span style="font-weight:700;color:var(--primary);min-width:68px">${s.adm}</span>
+      <span style="flex:1;font-weight:600">${s.name}</span>
+      <span style="font-size:.75rem;color:var(--muted)">${str?.name||''}</span>
+    </div>`;
+  }).join('');
+  wrap.style.display = '';
+}
+
+function umDropHover(el) {
+  document.querySelectorAll('.um-stu-opt').forEach(x => x.style.background = '');
+  el.style.background = 'var(--primary-lt,#eff6ff)';
+  _umStuDropIdx = parseInt(el.dataset.i);
+}
+
+function umSearchKey(e) {
+  const opts = document.querySelectorAll('.um-stu-opt');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _umStuDropIdx = Math.min(_umStuDropIdx + 1, opts.length - 1);
+    opts.forEach((o, i) => o.style.background = i === _umStuDropIdx ? 'var(--primary-lt,#eff6ff)' : '');
+    opts[_umStuDropIdx]?.scrollIntoView({ block:'nearest' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _umStuDropIdx = Math.max(_umStuDropIdx - 1, 0);
+    opts.forEach((o, i) => o.style.background = i === _umStuDropIdx ? 'var(--primary-lt,#eff6ff)' : '');
+    opts[_umStuDropIdx]?.scrollIntoView({ block:'nearest' });
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const active = document.querySelector(`.um-stu-opt[data-i="${_umStuDropIdx}"]`);
+    if (active) umSelectStudent(active.dataset.id);
+  } else if (e.key === 'Escape') {
+    document.getElementById('umStuDropWrap').style.display = 'none';
+  }
+}
+
+function umSelectStudent(studentId) {
+  const stu = students.find(s => s.id === studentId);
+  if (!stu) return;
+  // Close dropdown and set search text
+  document.getElementById('umStuDropWrap').style.display = 'none';
+  document.getElementById('umStuSearch').value = `${stu.adm} — ${stu.name}`;
+  umRenderStudentMarks(studentId);
+}
+
+function umRenderStudentMarks(studentId) {
+  const examId = document.getElementById('umExam')?.value;
+  const panel  = document.getElementById('umStuMarksPanel');
+  const empty  = document.getElementById('umStuEmpty');
+  if (!examId || !panel || !empty) return;
+
+  const exam   = exams.find(e => e.id === examId);
+  const stu    = students.find(s => s.id === studentId);
+  if (!exam || !stu) return;
+
+  const isTeacher  = currentUser && currentUser.role === 'teacher';
+  const mySubIds   = isTeacher ? getMySubjectIds() : null;
+  const examSubIds = exam.subjectIds || [];
+  const examSubs   = examSubIds.map(sid => subjects.find(s => s.id === sid)).filter(Boolean);
+  // Teachers only see their own subjects
+  const visibleSubs = isTeacher ? examSubs.filter(s => mySubIds.includes(s.id)) : examSubs;
+
+  if (!visibleSubs.length) {
+    panel.style.display = 'none';
+    empty.style.display = '';
+    empty.textContent = 'No subjects found for this exam.';
+    return;
+  }
+
+  const str = streams.find(x => x.id === stu.streamId);
+  const cls = classes.find(c => c.id === stu.classId);
+
+  const gradeColorMap = { EE1:'#16a34a',EE2:'#0d9488',ME1:'#2563eb',ME2:'#0ea5e9',AE1:'#d97706',AE2:'#ea580c',BE1:'#dc2626',BE2:'#991b1b' };
+
+  const rows = visibleSubs.map((sub, idx) => {
+    const existing = marks.find(m => m.examId === examId && m.studentId === studentId && m.subjectId === sub.id);
+    const score    = existing !== undefined ? existing.score : '';
+    const g        = score !== '' ? getGrade(score, sub.max) : null;
+    const gColor   = g ? (gradeColorMap[g.grade] || '#6b7280') : 'var(--muted)';
+
+    return `<tr id="umstu_row_${sub.id}">
+      <td style="font-weight:700;color:var(--primary)">${sub.code}</td>
+      <td style="font-weight:600">${sub.name}</td>
+      <td style="text-align:center;color:var(--muted);font-size:.8rem">${sub.max}</td>
+      <td style="text-align:center">
+        <input type="number" class="marks-input${g ? ' '+(g.points>=6?'good':g.points>=4?'avg':'poor') : ''}"
+          id="umstu_mk_${sub.id}" min="0" max="${sub.max}" value="${score}"
+          data-subid="${sub.id}" data-stuid="${studentId}" data-examid="${examId}" data-max="${sub.max}" data-idx="${idx}" data-total="${visibleSubs.length}"
+          oninput="umStuOnInput(this)" onkeydown="umStuOnKey(event,this)"
+          style="width:72px;text-align:center"/>
+      </td>
+      <td id="umstu_gr_${sub.id}" style="text-align:center;font-weight:700;color:${gColor};font-size:.88rem">${g ? g.grade : '—'}</td>
+      ${!isTeacher ? `<td id="umstu_pt_${sub.id}" style="text-align:center;color:var(--muted);font-size:.85rem">${g ? g.points : '—'}</td>` : ''}
+      <td style="text-align:center">
+        <button class="btn btn-sm" id="umstu_sv_${sub.id}" onclick="umStuSaveMark('${studentId}','${sub.id}')"
+          style="background:var(--primary);color:#fff;border:none;padding:.22rem .55rem;font-size:.72rem;border-radius:5px;cursor:pointer">
+          <i class="fa-solid fa-floppy-disk"></i>
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div style="background:var(--primary-lt,#eff6ff);border:1.5px solid var(--primary);border-radius:10px;padding:.65rem 1rem;margin-bottom:.85rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+      <div>
+        <div style="font-weight:700;font-size:1rem;color:var(--primary)">${stu.name}</div>
+        <div style="font-size:.78rem;color:var(--muted)">${stu.adm} &bull; ${cls?.name||''} &bull; ${str?.name||''} &bull; ${stu.gender==='M'?'Boy':'Girl'}</div>
+      </div>
+      <button class="btn btn-sm" onclick="umStuSaveAll('${studentId}')"
+        style="margin-left:auto;background:#16a34a;color:#fff;border:none;padding:.3rem .85rem;border-radius:7px;font-size:.82rem;cursor:pointer">
+        <i class="fa-solid fa-floppy-disk"></i> Save All Subjects
+      </button>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="min-width:42px">Code</th>
+            <th>Subject</th>
+            <th style="text-align:center">Max</th>
+            <th style="text-align:center">Mark</th>
+            <th style="text-align:center">Grade</th>
+            ${!isTeacher ? '<th style="text-align:center">Pts</th>' : ''}
+            <th style="text-align:center">Save</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  panel.style.display = '';
+  empty.style.display = 'none';
+
+  // Focus first empty input
+  for (const sub of visibleSubs) {
+    const inp = document.getElementById(`umstu_mk_${sub.id}`);
+    if (inp && inp.value === '') { inp.focus(); break; }
+  }
+}
+
+function umStuOnInput(inp) {
+  const val    = parseFloat(inp.value);
+  const max    = parseFloat(inp.dataset.max) || 100;
+  const subId  = inp.dataset.subid;
+  const stuId  = inp.dataset.stuid;
+  const examId = inp.dataset.examid;
+  const isTeacher = currentUser && currentUser.role === 'teacher';
+  const gradeColorMap = { EE1:'#16a34a',EE2:'#0d9488',ME1:'#2563eb',ME2:'#0ea5e9',AE1:'#d97706',AE2:'#ea580c',BE1:'#dc2626',BE2:'#991b1b' };
+
+  if (!isNaN(val) && val >= 0 && val <= max) {
+    const g    = getGrade(val, max);
+    const gEl  = document.getElementById(`umstu_gr_${subId}`);
+    const ptEl = document.getElementById(`umstu_pt_${subId}`);
+    if (gEl) { gEl.textContent = g.grade; gEl.style.color = gradeColorMap[g.grade] || '#6b7280'; }
+    if (!isTeacher && ptEl) ptEl.textContent = g.points;
+    inp.className = 'marks-input ' + (g.points>=6?'good':g.points>=4?'avg':'poor');
+    // Auto-save
+    const existing = marks.findIndex(m => m.examId===examId && m.studentId===stuId && m.subjectId===subId);
+    if (existing > -1) marks[existing].score = val;
+    else marks.push({ id:uid(), examId, studentId:stuId, subjectId:subId, score:val });
+    save(K.marks, marks);
+  }
+}
+
+function umStuOnKey(e, inp) {
+  if (e.key === 'Enter' || e.key === 'Tab') {
+    e.preventDefault();
+    const idx   = parseInt(inp.dataset.idx);
+    const total = parseInt(inp.dataset.total);
+    const next  = idx + 1;
+    if (next < total) {
+      const allInputs = document.querySelectorAll('#umStuMarksPanel .marks-input');
+      if (allInputs[next]) allInputs[next].focus();
+    } else {
+      // All subjects done — flash save all
+      umStuSaveAll(inp.dataset.stuid);
+    }
+  }
+}
+
+function umStuSaveMark(studentId, subjectId) {
+  const inp = document.getElementById(`umstu_mk_${subjectId}`);
+  if (!inp) return;
+  const examId = document.getElementById('umExam')?.value;
+  if (!examId) { showToast('Select exam first', 'error'); return; }
+  const val = inp.value.trim();
+  if (val === '') { showToast('Enter a mark first', 'warning'); return; }
+  const numVal = parseFloat(val);
+  const sub    = subjects.find(s => s.id === subjectId);
+  const max    = sub?.max || 100;
+  if (isNaN(numVal) || numVal < 0 || numVal > max) { showToast(`Mark must be 0–${max}`, 'error'); return; }
+  const existing = marks.findIndex(m => m.examId===examId && m.studentId===studentId && m.subjectId===subjectId);
+  if (existing > -1) marks[existing].score = numVal;
+  else marks.push({ id:uid(), examId, studentId, subjectId, score:numVal });
+  save(K.marks, marks);
+  const btn = document.getElementById(`umstu_sv_${subjectId}`);
+  if (btn) {
+    btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+    btn.style.background = '#16a34a';
+    setTimeout(() => { btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i>'; btn.style.background = 'var(--primary)'; }, 1500);
+  }
+  renderDashboard();
+  setTimeout(renderUmSubjectStatusPanel, 100);
+}
+
+function umStuSaveAll(studentId) {
+  const examId = document.getElementById('umExam')?.value;
+  if (!examId) { showToast('Select exam first', 'error'); return; }
+  let saved = 0;
+  document.querySelectorAll('#umStuMarksPanel .marks-input').forEach(inp => {
+    const val = parseFloat(inp.value);
+    if (!isNaN(val)) {
+      const subId = inp.dataset.subid;
+      const max   = parseFloat(inp.dataset.max) || 100;
+      if (val >= 0 && val <= max) {
+        const existing = marks.findIndex(m => m.examId===examId && m.studentId===studentId && m.subjectId===subId);
+        if (existing > -1) marks[existing].score = val;
+        else marks.push({ id:uid(), examId, studentId, subjectId:subId, score:val });
+        saved++;
+        // Flash individual save buttons
+        const btn = document.getElementById(`umstu_sv_${subId}`);
+        if (btn) {
+          btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+          btn.style.background = '#16a34a';
+          setTimeout(() => { btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i>'; btn.style.background = 'var(--primary)'; }, 1800);
+        }
+      }
+    }
+  });
+  save(K.marks, marks);
+  showToast(`<i class="fa-solid fa-check"></i> ${saved} mark${saved!==1?'s':''} saved for ${students.find(s=>s.id===studentId)?.name||'learner'}`, 'success');
+  renderDashboard();
+  setTimeout(renderUmSubjectStatusPanel, 100);
+}
+
+
 function toggleDark() { const d=document.body.classList.toggle('dark'); applyDark(d); }
 function applyDark(d) {
   document.body.classList.toggle('dark',d);
@@ -10663,9 +10958,15 @@ document.addEventListener('DOMContentLoaded',()=>{
       handleMarksUpload(inp);
     });
   });
+  // Close student search dropdown when clicking outside
+  document.addEventListener('click', e => {
+    const wrap = document.getElementById('umStuDropWrap');
+    const inp  = document.getElementById('umStuSearch');
+    if (wrap && inp && !wrap.contains(e.target) && e.target !== inp) {
+      wrap.style.display = 'none';
+    }
+  });
 });
-
-// ═══════════════ CLASS & STREAM LIST DOWNLOADS ═══════════════
 function downloadClassList(classId) {
   const cls = classes.find(c=>c.id===classId); if(!cls) return;
   const stuList = students.filter(s=>s.classId===classId).sort((a,b)=>a.name.localeCompare(b.name));

@@ -629,20 +629,47 @@
         <div class="card" id="umManualCard">
           <div class="ctbar">
             <h3><i class="fa-solid fa-pen-to-square"></i> Enter Marks <span id="umSubjectLabel" style="color:var(--primary);font-size:.85rem"></span></h3>
-            <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+            <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center">
+              <!-- View mode toggle -->
+              <div style="display:flex;gap:0;border:1.5px solid var(--border);border-radius:7px;overflow:hidden">
+                <button id="umViewSubject" class="btn btn-sm" onclick="setUmView('subject',this)" style="border-radius:0;border:none;background:var(--primary);color:#fff;font-size:.75rem;padding:.28rem .75rem"><i class="fa-solid fa-list"></i> By Subject</button>
+                <button id="umViewStudent" class="btn btn-sm" onclick="setUmView('student',this)" style="border-radius:0;border:none;background:transparent;color:var(--primary);font-size:.75rem;padding:.28rem .75rem;border-left:1.5px solid var(--border)"><i class="fa-solid fa-user-pen"></i> By Learner</button>
+              </div>
               <button class="btn btn-outline btn-sm" onclick="saveAllMarks()"><i class="fa-solid fa-floppy-disk"></i> Save All</button>
               <button class="btn btn-outline btn-sm" onclick="exportMarksExcel()">⬇ Excel</button>
               <button class="btn btn-outline btn-sm" id="umManualRawDownload" onclick="adminDownloadRawMarks(document.getElementById('umExam').value||undefined)" style="display:none;border-color:#0d9488;color:#0d9488">⬇ Raw Marks</button>
             </div>
           </div>
-          <p style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem"><i class="fa-solid fa-lightbulb"></i> Press <kbd>Enter</kbd> or <kbd>Tab</kbd> to move to next student. Marks auto-save as you type.</p>
-          <div class="tbl-wrap">
-            <table id="umTable">
-              <thead><tr><th>#</th><th>Adm No</th><th>Student Name</th><th>Gender</th><th>Stream</th><th>Marks <span id="umMaxLabel"></span></th><th class="um-grade-col">Grade</th><th class="um-points-col">Points</th><th style="text-align:center">Save</th></tr></thead>
-              <tbody id="umBody"></tbody>
-            </table>
+
+          <!-- By Subject view (default) -->
+          <div id="umSubjectView">
+            <p style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem"><i class="fa-solid fa-lightbulb"></i> Press <kbd>Enter</kbd> or <kbd>Tab</kbd> to move to next student. Marks auto-save as you type.</p>
+            <div class="tbl-wrap">
+              <table id="umTable">
+                <thead><tr><th>#</th><th>Adm No</th><th>Student Name</th><th>Gender</th><th>Stream</th><th>Marks <span id="umMaxLabel"></span></th><th class="um-grade-col">Grade</th><th class="um-points-col">Points</th><th style="text-align:center">Save</th></tr></thead>
+                <tbody id="umBody"></tbody>
+              </table>
+            </div>
+            <div id="umEmpty" style="text-align:center;padding:2rem;color:var(--muted)">Select an exam and subject to begin entering marks.</div>
           </div>
-          <div id="umEmpty" style="text-align:center;padding:2rem;color:var(--muted)">Select an exam and subject to begin entering marks.</div>
+
+          <!-- By Learner view -->
+          <div id="umStudentView" style="display:none">
+            <p style="font-size:.8rem;color:var(--muted);margin-bottom:.85rem"><i class="fa-solid fa-lightbulb"></i> Search a learner by name or admission number, then enter marks for all subjects at once.</p>
+            <div style="display:flex;gap:.6rem;align-items:center;margin-bottom:.85rem;flex-wrap:wrap">
+              <div style="position:relative;flex:1;min-width:220px">
+                <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:.65rem;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.82rem;pointer-events:none"></i>
+                <input id="umStuSearch" type="text" placeholder="Type name or adm no…"
+                  style="width:100%;padding:.45rem .75rem .45rem 2rem;border:1.5px solid var(--border);border-radius:7px;font-size:.88rem;background:var(--surface)"
+                  oninput="umFilterStudents()" onkeydown="umSearchKey(event)" autocomplete="off"/>
+              </div>
+              <div id="umStuDropWrap" style="position:relative;display:none">
+                <div id="umStuDrop" style="position:absolute;top:0;left:0;min-width:280px;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:200;max-height:220px;overflow-y:auto"></div>
+              </div>
+            </div>
+            <div id="umStuMarksPanel" style="display:none"></div>
+            <div id="umStuEmpty" style="text-align:center;padding:2rem;color:var(--muted)">Search for a learner above to enter their marks.</div>
+          </div>
         </div>
       </div>
 
