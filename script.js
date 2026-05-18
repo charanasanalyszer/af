@@ -6498,6 +6498,66 @@ function buildMeritStatsBar(scored) {
     </div>`;
 }
 
+// ── Grade Distribution panel for Merit List ─────────────────────────────────
+// Shows number of learners in each avg grade (EE1, EE2 … BE2) with bar chart
+function buildGradeDistributionHTML(scored) {
+  if (!scored || !scored.length) return '';
+  const rankBy  = document.getElementById('mlRankBy')?.value || 'points';
+  const usePoints = rankBy === 'points';
+  const complete = scored.filter(s => !s.incomplete);
+  if (!complete.length) return '';
+
+  // Build distribution
+  const bands = usePoints ? POINTS_GRADE_BANDS : getActiveGradingSystem().bands;
+  const dist = [];
+  bands.forEach(b => {
+    const count = complete.filter(s => {
+      if (usePoints) {
+        return getPointsGrade(s.points).grade === b.grade;
+      } else {
+        return (s.grade && (s.grade.grade || s.grade) === b.grade);
+      }
+    }).length;
+    if (count > 0) dist.push({ ...b, count });
+  });
+
+  if (!dist.length) return '';
+
+  const maxCount = Math.max(...dist.map(d => d.count));
+
+  // Color map for badge classes → hex
+  const clsColorMap = {
+    'b-green': '#16a34a', 'b-teal': '#0d9488', 'b-blue': '#2563eb',
+    'b-lblue': '#0ea5e9', 'b-amber': '#d97706', 'b-orange': '#ea580c',
+    'b-red': '#dc2626', 'b-dkred': '#991b1b'
+  };
+
+  const rows = dist.map(d => {
+    const pct = maxCount ? Math.round((d.count / maxCount) * 100) : 0;
+    const pctOfTotal = Math.round((d.count / complete.length) * 100);
+    const color = clsColorMap[d.cls] || '#6b7280';
+    return `
+      <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem">
+        <span class="badge ${d.cls}" style="font-size:.68rem;min-width:36px;text-align:center">${d.grade}</span>
+        <span style="font-size:.7rem;color:var(--muted);min-width:90px">${d.label}</span>
+        <div style="flex:1;background:var(--border,#e5e7eb);border-radius:4px;height:14px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:${color};border-radius:4px;transition:width .4s"></div>
+        </div>
+        <span style="font-size:.75rem;font-weight:700;color:${color};min-width:22px;text-align:right">${d.count}</span>
+        <span style="font-size:.68rem;color:var(--muted);min-width:36px">(${pctOfTotal}%)</span>
+      </div>`;
+  }).join('');
+
+  return `
+    <div style="margin-bottom:.85rem;padding:.75rem 1rem;background:var(--surface,#fff);border:1.5px solid var(--border);border-radius:10px">
+      <div style="font-size:.78rem;font-weight:700;color:var(--primary);margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem">
+        <i class="fa-solid fa-chart-bar"></i> Grade Distribution
+        <span style="font-size:.68rem;font-weight:400;color:var(--muted)">(${complete.length} learner${complete.length!==1?'s':''}${usePoints?' · by mean points':' · by avg mark'})</span>
+      </div>
+      ${rows}
+    </div>`;
+}
+
 // ── Gender analysis panel for Merit List ────────────────────────────────────
 // `scored` is the array returned by buildMeritData (each entry has .gender, .mean, .grade, .name, .adm, .points)
 function buildGenderAnalysisMeritHTML(scored, examId) {
@@ -10897,6 +10957,7 @@ function renderMeritList() {
         ${rankByLabel}
       </h3>
       ${buildMeritStatsBar(streamScored)}
+      ${buildGradeDistributionHTML(streamScored)}
       <div class="tbl-wrap">
         <table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
       </div>
@@ -10962,6 +11023,7 @@ function renderMeritList() {
                ${str.name} Stream
             </h4>
             ${buildMeritStatsBar(strScored)}
+            ${buildGradeDistributionHTML(strScored)}
             <div class="tbl-wrap">
               <table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
             </div>
@@ -10984,6 +11046,7 @@ function renderMeritList() {
           ${rankByLabelCls}
         </h3>
         ${buildMeritStatsBar(classScored)}
+        ${buildGradeDistributionHTML(classScored)}
         <div class="tbl-wrap">
           <table><thead>${clsHdr}</thead><tbody>${clsRows}</tbody></table>
         </div>
