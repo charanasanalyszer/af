@@ -429,10 +429,11 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
   box-shadow:0 2px 16px rgba(0,0,0,.1);
   page-break-after:always;
 }
-.rf-header { display:flex;align-items:center;gap:16px;border-bottom:3px solid #7c3aed;padding-bottom:10px;margin-bottom:12px; }
-.rf-logo { width:60px;height:60px;background:linear-gradient(135deg,#1a6fb5,#16a34a);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.2rem;color:#fff;flex-shrink:0; }
-.rf-school-info h2 { font-size:13pt;font-weight:800;color:#1a6fb5;line-height:1.2; }
-.rf-school-info p  { font-size:8.5pt;color:#444; }
+.rf-header { display:flex;flex-direction:column;align-items:center;text-align:center;border-bottom:3px solid #7c3aed;padding-bottom:10px;margin-bottom:12px;background:linear-gradient(135deg,#1a6fb5,#1e3a8a);border-radius:6px 6px 0 0;padding:12px 14px 10px; }
+.rf-logo { display:none; }
+.rf-school-info { width:100%; }
+.rf-school-info h2 { font-size:16pt;font-weight:900;color:#ffffff;line-height:1.2;text-transform:uppercase;letter-spacing:.06em;margin:0 0 4px; }
+.rf-school-info p  { font-size:8.5pt;color:#ffffff;opacity:.95;margin:2px 0; }
 
 .rf-section { margin-bottom:8px; }
 .rf-section-title {
@@ -683,7 +684,9 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
   .rf-marks-table .total-row td { background: #dbeafe !important; border-top: 2px solid #1a6fb5 !important; }
   .rf-section-title { background: #7c3aed !important; color: #fff !important; }
   .rf-section-body  { border-color: #1a6fb5 !important; }
-  .rf-header        { border-bottom-color: #7c3aed !important; }
+  .rf-header        { background:linear-gradient(135deg,#1a6fb5,#1e3a8a) !important; border-bottom-color: #7c3aed !important; }
+  .rf-school-info h2 { color:#ffffff !important; }
+  .rf-school-info p  { color:#ffffff !important; }
   .rf-footer        { border-top-color:   #16a34a !important; }
 
   /* Timetable print */

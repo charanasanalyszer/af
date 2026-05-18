@@ -7314,20 +7314,27 @@ function printMeritList() {
 
   // ── helpers ──────────────────────────────────────────────────────────────
   function addLetterhead(titleLine1, titleLine2) {
+    // Header band — taller to fit centred school name
     doc.setFillColor(...blue);
-    doc.rect(0, 0, PW, 16, 'F');
+    doc.rect(0, 0, PW, 20, 'F');
+
+    // School name — large, bold, centred, CAPS
     doc.setTextColor(...white);
-    doc.setFontSize(11); doc.setFont(undefined,'bold');
-    doc.text(sch.toUpperCase(), M, 7);
-    doc.setFontSize(6); doc.setFont(undefined,'normal');
-    doc.setTextColor(200,220,255);
-    if (address) doc.text(address, M, 11);
-    doc.setFontSize(8); doc.setFont(undefined,'bold');
+    doc.setFontSize(15); doc.setFont(undefined, 'bold');
+    doc.text(sch.toUpperCase(), PW / 2, 9, { align: 'center' });
+
+    // Address line — white, clearly readable
+    doc.setFontSize(7); doc.setFont(undefined, 'normal');
     doc.setTextColor(...white);
-    doc.text(titleLine1, PW-M, 7, {align:'right'});
-    doc.setFontSize(6); doc.setFont(undefined,'normal');
-    doc.setTextColor(200,220,255);
-    doc.text(titleLine2||examInfo, PW-M, 11, {align:'right'});
+    const addrLine = [address, settings.phone ? 'Tel: ' + settings.phone : ''].filter(Boolean).join('  \u2022  ');
+    if (addrLine) doc.text(addrLine, PW / 2, 14.5, { align: 'center' });
+
+    // Right-side document label
+    doc.setFontSize(8); doc.setFont(undefined, 'bold');
+    doc.setTextColor(...white);
+    doc.text(titleLine1, PW - M, 9, { align: 'right' });
+    doc.setFontSize(6.5); doc.setFont(undefined, 'normal');
+    doc.text(titleLine2 || examInfo, PW - M, 14.5, { align: 'right' });
   }
 
   function addFooter() {
@@ -7468,7 +7475,7 @@ function printMeritList() {
     if (!isFirst) doc.addPage();
     addLetterhead('MERIT LIST', examInfo);
 
-    let y = 19;
+    let y = 23;
     // Section title bar
     doc.setFillColor(...purple);
     doc.rect(M, y, PW-M*2, 6, 'F');
@@ -7601,7 +7608,7 @@ function printMeritList() {
 
     if (!subData.length) return;
     let y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 3 : 40;
-    if (y > PH - 30) { doc.addPage(); addLetterhead('MERIT LIST', examInfo); y = 19; }
+    if (y > PH - 30) { doc.addPage(); addLetterhead('MERIT LIST', examInfo); y = 23; }
 
     y = addSectionTitle(`${titlePrefix} — Subject Analysis`, y);
     doc.autoTable({
@@ -7633,7 +7640,7 @@ function printMeritList() {
     const fPts   = female.length ? (female.reduce((a,s)=>a+s.points,0)/female.length).toFixed(1) : '—';
 
     let y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 3 : 40;
-    if (y > PH - 25) { doc.addPage(); addLetterhead('MERIT LIST', examInfo); y = 19; }
+    if (y > PH - 25) { doc.addPage(); addLetterhead('MERIT LIST', examInfo); y = 23; }
     y = addSectionTitle(`${titlePrefix} — Gender Analysis`, y);
 
     doc.autoTable({
@@ -7678,7 +7685,7 @@ function printMeritList() {
     // Always add a fresh page so the table is never buried or hidden
     doc.addPage();
     addLetterhead('MERIT LIST', examInfo);
-    let y = 19;
+    let y = 23;
     y = addSectionTitle(`${titlePrefix} — Grade Distribution (${rankBy === 'points' ? 'Mean Points' : 'Avg Mark'})`, y);
 
     // Grade colour map
@@ -7744,7 +7751,7 @@ function printMeritList() {
 
     if (!subData.length) return;
     let y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 3 : 40;
-    if (y > PH - 30) { doc.addPage(); addLetterhead('MERIT LIST', examInfo); y = 19; }
+    if (y > PH - 30) { doc.addPage(); addLetterhead('MERIT LIST', examInfo); y = 23; }
     y = addSectionTitle(`${titlePrefix} — Subject Ranking (by Mean Score)`, y);
 
     const head = ['#', 'Subject', 'Code', 'Students', 'Mean', 'Mean%', 'Highest', 'Lowest', 'Pts', 'Grade'];
@@ -7832,7 +7839,7 @@ function printMeritList() {
 
     const allStuIds = classScored.map(s => s.id);
     let y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 3 : 40;
-    if (y > PH - 32) { doc.addPage(); addLetterhead('MERIT LIST', examInfo); y = 19; }
+    if (y > PH - 32) { doc.addPage(); addLetterhead('MERIT LIST', examInfo); y = 23; }
     y = addSectionTitle(`${titlePrefix} — Stream vs Class Subject Comparison`, y);
 
     // Build header: Subject | Code | Class Mean | Str1 Mean | Str1 ± | Str2 Mean | Str2 ± ...
@@ -8617,17 +8624,13 @@ function exportMeritPDF() {
   </style>
   </head><body>
   <!-- Page header -->
-  <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2.5px solid #7c3aed;padding-bottom:6px;margin-bottom:10px">
-    <div>
-      <div style="font-size:15px;font-weight:900;color:#7c3aed">${sch.schoolName||'School'}</div>
-      <div style="font-size:9px;color:#64748b;margin-top:1px">${sch.address||''} ${sch.phone?'&bull; Tel: '+sch.phone:''}</div>
-    </div>
-    <div style="text-align:right">
-      <div style="font-weight:700;font-size:11px;color:#1e293b">Merit List &mdash; ${exam.name}</div>
-      <div style="font-size:9px;color:#64748b">${exam.term} ${exam.year} &bull; Printed: ${dateStr}</div>
-    </div>
-    <button class="no-print" onclick="window.print()" style="padding:4px 14px;background:#7c3aed;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:9px">&#128438; Print / Save PDF</button>
+  <div style="background:#1a6fb5;padding:10px 14px 8px;margin:-4px -6px 10px;text-align:center">
+    <div style="font-size:18px;font-weight:900;color:#ffffff;letter-spacing:.06em;text-transform:uppercase;line-height:1.2">${sch.schoolName||'School'}</div>
+    <div style="font-size:9px;color:#ffffff;margin-top:3px;opacity:.95">${sch.address||''} ${sch.phone?'&bull; Tel: '+sch.phone:''}</div>
+    <div style="font-size:10px;font-weight:700;color:#ffffff;margin-top:4px;letter-spacing:.03em">Merit List &mdash; ${exam.name} &bull; ${exam.term} ${exam.year}</div>
+    <div style="font-size:8px;color:#ffffff;opacity:.9;margin-top:2px">Printed: ${dateStr}</div>
   </div>
+  <button class="no-print" onclick="window.print()" style="position:fixed;top:8px;right:12px;padding:5px 16px;background:#16a34a;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:9px;font-weight:700;z-index:999">&#128438; Print / Save PDF</button>
   ${bodyHTML}
   <script>
     window.addEventListener('load', () => setTimeout(() => window.print(), 700));
@@ -10046,9 +10049,9 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
     <div class="rf-header">
       <div class="rf-logo">CA</div>
       <div class="rf-school-info">
-        <h2>${s.schoolName||'School Name'}</h2>
+        <h2>${(s.schoolName||'School Name').toUpperCase()}</h2>
         <p>${s.address||''} ${s.phone?'| Tel: '+s.phone:''} ${s.email?'| '+s.email:''}</p>
-        <p style="font-weight:700;color:#16a34a">STUDENT PROGRESS REPORT — ${data.exam.term} ${data.exam.year}</p>
+        <p style="font-weight:800;color:#ffffff;font-size:9.5pt;letter-spacing:.04em">STUDENT PROGRESS REPORT &mdash; ${data.exam.term} ${data.exam.year}</p>
       </div>
     </div>
 
