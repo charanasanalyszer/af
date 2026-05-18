@@ -21356,19 +21356,9 @@ const THEME_PALETTES = {
     { name: 'Teal',    id: 't-teal',      base:'#0d9488', dk:'#0f766e', lt:'#ccfbf1' },
     { name: 'Pink',    id: 't-pink',      base:'#db2777', dk:'#be185d', lt:'#fce7f3' },
   ],
-  heading: [
-    { name: 'Auto (Text)',id:'hd-auto',   base:'#0f172a', dk:'#e2e8f0', lt:'#f8fafc' },
-    { name: 'Navy',       id:'hd-navy',   base:'#1e3a5f', dk:'#0f2440', lt:'#dbeafe' },
-    { name: 'Indigo',     id:'hd-indigo', base:'#3730a3', dk:'#2e1065', lt:'#e0e7ff' },
-    { name: 'Violet',     id:'hd-violet', base:'#6d28d9', dk:'#4c1d95', lt:'#ede9fe' },
-    { name: 'Teal',       id:'hd-teal',   base:'#0f766e', dk:'#134e4a', lt:'#ccfbf1' },
-    { name: 'Forest',     id:'hd-forest', base:'#166534', dk:'#14532d', lt:'#dcfce7' },
-    { name: 'Crimson',    id:'hd-crimson',base:'#991b1b', dk:'#7f1d1d', lt:'#fee2e2' },
-    { name: 'Slate',      id:'hd-slate',  base:'#334155', dk:'#1e293b', lt:'#f1f5f9' },
-  ],
 };
 
-const THEME_DEFAULTS = { primary:'p-default', green:'g-forest', red:'r-crimson', yellow:'y-amber', toggle:'t-purple', heading:'hd-auto' };
+const THEME_DEFAULTS = { primary:'p-default', green:'g-forest', red:'r-crimson', yellow:'y-amber', toggle:'t-purple' };
 
 function themeLoad() { try { return JSON.parse(localStorage.getItem(THEME_KEY)) || {}; } catch { return {}; } }
 function themeSaveData(d) { localStorage.setItem(THEME_KEY, JSON.stringify(d)); }
@@ -21402,7 +21392,6 @@ function themeApply(cfg) {
     red:     cfg.red     || THEME_DEFAULTS.red,
     yellow:  cfg.yellow  || THEME_DEFAULTS.yellow,
     toggle:  cfg.toggle  || THEME_DEFAULTS.toggle,
-    heading: cfg.heading || THEME_DEFAULTS.heading,
   };
 
   const p  = themeGetPalette('primary', sel.primary);
@@ -21410,11 +21399,9 @@ function themeApply(cfg) {
   const r  = themeGetPalette('red',     sel.red);
   const y  = themeGetPalette('yellow',  sel.yellow);
   const t  = themeGetPalette('toggle',  sel.toggle);
-  const hd = themeGetPalette('heading', sel.heading);
 
   const isDefault = sel.primary === 'p-default' && sel.green === 'g-forest' &&
-                    sel.red === 'r-crimson' && sel.yellow === 'y-amber' && sel.toggle === 't-purple' &&
-                    sel.heading === 'hd-auto';
+                    sel.red === 'r-crimson' && sel.yellow === 'y-amber' && sel.toggle === 't-purple';
 
   if (isDefault) { style.textContent = ''; return; }
 
@@ -21467,15 +21454,12 @@ ${shadeVars('yellow', yS)}
 ${shadeVars('amber', yS)}
       /* Toggle shades */
 ${shadeVars('toggle', tS)}
-      /* Heading color */
-      ${sel.heading !== 'hd-auto' ? `--heading: ${hd.base};` : ''}
     }
     .btn-primary { background: ${p.btn || p.base} !important; }
     .btn-primary:hover { background: ${p.dk} !important; }
     input[type=checkbox]:checked + .toggle-pill { background: ${t.base} !important; }
     .toggle-pill.on { background: ${t.base} !important; }
     .lang-btn.active { background: ${p.base}; box-shadow: 0 1px 4px ${p.base}55; }
-    ${sel.heading !== 'hd-auto' ? `h1, h2, h3, h4, .card h3, .card-header h3, .modal-hd h3, .sec-title, .plat-card-header h3 { color: ${hd.base} !important; }` : ''}
     .tb.active { color: ${p.base}; border-bottom-color: ${p.base}; background: ${p.lt}; }
     .sn.active { background: ${p.btn || p.base} !important; }
     .fc-call { background: ${p.base} !important; }
@@ -21491,7 +21475,6 @@ function themeRenderSwatches() {
     red:     cfg.red     || THEME_DEFAULTS.red,
     yellow:  cfg.yellow  || THEME_DEFAULTS.yellow,
     toggle:  cfg.toggle  || THEME_DEFAULTS.toggle,
-    heading: cfg.heading || THEME_DEFAULTS.heading,
   };
 
   // Update platform enable toggle UI
@@ -21527,7 +21510,6 @@ function themeRenderSwatches() {
   render('tg-red',     'red',     'red');
   render('tg-yellow',  'yellow',  'yellow');
   render('tg-toggle',  'toggle',  'toggle');
-  render('tg-heading', 'heading', 'heading');
 }
 
 function themeToggleEnabled(val) {
