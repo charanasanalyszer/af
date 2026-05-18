@@ -6021,19 +6021,23 @@ function buildMeritData(examId, filterStreamId, filterClassId) {
   });
   if (filterStreamId) stuList = stuList.filter(s => s.streamId === filterStreamId);
 
-  const scored = stuList.map(stu => {
+  const allMapped = stuList.map(stu => {
     let total, pts;
+    let incomplete = false; // student missed at least one subject
     if (isConsolidated && sourceExamObjs.length > 0) {
       let hasAnyScore = false;
+      let missingSubject = false;
       const subTotals = exam.subjectIds.map(sid => {
         const scores = sourceExamObjs.map(src => {
           const mk = marks.find(m=>m.examId===src.id&&m.studentId===stu.id&&m.subjectId===sid);
           return mk ? mk.score : null;
         }).filter(sc=>sc!==null);
         if (scores.length) hasAnyScore = true;
+        else missingSubject = true;
         return scores.length ? scores.reduce((a,b)=>a+b,0)/scores.length : 0;
       });
-      if (!hasAnyScore) return null;
+      if (!hasAnyScore) return null; // no marks at all — not in this exam
+      if (missingSubject) incomplete = true;
       total = parseFloat(subTotals.reduce((a,b)=>a+b,0).toFixed(1));
       pts   = exam.subjectIds.reduce((acc,sid,i) => {
         const sub = subjects.find(s=>s.id===sid);
@@ -6041,47 +6045,67 @@ function buildMeritData(examId, filterStreamId, filterClassId) {
       }, 0);
     } else {
       const stuMarks = examMarks.filter(m => m.studentId === stu.id);
-      if (!stuMarks.length) return null;
+      if (!stuMarks.length) return null; // no marks at all
+      // Check if any subject is missing
+      const missingSub = exam.subjectIds.some(sid => !stuMarks.find(m => m.subjectId === sid));
+      if (missingSub) incomplete = true;
       total = stuMarks.reduce((a,m) => a+m.score, 0);
       pts   = stuMarks.reduce((a,m) => a + getGrade(m.score, subjects.find(s=>s.id===m.subjectId)?.max||100).points, 0);
     }
     const mean   = total / totalSubs;
     const maxAvg = (exam.subjectIds.map(sid=>subjects.find(s=>s.id===sid)?.max||100).reduce((a,b)=>a+b,0)/totalSubs) || 100;
     const g      = getMeanGrade(mean / maxAvg * 8);
-    return { ...stu, total, mean, grade:g, points:pts };
-  }).filter(Boolean).sort((a, b) => {
+    return { ...stu, total, mean, grade:g, points:pts, incomplete };
+  }).filter(Boolean);
+
+  // Split complete vs incomplete students
+  const complete   = allMapped.filter(s => !s.incomplete);
+  const incomplete_students = allMapped.filter(s => s.incomplete);
+
+  // Sort complete students by rank
+  complete.sort((a, b) => {
     if (rankBy === 'marks') {
-      // Rank by total raw marks; tie-break by mean
       return b.total !== a.total ? b.total - a.total : b.mean - a.mean;
     } else {
-      // Rank by grade points; tie-break by total raw marks
       return b.points !== a.points ? b.points - a.points : b.total - a.total;
     }
   });
 
+  // Incomplete students sorted by name — appear at bottom with no rank
+  incomplete_students.sort((a, b) => a.name.localeCompare(b.name));
+
+  // Combine: complete ranked first, incomplete appended at bottom
+  const scored = [...complete, ...incomplete_students];
+
   // ── Rank within class (overallRank = position in this class, not whole school) ──
+  // Only complete students receive rank numbers; incomplete students get no rank
   if (filterStreamId) {
     // Filtered to a single stream: rank within that stream = overallRank
-    scored.forEach((s,i) => { s.overallRank = i+1; s.streamRank = i+1; });
-  } else {
-    // Rank within each class separately
-    const byClass = {};
+    let rank = 1;
     scored.forEach(s => {
+      if (!s.incomplete) { s.overallRank = rank; s.streamRank = rank; rank++; }
+      else { s.overallRank = null; s.streamRank = null; }
+    });
+  } else {
+    // Rank within each class separately (complete only)
+    const byClass = {};
+    scored.filter(s=>!s.incomplete).forEach(s => {
       const key = s.classId||'none';
       if (!byClass[key]) byClass[key] = [];
       byClass[key].push(s);
     });
-    // overallRank = position within class
     Object.values(byClass).forEach(grp => grp.forEach((s,i) => s.overallRank = i+1));
+    scored.filter(s=>s.incomplete).forEach(s => s.overallRank = null);
 
-    // Rank within each stream (within this filtered set)
+    // Rank within each stream (complete only)
     const byStream = {};
-    scored.forEach(s => {
+    scored.filter(s=>!s.incomplete).forEach(s => {
       const key = (s.classId||'none') + '_' + (s.streamId||'none');
       if (!byStream[key]) byStream[key] = [];
       byStream[key].push(s);
     });
     Object.values(byStream).forEach(grp => grp.forEach((s,i) => s.streamRank = i+1));
+    scored.filter(s=>s.incomplete).forEach(s => s.streamRank = null);
   }
 
   return scored;
@@ -6110,13 +6134,28 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
     ? students.filter(s => scopeStudentIds.includes(s.id))
     : students;
 
+  // Determine which students in scope are "incomplete" (missing at least one subject)
+  const incompleteIds = new Set();
+  scopeStudents.forEach(stu => {
+    const missingAny = exam.subjectIds.some(sid => {
+      if (isConsolidated && sourceExamObjs.length > 0) {
+        return getConsolidatedScore(stu.id, sid) === null;
+      } else {
+        return !marks.find(m => m.examId === examId && m.studentId === stu.id && m.subjectId === sid);
+      }
+    });
+    if (missingAny) incompleteIds.add(stu.id);
+  });
+
   const rows = exam.subjectIds.map(sid => {
     const sub = subjects.find(s => s.id === sid); if (!sub) return '';
 
     let vals, maleVals, femaleVals;
+    let xCount = 0; // students who missed this subject
     if (isConsolidated && sourceExamObjs.length > 0) {
-      // Build per-student averaged scores for this subject
+      // Exclude incomplete students from subject mean & grade distribution
       const studentScores = scopeStudents.map(stu => {
+        if (incompleteIds.has(stu.id)) { xCount++; return null; }
         const avg = getConsolidatedScore(stu.id, sid);
         return avg !== null ? { score: avg, gender: stu.gender } : null;
       }).filter(Boolean);
@@ -6125,7 +6164,10 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
       maleVals   = studentScores.filter(x => x.gender === 'M').map(x => x.score);
       femaleVals = studentScores.filter(x => x.gender === 'F').map(x => x.score);
     } else {
-      const subMarks = examMarks.filter(m => m.subjectId === sid);
+      // Exclude marks for incomplete students from subject mean & distribution
+      xCount = incompleteIds.size;
+      const completeStudentIds = scopeStudents.filter(s => !incompleteIds.has(s.id)).map(s => s.id);
+      const subMarks = examMarks.filter(m => m.subjectId === sid && completeStudentIds.includes(m.studentId));
       if (!subMarks.length) return '';
       vals       = subMarks.map(m => m.score);
       maleVals   = subMarks.filter(m => { const s=students.find(x=>x.id===m.studentId); return s && s.gender==='M'; }).map(m=>m.score);
@@ -6136,7 +6178,7 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
     const mx       = Math.max(...vals);
     const lo       = Math.min(...vals);
 
-    // grade distribution counts
+    // grade distribution counts (complete students only)
     const distCounts = {};
     gradeKeys.forEach(g => distCounts[g] = 0);
     vals.forEach(v => {
@@ -6153,6 +6195,8 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
     const distCells = gradeKeys.map(g =>
       `<td style="text-align:center;font-size:.78rem">${distCounts[g] || ''}</td>`
     ).join('');
+    // X column — count of incomplete students (missed at least one subject)
+    const xCell = `<td style="text-align:center;font-size:.78rem;font-weight:800;color:#dc2626">${xCount > 0 ? xCount : ''}</td>`;
 
     const mainGrade = getGrade(mn, sub.max);
     const mnPct = ((mn/subMax)*100).toFixed(1);
@@ -6166,6 +6210,7 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
       <td><span class="badge b-green">${mx}</span> <span style="font-size:.68rem;color:var(--muted)">(${mxPct}%)</span></td>
       <td><span class="badge b-red">${lo}</span> <span style="font-size:.68rem;color:var(--muted)">(${loPct}%)</span></td>
       ${distCells}
+      ${xCell}
       <td style="text-align:center"><span class="badge ${mainGrade.cls}">${mainGrade.grade}</span></td>
       <td style="text-align:center;color:#3b82f6;font-weight:600">${mMn}</td>
       <td style="text-align:center;color:#ec4899;font-weight:600">${fMn}</td>
@@ -6173,6 +6218,7 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
   }).join('');
 
   const gradeHeaders = gradeKeys.map(g => `<th style="text-align:center;font-size:.7rem">${g}</th>`).join('');
+  const xHeader = `<th style="text-align:center;font-size:.7rem;color:#dc2626;font-weight:800" title="Students who missed at least one subject">X</th>`;
 
   return `
   <div style="margin-top:1.25rem">
@@ -6186,12 +6232,12 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
             <th rowspan="2">Mean</th>
             <th rowspan="2">High</th>
             <th rowspan="2">Low</th>
-            <th colspan="${gradeKeys.length}" style="text-align:center;background:var(--primary-lt);color:var(--primary)">Grade Distribution</th>
+            <th colspan="${gradeKeys.length + 1}" style="text-align:center;background:var(--primary-lt);color:var(--primary)">Grade Distribution</th>
             <th rowspan="2">Overall Grade</th>
             <th rowspan="2" style="text-align:center;color:#3b82f6">♂ Boys Mean</th>
             <th rowspan="2" style="text-align:center;color:#ec4899">♀ Girls Mean</th>
           </tr>
-          <tr>${gradeHeaders}</tr>
+          <tr>${gradeHeaders}${xHeader}</tr>
         </thead>
         <tbody>${rows || '<tr><td colspan="20" style="text-align:center;color:var(--muted)">No data</td></tr>'}</tbody>
       </table>
@@ -6216,20 +6262,24 @@ function buildStreamVsClassHTML(examId, classId, activeStreamId) {
   const allScored = buildMeritData(examId, null, classId);
   if (!allScored.length) return '';
 
+  // Exclude incomplete students from all mean calculations
+  const allScoredComplete = allScored.filter(s => !s.incomplete);
+  if (!allScoredComplete.length) return '';
+
   const rankBy    = document.getElementById('mlRankBy')?.value || 'points';
   const usePoints = rankBy === 'points';
 
-  // Class mean — points or marks based on mode
+  // Class mean — points or marks based on mode (complete students only)
   const classMean = usePoints
-    ? allScored.reduce((a,s) => a + s.points, 0) / allScored.length
-    : allScored.reduce((a,s) => a + s.mean, 0)   / allScored.length;
+    ? allScoredComplete.reduce((a,s) => a + s.points, 0) / allScoredComplete.length
+    : allScoredComplete.reduce((a,s) => a + s.mean, 0)   / allScoredComplete.length;
   const classGrd  = usePoints
     ? getPointsGrade(classMean)
     : getMeanGrade(classMean / 100 * 8);
 
-  // Per-stream overall mean (points or marks)
+  // Per-stream overall mean (points or marks) — complete students only
   const streamPerf = clsStreams.map(str => {
-    const grp = allScored.filter(s => s.streamId === str.id);
+    const grp = allScoredComplete.filter(s => s.streamId === str.id);
     if (!grp.length) return null;
     const mn = usePoints
       ? grp.reduce((a,s) => a + s.points, 0) / grp.length
@@ -6278,7 +6328,7 @@ function buildStreamVsClassHTML(examId, classId, activeStreamId) {
 
   const subjectMeanFn = usePoints ? subjectPointsMeanForStudents : subjectMeanForStudents;
 
-  const allStuIds = allScored.map(s => s.id);
+  const allStuIds = allScoredComplete.map(s => s.id);
 
   // Build per-subject rows
   const subjectRows = exam.subjectIds.map(sid => {
@@ -6291,7 +6341,7 @@ function buildStreamVsClassHTML(examId, classId, activeStreamId) {
       : getGrade(classSubMean, sub.max||100);
 
     const streamCells = streamPerf.map(sp => {
-      const stuIds = allScored.filter(s => s.streamId === sp.str.id).map(s => s.id);
+      const stuIds = allScoredComplete.filter(s => s.streamId === sp.str.id).map(s => s.id);
       const mn = subjectMeanFn(sid, stuIds);
       if (mn === null) return '<td colspan="2" style="text-align:center;color:var(--muted)">—</td>';
       const diff = mn - classSubMean;
@@ -6342,7 +6392,7 @@ function buildStreamVsClassHTML(examId, classId, activeStreamId) {
         <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">CLASS MEAN</div>
         <div style="font-size:1.25rem;font-weight:800;color:var(--primary)">${classMean.toFixed(2)}</div>
         <span class="badge ${classGrd.cls}" style="font-size:.62rem">${classGrd.grade}</span>
-        <div style="font-size:.65rem;color:var(--muted);margin-top:.1rem">${allScored.length} students</div>
+        <div style="font-size:.65rem;color:var(--muted);margin-top:.1rem">${allScoredComplete.length} students (${allScored.length - allScoredComplete.length} incomplete excluded)</div>
       </div>
       ${streamPerf.map(sp => {
         const diff = sp.mn - classMean;
@@ -6401,21 +6451,24 @@ function buildMeritStatsBar(scored) {
   if (!scored || !scored.length) return '';
   const rankBy  = document.getElementById('mlRankBy')?.value || 'points';
   const total   = scored.length;
-  const boysArr = scored.filter(s => s.gender === 'M');
-  const girlsArr= scored.filter(s => s.gender === 'F');
+  // Incomplete students are shown in count but excluded from mean calculations
+  const complete = scored.filter(s => !s.incomplete);
+  const incomplete = scored.filter(s => s.incomplete);
+  const boysArr = complete.filter(s => s.gender === 'M');
+  const girlsArr= complete.filter(s => s.gender === 'F');
   const boys    = boysArr.length;
   const girls   = girlsArr.length;
-  const other   = total - boys - girls;
+  const other   = complete.length - boys - girls;
 
   let meanVal, meanGrd, boysM, girlsM, meanLabel;
   if (rankBy === 'points') {
-    meanVal   = scored.reduce((a,s) => a + s.points, 0) / total;
+    meanVal   = complete.length ? complete.reduce((a,s) => a + s.points, 0) / complete.length : 0;
     meanGrd   = getPointsGrade(meanVal);
     boysM     = boys  ? (boysArr.reduce((a,s)=>a+s.points,0)/boys).toFixed(1)   : null;
     girlsM    = girls ? (girlsArr.reduce((a,s)=>a+s.points,0)/girls).toFixed(1) : null;
     meanLabel = 'Mean Pts';
   } else {
-    meanVal   = scored.reduce((a,s) => a + (s.mean||0), 0) / total;
+    meanVal   = complete.length ? complete.reduce((a,s) => a + (s.mean||0), 0) / complete.length : 0;
     meanGrd   = typeof getMeanGrade === 'function' ? getMeanGrade(meanVal / 100 * 8) : null;
     boysM     = boys  ? (boysArr.reduce((a,s)=>a+s.mean,0)/boys).toFixed(1)   : null;
     girlsM    = girls ? (girlsArr.reduce((a,s)=>a+s.mean,0)/girls).toFixed(1) : null;
@@ -6441,6 +6494,7 @@ function buildMeritStatsBar(scored) {
         <span>Girls: ${girls}${girlsM ? ` &bull; ${meanLabel}: ${girlsM}` : ''}</span>
       </div>
       ${other > 0 ? `<div style="display:flex;align-items:center;gap:.35rem;background:#f9fafb;border:1px solid #e5e7eb;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#6b7280"><i class="fa-solid fa-circle-question" style="font-size:.78rem"></i><span>Other: ${other}</span></div>` : ''}
+      ${incomplete.length > 0 ? `<div style="display:flex;align-items:center;gap:.35rem;background:#fff0f0;border:1.5px solid #fca5a5;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#dc2626"><i class="fa-solid fa-circle-xmark" style="font-size:.78rem"></i><span>Incomplete (X): ${incomplete.length} — excluded from mean</span></div>` : ''}
     </div>`;
 }
 
@@ -6451,9 +6505,11 @@ function buildGenderAnalysisMeritHTML(scored, examId) {
   const gs = getActiveGradingSystem();
   const gradeKeys = gs.bands.map(b => b.grade);
 
-  const males   = scored.filter(s => s.gender === 'M');
-  const females = scored.filter(s => s.gender === 'F');
-  const total   = scored.length;
+  // Exclude incomplete students from gender analysis
+  const complete = scored.filter(s => !s.incomplete);
+  const males   = complete.filter(s => s.gender === 'M');
+  const females = complete.filter(s => s.gender === 'F');
+  const total   = complete.length;
 
   if (!males.length && !females.length) return '';
 
@@ -6818,23 +6874,37 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
         score = mk ? mk.score : null;
         g  = mk ? getGrade(mk.score, sub.max) : null;
       }
+      // If student is incomplete and this subject is missing → show X
+      if (score === null && s.incomplete) {
+        return `<td style="text-align:center;font-size:.78rem;background:#fff0f0"><span style="font-weight:800;color:#dc2626;font-size:.9rem">X</span></td>`;
+      }
       return `<td style="text-align:center;font-size:.78rem">${score !== null
         ? `<span style="font-weight:600">${score}</span><br><span style="font-size:.62rem;color:var(--muted)">${g?.grade||''}</span>`
         : '—'}</td>`;
     }).join('');
-    return `<tr>
-      <td><span class="badge ${s.overallRank===1?'b-amber':s.overallRank<=3?'b-blue':'b-teal'}">#${s.overallRank}</span></td>
+
+    // Rank display
+    const rankCell = s.incomplete
+      ? `<td><span class="badge b-red" style="font-size:.65rem;opacity:.7">DQ</span></td>`
+      : `<td><span class="badge ${s.overallRank===1?'b-amber':s.overallRank<=3?'b-blue':'b-teal'}">#${s.overallRank}</span></td>`;
+
+    // Mean / total / grade cells: show X for incomplete
+    const totalCell  = s.incomplete ? `<td><strong style="color:#dc2626">X</strong></td>` : `<td><strong>${s.total}</strong></td>`;
+    const avgCell    = s.incomplete ? `<td style="text-align:center;color:#dc2626;font-weight:800">X</td>` : `<td style="text-align:center;font-weight:600;color:#1a6fb5">${(s.total/examSubs.length).toFixed(1)}</td>`;
+    const meanCell   = s.incomplete ? `<td style="color:#dc2626;font-weight:800">X</td>` : `<td>${s.mean.toFixed(2)}</td>`;
+    const gradeCell  = s.incomplete ? `<td><span class="badge b-red">X</span></td>` : `<td>${gradeTag(s.grade)}</td>`;
+    const ptsCell    = s.incomplete ? `<td style="color:#dc2626;font-weight:800">X</td>` : `<td>${s.points}</td>`;
+    const ptsGrdCell = s.incomplete ? `<td><span class="badge b-red" style="font-size:.72rem">X</span></td>` : `<td><span class="badge ${getPointsGrade(s.points).cls}" style="font-size:.72rem">${getPointsGrade(s.points).grade}</span></td>`;
+
+    const streamRankDisplay = s.incomplete ? '—' : `#${s.streamRank}`;
+    return `<tr${s.incomplete ? ' style="background:#fff8f8;opacity:.92"' : ''}>
+      ${rankCell}
       <td style="font-family:var(--mono);font-size:.78rem">${s.adm}</td>
       <td><strong style="font-size:.85rem">${s.name}</strong></td>
       <td><span class="badge ${s.gender==='M'?'b-m':'b-f'}" style="font-size:.65rem">${s.gender}</span></td>
-      ${showStreamCol ? `<td>${stream?.name||'—'}</td><td>#${s.streamRank}</td>` : ''}
+      ${showStreamCol ? `<td>${stream?.name||'—'}</td><td>${streamRankDisplay}</td>` : ''}
       ${subCells}
-      <td><strong>${s.total}</strong></td>
-      <td style="text-align:center;font-weight:600;color:#1a6fb5">${(s.total/examSubs.length).toFixed(1)}</td>
-      <td>${s.mean.toFixed(2)}</td>
-      <td>${gradeTag(s.grade)}</td>
-      <td>${s.points}</td>
-      <td><span class="badge ${getPointsGrade(s.points).cls}" style="font-size:.72rem">${getPointsGrade(s.points).grade}</span></td>
+      ${totalCell}${avgCell}${meanCell}${gradeCell}${ptsCell}${ptsGrdCell}
     </tr>`;
   }).join('') : `<tr><td colspan="${colCount}" style="text-align:center;color:var(--muted);padding:1.5rem">No marks data.</td></tr>`;
 
