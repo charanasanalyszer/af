@@ -5228,6 +5228,12 @@ function loadUmStudents() {
       </td>
       ${gradeCell}
       ${pointsCell}
+      <td style="text-align:center">
+        <button class="btn btn-sm" id="sv_${stu.id}" onclick="saveStudentMark('${stu.id}')"
+          style="background:var(--primary);color:#fff;border:none;padding:.25rem .6rem;font-size:.75rem;border-radius:5px;cursor:pointer;white-space:nowrap">
+          <i class="fa-solid fa-floppy-disk"></i> Save
+        </button>
+      </td>
     `;
     body.appendChild(tr);
   });
@@ -5271,6 +5277,32 @@ function autoSaveMark(studentId, score) {
   if (existing > -1) marks[existing].score = score;
   else marks.push({ id:uid(), examId, studentId, subjectId, score });
   save(K.marks, marks);
+}
+
+function saveStudentMark(studentId) {
+  const inp = document.getElementById('mk_' + studentId);
+  if (!inp) return;
+  const examId    = document.getElementById('umExam').value;
+  const subjectId = document.getElementById('umSubject').value;
+  if (!examId || !subjectId) { showToast('Select exam and subject first','error'); return; }
+  const val = inp.value.trim();
+  if (val === '') { showToast('Enter a mark first','warning'); return; }
+  const numVal = parseFloat(val);
+  const sub = subjects.find(s=>s.id===subjectId);
+  const max = sub ? sub.max : 100;
+  if (isNaN(numVal) || numVal < 0 || numVal > max) { showToast(`Mark must be between 0 and ${max}`,'error'); return; }
+  autoSaveMark(studentId, numVal);
+  const btn = document.getElementById('sv_' + studentId);
+  if (btn) {
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
+    btn.style.background = '#16a34a';
+    setTimeout(() => {
+      btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save';
+      btn.style.background = 'var(--primary)';
+    }, 1500);
+  }
+  renderDashboard();
+  setTimeout(renderUmSubjectStatusPanel, 100);
 }
 
 function saveAllMarks() {
@@ -9276,15 +9308,19 @@ function getStudentReport(stuId, examId) {
       const sub = subjects.find(s=>s.id===sid); if(!sub) return null;
       const mk  = examMarks.find(m=>m.subjectId===sid);
       const score = mk ? mk.score : null;
-      const g   = score !== null ? getGrade(score, sub.max) : null;
-      return { name:sub.name, code:sub.code, max:sub.max, score, grade:g?.grade||'—', points:g?.points||'—', label:g?.label||'—' };
+      const absent = score === null;
+      const g   = !absent ? getGrade(score, sub.max) : null;
+      return { name:sub.name, code:sub.code, max:sub.max, score, absent, grade:absent?'X':g?.grade||'—', points:absent?'X':g?.points||'—', label:absent?'Absent/Missing':g?.label||'—' };
     }).filter(Boolean);
   }
 
-  total  = subjectRows.reduce((a,r)=>a+(r.score!==null?r.score:0),0);
-  mean   = exam.subjectIds.length ? total/exam.subjectIds.length : 0;
-  mGrade = getMeanGrade(mean/(subjectRows.reduce((a,r)=>a+(r.max||100),0)/exam.subjectIds.length||100)*8);
-  totalPoints = subjectRows.reduce((a,r)=>a+(typeof r.points==='number'?r.points:0),0);
+  // Only count subjects the student actually sat for in total/mean
+  const scoredRows = subjectRows.filter(r => !r.absent);
+  total  = scoredRows.reduce((a,r)=>a+r.score,0);
+  mean   = scoredRows.length ? total/scoredRows.length : 0;
+  const meanMaxAvg = scoredRows.length ? scoredRows.reduce((a,r)=>a+(r.max||100),0)/scoredRows.length : 100;
+  mGrade = getMeanGrade(mean/meanMaxAvg*8);
+  totalPoints = scoredRows.reduce((a,r)=>a+(typeof r.points==='number'?r.points:0),0);
 
   // Helper: compute a student's total for this exam (handles consolidated via averaging)
   function getStudentExamTotal(sId) {
@@ -9359,14 +9395,14 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
       <td style="padding:.18rem .3rem;font-size:.72rem">${r.label}</td>
     </tr>`;
     } else {
-      return `<tr>
+      return `<tr${r.absent ? ' style="background:#fff8f8;opacity:.85"' : ''}>
       <td>${i+1}</td>
       <td>${r.name}</td>
       <td style="text-align:center">${r.max}</td>
-      <td style="text-align:center;font-weight:600">${r.score !== null ? r.score : '—'}</td>
-      <td style="text-align:center"><strong>${r.grade}</strong></td>
-      <td style="text-align:center">${r.points}</td>
-      <td>${r.label}</td>
+      <td style="text-align:center;font-weight:600">${r.absent ? '<span style="color:#dc2626;font-weight:700;font-size:.95rem">X</span>' : r.score}</td>
+      <td style="text-align:center"><strong style="${r.absent ? 'color:#dc2626' : ''}">${r.grade}</strong></td>
+      <td style="text-align:center">${r.absent ? '<span style="color:#dc2626">X</span>' : r.points}</td>
+      <td style="${r.absent ? 'color:#dc2626;font-style:italic' : ''}">${r.label}</td>
     </tr>`;
     }
   }).join('');
@@ -9427,10 +9463,10 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
                     },0);
                     return `<td style="text-align:center;padding:.2rem .3rem;font-size:.75rem">${parseFloat(colTotal.toFixed(1))}</td>`;
                   }).join('') + `<td style="text-align:center;font-weight:700;background:#f0fdf4;padding:.2rem .3rem;font-size:.75rem">${parseFloat(data.total.toFixed(1))}</td>`
-                : `<td style="text-align:center">${data.subjectRows.reduce((a,r)=>a+r.max,0)}</td><td style="text-align:center">${data.total}</td>`}
+                : `<td style="text-align:center">${data.subjectRows.filter(r=>!r.absent).reduce((a,r)=>a+r.max,0)}</td><td style="text-align:center">${data.total}</td>`}
               <td style="text-align:center${data.isConsolidated && srcExams.length > 0 ? ';padding:.2rem .3rem;font-size:.75rem' : ''}">${data.mGrade.grade}</td>
               <td style="text-align:center${data.isConsolidated && srcExams.length > 0 ? ';padding:.2rem .3rem;font-size:.75rem' : ''}">${data.totalPoints}</td>
-              <td style="${data.isConsolidated && srcExams.length > 0 ? 'padding:.2rem .3rem;font-size:.72rem' : ''}">Avg: <strong>${getAverageMark(data.total, data.subjectRows.length).toFixed(1)}</strong> &nbsp;|\&nbsp; ${getPointsGrade(data.totalPoints).grade}</td>
+              <td style="${data.isConsolidated && srcExams.length > 0 ? 'padding:.2rem .3rem;font-size:.72rem' : ''}">Avg: <strong>${getAverageMark(data.total, data.subjectRows.filter(r=>!r.absent).length).toFixed(1)}</strong> &nbsp;|\&nbsp; ${getPointsGrade(data.totalPoints).grade}</td>
             </tr>
           </tbody>
         </table>
@@ -9443,7 +9479,7 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
       <div class="rf-section-body">
         <div class="rf-info-grid">
           <div class="rf-info-item"><span class="rf-info-label">Total Marks</span><span class="rf-info-value" style="color:#1a6fb5;font-size:11pt">${data.total}</span></div>
-          <div class="rf-info-item"><span class="rf-info-label">Average Mark</span><span class="rf-info-value" style="color:#1a6fb5;font-size:11pt">${getAverageMark(data.total, data.subjectRows.length).toFixed(1)}</span></div>
+          <div class="rf-info-item"><span class="rf-info-label">Average Mark</span><span class="rf-info-value" style="color:#1a6fb5;font-size:11pt">${getAverageMark(data.total, data.subjectRows.filter(r=>!r.absent).length).toFixed(1)}</span></div>
           <div class="rf-info-item"><span class="rf-info-label">Mean Score</span><span class="rf-info-value" style="color:#1a6fb5;font-size:11pt">${data.mean.toFixed(2)}</span></div>
           <div class="rf-info-item"><span class="rf-info-label">Total Points</span><span class="rf-info-value" style="color:#7c3aed;font-size:11pt;font-weight:700">${data.totalPoints}</span></div>
           <div class="rf-info-item"><span class="rf-info-label">Points Grade</span><span class="rf-info-value" style="color:${getPointsGrade(data.totalPoints).cls.includes('green')||getPointsGrade(data.totalPoints).cls.includes('teal')?'#16a34a':getPointsGrade(data.totalPoints).cls.includes('red')?'#dc2626':'#1a6fb5'};font-size:11pt;font-weight:700">${getPointsGrade(data.totalPoints).grade} — ${getPointsGrade(data.totalPoints).label}</span></div>
@@ -9451,6 +9487,7 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
           <div class="rf-info-item"><span class="rf-info-label">Stream Position</span><span class="rf-info-value">${data.streamRank > 0 ? data.streamRank + ' / ' + (students.filter(s=>s.streamId===data.stu.streamId).length) : '—'}</span></div>
           <div class="rf-info-item"><span class="rf-info-label">Overall Position</span><span class="rf-info-value">${data.overallRank > 0 ? data.overallRank + ' / ' + students.length : '—'}</span></div>
         </div>
+        ${data.subjectRows.some(r=>r.absent) ? `<div style="margin-top:.4rem;padding:.35rem .65rem;background:#fff8f8;border:1px solid #fecaca;border-radius:5px;font-size:.75rem;color:#dc2626"><i class="fa-solid fa-circle-exclamation"></i> <strong>X</strong> = Missing/Absent — these subjects are excluded from mean, total and ranking.</div>` : ''}
         <!-- Points Grade Scale reference -->
         <div style="margin-top:.5rem;padding:.4rem .65rem;background:#f8faff;border:1px solid #dbeafe;border-radius:5px;font-size:.7rem;color:#555">
           <strong style="color:#1a6fb5">Points Grade Scale (out of 72):</strong>
