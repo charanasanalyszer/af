@@ -3943,3 +3943,82 @@ body.plat-admin-mode #platTabBar {
 .ac-status-pill{font-size:.72rem;font-weight:700;padding:.2rem .6rem;border-radius:20px;white-space:nowrap}
 .ac-pill-on{background:rgba(34,197,94,.12);color:#15803d}
 .ac-pill-off{background:rgba(239,68,68,.1);color:#b91c1c}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   FINAL LAYOUT OVERRIDE — Applied last, wins all conflicts.
+   Ensures content is NEVER hidden behind the sidebar or topbar.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Desktop: sidebar visible ── */
+@media (min-width: 961px) {
+  #app:not(.sidebar-collapsed) .main {
+    margin-left: var(--sb-w) !important;
+    margin-top: var(--tb-h) !important;
+    width: calc(100% - var(--sb-w)) !important;
+    max-width: calc(100% - var(--sb-w)) !important;
+    height: calc(100vh - var(--tb-h)) !important;
+    padding: .4rem 1.1rem 4rem !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  /* ── Desktop: sidebar collapsed ── */
+  #app.sidebar-collapsed .main {
+    margin-left: 0 !important;
+    margin-top: var(--tb-h) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: calc(100vh - var(--tb-h)) !important;
+    padding: .4rem 1.1rem 4rem !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  /* ── Topbar: always follows sidebar state ── */
+  #app:not(.sidebar-collapsed) .topbar {
+    left: var(--sb-w) !important;
+  }
+  #app.sidebar-collapsed .topbar {
+    left: 0 !important;
+  }
+}
+
+/* ── Mobile/tablet: sidebar overlays, main fills full width ── */
+@media (max-width: 960px) {
+  .main {
+    margin-left: 0 !important;
+    margin-top: var(--tb-h) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: calc(100vh - var(--tb-h)) !important;
+    padding: .3rem .9rem 5rem !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+  .topbar {
+    left: 0 !important;
+    right: 0 !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .main {
+    padding: .2rem .65rem 5rem !important;
+  }
+}
+
+/* ── Sections: always full width within main ── */
+.sec {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* ── First visible child in each section: no extra top gap ── */
+.sec > *:first-child { margin-top: 0 !important; }
+.sec > .ph + * { margin-top: 0 !important; }
+.sec > .ph { display: none !important; }
