@@ -13758,7 +13758,6 @@ function go(sec, el) {
   if (sec === 'staffdetails') { initStaffDetailsSection(); }
   if (sec === 'platform')   { renderPlatformDashboard(); _navCfgMode='global'; navCfgSwitchMode('global'); platRenderNavConfig(); platRenderLiteModeConfig(); platLoadContactInputs(); themeRenderSwatches(); /* Activate first platform tab */ openPlatTab('platTab-schools', document.querySelector('#platTabBar .plat-tab-btn')); }
   if (sec === 'livechat')   { initLiveChatSection(); }
-  if (sec === 'results')    { if (typeof rpInitPortal === 'function') rpInitPortal(); }
   if (sec === 'exambuilder') { /* handled by EB module DOMContentLoaded wrapper */ }
   if (sec === 'timetable')  {
     // Fire auto-sync event so the timetable pulls latest school data
