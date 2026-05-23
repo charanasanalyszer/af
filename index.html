@@ -487,6 +487,21 @@
               <select id="examClass"><option value="">— All Classes —</option></select>
             </div>
           </div>
+          <div class="frow c3" style="margin-top:-.25rem">
+            <div class="fg">
+              <label style="display:flex;align-items:center;gap:.4rem">
+                <i class="fa-solid fa-bullseye" style="color:var(--primary);font-size:.85rem"></i>
+                Total Marks <span style="font-weight:400;color:var(--muted);font-size:.78rem">(Out of / Maximum)</span>
+              </label>
+              <input type="number" id="examMaxScore" min="1" max="1000" placeholder="100" value="100" style="max-width:160px"/>
+            </div>
+            <div class="fg" style="display:flex;align-items:flex-end">
+              <div style="background:var(--blue-lt,#eef4ff);border:1px solid var(--border);border-radius:8px;padding:.45rem .85rem;font-size:.78rem;color:var(--muted);width:100%">
+                <i class="fa-solid fa-circle-info" style="color:var(--primary)"></i>
+                Sets the <strong>maximum score</strong> per subject for this exam. Used in percentage and grade calculations.
+              </div>
+            </div>
+          </div>
 
           <!-- Source exams picker (Consolidated only) -->
           <div id="consolidatedSourceWrap" style="display:none;margin-bottom:1rem">
@@ -620,7 +635,7 @@
           </div>
           <div class="tbl-wrap">
             <table id="examListTbl">
-              <thead><tr><th onclick="sortTable('examListBody',0,'num')" class="sortable-th"># <span class="sort-ico">⇅</span></th><th onclick="sortTable('examListBody',1,'str')" class="sortable-th">Name <span class="sort-ico">⇅</span></th><th onclick="sortTable('examListBody',2,'str')" class="sortable-th">Category <span class="sort-ico">⇅</span></th><th onclick="sortTable('examListBody',3,'str')" class="sortable-th">Type <span class="sort-ico">⇅</span></th><th onclick="sortTable('examListBody',4,'str')" class="sortable-th">Term <span class="sort-ico">⇅</span></th><th onclick="sortTable('examListBody',5,'num')" class="sortable-th">Year <span class="sort-ico">⇅</span></th><th onclick="sortTable('examListBody',6,'str')" class="sortable-th">Class <span class="sort-ico">⇅</span></th><th>Subjects</th><th onclick="sortTable('examListBody',8,'str')" class="sortable-th">Date <span class="sort-ico">⇅</span></th><th>Actions</th></tr></thead>
+              <thead><tr><th onclick="sortTable('examListBody',0,'num')" class="sortable-th"># <span class="sort-ico">⇅</span></th><th onclick="sortTable('examListBody',1,'str')" class="sortable-th">Name <span class="sort-ico">⇅</span></th><th onclick="sortTable('examListBody',2,'str')" class="sortable-th">Category <span class="sort-ico">⇅</span></th><th onclick="sortTable('examListBody',3,'str')" class="sortable-th">Type <span class="sort-ico">⇅</span></th><th onclick="sortTable('examListBody',4,'str')" class="sortable-th">Term <span class="sort-ico">⇅</span></th><th onclick="sortTable('examListBody',5,'num')" class="sortable-th">Year <span class="sort-ico">⇅</span></th><th onclick="sortTable('examListBody',6,'str')" class="sortable-th">Class <span class="sort-ico">⇅</span></th><th>Subjects</th><th>Max</th><th onclick="sortTable('examListBody',9,'str')" class="sortable-th">Date <span class="sort-ico">⇅</span></th><th>Actions</th></tr></thead>
               <tbody id="examListBody"></tbody>
             </table>
           </div>
@@ -746,15 +761,69 @@
             <i class="fa-solid fa-clipboard-list"></i> You are viewing analytics as a <strong>Class Teacher</strong>. You can see all subject results for your stream but cannot run new analyses.
           </div>
           <div class="card" style="margin-bottom:1.25rem">
-            <div class="frow c3">
-              <div class="fg"><label>Select Exam</label>
-                <select id="anExam" onchange="runAnalysis()"><option value="">— Select Exam —</option></select>
+            <!-- Analysis mode toggle -->
+            <div style="display:flex;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap">
+              <button id="anModeSingle" class="exam-cat-btn active" onclick="setAnalysisMode('single')" style="flex:1;min-width:180px;padding:.65rem 1rem">
+                <span class="ecat-icon" style="font-size:1.1rem"><i class="fa-solid fa-magnifying-glass-chart"></i></span>
+                <span class="ecat-title" style="font-size:.85rem">Single Exam</span>
+                <span class="ecat-desc">Analyse one exam at a time</span>
+              </button>
+              <button id="anModeCombined" class="exam-cat-btn" onclick="setAnalysisMode('combined')" style="flex:1;min-width:180px;padding:.65rem 1rem">
+                <span class="ecat-icon" style="font-size:1.1rem"><i class="fa-solid fa-code-merge"></i></span>
+                <span class="ecat-title" style="font-size:.85rem">Combined Final Score</span>
+                <span class="ecat-desc">Merge summative + formative into one result</span>
+              </button>
+            </div>
+
+            <!-- Single exam row -->
+            <div id="anSingleRow">
+              <div class="frow c3">
+                <div class="fg"><label>Select Exam</label>
+                  <select id="anExam" onchange="runAnalysis()"><option value="">— Select Exam —</option></select>
+                </div>
+                <div class="fg"><label>Grading System</label>
+                  <select id="anGradingSystem" onchange="populateGSDropdowns();runAnalysis()"></select>
+                </div>
+                <div style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap">
+                  <button id="anRunBtn" class="btn btn-primary btn-sm" onclick="runAnalysis()">▶ Run</button>
+                  <button class="btn btn-outline btn-sm" onclick="exportAnalysisPDF()">⬇ PDF</button>
+                  <button class="btn btn-outline btn-sm" onclick="exportAnalysisExcel()">⬇ Excel</button>
+                </div>
               </div>
-              <div class="fg"><label>Grading System</label>
-                <select id="anGradingSystem" onchange="populateGSDropdowns();runAnalysis()"></select>
+            </div>
+
+            <!-- Combined exam row -->
+            <div id="anCombinedRow" style="display:none">
+              <div class="frow c2" style="margin-bottom:.75rem">
+                <div class="fg">
+                  <label><i class="fa-solid fa-file-pen" style="color:var(--primary);margin-right:.3rem"></i>Summative Exam</label>
+                  <select id="anSummativeExam"><option value="">— Select Summative Exam —</option></select>
+                </div>
+                <div class="fg">
+                  <label><i class="fa-solid fa-pen-to-square" style="color:#d97706;margin-right:.3rem"></i>Formative Exam / Assessment</label>
+                  <select id="anFormativeExam"><option value="">— Select Formative Exam —</option></select>
+                </div>
               </div>
-              <div style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap">
-                <button id="anRunBtn" class="btn btn-primary btn-sm" onclick="runAnalysis()">▶ Run</button>
+              <div class="frow c3" style="margin-bottom:.75rem;align-items:flex-end">
+                <div class="fg">
+                  <label>Summative Weight <span style="font-weight:400;color:var(--muted);font-size:.78rem">(%)</span></label>
+                  <input type="number" id="anSummativeWeight" min="1" max="99" value="70" style="max-width:110px" oninput="syncCombinedWeights('summative')"/>
+                </div>
+                <div class="fg">
+                  <label>Formative Weight <span style="font-weight:400;color:var(--muted);font-size:.78rem">(%)</span></label>
+                  <input type="number" id="anFormativeWeight" min="1" max="99" value="30" style="max-width:110px" oninput="syncCombinedWeights('formative')"/>
+                </div>
+                <div class="fg">
+                  <label>Grading System</label>
+                  <select id="anGradingSystemCombined" onchange="populateGSDropdowns()"></select>
+                </div>
+              </div>
+              <div style="background:var(--blue-lt);border:1px solid var(--border);border-radius:8px;padding:.5rem .85rem;font-size:.78rem;color:var(--muted);margin-bottom:.75rem">
+                <i class="fa-solid fa-circle-info" style="color:var(--primary)"></i>
+                Final score = <strong>(Summative score / Summative max) × <span id="anSWLabel">70</span>%</strong> + <strong>(Formative score / Formative max) × <span id="anFWLabel">30</span>%</strong>. Scores are normalised before weighting.
+              </div>
+              <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+                <button class="btn btn-primary btn-sm" onclick="runCombinedAnalysis()"><i class="fa-solid fa-code-merge" style="margin-right:.3rem"></i>Run Combined Analysis</button>
                 <button class="btn btn-outline btn-sm" onclick="exportAnalysisPDF()">⬇ PDF</button>
                 <button class="btn btn-outline btn-sm" onclick="exportAnalysisExcel()">⬇ Excel</button>
               </div>
