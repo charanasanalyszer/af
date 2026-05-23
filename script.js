@@ -4049,7 +4049,7 @@ function finishLogin(school) {
   try { loadSettings(); } catch(e) { console.warn('loadSettings', e); }
   try { populateGSDropdowns(); } catch(e) { console.warn('populateGSDropdowns', e); }
   try { renderGradingSystemsTab(); } catch(e) { console.warn('renderGradingSystemsTab', e); }
-  try { setExamCategory('regular'); } catch(e) { console.warn('setExamCategory', e); }
+  try { setAssessmentType('summative'); setExamCategory('regular'); } catch(e) { console.warn('setExamCategory', e); }
   try { hookReportFeeAutoFill(); } catch(e) { console.warn('hookReportFeeAutoFill', e); }
   try { renderExamSubjectCheckboxes([]); } catch(e) { console.warn('renderExamSubjectCheckboxes', e); }
   try { renderArchivedStudents(); } catch(e) { console.warn('renderArchivedStudents', e); }
@@ -6120,15 +6120,53 @@ function exportMarksExcel() {
 }
 
 // ═══════════════ EXAM CATEGORY UI ═══════════════
-let currentExamCategory = 'regular'; // 'regular' | 'consolidated'
+let currentAssessmentType = 'summative'; // 'summative' | 'formative'
+let currentExamCategory   = 'regular';   // 'regular' | 'consolidated' | 'cat' | 'strand' | 'substrand'
+
+function setAssessmentType(type) {
+  currentAssessmentType = type;
+  document.getElementById('assessBtnSummative').classList.toggle('active', type === 'summative');
+  document.getElementById('assessBtnFormative').classList.toggle('active', type === 'formative');
+  document.getElementById('summativeSubCat').style.display = type === 'summative' ? '' : 'none';
+  document.getElementById('formativeSubCat').style.display  = type === 'formative' ? '' : 'none';
+  // Default sub-category selection when switching type
+  if (type === 'summative') {
+    setExamCategory('regular');
+  } else {
+    setExamCategory('cat');
+  }
+}
 
 function setExamCategory(cat) {
   currentExamCategory = cat;
-  document.getElementById('catBtnRegular').classList.toggle('active', cat === 'regular');
-  document.getElementById('catBtnConsolidated').classList.toggle('active', cat === 'consolidated');
-  document.getElementById('examTypeWrap').style.display = cat === 'regular' ? '' : 'none';
-  document.getElementById('examConsolidatedWrap').style.display = cat === 'consolidated' ? '' : 'none';
-  document.getElementById('consolidatedSourceWrap').style.display = cat === 'consolidated' ? '' : 'none';
+  const isSummative = ['regular','consolidated'].includes(cat);
+  const isFormative = ['cat','strand','substrand'].includes(cat);
+
+  // Summative sub-cat buttons
+  document.getElementById('catBtnRegular')?.classList.toggle('active', cat === 'regular');
+  document.getElementById('catBtnConsolidated')?.classList.toggle('active', cat === 'consolidated');
+  // Formative sub-cat buttons
+  document.getElementById('catBtnCat')?.classList.toggle('active', cat === 'cat');
+  document.getElementById('catBtnStrand')?.classList.toggle('active', cat === 'strand');
+  document.getElementById('catBtnSubstrand')?.classList.toggle('active', cat === 'substrand');
+
+  // Show/hide type fields
+  const show = id => { const el=document.getElementById(id); if(el) el.style.display=''; };
+  const hide = id => { const el=document.getElementById(id); if(el) el.style.display='none'; };
+
+  // Summative – Regular
+  cat === 'regular' ? show('examTypeWrap') : hide('examTypeWrap');
+  // Summative – Consolidated
+  cat === 'consolidated' ? show('examConsolidatedWrap') : hide('examConsolidatedWrap');
+  cat === 'consolidated' ? show('consolidatedSourceWrap') : hide('consolidatedSourceWrap');
+  // Formative – CAT
+  cat === 'cat' ? show('catNumberWrap') : hide('catNumberWrap');
+  // Formative – Strand (standalone)
+  cat === 'strand' ? show('strandNameWrap') : hide('strandNameWrap');
+  // Formative – Sub-strand (extra row)
+  cat === 'substrand' ? show('substrandExtraRow') : hide('substrandExtraRow');
+  cat === 'substrand' ? hide('strandNameWrap') : '';  // sub-strand row has its own strand field
+
   if (cat === 'consolidated') renderConsolidatedSourceCheckboxes();
 }
 
@@ -6158,7 +6196,7 @@ function updateExamSelectAll() {
 function renderConsolidatedSourceCheckboxes(selectedIds) {
   const wrap = document.getElementById('consolidatedSourceCheckboxes');
   if (!wrap) return;
-  const regularExams = exams.filter(e => e.category !== 'consolidated');
+  const regularExams = exams.filter(e => e.category === 'regular');
   if (!regularExams.length) { wrap.innerHTML = '<p style="color:var(--muted);font-size:.82rem">No regular exams available yet.</p>'; return; }
   wrap.innerHTML = regularExams.map(e => `
     <label class="sub-check-label">
@@ -6179,15 +6217,29 @@ function saveExam() {
   const notes = document.getElementById('examNotes').value;
   const subIds = [...document.querySelectorAll('#examSubjectCheckboxes input[type=checkbox]:checked')].map(cb => cb.value);
   const cat   = currentExamCategory;
+  const assessType = currentAssessmentType;
 
   let type = '';
+  let strandVal = '', substrandVal = '';
+
   if (cat === 'regular') {
     type = document.getElementById('examType').value;
     if (!name || !type) { showToast('Name and exam type are required','error'); return; }
-  } else {
-    const scope = document.getElementById('examConsolidatedScope').value;
+  } else if (cat === 'consolidated') {
     type = 'Consolidated';
     if (!name) { showToast('Exam name is required','error'); return; }
+  } else if (cat === 'cat') {
+    type = document.getElementById('catNumber').value;
+    if (!name || !type) { showToast('Name and CAT number are required','error'); return; }
+  } else if (cat === 'strand') {
+    strandVal = document.getElementById('strandName').value.trim();
+    type = strandVal || 'Strand';
+    if (!name || !strandVal) { showToast('Name and strand are required','error'); return; }
+  } else if (cat === 'substrand') {
+    strandVal    = document.getElementById('strandName2').value.trim();
+    substrandVal = document.getElementById('substrandName').value.trim();
+    type = substrandVal || 'Sub-strand';
+    if (!name || !substrandVal) { showToast('Name and sub-strand are required','error'); return; }
   }
   if (!subIds.length) { showToast('Select at least one subject','error'); return; }
 
@@ -6196,12 +6248,13 @@ function saveExam() {
     : [];
 
   const editId = document.getElementById('editExamId').value;
+  const examData = { name, assessmentType:assessType, category:cat, type, strand:strandVal, substrand:substrandVal, term, year, date, classId:clsId, subjectIds:subIds, sourceExamIds, notes };
   if (editId) {
     const i = exams.findIndex(e => e.id === editId);
-    if (i > -1) exams[i] = { ...exams[i], name, category:cat, type, term, year, date, classId:clsId, subjectIds:subIds, sourceExamIds, notes };
+    if (i > -1) exams[i] = { ...exams[i], ...examData };
     showToast('Exam updated <i class="fa-solid fa-check"></i>','success');
   } else {
-    exams.push({ id:uid(), name, category:cat, type, term, year, date, classId:clsId, subjectIds:subIds, sourceExamIds, notes });
+    exams.push({ id:uid(), ...examData });
     showToast('Exam created <i class="fa-solid fa-check"></i>','success');
   }
   save(K.exams, exams);
@@ -6212,13 +6265,25 @@ function getPlatformExams() {
   try { return JSON.parse(localStorage.getItem(K_PLATFORM_EXAMS)||'[]'); } catch { return []; }
 }
 function renderExamList() {
+  const catBadgeMap = {
+    regular:     ['b-teal',   'Regular'],
+    consolidated:['b-purple', 'Consolidated'],
+    cat:         ['b-amber',  'CAT'],
+    strand:      ['b-green',  'Strand'],
+    substrand:   ['b-blue',   'Sub-strand'],
+  };
+  const assessBadgeMap = {
+    summative: ['b-blue',  'Summative'],
+    formative: ['b-coral', 'Formative'],
+  };
   const schoolRows = exams.map((e,i)=>{
-    const catBadge = e.category === 'consolidated'
-      ? '<span class="badge b-purple" style="font-size:.65rem">Consolidated</span>'
-      : '<span class="badge b-teal" style="font-size:.65rem">Regular</span>';
+    const [catCls, catLabel] = catBadgeMap[e.category] || ['b-teal','Regular'];
+    const [aCls, aLabel]     = assessBadgeMap[e.assessmentType] || ['b-blue','Summative'];
+    const catBadge = `<span class="badge ${catCls}" style="font-size:.65rem">${catLabel}</span>`;
+    const assessBadge = `<span class="badge ${aCls}" style="font-size:.65rem;margin-right:.3rem">${aLabel}</span>`;
     return `<tr>
       <td>${i+1}</td><td><strong>${e.name}</strong></td>
-      <td>${catBadge}</td>
+      <td>${assessBadge}${catBadge}</td>
       <td><span class="badge b-blue">${e.type||''}</span></td>
       <td>${e.term}</td><td>${e.year}</td>
       <td>${classes.find(c=>c.id===e.classId)?.name||'All'}</td>
@@ -6258,24 +6323,44 @@ function editExam(id) {
   document.getElementById('examDate').value=e.date||'';
   document.getElementById('examClass').value=e.classId||'';
   document.getElementById('examNotes').value=e.notes||'';
-  // Restore category
-  const cat = e.category || 'regular';
+  // Restore assessment type + category
+  const aType = e.assessmentType || (['cat','strand','substrand'].includes(e.category) ? 'formative' : 'summative');
+  const cat   = e.category || 'regular';
+  // First set assessment type (which will default sub-cat), then override sub-cat
+  currentAssessmentType = aType;
+  document.getElementById('assessBtnSummative')?.classList.toggle('active', aType === 'summative');
+  document.getElementById('assessBtnFormative')?.classList.toggle('active', aType === 'formative');
+  document.getElementById('summativeSubCat').style.display = aType === 'summative' ? '' : 'none';
+  document.getElementById('formativeSubCat').style.display  = aType === 'formative' ? '' : 'none';
   setExamCategory(cat);
   if (cat === 'regular') {
-    document.getElementById('examType').value=e.type||'';
-  } else {
+    document.getElementById('examType').value = e.type || '';
+  } else if (cat === 'consolidated') {
     const scopeSel = document.getElementById('examConsolidatedScope');
     if (scopeSel) scopeSel.value = e.consolidatedScope || 'term';
     renderConsolidatedSourceCheckboxes(e.sourceExamIds || []);
+  } else if (cat === 'cat') {
+    document.getElementById('catNumber').value = e.type || '';
+  } else if (cat === 'strand') {
+    document.getElementById('strandName').value = e.strand || '';
+  } else if (cat === 'substrand') {
+    document.getElementById('strandName2').value   = e.strand    || '';
+    document.getElementById('substrandName').value = e.substrand || '';
   }
   renderExamSubjectCheckboxes(e.subjectIds || []);
   document.getElementById('examFormTitle').innerHTML = '<i class="fa-solid fa-pen"></i>️ Edit Exam';
   openExamTab('tabCreateExam');
 }
 function cancelExamEdit() {
-  ['editExamId','examName','examNotes','examDate'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['editExamId','examName','examNotes','examDate','strandName','strandName2','substrandName'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('examType').value=''; document.getElementById('examYear').value='2025';
+  const cn = document.getElementById('catNumber'); if(cn) cn.value='';
   document.getElementById('examFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Create New Exam';
+  currentAssessmentType = 'summative';
+  document.getElementById('assessBtnSummative')?.classList.add('active');
+  document.getElementById('assessBtnFormative')?.classList.remove('active');
+  document.getElementById('summativeSubCat').style.display = '';
+  document.getElementById('formativeSubCat').style.display  = 'none';
   setExamCategory('regular');
   renderExamSubjectCheckboxes([]);
 }

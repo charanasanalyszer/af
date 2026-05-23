@@ -383,9 +383,26 @@
           <h3 id="examFormTitle"><i class="fa-solid fa-plus" style="margin-right:.4rem"></i>Create New Exam</h3>
           <input type="hidden" id="editExamId"/>
 
-          <!-- Exam Category Selector -->
+          <!-- Step 1: Assessment Type -->
           <div class="exam-category-row">
-            <label class="exam-cat-label">Exam Category *</label>
+            <label class="exam-cat-label"><i class="fa-solid fa-circle-1" style="margin-right:.35rem;opacity:.7"></i>Assessment Type *</label>
+            <div class="exam-cat-btns">
+              <button type="button" id="assessBtnSummative" class="exam-cat-btn active" onclick="setAssessmentType('summative')">
+                <span class="ecat-icon"><i class="fa-solid fa-file-pen"></i></span>
+                <span class="ecat-title">Summative</span>
+                <span class="ecat-desc">Formal exams — Regular or Consolidated</span>
+              </button>
+              <button type="button" id="assessBtnFormative" class="exam-cat-btn" onclick="setAssessmentType('formative')">
+                <span class="ecat-icon"><i class="fa-solid fa-pen-to-square"></i></span>
+                <span class="ecat-title">Formative</span>
+                <span class="ecat-desc">Ongoing assessments — CATs, Strand, Sub-strand</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 2a: Summative sub-category -->
+          <div class="exam-category-row" id="summativeSubCat">
+            <label class="exam-cat-label"><i class="fa-solid fa-circle-2" style="margin-right:.35rem;opacity:.7"></i>Exam Category *</label>
             <div class="exam-cat-btns">
               <button type="button" id="catBtnRegular" class="exam-cat-btn active" onclick="setExamCategory('regular')">
                 <span class="ecat-icon"><i class="fa-solid fa-clipboard-list"></i></span>
@@ -400,22 +417,67 @@
             </div>
           </div>
 
+          <!-- Step 2b: Formative sub-category -->
+          <div class="exam-category-row" id="formativeSubCat" style="display:none">
+            <label class="exam-cat-label"><i class="fa-solid fa-circle-2" style="margin-right:.35rem;opacity:.7"></i>Assessment Category *</label>
+            <div class="exam-cat-btns">
+              <button type="button" id="catBtnCat" class="exam-cat-btn" onclick="setExamCategory('cat')">
+                <span class="ecat-icon"><i class="fa-solid fa-pen-clip"></i></span>
+                <span class="ecat-title">CAT</span>
+                <span class="ecat-desc">Continuous Assessment Test</span>
+              </button>
+              <button type="button" id="catBtnStrand" class="exam-cat-btn" onclick="setExamCategory('strand')">
+                <span class="ecat-icon"><i class="fa-solid fa-sitemap"></i></span>
+                <span class="ecat-title">Strand</span>
+                <span class="ecat-desc">Strand-based assessment</span>
+              </button>
+              <button type="button" id="catBtnSubstrand" class="exam-cat-btn" onclick="setExamCategory('substrand')">
+                <span class="ecat-icon"><i class="fa-solid fa-diagram-project"></i></span>
+                <span class="ecat-title">Sub-strand</span>
+                <span class="ecat-desc">Sub-strand level assessment</span>
+              </button>
+            </div>
+          </div>
+
           <div class="frow c3">
             <div class="fg"><label>Exam Name *</label><input type="text" id="examName" placeholder="e.g. Term 1 Mid-Term Exam"/></div>
+            <!-- Summative Regular: Exam Type -->
             <div class="fg" id="examTypeWrap"><label>Exam Type *</label>
               <select id="examType">
                 <option value="">— Select Type —</option>
                 <option>Opener</option><option>Mid-Term</option><option>End-Term</option>
               </select>
             </div>
+            <!-- Summative Consolidated: Scope -->
             <div class="fg" id="examConsolidatedWrap" style="display:none"><label>Scope</label>
               <select id="examConsolidatedScope">
                 <option value="term">Term Consolidated</option>
                 <option value="year">Year Consolidated</option>
               </select>
             </div>
+            <!-- Formative CAT: CAT Number -->
+            <div class="fg" id="catNumberWrap" style="display:none"><label>CAT Number *</label>
+              <select id="catNumber">
+                <option value="">— Select —</option>
+                <option>CAT 1</option><option>CAT 2</option><option>CAT 3</option><option>CAT 4</option>
+              </select>
+            </div>
+            <!-- Formative Strand: Strand Name -->
+            <div class="fg" id="strandNameWrap" style="display:none"><label>Strand Name *</label>
+              <input type="text" id="strandName" placeholder="e.g. Numbers, Geometry…"/>
+            </div>
+            <!-- Formative Sub-strand: Sub-strand Name (shown alongside Strand Name below) -->
             <div class="fg"><label>Term</label>
               <select id="examTerm"><option>Term 1</option><option>Term 2</option><option>Term 3</option></select>
+            </div>
+          </div>
+          <!-- Sub-strand extra row (only for substrand category) -->
+          <div class="frow c3" id="substrandExtraRow" style="display:none">
+            <div class="fg" id="strandNameWrap2"><label>Strand Name *</label>
+              <input type="text" id="strandName2" placeholder="e.g. Numbers"/>
+            </div>
+            <div class="fg"><label>Sub-strand Name *</label>
+              <input type="text" id="substrandName" placeholder="e.g. Fractions"/>
             </div>
           </div>
           <div class="frow c3">
