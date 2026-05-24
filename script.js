@@ -11657,158 +11657,96 @@ function renderMeritList() {
   container.innerHTML = ptsLegend + (classSections || '<p style="color:var(--muted);padding:1rem">No data found.</p>');
 }
 
-// ═══════════════ PRINT ALL REPORT FORMS (instant browser print — no rendering wait) ═══════════════
-function printAllReports() {
+// ═══════════════ SHARED: fast print-ready window for all reports ═══════════════
+function _openReportPrintWindow(autoPrint) {
   const area  = document.getElementById('reportPreviewArea');
   const forms = area ? area.querySelectorAll('.report-form') : [];
-  if (!forms.length) { showToast('Generate reports first, then print','warning'); return; }
+  if (!forms.length) { showToast('Generate reports first','warning'); return; }
 
-  const linkTags  = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(l => l.outerHTML).join('\n');
-  const styleTags = Array.from(document.querySelectorAll('style')).map(s => s.outerHTML).join('\n');
+  const cssLinks  = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(l => l.outerHTML).join('\n');
+  const cssInline = Array.from(document.querySelectorAll('style')).map(s => `<style>${s.textContent}</style>`).join('\n');
   const formsHTML = Array.from(forms).map(f => f.outerHTML).join('');
 
-  const win = window.open('', '_blank');
-  if (!win) { showToast('Allow pop-ups to print, or use Download PDF instead.','info'); return; }
+  const examId = document.getElementById('rpExam')?.value || '';
+  const exam   = exams.find(e => e.id === examId);
+  const title  = `Reports — ${exam?.name || 'Exam'}`;
 
-  win.document.write(`<!DOCTYPE html>
+  const printCSS = `
+    @page { size: A4 portrait; margin: 0; }
+    html, body { margin:0; padding:0; background:#fff; }
+    .report-form {
+      width:210mm !important; height:297mm !important;
+      min-height:0 !important; max-height:297mm !important;
+      overflow:hidden !important; margin:0 auto !important;
+      padding:7mm 9mm !important; border:none !important;
+      box-shadow:none !important; box-sizing:border-box !important;
+      page-break-after:always !important; break-after:page !important;
+      display:flex !important; flex-direction:column !important;
+    }
+    .report-form .rf-header          { padding:6px 10px 5px !important; margin-bottom:5px !important; }
+    .report-form .rf-school-info h2  { font-size:12.5pt !important; }
+    .report-form .rf-school-info p   { font-size:7.5pt !important; }
+    .report-form .rf-section         { margin-bottom:4px !important; }
+    .report-form .rf-section-title   { padding:2px 7px !important; font-size:7.5pt !important; }
+    .report-form .rf-section-body    { padding:4px 7px !important; }
+    .report-form .rf-info-grid       { gap:3px !important; }
+    .report-form .rf-info-label      { font-size:6pt !important; }
+    .report-form .rf-info-value      { font-size:8pt !important; }
+    .report-form .rf-marks-table th  { padding:2px 4px !important; font-size:7pt !important; }
+    .report-form .rf-marks-table td  { padding:2px 4px !important; font-size:7.5pt !important; }
+    .report-form .rf-bottom          { gap:6px !important; margin-top:4px !important; }
+    .report-form .rf-remarks-box     { padding:4px 6px !important; min-height:36px !important; }
+    .report-form .rf-remarks-label   { font-size:6.5pt !important; }
+    .report-form .rf-remarks-text    { font-size:7.5pt !important; }
+    .report-form .rf-sig-line        { margin-top:8px !important; }
+    .report-form .rf-footer          { margin-top:5px !important; padding-top:3px !important; font-size:7pt !important; }
+    .report-form .rf-qr-section      { margin-top:4px !important; padding:3px 7px !important; flex-shrink:0 !important; }
+    .report-form canvas              { max-height:55px !important; }
+    * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+  `;
+
+  const saveBanner = autoPrint ? '' : `
+    <div id="__rp_banner__" style="position:fixed;top:0;left:0;right:0;z-index:9999;
+      background:#1a6fb5;color:#fff;font-family:sans-serif;font-size:14px;
+      text-align:center;padding:10px 16px;box-shadow:0 2px 8px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;gap:12px">
+      <span>📄 <strong>To save as PDF:</strong> choose <em>Save as PDF</em> as the destination in the print dialog</span>
+      <button onclick="document.getElementById('__rp_banner__').style.display='none';window.print()"
+        style="background:#fff;color:#1a6fb5;border:none;padding:5px 16px;border-radius:4px;cursor:pointer;font-weight:700;font-size:13px">
+        Open Print / Save Dialog
+      </button>
+    </div>`;
+
+  const html = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>Report Forms</title>
-${linkTags}
-${styleTags}
-<style>
-  @page { size: A4 portrait; margin: 0; }
-  html, body { margin: 0; padding: 0; background: #fff; }
-  .report-form {
-    width: 210mm !important;
-    min-height: 0 !important;
-    max-height: 297mm !important;
-    height: 297mm !important;
-    overflow: hidden !important;
-    margin: 0 auto !important;
-    padding: 7mm 10mm !important;
-    border: none !important;
-    box-shadow: none !important;
-    page-break-after: always !important;
-    break-after: page !important;
-    box-sizing: border-box !important;
-    display: flex !important;
-    flex-direction: column !important;
-  }
-  .report-form .rf-header         { padding: 7px 10px 6px !important; margin-bottom: 6px !important; }
-  .report-form .rf-school-info h2 { font-size: 13pt !important; }
-  .report-form .rf-school-info p  { font-size: 7.5pt !important; }
-  .report-form .rf-section        { margin-bottom: 5px !important; }
-  .report-form .rf-section-title  { padding: 3px 8px !important; font-size: 8pt !important; }
-  .report-form .rf-section-body   { padding: 5px 8px !important; }
-  .report-form .rf-info-grid      { gap: 4px !important; }
-  .report-form .rf-info-label     { font-size: 6.5pt !important; }
-  .report-form .rf-info-value     { font-size: 8.5pt !important; }
-  .report-form .rf-marks-table th { padding: 2px 5px !important; font-size: 7.5pt !important; }
-  .report-form .rf-marks-table td { padding: 2px 5px !important; font-size: 8pt !important; }
-  .report-form .rf-bottom         { gap: 7px !important; margin-top: 5px !important; }
-  .report-form .rf-remarks-box    { padding: 5px 7px !important; min-height: 40px !important; }
-  .report-form .rf-remarks-label  { font-size: 7pt !important; }
-  .report-form .rf-remarks-text   { font-size: 8pt !important; }
-  .report-form .rf-sig-line       { margin-top: 10px !important; }
-  .report-form .rf-footer         { margin-top: 6px !important; padding-top: 4px !important; font-size: 7.5pt !important; }
-  /* QR / scan section — compact but always visible */
-  .report-form .rf-qr-section     { margin-top: 4px !important; padding: 3px 8px !important; flex-shrink: 0 !important; }
-  .report-form canvas             { max-height: 60px !important; }
-  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-</style>
+<title>${title}</title>
+${cssLinks}
+${cssInline}
+<style>${printCSS}</style>
 </head>
-<body>${formsHTML}</body>
-</html>`);
-  win.document.close();
-
-  win.addEventListener('load', () => {
-    setTimeout(() => { try { win.focus(); win.print(); } catch(e) {} }, 600);
+<body>
+${saveBanner}
+${formsHTML}
+<script>
+  window.addEventListener('load', function() {
+    setTimeout(function(){ window.focus(); window.print(); }, 600);
   });
-  // Fallback if load event already fired
-  setTimeout(() => { try { if (!win.closed) { win.focus(); win.print(); } } catch(e) {} }, 1800);
+<\/script>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url, '_blank');
+  if (!win) showToast('Allow pop-ups for this site to print/save reports.', 'info');
 }
 
-// ═══════════════ DOWNLOAD ALL REPORT FORMS AS PDF ═══════════════
-function downloadAllReportsPDF() {
-  const examId   = document.getElementById('rpExam').value;
-  if (!examId) { showToast('Select an exam first','error'); return; }
+// ═══════════════ PRINT ALL REPORTS ═══════════════
+function printAllReports() { _openReportPrintWindow(true); }
 
-  const area = document.getElementById('reportPreviewArea');
-  const forms = area ? area.querySelectorAll('.report-form') : [];
-  if (!forms.length) {
-    showToast('Generate reports first, then export','warning');
-    return;
-  }
-
-  if (!window.html2canvas) {
-    showToast('html2canvas not loaded — try refreshing the page', 'error');
-    return;
-  }
-
-  const exam = exams.find(e => e.id === examId);
-  const fileName = `reports_${exam?.name||'exam'}.pdf`;
-
-  showToast(`Exporting ${forms.length} report(s) as PDF — please wait…`, 'info');
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const PW = 210, PH = 297;
-
-  const renderForm = (form, idx) => new Promise(resolve => {
-    const origStyle = form.getAttribute('style') || '';
-    // Render at natural height so the QR / scan code section is never clipped
-    form.style.width     = '794px';    // 210 mm at 96 dpi
-    form.style.height    = 'auto';     // full content — no overflow cut-off
-    form.style.overflow  = 'visible';
-    form.style.boxSizing = 'border-box';
-    form.style.padding   = '26px 38px'; // ≈ 7mm 10mm — matches print view
-
-    html2canvas(form, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-      width: 794,
-      windowWidth: 794,
-    }).then(canvas => {
-      form.setAttribute('style', origStyle);
-
-      if (idx > 0) doc.addPage();
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-
-      // Scale to fit A4: fill width, keep aspect ratio; shrink if taller than A4
-      const ratio      = (canvas.height / 2) / (canvas.width / 2); // natural aspect (÷2 for scale:2)
-      const renderedH  = PW * ratio;
-
-      if (renderedH <= PH) {
-        const yOff = (PH - renderedH) / 2;          // centre vertically
-        doc.addImage(imgData, 'JPEG', 0, yOff, PW, renderedH);
-      } else {
-        const scale   = PH / renderedH;              // shrink to fit height
-        const scaledW = PW * scale;
-        const xOff    = (PW - scaledW) / 2;
-        doc.addImage(imgData, 'JPEG', xOff, 0, scaledW, PH);
-      }
-      resolve();
-    }).catch(err => {
-      form.setAttribute('style', origStyle);
-      console.error('html2canvas error:', err);
-      resolve();
-    });
-  });
-
-  (async () => {
-    for (let i = 0; i < forms.length; i++) {
-      await renderForm(forms[i], i);
-    }
-    doc.save(fileName);
-    showToast(`PDF with ${forms.length} report(s) downloaded <i class="fa-solid fa-check"></i>`, 'success');
-  })();
-}
-
+// ═══════════════ SAVE AS PDF (replaces slow html2canvas download) ═══════════════
+function downloadAllReportsPDF() { _openReportPrintWindow(false); }
 
 /* =====================================================
    EDUSCHEDULE — GLOBAL STATE & CONSTANTS
