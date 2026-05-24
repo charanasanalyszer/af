@@ -11688,72 +11688,103 @@ function renderMeritList() {
 }
 
 // ═══════════════ DOWNLOAD ALL REPORT FORMS AS PDF ═══════════════
-function downloadAllReportsPDF() {
-  const examId   = document.getElementById('rpExam').value;
-  if (!examId) { showToast('Select an exam first','error'); return; }
+async function downloadAllReportsPDF() {
+  const examId = document.getElementById('rpExam')?.value;
+  if (!examId) { showToast('Select an exam first', 'error'); return; }
 
-  // Make sure reports are generated first
-  const area = document.getElementById('reportPreviewArea');
-  const forms = area ? area.querySelectorAll('.report-form') : [];
-  if (!forms.length) {
-    showToast('Generate reports first, then export','warning');
-    return;
-  }
-
-  if (!window.html2canvas) {
-    showToast('html2canvas not loaded — try refreshing the page', 'error');
-    return;
-  }
+  if (!window.jspdf) { showToast('jsPDF not loaded — try refreshing', 'error'); return; }
+  if (!window.html2canvas) { showToast('html2canvas not loaded — try refreshing', 'error'); return; }
 
   const exam = exams.find(e => e.id === examId);
-  const fileName = `reports_${exam?.name||'exam'}.pdf`;
+  const fileName = `Reports_${(exam?.name||'exam').replace(/\s+/g,'_')}_${exam?.year||''}.pdf`;
 
-  showToast(`Exporting ${forms.length} report(s) as PDF — please wait…`, 'info');
+  // Step 1: Auto-generate reports if preview area is empty
+  const area = document.getElementById('reportPreviewArea');
+  let forms = area ? Array.from(area.querySelectorAll('.report-form')) : [];
 
+  if (!forms.length) {
+    showToast('<i class="fa-solid fa-spinner fa-spin"></i> Generating reports…', 'info');
+    generateReport();
+    await new Promise(r => setTimeout(r, 900));
+    forms = Array.from(area.querySelectorAll('.report-form'));
+  }
+
+  if (!forms.length) {
+    showToast('No report data — check exam marks and student records', 'error');
+    return;
+  }
+
+  const total = forms.length;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const PW = 210, PH = 297;
+  let successCount = 0;
 
-  const renderForm = (form, idx) => new Promise(resolve => {
-    // Temporarily force exact A4 pixel size for clean capture
+  showToast(`<i class="fa-solid fa-spinner fa-spin"></i> Building PDF — 0 / ${total}…`, 'info');
+
+  for (let i = 0; i < forms.length; i++) {
+    const form = forms[i];
     const origStyle = form.getAttribute('style') || '';
-    form.style.width = '794px';  // 210mm at 96dpi
-    form.style.height = '1123px'; // 297mm at 96dpi
-    form.style.overflow = 'hidden';
-    form.style.boxSizing = 'border-box';
 
-    html2canvas(form, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-      width: 794,
-      height: 1123,
-      windowWidth: 794,
-    }).then(canvas => {
-      // Restore original style
-      form.setAttribute('style', origStyle);
+    // Force exact A4 pixel size
+    form.style.cssText = origStyle +
+      ';width:794px!important;min-height:1123px!important;max-height:1123px!important' +
+      ';height:1123px!important;overflow:hidden!important;box-sizing:border-box!important';
 
-      if (idx > 0) doc.addPage();
-      const imgData = canvas.toDataURL('image/jpeg', 0.97);
-      doc.addImage(imgData, 'JPEG', 0, 0, PW, PH);
-      resolve();
-    }).catch(err => {
-      form.setAttribute('style', origStyle);
-      console.error('html2canvas error:', err);
-      resolve();
+    // Snapshot canvases (charts/QR) as images so html2canvas can capture them
+    const canvasSnaps = [];
+    form.querySelectorAll('canvas').forEach(cv => {
+      try {
+        const snap = cv.toDataURL('image/png');
+        const img = document.createElement('img');
+        img.src = snap;
+        img.style.cssText = `width:${cv.offsetWidth||cv.width}px;height:${cv.offsetHeight||cv.height}px;display:block`;
+        cv.parentNode.insertBefore(img, cv);
+        cv.style.display = 'none';
+        canvasSnaps.push({ cv, img });
+      } catch(e) { /* tainted canvas — skip */ }
     });
-  });
 
-  // Render all forms sequentially then save
-  (async () => {
-    for (let i = 0; i < forms.length; i++) {
-      await renderForm(forms[i], i);
+    try {
+      const canvas = await html2canvas(form, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        width: 794,
+        height: 1123,
+        windowWidth: 820,
+        scrollX: 0,
+        scrollY: -window.scrollY,
+      });
+
+      if (i > 0) doc.addPage();
+      doc.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, PW, PH);
+      successCount++;
+
+      if ((i + 1) % 3 === 0 || i === forms.length - 1) {
+        showToast(`<i class="fa-solid fa-spinner fa-spin"></i> Building PDF — ${i+1} / ${total}…`, 'info');
+      }
+    } catch (err) {
+      console.error(`Report ${i+1} render failed:`, err);
     }
-    doc.save(fileName);
-    showToast(`PDF with ${forms.length} report(s) downloaded <i class="fa-solid fa-check"></i>`, 'success');
-  })();
+
+    // Restore
+    form.setAttribute('style', origStyle);
+    canvasSnaps.forEach(({ cv, img }) => { cv.style.display = ''; img.remove(); });
+  }
+
+  if (successCount === 0) {
+    showToast('Export failed — no pages rendered. See browser console for details.', 'error');
+    return;
+  }
+
+  doc.save(fileName);
+  showToast(
+    `<i class="fa-solid fa-check"></i> Downloaded ${successCount} of ${total} report(s)`,
+    successCount < total ? 'warning' : 'success'
+  );
 }
 
 
