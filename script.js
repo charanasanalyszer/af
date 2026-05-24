@@ -7362,6 +7362,13 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
 
 
 function printMeritList() {
+  // Delegate to exportMeritPDF which renders an HTML document that
+  // exactly matches the on-screen merit list, then auto-triggers
+  // the browser Print / Save as PDF dialog.
+  exportMeritPDF();
+}
+
+function _printMeritList_jspdf_legacy() {
   const wrap = document.getElementById('meritListWrap');
   if (!wrap || !wrap.innerHTML.trim() || wrap.innerHTML.includes('Select an exam')) {
     showToast('Generate the merit list first', 'warning'); return;
