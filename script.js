@@ -5288,8 +5288,6 @@ function populateExamDropdowns() {
     const examList = id === 'umExam' ? filteredExams.filter(e => e.category !== 'consolidated') : filteredExams;
     el.innerHTML = '<option value="">— Select Exam —</option>' + examList.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
   });
-  // Refresh combined analysis dropdowns if open
-  if (currentAnalysisMode === 'combined') populateCombinedDropdowns();
 }
 function populateMeritDropdowns() {
   populateExamDropdowns();
@@ -6250,8 +6248,7 @@ function saveExam() {
     : [];
 
   const editId = document.getElementById('editExamId').value;
-  const maxScore = Math.max(1, parseInt(document.getElementById('examMaxScore')?.value) || 100);
-  const examData = { name, assessmentType:assessType, category:cat, type, strand:strandVal, substrand:substrandVal, term, year, date, classId:clsId, subjectIds:subIds, sourceExamIds, notes, maxScore };
+  const examData = { name, assessmentType:assessType, category:cat, type, strand:strandVal, substrand:substrandVal, term, year, date, classId:clsId, subjectIds:subIds, sourceExamIds, notes };
   if (editId) {
     const i = exams.findIndex(e => e.id === editId);
     if (i > -1) exams[i] = { ...exams[i], ...examData };
@@ -6291,7 +6288,6 @@ function renderExamList() {
       <td>${e.term}</td><td>${e.year}</td>
       <td>${classes.find(c=>c.id===e.classId)?.name||'All'}</td>
       <td>${e.subjectIds.length} subjects</td>
-      <td><span style="font-weight:600">/${e.maxScore||100}</span></td>
       <td>${e.date||'—'}</td>
       <td><div class="act-cell">
         <button class="icb ed" onclick="editExam('${e.id}')" title="Edit"><i class="fa-solid fa-pen"></i>️</button>
@@ -6352,7 +6348,6 @@ function editExam(id) {
     document.getElementById('substrandName').value = e.substrand || '';
   }
   renderExamSubjectCheckboxes(e.subjectIds || []);
-  const msEl = document.getElementById('examMaxScore'); if (msEl) msEl.value = e.maxScore || 100;
   document.getElementById('examFormTitle').innerHTML = '<i class="fa-solid fa-pen"></i>️ Edit Exam';
   openExamTab('tabCreateExam');
 }
@@ -6360,7 +6355,6 @@ function cancelExamEdit() {
   ['editExamId','examName','examNotes','examDate','strandName','strandName2','substrandName'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('examType').value=''; document.getElementById('examYear').value='2025';
   const cn = document.getElementById('catNumber'); if(cn) cn.value='';
-  const ms = document.getElementById('examMaxScore'); if(ms) ms.value='100';
   document.getElementById('examFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Create New Exam';
   currentAssessmentType = 'summative';
   document.getElementById('assessBtnSummative')?.classList.add('active');
@@ -6784,7 +6778,7 @@ function buildStreamVsClassHTML(examId, classId, activeStreamId) {
         const diff = sp.mn - classMean;
         const sign = diff >= 0 ? '+' : '';
         const clr  = diff > 0.5 ? '#16a34a' : diff < -0.5 ? '#dc2626' : '#6b7280';
-        const sg   = usePoints ? getPointsGrade(sp.mn) : getMeanGrade(sp.mn / 100 * 8);
+        const sg   = getMeanGrade(sp.mn / 100 * 8);
         const isActive = sp.str.id === activeStreamId;
         return `<div style="flex:1;min-width:115px;background:${isActive?'#fefce8':'var(--surface,#fff)'};border:${isActive?'2px solid #d97706':'1.5px solid '+clr+'33'};border-radius:10px;padding:.5rem .85rem;text-align:center">`
           + `<div style="font-size:.6rem;font-weight:700;color:${isActive?'#92400e':'var(--muted)'};text-transform:uppercase;letter-spacing:.04em">${sp.str.name}${isActive?' ★':''}</div>`
@@ -7362,13 +7356,6 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
 
 
 function printMeritList() {
-  // Delegate to exportMeritPDF which renders an HTML document that
-  // exactly matches the on-screen merit list, then auto-triggers
-  // the browser Print / Save as PDF dialog.
-  exportMeritPDF();
-}
-
-function _printMeritList_jspdf_legacy() {
   const wrap = document.getElementById('meritListWrap');
   if (!wrap || !wrap.innerHTML.trim() || wrap.innerHTML.includes('Select an exam')) {
     showToast('Generate the merit list first', 'warning'); return;
@@ -8437,17 +8424,13 @@ function exportMeritPDF() {
   const streamVsClass = (classId, activeStreamId) => {
     const clsStreams = streams.filter(s=>s.classId===classId);
     if (clsStreams.length < 2) return '';
-    // Exclude incomplete students — must match the stats bar which also excludes them
-    const allSc = buildMeritData(examId, null, classId).filter(s=>!s.incomplete);
+    const allSc = buildMeritData(examId, null, classId);
     if (!allSc.length) return '';
-    const classMean = usePoints
-      ? allSc.reduce((a,s)=>a+s.points,0)/allSc.length
-      : allSc.reduce((a,s)=>a+s.mean,0)/allSc.length;
-    const classGrd  = usePoints ? getPointsGrade(classMean) : getMeanGrade(classMean/100*8);
+    const classMean = allSc.reduce((a,s)=>a+s.mean,0)/allSc.length;
+    const classGrd  = getMeanGrade(classMean/100*8);
     const strPerf   = clsStreams.map(str=>{
       const grp=allSc.filter(s=>s.streamId===str.id);
-      const mn=usePoints?grp.reduce((a,s)=>a+s.points,0)/grp.length:grp.reduce((a,s)=>a+s.mean,0)/grp.length;
-      return grp.length?{str,mn,count:grp.length,ids:grp.map(s=>s.id)}:null;
+      return grp.length?{str,mn:grp.reduce((a,s)=>a+s.mean,0)/grp.length,count:grp.length,ids:grp.map(s=>s.id)}:null;
     }).filter(Boolean);
     if (strPerf.length<2) return '';
 
@@ -8467,7 +8450,7 @@ function exportMeritPDF() {
       ${strPerf.map(sp=>{
         const diff=sp.mn-classMean; const sign=diff>=0?'+':'';
         const clr=diff>0.5?'#16a34a':diff<-0.5?'#dc2626':'#64748b';
-        const sg=usePoints?getPointsGrade(sp.mn):getMeanGrade(sp.mn/100*8); const isActive=sp.str.id===activeStreamId;
+        const sg=getMeanGrade(sp.mn/100*8); const isActive=sp.str.id===activeStreamId;
         return `<div style="flex:1;min-width:100px;background:${isActive?'#fefce8':'#fff'};border:${isActive?'2px solid #d97706':'1.5px solid #e2e8f0'};border-radius:8px;padding:6px 10px;text-align:center">
           <div style="font-size:8px;font-weight:700;color:${isActive?'#92400e':'#64748b'};text-transform:uppercase">${sp.str.name}${isActive?' ★':''}</div>
           <div style="font-size:13px;font-weight:800;color:#1e293b">${sp.mn.toFixed(2)}</div>
@@ -8496,7 +8479,7 @@ function exportMeritPDF() {
       <td style="text-align:center;background:#dbeafe;color:#7c3aed;padding:2px 4px;border:1px solid #e2e8f0;font-size:8px">${classMean.toFixed(2)} ${gradeB(classGrd)}</td>
       ${strPerf.map(sp=>{
         const d=sp.mn-classMean; const sign=d>=0?'+':''; const clr=d>0.5?'#16a34a':d<-0.5?'#dc2626':'#64748b';
-        const sg=usePoints?getPointsGrade(sp.mn):getMeanGrade(sp.mn/100*8); const isA=sp.str.id===activeStreamId;
+        const sg=getMeanGrade(sp.mn/100*8); const isA=sp.str.id===activeStreamId;
         return `<td style="text-align:center;padding:2px 4px;border:1px solid #e2e8f0;background:${isA?'#fefce8':''};font-size:8px">${sp.mn.toFixed(2)} ${gradeB(sg)}</td>`
               +`<td style="text-align:center;font-weight:800;color:${clr};padding:2px 4px;border:1px solid #e2e8f0;font-size:8px">${sign}${d.toFixed(2)}</td>`;
       }).join('')}
@@ -9392,8 +9375,7 @@ function handleStudentUpload(input) {
       data.forEach(row=>{
         const adm    =String(row['AdmNo']||row['admno']||row['Adm No']||'').trim();
         const name   =String(row['Name']||row['name']||'').trim();
-        const gRaw   = String(row['Gender']||row['gender']||'').trim().toUpperCase();
-        const gender = ['F','FEMALE','GIRL'].includes(gRaw) ? 'F' : 'M';
+        const gender =(String(row['Gender']||row['gender']||'M')).trim().toUpperCase().startsWith('F')?'F':'M';
         const clsName=String(row['Class']||row['class']||'').trim();
         const strName=String(row['Stream']||row['stream']||'').trim();
         const contact=String(row['ParentContact']||row['parent_contact']||'').trim();
@@ -9418,10 +9400,7 @@ function handleStudentUpload(input) {
 }
 
 function downloadStudentTemplate() {
-  const data=[
-    {AdmNo:'001',Name:'John Doe',Gender:'M',Class:'',Stream:'',ParentName:'',ParentContact:''},
-    {AdmNo:'002',Name:'Jane Doe',Gender:'F',Class:'',Stream:'',ParentName:'',ParentContact:''},
-  ];
+  const data=[{AdmNo:'',Name:'',Gender:'',Class:'',Stream:'',ParentName:'',ParentContact:''}];
   const ws=XLSX.utils.json_to_sheet(data); const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Students');
   XLSX.writeFile(wb,'students_template.xlsx');
@@ -11657,36 +11636,75 @@ function renderMeritList() {
   container.innerHTML = ptsLegend + (classSections || '<p style="color:var(--muted);padding:1rem">No data found.</p>');
 }
 
-// ═══════════════ PRINT ALL REPORTS (direct page print — identical to screen) ═══════════════
-function printAllReports() {
-  const area  = document.getElementById('reportPreviewArea');
+// ═══════════════ DOWNLOAD ALL REPORT FORMS AS PDF ═══════════════
+function downloadAllReportsPDF() {
+  const examId   = document.getElementById('rpExam').value;
+  if (!examId) { showToast('Select an exam first','error'); return; }
+
+  // Make sure reports are generated first
+  const area = document.getElementById('reportPreviewArea');
   const forms = area ? area.querySelectorAll('.report-form') : [];
-  if (!forms.length) { showToast('Generate reports first','warning'); return; }
-
-  // Inject a temporary @page portrait override
-  let tmpStyle = document.getElementById('__rp_page_override__');
-  if (!tmpStyle) {
-    tmpStyle = document.createElement('style');
-    tmpStyle.id = '__rp_page_override__';
-    document.head.appendChild(tmpStyle);
+  if (!forms.length) {
+    showToast('Generate reports first, then export','warning');
+    return;
   }
-  tmpStyle.textContent = '@page { size: A4 portrait; margin: 10mm 12mm; }';
 
-  document.body.classList.add('printing-reports');
+  if (!window.html2canvas) {
+    showToast('html2canvas not loaded — try refreshing the page', 'error');
+    return;
+  }
 
-  window.print();
+  const exam = exams.find(e => e.id === examId);
+  const fileName = `reports_${exam?.name||'exam'}.pdf`;
 
-  // Restore after print dialog closes
-  window.addEventListener('afterprint', function cleanup() {
-    document.body.classList.remove('printing-reports');
-    const s = document.getElementById('__rp_page_override__');
-    if (s) s.remove();
-    window.removeEventListener('afterprint', cleanup);
+  showToast(`Exporting ${forms.length} report(s) as PDF — please wait…`, 'info');
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const PW = 210, PH = 297;
+
+  const renderForm = (form, idx) => new Promise(resolve => {
+    // Temporarily force exact A4 pixel size for clean capture
+    const origStyle = form.getAttribute('style') || '';
+    form.style.width = '794px';  // 210mm at 96dpi
+    form.style.height = '1123px'; // 297mm at 96dpi
+    form.style.overflow = 'hidden';
+    form.style.boxSizing = 'border-box';
+
+    html2canvas(form, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      width: 794,
+      height: 1123,
+      windowWidth: 794,
+    }).then(canvas => {
+      // Restore original style
+      form.setAttribute('style', origStyle);
+
+      if (idx > 0) doc.addPage();
+      const imgData = canvas.toDataURL('image/jpeg', 0.97);
+      doc.addImage(imgData, 'JPEG', 0, 0, PW, PH);
+      resolve();
+    }).catch(err => {
+      form.setAttribute('style', origStyle);
+      console.error('html2canvas error:', err);
+      resolve();
+    });
   });
+
+  // Render all forms sequentially then save
+  (async () => {
+    for (let i = 0; i < forms.length; i++) {
+      await renderForm(forms[i], i);
+    }
+    doc.save(fileName);
+    showToast(`PDF with ${forms.length} report(s) downloaded <i class="fa-solid fa-check"></i>`, 'success');
+  })();
 }
 
-// ═══════════════ SAVE AS PDF — same as print, user picks "Save as PDF" ═══════════════
-function downloadAllReportsPDF() { printAllReports(); }
 
 /* =====================================================
    EDUSCHEDULE — GLOBAL STATE & CONSTANTS
@@ -16692,181 +16710,6 @@ function renderAnSubjectReviewPanel(examId) {
     </div>`;
 }
 
-// ── Analysis mode: single vs combined ──
-let currentAnalysisMode = 'single';
-
-function setAnalysisMode(mode) {
-  currentAnalysisMode = mode;
-  document.getElementById('anModeSingle').classList.toggle('active', mode === 'single');
-  document.getElementById('anModeCombined').classList.toggle('active', mode === 'combined');
-  document.getElementById('anSingleRow').style.display   = mode === 'single' ? '' : 'none';
-  document.getElementById('anCombinedRow').style.display = mode === 'combined' ? '' : 'none';
-  if (mode === 'combined') populateCombinedDropdowns();
-  document.getElementById('analyseResults').innerHTML = '';
-}
-
-function syncCombinedWeights(changed) {
-  const sw = document.getElementById('anSummativeWeight');
-  const fw = document.getElementById('anFormativeWeight');
-  const swL = document.getElementById('anSWLabel');
-  const fwL = document.getElementById('anFWLabel');
-  if (!sw || !fw) return;
-  let sv = Math.min(99, Math.max(1, parseInt(sw.value) || 70));
-  let fv = Math.min(99, Math.max(1, parseInt(fw.value) || 30));
-  if (changed === 'summative') { fv = 100 - sv; fw.value = fv; }
-  else { sv = 100 - fv; sw.value = sv; }
-  if (swL) swL.textContent = sv;
-  if (fwL) fwL.textContent = fv;
-}
-
-function populateCombinedDropdowns() {
-  const summativeExams = exams.filter(e => e.assessmentType === 'summative' || e.category === 'regular' || e.category === 'consolidated');
-  const formativeExams = exams.filter(e => e.assessmentType === 'formative' || ['cat','strand','substrand'].includes(e.category));
-  const se = document.getElementById('anSummativeExam');
-  const fe = document.getElementById('anFormativeExam');
-  const gs = document.getElementById('anGradingSystemCombined');
-  if (se) se.innerHTML = '<option value="">— Select Summative Exam —</option>' + summativeExams.map(e=>`<option value="${e.id}">${e.name} (${e.term} ${e.year})</option>`).join('');
-  if (fe) fe.innerHTML = '<option value="">— Select Formative Exam / Assessment —</option>' + formativeExams.map(e=>`<option value="${e.id}">${e.name} — ${e.type||e.category} (${e.term} ${e.year})</option>`).join('');
-  // Copy grading system options from the main grading system selector
-  const mainGs = document.getElementById('anGradingSystem');
-  if (gs && mainGs) gs.innerHTML = mainGs.innerHTML;
-}
-
-function runCombinedAnalysis() {
-  const res = document.getElementById('analyseResults');
-  const sumExamId  = document.getElementById('anSummativeExam')?.value;
-  const formExamId = document.getElementById('anFormativeExam')?.value;
-  const sumW  = Math.min(99, Math.max(1, parseInt(document.getElementById('anSummativeWeight')?.value) || 70));
-  const formW = 100 - sumW;
-  const selGs = document.getElementById('anGradingSystemCombined')?.value;
-  if (selGs) setActiveGradingSystem(selGs);
-
-  if (!sumExamId || !formExamId) { showToast('Select both a summative and a formative exam','error'); return; }
-  if (sumExamId === formExamId)   { showToast('Please select two different exams','error'); return; }
-
-  const sumExam  = exams.find(e=>e.id===sumExamId);
-  const formExam = exams.find(e=>e.id===formExamId);
-  if (!sumExam || !formExam) { showToast('Exam not found','error'); return; }
-
-  const sumMax  = sumExam.maxScore  || 100;
-  const formMax = formExam.maxScore || 100;
-
-  const sumMarks  = marks.filter(m=>m.examId===sumExamId);
-  const formMarks = marks.filter(m=>m.examId===formExamId);
-
-  // Union of subjects from both exams
-  const allSubIds = [...new Set([...(sumExam.subjectIds||[]), ...(formExam.subjectIds||[])])];
-  const totalSubjects = allSubIds.length || 1;
-
-  // Students who appear in either exam
-  const allStudentIds = new Set([...sumMarks.map(m=>m.studentId), ...formMarks.map(m=>m.studentId)]);
-  if (!allStudentIds.size) { if(res) res.innerHTML='<p style="color:var(--muted)">No marks found for the selected exams.</p>'; return; }
-
-  const gs = getActiveGradingSystem();
-
-  // Build per-student combined totals
-  const studentTotals = [...allStudentIds].map(stuId => {
-    const stu = students.find(s=>s.id===stuId); if(!stu) return null;
-    let combinedTotal = 0, pts = 0, subCount = 0;
-    allSubIds.forEach(sid => {
-      const sub = subjects.find(s=>s.id===sid);
-      const sMk = sumMarks.find(m=>m.studentId===stuId&&m.subjectId===sid);
-      const fMk = formMarks.find(m=>m.studentId===stuId&&m.subjectId===sid);
-      const sNorm = sMk ? (sMk.score / sumMax  * 100) : null;
-      const fNorm = fMk ? (fMk.score / formMax * 100) : null;
-      let combined = null;
-      if (sNorm !== null && fNorm !== null) combined = (sNorm * sumW + fNorm * formW) / 100;
-      else if (sNorm !== null) combined = sNorm * sumW / 100;
-      else if (fNorm !== null) combined = fNorm * formW / 100;
-      if (combined !== null) {
-        combinedTotal += combined;
-        pts += getGrade(combined, 100).points;
-        subCount++;
-      }
-    });
-    const mean = subCount ? parseFloat((combinedTotal / subCount).toFixed(2)) : 0;
-    const grade = getMeanGrade(mean / 100 * 8);
-    return { ...stu, total: parseFloat(combinedTotal.toFixed(1)), mean, grade, points:pts };
-  }).filter(Boolean);
-
-  if (!studentTotals.length) { if(res) res.innerHTML='<p style="color:var(--muted)">No matching student data found.</p>'; return; }
-
-  // Sort by mean desc
-  studentTotals.sort((a,b)=>b.mean-a.mean);
-  studentTotals.forEach((s,i)=>{ s.rank=i+1; });
-
-  const classMean = studentTotals.reduce((a,s)=>a+s.mean,0)/studentTotals.length;
-  const male   = studentTotals.filter(s=>s.gender==='M');
-  const female = studentTotals.filter(s=>s.gender==='F');
-  const mMean  = male.length   ? male.reduce((a,s)=>a+s.mean,0)/male.length   : 0;
-  const fMean  = female.length ? female.reduce((a,s)=>a+s.mean,0)/female.length : 0;
-
-  // Grade distribution
-  const gradeDist = {};
-  gs.bands.forEach(b=>gradeDist[b.grade]=0);
-  studentTotals.forEach(s=>{ if(s.grade?.grade && gradeDist[s.grade.grade]!==undefined) gradeDist[s.grade.grade]++; });
-
-  const gradeDistHTML = `<div class="card" style="margin-top:1rem">
-    <h3><i class="fa-solid fa-chart-bar"></i> Overall Grade Distribution</h3>
-    <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:flex-end;padding:.5rem 0">
-      ${gs.bands.map(b=>{const cnt=gradeDist[b.grade]||0;const pct=studentTotals.length?Math.round(cnt/studentTotals.length*100):0;
-        const col=b.cls==='b-green'?'#16a34a':b.cls==='b-teal'?'#0d9488':b.cls==='b-blue'?'#1a6fb5':b.cls==='b-amber'?'#d97706':b.cls==='b-orange'?'#ea580c':b.cls==='b-red'?'#dc2626':'#991b1b';
-        return `<div style="flex:1;min-width:48px;text-align:center">
-          <div style="font-size:.72rem;font-weight:700;color:var(--muted);margin-bottom:.2rem">${cnt}</div>
-          <div style="height:${Math.max(pct*1.4,4)}px;background:${col};border-radius:4px 4px 0 0;transition:height .3s"></div>
-          <div style="font-size:.72rem;font-weight:700;margin-top:.2rem"><span class="badge ${b.cls}" style="font-size:.65rem">${b.grade}</span></div>
-          <div style="font-size:.65rem;color:var(--muted)">${pct}%</div>
-        </div>`;}).join('')}
-    </div></div>`;
-
-  const summaryHTML = `<div class="an-grid">
-    <div class="an-stat-card"><div class="an-stat-value">${studentTotals.length}</div><div class="an-stat-label">Students</div></div>
-    <div class="an-stat-card"><div class="an-stat-value">${classMean.toFixed(1)}<span style="font-size:.7em;color:var(--muted)">/100</span></div><div class="an-stat-label">Combined Mean</div></div>
-    <div class="an-stat-card"><div class="an-stat-value">${mMean.toFixed(1)}</div><div class="an-stat-label">Male Mean</div></div>
-    <div class="an-stat-card"><div class="an-stat-value">${fMean.toFixed(1)}</div><div class="an-stat-label">Female Mean</div></div>
-    <div class="an-stat-card"><div class="an-stat-value">${sumW}% / ${formW}%</div><div class="an-stat-label">Summative / Formative Weight</div></div>
-  </div>`;
-
-  // Student table
-  const rows = studentTotals.map((s,i)=>{
-    const g = s.grade || {};
-    return `<tr>
-      <td>${i+1}</td>
-      <td><strong>${s.name}</strong></td>
-      <td>${s.adm||'—'}</td>
-      <td>${s.gender||'—'}</td>
-      <td style="font-weight:700">${s.mean.toFixed(1)}</td>
-      <td><span class="badge ${g.cls||'b-blue'}">${g.grade||'—'}</span></td>
-      <td>${s.points??'—'}</td>
-    </tr>`;
-  }).join('');
-
-  if (res) res.innerHTML = `
-    <div class="card" style="margin-bottom:1rem;background:linear-gradient(135deg,var(--blue-lt),var(--primary-lt,#f0f4ff))">
-      <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
-        <div style="font-size:1.6rem"><i class="fa-solid fa-code-merge" style="color:var(--primary)"></i></div>
-        <div>
-          <div style="font-weight:700;font-size:1rem">Combined Final Score Analysis</div>
-          <div style="font-size:.8rem;color:var(--muted)">
-            <span class="badge b-blue" style="font-size:.7rem">Summative ${sumW}%</span>
-            <span style="margin:0 .3rem">+</span>
-            <span class="badge b-amber" style="font-size:.7rem">Formative ${formW}%</span>
-            <span style="margin-left:.5rem">${sumExam.name} &amp; ${formExam.name}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-    ${summaryHTML}
-    ${gradeDistHTML}
-    <div class="card" style="margin-top:1rem;overflow-x:auto">
-      <h3><i class="fa-solid fa-list-ol"></i> Student Combined Results</h3>
-      <table class="data-table">
-        <thead><tr><th>#</th><th>Name</th><th>Adm</th><th>Gender</th><th>Combined Mean (/100)</th><th>Grade</th><th>Points</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
-}
-
 // ── Analysis: restrict class teachers to their class ──
 // Patch checkAnalyseAccess to inject class-filter UI
 function checkAnalyseAccess() {
@@ -17035,13 +16878,11 @@ function runAnalysis() {
       if (score !== null && score !== undefined) {
         total += score;
         const sub = subjects.find(s=>s.id===sid);
-        const subMax = exam.maxScore || sub?.max || 100;
-        pts += getGrade(score, subMax).points;
+        pts += getGrade(score, sub?.max||100).points;
       }
     });
     const mean = parseFloat((total / totalSubjects).toFixed(2));
-    const examMax = exam.maxScore || null;
-    const maxAvg = examMax || (exam.subjectIds.map(sid=>subjects.find(s=>s.id===sid)?.max||100).reduce((a,b)=>a+b,0)/totalSubjects)||100;
+    const maxAvg = (exam.subjectIds.map(sid=>subjects.find(s=>s.id===sid)?.max||100).reduce((a,b)=>a+b,0)/totalSubjects)||100;
     const grade = getMeanGrade(mean / maxAvg * 8);
     return { ...stu, total: parseFloat(total.toFixed(1)), mean, grade, points:pts };
   });
@@ -17066,7 +16907,7 @@ function runAnalysis() {
     const gs = getActiveGradingSystem();
     const dist = {};
     gs.bands.forEach(b=>dist[b.grade]=0);
-    vals.forEach(v=>{ const g=getGrade(v, exam.maxScore || sub.max||100); if(dist[g.grade]!==undefined) dist[g.grade]++; });
+    vals.forEach(v=>{ const g=getGrade(v,sub.max||100); if(dist[g.grade]!==undefined) dist[g.grade]++; });
     return { sub, mn, mx, lo, count:vals.length, dist };
   }).filter(Boolean);
 
