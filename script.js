@@ -9381,7 +9381,8 @@ function handleStudentUpload(input) {
       data.forEach(row=>{
         const adm    =String(row['AdmNo']||row['admno']||row['Adm No']||'').trim();
         const name   =String(row['Name']||row['name']||'').trim();
-        const gender =(String(row['Gender']||row['gender']||'M')).trim().toUpperCase().startsWith('F')?'F':'M';
+        const gRaw   = String(row['Gender']||row['gender']||'').trim().toUpperCase();
+        const gender = ['F','FEMALE','GIRL'].includes(gRaw) ? 'F' : 'M';
         const clsName=String(row['Class']||row['class']||'').trim();
         const strName=String(row['Stream']||row['stream']||'').trim();
         const contact=String(row['ParentContact']||row['parent_contact']||'').trim();
@@ -9406,7 +9407,10 @@ function handleStudentUpload(input) {
 }
 
 function downloadStudentTemplate() {
-  const data=[{AdmNo:'',Name:'',Gender:'',Class:'',Stream:'',ParentName:'',ParentContact:''}];
+  const data=[
+    {AdmNo:'001',Name:'John Doe',Gender:'M',Class:'',Stream:'',ParentName:'',ParentContact:''},
+    {AdmNo:'002',Name:'Jane Doe',Gender:'F',Class:'',Stream:'',ParentName:'',ParentContact:''},
+  ];
   const ws=XLSX.utils.json_to_sheet(data); const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Students');
   XLSX.writeFile(wb,'students_template.xlsx');

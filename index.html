@@ -993,7 +993,7 @@
         <div class="upload-zone" onclick="document.getElementById('stuFile').click()">
           <div class="uz-icon"><i class="fa-solid fa-user-graduate"></i></div>
           <h4>Click or drag Excel/CSV file</h4>
-          <p>Columns: AdmNo, Name, Gender, Class, Stream, ParentContact, ParentName</p>
+          <p>Columns: AdmNo, Name, Gender <span style="color:var(--muted)">(M or F)</span>, Class, Stream, ParentContact, ParentName</p>
           <input type="file" id="stuFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleStudentUpload(this)"/>
         </div>
         <div style="display:flex;gap:.75rem;margin-top:.75rem">
