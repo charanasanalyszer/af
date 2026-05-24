@@ -11657,96 +11657,36 @@ function renderMeritList() {
   container.innerHTML = ptsLegend + (classSections || '<p style="color:var(--muted);padding:1rem">No data found.</p>');
 }
 
-// ═══════════════ SHARED: fast print-ready window for all reports ═══════════════
-function _openReportPrintWindow(autoPrint) {
+// ═══════════════ PRINT ALL REPORTS (direct page print — identical to screen) ═══════════════
+function printAllReports() {
   const area  = document.getElementById('reportPreviewArea');
   const forms = area ? area.querySelectorAll('.report-form') : [];
   if (!forms.length) { showToast('Generate reports first','warning'); return; }
 
-  const cssLinks  = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(l => l.outerHTML).join('\n');
-  const cssInline = Array.from(document.querySelectorAll('style')).map(s => `<style>${s.textContent}</style>`).join('\n');
-  const formsHTML = Array.from(forms).map(f => f.outerHTML).join('');
+  // Inject a temporary @page portrait override
+  let tmpStyle = document.getElementById('__rp_page_override__');
+  if (!tmpStyle) {
+    tmpStyle = document.createElement('style');
+    tmpStyle.id = '__rp_page_override__';
+    document.head.appendChild(tmpStyle);
+  }
+  tmpStyle.textContent = '@page { size: A4 portrait; margin: 10mm 12mm; }';
 
-  const examId = document.getElementById('rpExam')?.value || '';
-  const exam   = exams.find(e => e.id === examId);
-  const title  = `Reports — ${exam?.name || 'Exam'}`;
+  document.body.classList.add('printing-reports');
 
-  const printCSS = `
-    @page { size: A4 portrait; margin: 0; }
-    html, body { margin:0; padding:0; background:#fff; }
-    .report-form {
-      width:210mm !important; height:297mm !important;
-      min-height:0 !important; max-height:297mm !important;
-      overflow:hidden !important; margin:0 auto !important;
-      padding:7mm 9mm !important; border:none !important;
-      box-shadow:none !important; box-sizing:border-box !important;
-      page-break-after:always !important; break-after:page !important;
-      display:flex !important; flex-direction:column !important;
-    }
-    .report-form .rf-header          { padding:6px 10px 5px !important; margin-bottom:5px !important; }
-    .report-form .rf-school-info h2  { font-size:12.5pt !important; }
-    .report-form .rf-school-info p   { font-size:7.5pt !important; }
-    .report-form .rf-section         { margin-bottom:4px !important; }
-    .report-form .rf-section-title   { padding:2px 7px !important; font-size:7.5pt !important; }
-    .report-form .rf-section-body    { padding:4px 7px !important; }
-    .report-form .rf-info-grid       { gap:3px !important; }
-    .report-form .rf-info-label      { font-size:6pt !important; }
-    .report-form .rf-info-value      { font-size:8pt !important; }
-    .report-form .rf-marks-table th  { padding:2px 4px !important; font-size:7pt !important; }
-    .report-form .rf-marks-table td  { padding:2px 4px !important; font-size:7.5pt !important; }
-    .report-form .rf-bottom          { gap:6px !important; margin-top:4px !important; }
-    .report-form .rf-remarks-box     { padding:4px 6px !important; min-height:36px !important; }
-    .report-form .rf-remarks-label   { font-size:6.5pt !important; }
-    .report-form .rf-remarks-text    { font-size:7.5pt !important; }
-    .report-form .rf-sig-line        { margin-top:8px !important; }
-    .report-form .rf-footer          { margin-top:5px !important; padding-top:3px !important; font-size:7pt !important; }
-    .report-form .rf-qr-section      { margin-top:4px !important; padding:3px 7px !important; flex-shrink:0 !important; }
-    .report-form canvas              { max-height:55px !important; }
-    * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
-  `;
+  window.print();
 
-  const saveBanner = autoPrint ? '' : `
-    <div id="__rp_banner__" style="position:fixed;top:0;left:0;right:0;z-index:9999;
-      background:#1a6fb5;color:#fff;font-family:sans-serif;font-size:14px;
-      text-align:center;padding:10px 16px;box-shadow:0 2px 8px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;gap:12px">
-      <span>📄 <strong>To save as PDF:</strong> choose <em>Save as PDF</em> as the destination in the print dialog</span>
-      <button onclick="document.getElementById('__rp_banner__').style.display='none';window.print()"
-        style="background:#fff;color:#1a6fb5;border:none;padding:5px 16px;border-radius:4px;cursor:pointer;font-weight:700;font-size:13px">
-        Open Print / Save Dialog
-      </button>
-    </div>`;
-
-  const html = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>${title}</title>
-${cssLinks}
-${cssInline}
-<style>${printCSS}</style>
-</head>
-<body>
-${saveBanner}
-${formsHTML}
-<script>
-  window.addEventListener('load', function() {
-    setTimeout(function(){ window.focus(); window.print(); }, 600);
+  // Restore after print dialog closes
+  window.addEventListener('afterprint', function cleanup() {
+    document.body.classList.remove('printing-reports');
+    const s = document.getElementById('__rp_page_override__');
+    if (s) s.remove();
+    window.removeEventListener('afterprint', cleanup);
   });
-<\/script>
-</body>
-</html>`;
-
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  const url  = URL.createObjectURL(blob);
-  const win  = window.open(url, '_blank');
-  if (!win) showToast('Allow pop-ups for this site to print/save reports.', 'info');
 }
 
-// ═══════════════ PRINT ALL REPORTS ═══════════════
-function printAllReports() { _openReportPrintWindow(true); }
-
-// ═══════════════ SAVE AS PDF (replaces slow html2canvas download) ═══════════════
-function downloadAllReportsPDF() { _openReportPrintWindow(false); }
+// ═══════════════ SAVE AS PDF — same as print, user picks "Save as PDF" ═══════════════
+function downloadAllReportsPDF() { printAllReports(); }
 
 /* =====================================================
    EDUSCHEDULE — GLOBAL STATE & CONSTANTS
