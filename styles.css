@@ -668,26 +668,55 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
   /* ── Chart canvases can't print — hide chart boxes ── */
   #meritListWrap .chart-box { display: none !important; }
 
-  /* ── Report form keeps A4 portrait ── */
+  /* ── Report form: one per A4 page, compact so QR / scan code is always visible ── */
   .report-form {
-    width: 210mm !important; min-height: 0 !important;
-    max-height: 297mm !important; height: 297mm !important;
-    overflow: hidden !important; margin: 0 !important;
-    padding: 10mm 12mm !important; border: none !important;
+    width: 210mm !important;
+    min-height: 0 !important;
+    max-height: 297mm !important;
+    height: 297mm !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 7mm 10mm !important;
+    border: none !important;
     box-shadow: none !important;
-    page-break-after: always !important; break-after: page !important;
+    page-break-after: always !important;
+    break-after: page !important;
     box-sizing: border-box !important;
-    display: flex !important; flex-direction: column !important;
+    display: flex !important;
+    flex-direction: column !important;
   }
-  .rf-marks-table th  { background: #f0f7ff !important; color: #1a6fb5 !important; }
+  /* Tighten up each section so everything fits, including the QR code */
+  .report-form .rf-header         { padding: 7px 10px 6px !important; margin-bottom: 6px !important; }
+  .report-form .rf-school-info h2 { font-size: 13pt !important; }
+  .report-form .rf-school-info p  { font-size: 7.5pt !important; }
+  .report-form .rf-section        { margin-bottom: 5px !important; }
+  .report-form .rf-section-title  { padding: 3px 8px !important; font-size: 8pt !important; }
+  .report-form .rf-section-body   { padding: 5px 8px !important; }
+  .report-form .rf-info-grid      { gap: 4px !important; }
+  .report-form .rf-info-label     { font-size: 6.5pt !important; }
+  .report-form .rf-info-value     { font-size: 8.5pt !important; }
+  .report-form .rf-marks-table th { padding: 2px 5px !important; font-size: 7.5pt !important; }
+  .report-form .rf-marks-table td { padding: 2px 5px !important; font-size: 8pt !important; }
+  .report-form .rf-bottom         { gap: 7px !important; margin-top: 5px !important; }
+  .report-form .rf-remarks-box    { padding: 5px 7px !important; min-height: 40px !important; }
+  .report-form .rf-remarks-label  { font-size: 7pt !important; }
+  .report-form .rf-remarks-text   { font-size: 8pt !important; }
+  .report-form .rf-sig-line       { margin-top: 10px !important; }
+  .report-form .rf-footer         { margin-top: 6px !important; padding-top: 4px !important; font-size: 7.5pt !important; }
+  /* QR / scan section — always rendered, never clipped */
+  .report-form .rf-qr-section     { margin-top: 4px !important; padding: 3px 8px !important; flex-shrink: 0 !important; }
+  /* Trend chart — constrain height so it doesn't push QR off-page */
+  .report-form canvas             { max-height: 60px !important; }
+  /* Colour overrides */
+  .rf-marks-table th              { background: #f0f7ff !important; color: #1a6fb5 !important; }
   .rf-marks-table tr:nth-child(even) td { background: #f8fbff !important; }
-  .rf-marks-table .total-row td { background: #dbeafe !important; border-top: 2px solid #1a6fb5 !important; }
-  .rf-section-title { background: #7c3aed !important; color: #fff !important; }
-  .rf-section-body  { border-color: #1a6fb5 !important; }
-  .rf-header        { background:linear-gradient(135deg,#1a6fb5,#1e3a8a) !important; border-bottom-color: #7c3aed !important; }
-  .rf-school-info h2 { color:#ffffff !important; }
-  .rf-school-info p  { color:#ffffff !important; }
-  .rf-footer        { border-top-color:   #16a34a !important; }
+  .rf-marks-table .total-row td   { background: #dbeafe !important; border-top: 2px solid #1a6fb5 !important; }
+  .rf-section-title  { background: #7c3aed !important; color: #fff !important; }
+  .rf-section-body   { border-color: #1a6fb5 !important; }
+  .rf-header         { background: linear-gradient(135deg,#1a6fb5,#1e3a8a) !important; border-bottom-color: #7c3aed !important; }
+  .rf-school-info h2 { color: #ffffff !important; }
+  .rf-school-info p  { color: #ffffff !important; }
+  .rf-footer         { border-top-color: #16a34a !important; }
 
   /* Timetable print */
   .tt-wrap { border: none; }

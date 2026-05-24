@@ -6784,7 +6784,7 @@ function buildStreamVsClassHTML(examId, classId, activeStreamId) {
         const diff = sp.mn - classMean;
         const sign = diff >= 0 ? '+' : '';
         const clr  = diff > 0.5 ? '#16a34a' : diff < -0.5 ? '#dc2626' : '#6b7280';
-        const sg   = getMeanGrade(sp.mn / 100 * 8);
+        const sg   = usePoints ? getPointsGrade(sp.mn) : getMeanGrade(sp.mn / 100 * 8);
         const isActive = sp.str.id === activeStreamId;
         return `<div style="flex:1;min-width:115px;background:${isActive?'#fefce8':'var(--surface,#fff)'};border:${isActive?'2px solid #d97706':'1.5px solid '+clr+'33'};border-radius:10px;padding:.5rem .85rem;text-align:center">`
           + `<div style="font-size:.6rem;font-weight:700;color:${isActive?'#92400e':'var(--muted)'};text-transform:uppercase;letter-spacing:.04em">${sp.str.name}${isActive?' ★':''}</div>`
@@ -8437,13 +8437,17 @@ function exportMeritPDF() {
   const streamVsClass = (classId, activeStreamId) => {
     const clsStreams = streams.filter(s=>s.classId===classId);
     if (clsStreams.length < 2) return '';
-    const allSc = buildMeritData(examId, null, classId);
+    // Exclude incomplete students — must match the stats bar which also excludes them
+    const allSc = buildMeritData(examId, null, classId).filter(s=>!s.incomplete);
     if (!allSc.length) return '';
-    const classMean = allSc.reduce((a,s)=>a+s.mean,0)/allSc.length;
-    const classGrd  = getMeanGrade(classMean/100*8);
+    const classMean = usePoints
+      ? allSc.reduce((a,s)=>a+s.points,0)/allSc.length
+      : allSc.reduce((a,s)=>a+s.mean,0)/allSc.length;
+    const classGrd  = usePoints ? getPointsGrade(classMean) : getMeanGrade(classMean/100*8);
     const strPerf   = clsStreams.map(str=>{
       const grp=allSc.filter(s=>s.streamId===str.id);
-      return grp.length?{str,mn:grp.reduce((a,s)=>a+s.mean,0)/grp.length,count:grp.length,ids:grp.map(s=>s.id)}:null;
+      const mn=usePoints?grp.reduce((a,s)=>a+s.points,0)/grp.length:grp.reduce((a,s)=>a+s.mean,0)/grp.length;
+      return grp.length?{str,mn,count:grp.length,ids:grp.map(s=>s.id)}:null;
     }).filter(Boolean);
     if (strPerf.length<2) return '';
 
@@ -8463,7 +8467,7 @@ function exportMeritPDF() {
       ${strPerf.map(sp=>{
         const diff=sp.mn-classMean; const sign=diff>=0?'+':'';
         const clr=diff>0.5?'#16a34a':diff<-0.5?'#dc2626':'#64748b';
-        const sg=getMeanGrade(sp.mn/100*8); const isActive=sp.str.id===activeStreamId;
+        const sg=usePoints?getPointsGrade(sp.mn):getMeanGrade(sp.mn/100*8); const isActive=sp.str.id===activeStreamId;
         return `<div style="flex:1;min-width:100px;background:${isActive?'#fefce8':'#fff'};border:${isActive?'2px solid #d97706':'1.5px solid #e2e8f0'};border-radius:8px;padding:6px 10px;text-align:center">
           <div style="font-size:8px;font-weight:700;color:${isActive?'#92400e':'#64748b'};text-transform:uppercase">${sp.str.name}${isActive?' ★':''}</div>
           <div style="font-size:13px;font-weight:800;color:#1e293b">${sp.mn.toFixed(2)}</div>
@@ -8492,7 +8496,7 @@ function exportMeritPDF() {
       <td style="text-align:center;background:#dbeafe;color:#7c3aed;padding:2px 4px;border:1px solid #e2e8f0;font-size:8px">${classMean.toFixed(2)} ${gradeB(classGrd)}</td>
       ${strPerf.map(sp=>{
         const d=sp.mn-classMean; const sign=d>=0?'+':''; const clr=d>0.5?'#16a34a':d<-0.5?'#dc2626':'#64748b';
-        const sg=getMeanGrade(sp.mn/100*8); const isA=sp.str.id===activeStreamId;
+        const sg=usePoints?getPointsGrade(sp.mn):getMeanGrade(sp.mn/100*8); const isA=sp.str.id===activeStreamId;
         return `<td style="text-align:center;padding:2px 4px;border:1px solid #e2e8f0;background:${isA?'#fefce8':''};font-size:8px">${sp.mn.toFixed(2)} ${gradeB(sg)}</td>`
               +`<td style="text-align:center;font-weight:800;color:${clr};padding:2px 4px;border:1px solid #e2e8f0;font-size:8px">${sign}${d.toFixed(2)}</td>`;
       }).join('')}
@@ -11653,12 +11657,84 @@ function renderMeritList() {
   container.innerHTML = ptsLegend + (classSections || '<p style="color:var(--muted);padding:1rem">No data found.</p>');
 }
 
+// ═══════════════ PRINT ALL REPORT FORMS (instant browser print — no rendering wait) ═══════════════
+function printAllReports() {
+  const area  = document.getElementById('reportPreviewArea');
+  const forms = area ? area.querySelectorAll('.report-form') : [];
+  if (!forms.length) { showToast('Generate reports first, then print','warning'); return; }
+
+  const linkTags  = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(l => l.outerHTML).join('\n');
+  const styleTags = Array.from(document.querySelectorAll('style')).map(s => s.outerHTML).join('\n');
+  const formsHTML = Array.from(forms).map(f => f.outerHTML).join('');
+
+  const win = window.open('', '_blank');
+  if (!win) { showToast('Allow pop-ups to print, or use Download PDF instead.','info'); return; }
+
+  win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Report Forms</title>
+${linkTags}
+${styleTags}
+<style>
+  @page { size: A4 portrait; margin: 0; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  .report-form {
+    width: 210mm !important;
+    min-height: 0 !important;
+    max-height: 297mm !important;
+    height: 297mm !important;
+    overflow: hidden !important;
+    margin: 0 auto !important;
+    padding: 7mm 10mm !important;
+    border: none !important;
+    box-shadow: none !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .report-form .rf-header         { padding: 7px 10px 6px !important; margin-bottom: 6px !important; }
+  .report-form .rf-school-info h2 { font-size: 13pt !important; }
+  .report-form .rf-school-info p  { font-size: 7.5pt !important; }
+  .report-form .rf-section        { margin-bottom: 5px !important; }
+  .report-form .rf-section-title  { padding: 3px 8px !important; font-size: 8pt !important; }
+  .report-form .rf-section-body   { padding: 5px 8px !important; }
+  .report-form .rf-info-grid      { gap: 4px !important; }
+  .report-form .rf-info-label     { font-size: 6.5pt !important; }
+  .report-form .rf-info-value     { font-size: 8.5pt !important; }
+  .report-form .rf-marks-table th { padding: 2px 5px !important; font-size: 7.5pt !important; }
+  .report-form .rf-marks-table td { padding: 2px 5px !important; font-size: 8pt !important; }
+  .report-form .rf-bottom         { gap: 7px !important; margin-top: 5px !important; }
+  .report-form .rf-remarks-box    { padding: 5px 7px !important; min-height: 40px !important; }
+  .report-form .rf-remarks-label  { font-size: 7pt !important; }
+  .report-form .rf-remarks-text   { font-size: 8pt !important; }
+  .report-form .rf-sig-line       { margin-top: 10px !important; }
+  .report-form .rf-footer         { margin-top: 6px !important; padding-top: 4px !important; font-size: 7.5pt !important; }
+  /* QR / scan section — compact but always visible */
+  .report-form .rf-qr-section     { margin-top: 4px !important; padding: 3px 8px !important; flex-shrink: 0 !important; }
+  .report-form canvas             { max-height: 60px !important; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+</style>
+</head>
+<body>${formsHTML}</body>
+</html>`);
+  win.document.close();
+
+  win.addEventListener('load', () => {
+    setTimeout(() => { try { win.focus(); win.print(); } catch(e) {} }, 600);
+  });
+  // Fallback if load event already fired
+  setTimeout(() => { try { if (!win.closed) { win.focus(); win.print(); } } catch(e) {} }, 1800);
+}
+
 // ═══════════════ DOWNLOAD ALL REPORT FORMS AS PDF ═══════════════
 function downloadAllReportsPDF() {
   const examId   = document.getElementById('rpExam').value;
   if (!examId) { showToast('Select an exam first','error'); return; }
 
-  // Make sure reports are generated first
   const area = document.getElementById('reportPreviewArea');
   const forms = area ? area.querySelectorAll('.report-form') : [];
   if (!forms.length) {
@@ -11681,12 +11757,13 @@ function downloadAllReportsPDF() {
   const PW = 210, PH = 297;
 
   const renderForm = (form, idx) => new Promise(resolve => {
-    // Temporarily force exact A4 pixel size for clean capture
     const origStyle = form.getAttribute('style') || '';
-    form.style.width = '794px';  // 210mm at 96dpi
-    form.style.height = '1123px'; // 297mm at 96dpi
-    form.style.overflow = 'hidden';
+    // Render at natural height so the QR / scan code section is never clipped
+    form.style.width     = '794px';    // 210 mm at 96 dpi
+    form.style.height    = 'auto';     // full content — no overflow cut-off
+    form.style.overflow  = 'visible';
     form.style.boxSizing = 'border-box';
+    form.style.padding   = '26px 38px'; // ≈ 7mm 10mm — matches print view
 
     html2canvas(form, {
       scale: 2,
@@ -11695,15 +11772,26 @@ function downloadAllReportsPDF() {
       backgroundColor: '#ffffff',
       logging: false,
       width: 794,
-      height: 1123,
       windowWidth: 794,
     }).then(canvas => {
-      // Restore original style
       form.setAttribute('style', origStyle);
 
       if (idx > 0) doc.addPage();
-      const imgData = canvas.toDataURL('image/jpeg', 0.97);
-      doc.addImage(imgData, 'JPEG', 0, 0, PW, PH);
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+      // Scale to fit A4: fill width, keep aspect ratio; shrink if taller than A4
+      const ratio      = (canvas.height / 2) / (canvas.width / 2); // natural aspect (÷2 for scale:2)
+      const renderedH  = PW * ratio;
+
+      if (renderedH <= PH) {
+        const yOff = (PH - renderedH) / 2;          // centre vertically
+        doc.addImage(imgData, 'JPEG', 0, yOff, PW, renderedH);
+      } else {
+        const scale   = PH / renderedH;              // shrink to fit height
+        const scaledW = PW * scale;
+        const xOff    = (PW - scaledW) / 2;
+        doc.addImage(imgData, 'JPEG', xOff, 0, scaledW, PH);
+      }
       resolve();
     }).catch(err => {
       form.setAttribute('style', origStyle);
@@ -11712,7 +11800,6 @@ function downloadAllReportsPDF() {
     });
   });
 
-  // Render all forms sequentially then save
   (async () => {
     for (let i = 0; i < forms.length; i++) {
       await renderForm(forms[i], i);
