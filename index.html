@@ -880,12 +880,14 @@
           </div>
           <div class="btn-row-compact">
             <button class="btn btn-primary btn-sm" onclick="renderMeritList()"><i class="fa-solid fa-rotate"></i> Generate</button>
-            <button class="btn btn-outline btn-sm" onclick="printMeritList()"><i class="fa-solid fa-file-pdf"></i> Print / PDF</button>
+            <button class="btn btn-outline btn-sm" onclick="printMeritListScreen()"><i class="fa-solid fa-print"></i> Print</button>
+            <button class="btn btn-outline btn-sm" onclick="printMeritList()"><i class="fa-solid fa-file-pdf"></i> PDF (jsPDF)</button>
             <button class="btn btn-outline btn-sm" onclick="exportMeritExcel()">⬇ Excel</button>
             <button class="btn btn-success btn-sm" onclick="exportMeritPDF()">⬇ PDF</button>
           </div>
         </div>
         <div id="meritListWrap" class="card">
+        <div id="ml-print-header" style="display:none"></div>
           <p style="color:var(--muted);text-align:center;padding:2rem">Select an exam and click Generate to view the merit list.</p>
         </div>
       </div>

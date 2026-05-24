@@ -8120,6 +8120,47 @@ function _printMeritList_legacy() {
   },300);
 }
 
+// ── Print merit list exactly as seen on screen (window.print) ─────────────
+function printMeritListScreen() {
+  const wrap = document.getElementById('meritListWrap');
+  const isEmpty = !wrap || !wrap.innerHTML.trim() ||
+    wrap.textContent.trim().startsWith('Select an exam');
+  if (isEmpty) { showToast('Generate the merit list first', 'warning'); return; }
+
+  const sch     = settings.schoolName || 'School';
+  const address = settings.address    || '';
+  const phone   = settings.phone      ? 'Tel: ' + settings.phone : '';
+  const examId  = document.getElementById('mlExam')?.value;
+  const exam    = exams.find(e => e.id === examId);
+  const dateStr = new Date().toLocaleDateString('en-KE', { day:'2-digit', month:'long', year:'numeric' });
+  const examInfo = exam ? [exam.name, exam.term, exam.year].filter(Boolean).join(' · ') : '';
+
+  // Populate the persistent #ml-print-header (only visible when printing)
+  const hdr = document.getElementById('ml-print-header');
+  if (hdr) {
+    const subLine = [address, phone].filter(Boolean).join('  ·  ');
+    hdr.innerHTML = `
+      <div style="background:linear-gradient(135deg,#1a6fb5,#1e3a8a);color:#fff;padding:8px 14px 7px;border-radius:6px 6px 0 0;margin:-1px -1px 0;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:13pt;font-weight:900;letter-spacing:.3px">${sch.toUpperCase()}</div>
+          ${subLine ? `<div style="font-size:7.5pt;opacity:.88;margin-top:1px">${subLine}</div>` : ''}
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:8.5pt;font-weight:700">MERIT LIST</div>
+          <div style="font-size:7pt;opacity:.85">${examInfo}</div>
+          <div style="font-size:6.5pt;opacity:.7;margin-top:1px">Printed: ${dateStr}</div>
+        </div>
+      </div>`;
+  }
+
+  // Add class, trigger print, clean up after
+  document.body.classList.add('printing-merit');
+  window.print();
+  window.addEventListener('afterprint', () => {
+    document.body.classList.remove('printing-merit');
+  }, { once: true });
+}
+
 // ── DEAD CODE PLACEHOLDER (real printMeritList is above) ──
 function __printMeritList_old_window_print() {
   const wrap = document.getElementById('meritListWrap');

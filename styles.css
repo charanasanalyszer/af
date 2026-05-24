@@ -497,6 +497,11 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
 #ml-print-header { display: none; }
 
 @media print {
+  /* Show the merit print header */
+  body.printing-merit #ml-print-header {
+    display: block !important;
+    margin-bottom: 6px !important;
+  }
 
   /* ── Page setup ── */
   @page { size: A4 landscape; margin: 8mm 9mm; }
@@ -664,6 +669,8 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
   /* ── Hide only the interactive controls inside merit wrap ── */
   #meritListWrap button { display: none !important; }
   #meritListWrap .no-print { display: none !important; }
+  /* Always show the print header even though it lives inside meritListWrap */
+  #meritListWrap #ml-print-header { display: block !important; }
 
   /* ── Chart canvases can't print — hide chart boxes ── */
   #meritListWrap .chart-box { display: none !important; }
