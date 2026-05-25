@@ -675,16 +675,16 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
   /* ── Chart canvases can't print — hide chart boxes ── */
   #meritListWrap .chart-box { display: none !important; }
 
-  /* ── Report form keeps A4 portrait ── */
+  /* ── Report form keeps A4 portrait — height auto, JS scaling handles overflow ── */
   .report-form {
     width: 210mm !important; min-height: 0 !important;
-    max-height: 297mm !important; height: 297mm !important;
+    max-height: 297mm !important; height: auto !important;
     overflow: hidden !important; margin: 0 !important;
-    padding: 10mm 12mm !important; border: none !important;
+    padding: 10mm 11mm !important; border: none !important;
     box-shadow: none !important;
     page-break-after: always !important; break-after: page !important;
     box-sizing: border-box !important;
-    display: flex !important; flex-direction: column !important;
+    display: block !important;
   }
   .rf-marks-table th  { background: #f0f7ff !important; color: #1a6fb5 !important; }
   .rf-marks-table tr:nth-child(even) td { background: #f8fbff !important; }

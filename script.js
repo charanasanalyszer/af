@@ -10376,6 +10376,8 @@ function generateReport() {
   stuList = stuList.sort((a,b)=>a.name.localeCompare(b.name));
 
   const area = document.getElementById('reportPreviewArea');
+  // Load fees once before the loop — NOT inside it (critical performance fix)
+  loadFees();
   area.innerHTML = stuList.map(stu => {
     const d = getStudentReport(stu.id, examId);
     if (!d) return '';
@@ -10385,8 +10387,7 @@ function generateReport() {
       finalCT = generateCTComment(d.mean, d.mGrade.grade, stu.gender, stu.name, d.streamRank, stuList.length);
       finalPR = generatePrincipalComment(d.mean, d.mGrade.grade, d.overallRank, students.length);
     }
-    // Auto-lookup fee balance per student from fee records
-    loadFees();
+    // Auto-lookup fee balance per student from fee records (fees already loaded above)
     let autoFeeBalance = '';
     let autoFeeStatus  = '';
     let autoFeeNextTerm = feeNextTerm;
@@ -11688,24 +11689,23 @@ function renderMeritList() {
 }
 
 // ═══════════════ DOWNLOAD ALL REPORT FORMS AS PDF ═══════════════
+// Uses a fast print-window approach instead of slow html2canvas:
+//   • Reliable — native browser rendering, no canvas/CORS issues
+//   • Fast     — renders all reports in one pass, not one-by-one
+//   • A4 fit   — JS scales each form to fit exactly on A4 if content overflows
 async function downloadAllReportsPDF() {
   const examId = document.getElementById('rpExam')?.value;
   if (!examId) { showToast('Select an exam first', 'error'); return; }
 
-  if (!window.jspdf) { showToast('jsPDF not loaded — try refreshing', 'error'); return; }
-  if (!window.html2canvas) { showToast('html2canvas not loaded — try refreshing', 'error'); return; }
-
   const exam = exams.find(e => e.id === examId);
-  const fileName = `Reports_${(exam?.name||'exam').replace(/\s+/g,'_')}_${exam?.year||''}.pdf`;
+  const area  = document.getElementById('reportPreviewArea');
+  let forms   = area ? Array.from(area.querySelectorAll('.report-form')) : [];
 
-  // Step 1: Auto-generate reports if preview area is empty
-  const area = document.getElementById('reportPreviewArea');
-  let forms = area ? Array.from(area.querySelectorAll('.report-form')) : [];
-
+  // Auto-generate if preview is empty
   if (!forms.length) {
     showToast('<i class="fa-solid fa-spinner fa-spin"></i> Generating reports…', 'info');
     generateReport();
-    await new Promise(r => setTimeout(r, 900));
+    await new Promise(r => setTimeout(r, 1500));
     forms = Array.from(area.querySelectorAll('.report-form'));
   }
 
@@ -11714,29 +11714,13 @@ async function downloadAllReportsPDF() {
     return;
   }
 
-  const total = forms.length;
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const PW = 210, PH = 297;
-  let successCount = 0;
-
-  showToast(`<i class="fa-solid fa-spinner fa-spin"></i> Building PDF — 0 / ${total}…`, 'info');
-
-  for (let i = 0; i < forms.length; i++) {
-    const form = forms[i];
-    const origStyle = form.getAttribute('style') || '';
-
-    // Force exact A4 pixel size
-    form.style.cssText = origStyle +
-      ';width:794px!important;min-height:1123px!important;max-height:1123px!important' +
-      ';height:1123px!important;overflow:hidden!important;box-sizing:border-box!important';
-
-    // Snapshot canvases (charts/QR) as images so html2canvas can capture them
-    const canvasSnaps = [];
+  // Snapshot any Chart.js canvases to <img> so they print correctly
+  const canvasSnaps = [];
+  forms.forEach(form => {
     form.querySelectorAll('canvas').forEach(cv => {
       try {
         const snap = cv.toDataURL('image/png');
-        const img = document.createElement('img');
+        const img  = document.createElement('img');
         img.src = snap;
         img.style.cssText = `width:${cv.offsetWidth||cv.width}px;height:${cv.offsetHeight||cv.height}px;display:block`;
         cv.parentNode.insertBefore(img, cv);
@@ -11744,46 +11728,127 @@ async function downloadAllReportsPDF() {
         canvasSnaps.push({ cv, img });
       } catch(e) { /* tainted canvas — skip */ }
     });
+  });
 
-    try {
-      const canvas = await html2canvas(form, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        width: 794,
-        height: 1123,
-        windowWidth: 820,
-        scrollX: 0,
-        scrollY: -window.scrollY,
-      });
+  // Collect HTML of all rendered report forms
+  const reportsHTML = forms.map(f => {
+    // Each form goes inside an A4-sized page-wrapper so scaling works correctly
+    return `<div class="a4-page"><div class="rf-scaler">${f.outerHTML}</div></div>`;
+  }).join('\n');
 
-      if (i > 0) doc.addPage();
-      doc.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, PW, PH);
-      successCount++;
+  // Restore canvases after collecting HTML
+  canvasSnaps.forEach(({ cv, img }) => { cv.style.display = ''; img.remove(); });
 
-      if ((i + 1) % 3 === 0 || i === forms.length - 1) {
-        showToast(`<i class="fa-solid fa-spinner fa-spin"></i> Building PDF — ${i+1} / ${total}…`, 'info');
-      }
-    } catch (err) {
-      console.error(`Report ${i+1} render failed:`, err);
-    }
-
-    // Restore
-    form.setAttribute('style', origStyle);
-    canvasSnaps.forEach(({ cv, img }) => { cv.style.display = ''; img.remove(); });
-  }
-
-  if (successCount === 0) {
-    showToast('Export failed — no pages rendered. See browser console for details.', 'error');
+  const win = window.open('', '_blank', 'width=960,height=800');
+  if (!win) {
+    showToast('Allow pop-ups to download reports — then click Download All PDF again', 'error');
     return;
   }
 
-  doc.save(fileName);
+  // Resolve stylesheet URL (same origin, so direct link works)
+  const baseURL  = location.href.split('?')[0].replace(/[^/]+$/, '');
+  const fileName = `Reports_${(exam?.name||'exam').replace(/\s+/g,'_')}_${exam?.year||''}`;
+
+  win.document.write(`<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<title>${fileName}</title>
+<link rel="stylesheet" href="${baseURL}styles.css">
+<style>
+  /* ── Print & page setup ─────────────────────────────── */
+  @page { size: A4 portrait; margin: 0; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  html, body { margin: 0; padding: 0; background: #d8d8d8; }
+
+  /* ── A4 page shell — fixed 210×297 mm, clips overflow ─ */
+  .a4-page {
+    width: 210mm;
+    height: 297mm;
+    overflow: hidden;
+    position: relative;
+    background: #fff;
+    margin: 8mm auto;
+    box-shadow: 0 4px 24px rgba(0,0,0,.22);
+    page-break-after: always;
+    break-after: page;
+    box-sizing: border-box;
+  }
+
+  /* ── Scaler — transform applied by JS if content overflows ── */
+  .rf-scaler {
+    position: absolute;
+    top: 0; left: 0;
+    transform-origin: top left;
+    /* natural width matches 210mm at 96 dpi */
+    width: 794px;
+  }
+
+  /* ── Override screen styles inside the scaler ──────── */
+  .rf-scaler .report-form {
+    width: 794px !important;
+    min-height: unset !important;
+    max-height: unset !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 10mm 11mm !important;
+    box-sizing: border-box !important;
+    page-break-after: unset !important;
+    break-after: unset !important;
+  }
+
+  /* ── Print overrides ────────────────────────────────── */
+  @media print {
+    html, body { background: white; }
+    .a4-page   { margin: 0 !important; box-shadow: none !important; }
+  }
+</style>
+</head><body>
+${reportsHTML}
+<script>
+(function () {
+  /* Scale each report to fit inside its A4 page-shell */
+  function scaleReports() {
+    /* 297mm and 210mm in pixels at 96 dpi */
+    var A4H = 297 * 96 / 25.4;  /* ≈ 1122.5 px */
+    var A4W = 210 * 96 / 25.4;  /* ≈  793.7 px */
+    document.querySelectorAll('.rf-scaler').forEach(function(scaler) {
+      scaler.style.transform = '';
+      var form = scaler.firstElementChild;
+      if (!form) return;
+      var h = form.offsetHeight || form.scrollHeight;
+      var w = form.offsetWidth  || form.scrollWidth  || 794;
+      var scaleH = A4H / h;
+      var scaleW = A4W / w;
+      var scale  = Math.min(scaleH, scaleW, 1); /* never enlarge */
+      if (scale < 0.999) scaler.style.transform = 'scale(' + scale + ')';
+    });
+  }
+
+  function startPrint() {
+    scaleReports();
+    /* Second pass after reflow to catch any late layout shifts */
+    setTimeout(function () {
+      scaleReports();
+      setTimeout(function () { window.print(); }, 350);
+    }, 300);
+  }
+
+  /* Wait for fonts and linked stylesheet */
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(startPrint);
+  } else {
+    window.addEventListener('load', startPrint);
+  }
+})();
+<\/script>
+</body></html>`);
+  win.document.close();
+
   showToast(
-    `<i class="fa-solid fa-check"></i> Downloaded ${successCount} of ${total} report(s)`,
-    successCount < total ? 'warning' : 'success'
+    `<i class="fa-solid fa-check"></i> ${forms.length} report(s) ready — choose <strong>Save as PDF</strong> in the print dialog`,
+    'success'
   );
 }
 
