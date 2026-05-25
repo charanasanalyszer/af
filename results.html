@@ -19,8 +19,8 @@
       --accent3: #f59e0b;
       --danger: #ef4444;
       --text: #f1f5f9;
-      --muted: #94a3b8;
-      --label: #b0bec5;
+      --muted: #64748b;
+      --label: #94a3b8;
       --radius: 16px;
       --shadow: 0 8px 32px rgba(0,0,0,0.4);
     }
@@ -329,39 +329,32 @@
       border-collapse: collapse;
     }
     .marks-table th {
-      background: linear-gradient(180deg, #1a3a6b 0%, #0f2744 100%);
-      padding: .65rem 1rem;
+      background: var(--surface2);
+      padding: .6rem 1rem;
       text-align: left;
-      font-size: .73rem;
-      font-weight: 800;
+      font-size: .72rem;
+      font-weight: 600;
       letter-spacing: .06em;
       text-transform: uppercase;
-      color: #e2e8f0;
-      border-bottom: 2px solid rgba(59,130,246,.4);
-      border-right: 1px solid rgba(59,130,246,.2);
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
     }
-    .marks-table th:last-child { border-right: none; }
     .marks-table th:not(:first-child) { text-align: center; }
     .marks-table td {
       padding: .65rem 1rem;
-      border-bottom: 1px solid rgba(59,130,246,.18);
-      border-right: 1px solid rgba(59,130,246,.1);
+      border-bottom: 1px solid rgba(30,45,69,0.7);
       font-size: .85rem;
-      font-weight: 500;
-      color: var(--text);
     }
-    .marks-table td:last-child { border-right: none; }
     .marks-table td:not(:first-child) { text-align: center; }
     .marks-table tbody tr:last-child td { border-bottom: none; }
-    .marks-table tbody tr:hover td { background: rgba(59,130,246,0.07); }
+    .marks-table tbody tr:hover td { background: rgba(59,130,246,0.04); }
     .marks-table .total-row td {
       background: var(--surface2);
-      font-weight: 800;
+      font-weight: 700;
       color: var(--accent);
-      border-top: 2.5px solid rgba(59,130,246,.5);
-      border-bottom: none;
+      border-top: 2px solid var(--border);
     }
-    .sub-score { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+    .sub-score { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
 
     /* remarks */
     .remarks-row {
@@ -577,8 +570,8 @@
     .fee-status-bar.owing   { background: rgba(239,68,68,0.1);   border: 1px solid rgba(239,68,68,0.25);   color: #fca5a5; }
     .fee-status-bar.partial { background: rgba(245,158,11,0.1);  border: 1px solid rgba(245,158,11,0.25);  color: #fcd34d; }
     .fee-history-table { width: 100%; border-collapse: collapse; font-size: .8rem; margin-top: 1rem; }
-    .fee-history-table th { padding: .5rem .75rem; text-align: left; color: #b0bec5; font-weight: 700; border-bottom: 2px solid rgba(59,130,246,.3); }
-    .fee-history-table td { padding: .5rem .75rem; border-bottom: 1px solid rgba(59,130,246,.15); font-weight: 500; }
+    .fee-history-table th { padding: .5rem .75rem; text-align: left; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border); }
+    .fee-history-table td { padding: .5rem .75rem; border-bottom: 1px solid rgba(255,255,255,.04); }
     .fee-history-table tr:last-child td { border-bottom: none; }
     .fee-badge { display: inline-block; padding: .2rem .6rem; border-radius: 99px; font-size: .7rem; font-weight: 700; }
     .fee-badge.paid    { background: rgba(16,185,129,.15); color: #6ee7b7; }

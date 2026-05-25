@@ -7294,14 +7294,14 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
   const examSubIds = exam.subjectIds;
   const examSubs   = examSubIds.map(sid => subjects.find(s=>s.id===sid)).filter(Boolean);
 
-  const subHeaders = examSubs.map(s=>`<th style="text-align:center;font-size:.73rem;font-weight:800" title="${s.name}">${s.code}</th>`).join('');
+  const subHeaders = examSubs.map(s=>`<th style="text-align:center;font-size:.72rem" title="${s.name}">${s.code}</th>`).join('');
   const colCount   = 6 + (showStreamCol?2:0) + examSubs.length + 5;
 
   const headerRow = `<tr>
-    <th style="font-weight:800">Class Rank</th><th style="font-weight:800">Adm No</th><th style="font-weight:800">Name</th><th style="font-weight:800">G</th>
-    ${showStreamCol ? '<th style="font-weight:800">Stream</th><th style="font-weight:800">Str.Pos</th>' : ''}
+    <th>Class Rank</th><th>Adm No</th><th>Name</th><th>G</th>
+    ${showStreamCol ? '<th>Stream</th><th>Str.Pos</th>' : ''}
     ${subHeaders}
-    <th style="font-weight:800">Total</th><th style="font-weight:800">Avg</th><th style="font-weight:800">Mean</th><th style="font-weight:800">Grade</th><th style="font-weight:800">Points</th><th style="font-weight:800">Pts Grade</th>
+    <th>Total</th><th>Avg</th><th>Mean</th><th>Grade</th><th>Points</th><th>Pts Grade</th>
   </tr>`;
 
   const bodyRows = scored.length ? scored.map(s => {
@@ -7325,7 +7325,7 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
         return `<td style="text-align:center;font-size:.78rem;background:#fff0f0"><span style="font-weight:800;color:#dc2626;font-size:.9rem">X</span></td>`;
       }
       return `<td style="text-align:center;font-size:.78rem">${score !== null
-        ? `<span style="font-weight:700">${score}</span><br><span style="font-size:.62rem;color:var(--muted)">${g?.grade||''}</span>`
+        ? `<span style="font-weight:600">${score}</span><br><span style="font-size:.62rem;color:var(--muted)">${g?.grade||''}</span>`
         : '—'}</td>`;
     }).join('');
 
@@ -7335,20 +7335,20 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
       : `<td><span class="badge ${s.overallRank===1?'b-amber':s.overallRank<=3?'b-blue':'b-teal'}">#${s.overallRank}</span></td>`;
 
     // Mean / total / grade cells: show X for incomplete
-    const totalCell  = s.incomplete ? `<td><strong style="color:#dc2626">X</strong></td>` : `<td><strong style="font-weight:800">${s.total}</strong></td>`;
-    const avgCell    = s.incomplete ? `<td style="text-align:center;color:#dc2626;font-weight:800">X</td>` : `<td style="text-align:center;font-weight:700;color:#1a6fb5">${(s.total/examSubs.length).toFixed(1)}</td>`;
-    const meanCell   = s.incomplete ? `<td style="color:#dc2626;font-weight:800">X</td>` : `<td style="font-weight:700">${s.mean.toFixed(2)}</td>`;
+    const totalCell  = s.incomplete ? `<td><strong style="color:#dc2626">X</strong></td>` : `<td><strong>${s.total}</strong></td>`;
+    const avgCell    = s.incomplete ? `<td style="text-align:center;color:#dc2626;font-weight:800">X</td>` : `<td style="text-align:center;font-weight:600;color:#1a6fb5">${(s.total/examSubs.length).toFixed(1)}</td>`;
+    const meanCell   = s.incomplete ? `<td style="color:#dc2626;font-weight:800">X</td>` : `<td>${s.mean.toFixed(2)}</td>`;
     const gradeCell  = s.incomplete ? `<td><span class="badge b-red">X</span></td>` : `<td>${gradeTag(s.grade)}</td>`;
-    const ptsCell    = s.incomplete ? `<td style="color:#dc2626;font-weight:800">X</td>` : `<td style="font-weight:700">${s.points}</td>`;
-    const ptsGrdCell = s.incomplete ? `<td><span class="badge b-red" style="font-size:.72rem">X</span></td>` : `<td><span class="badge ${getPointsGrade(s.points).cls}" style="font-size:.72rem;font-weight:800">${getPointsGrade(s.points).grade}</span></td>`;
+    const ptsCell    = s.incomplete ? `<td style="color:#dc2626;font-weight:800">X</td>` : `<td>${s.points}</td>`;
+    const ptsGrdCell = s.incomplete ? `<td><span class="badge b-red" style="font-size:.72rem">X</span></td>` : `<td><span class="badge ${getPointsGrade(s.points).cls}" style="font-size:.72rem">${getPointsGrade(s.points).grade}</span></td>`;
 
     const streamRankDisplay = s.incomplete ? '—' : `#${s.streamRank}`;
     return `<tr${s.incomplete ? ' style="background:#fff8f8;opacity:.92"' : ''}>
       ${rankCell}
-      <td style="font-family:var(--mono);font-size:.78rem;font-weight:700">${s.adm}</td>
-      <td><strong style="font-size:.88rem;font-weight:800">${s.name}</strong></td>
+      <td style="font-family:var(--mono);font-size:.78rem">${s.adm}</td>
+      <td><strong style="font-size:.85rem">${s.name}</strong></td>
       <td><span class="badge ${s.gender==='M'?'b-m':'b-f'}" style="font-size:.65rem">${s.gender}</span></td>
-      ${showStreamCol ? `<td style="font-weight:600">${stream?.name||'—'}</td><td style="font-weight:700">${streamRankDisplay}</td>` : ''}
+      ${showStreamCol ? `<td>${stream?.name||'—'}</td><td>${streamRankDisplay}</td>` : ''}
       ${subCells}
       ${totalCell}${avgCell}${meanCell}${gradeCell}${ptsCell}${ptsGrdCell}
     </tr>`;
