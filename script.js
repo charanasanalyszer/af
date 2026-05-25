@@ -488,9 +488,7 @@ function showUnifiedLogin() {
   if (ul) {
     ul.style.display = 'flex';
     const uniSubtitle = document.getElementById('uniSubtitle');
-    if (uniSubtitle) uniSubtitle.textContent = !platformSchools.length
-      ? 'No schools yet — log in with platform admin credentials to get started'
-      : 'School Exam Management System';
+    if (uniSubtitle) uniSubtitle.textContent = 'School Exam Management System';
     const u = document.getElementById('uniUser');
     const p = document.getElementById('uniPass');
     const err = document.getElementById('uniErr');
@@ -821,7 +819,7 @@ function doUnifiedLogin() {
     if (!anySchoolMatch) {
       if (p.length < 6) { re('No account found. Platform password must be at least 6 characters.'); return; }
       // Platform admin: any alphanumeric username (no @ allowed)
-      if (u.includes('@')) { re('Platform Admin username cannot contain @. Use a plain name like: myadmin'); return; }
+      if (u.includes('@')) { re('Invalid credentials. Check your username and password.'); return; }
       setPlatformCreds(u, p);
       re();
       maybeSaveCreds();
@@ -923,7 +921,7 @@ function doUnifiedLogin() {
 
   // Guest login fallback (no school loop needed if no schools)
   if (u.toLowerCase() === 'guest' && p === 'guest') {
-    re('No schools found. Platform admin must add a school first.'); return;
+    re('Invalid credentials. Check your username and password.'); return;
   }
 
     re('Invalid credentials. Check your username and password.');
