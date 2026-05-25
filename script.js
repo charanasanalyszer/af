@@ -1914,8 +1914,7 @@ function sppRenderDetails() {
 // ══════════════════════════════════════════════
 function finishGuestLogin(school) {
   loadSchoolContext(school);
-  // Guest sees only: Exam Builder (create exam) + Papers (revision+termly view only)
-  // No download/print until unlocked
+  // Guest sees only: Papers (revision + termly view — read-only)
   const ul = document.getElementById('unifiedLogin'); if (ul) ul.style.display = 'none';
   saveSession();
   finishLogin(school);
@@ -1955,6 +1954,26 @@ function applyGuestRoleUI() {
   const termlyUpload = document.getElementById('termlyUploadCard');
   if (termlyUpload) termlyUpload.style.display = 'none';
 
+  // ── Move s-papers into guest Papers mount ──
+  const papSection   = document.getElementById('s-papers');
+  const papersMount  = document.getElementById('guestPapersMount');
+  if (papSection && papersMount && !papersMount.contains(papSection)) {
+    papSection.classList.add('active');
+    papSection.style.display = '';
+    papersMount.appendChild(papSection);
+  }
+
+  // ── Show Papers panel and activate its tab button ──
+  const panelPapers = document.getElementById('guestPanelPapers');
+  if (panelPapers) panelPapers.style.display = 'block';
+  const btnPapers = document.getElementById('guestTabBtnPapers');
+  if (btnPapers) {
+    btnPapers.style.borderBottom = '3px solid var(--primary,#4f7cff)';
+    btnPapers.style.color = 'var(--primary,#4f7cff)';
+    btnPapers.style.fontWeight = '700';
+  }
+  try { if (typeof initPapersSection === 'function') initPapersSection(); } catch(e) {}
+
   // ── Load broadcast banner into guest banner ──
   try {
     const raw = localStorage.getItem('ei_broadcast_msg') || '';
@@ -1974,7 +1993,8 @@ function applyGuestRoleUI() {
 
 // ── Guest tab switcher ──────────────────────────────────
 function guestShowTab(which) {
-  const panelPapers = document.getElementById('guestPapersMount');
+  // Only Papers remains after Exam Builder removal — always show it
+  const panelPapers = document.getElementById('guestPanelPapers');
   if (panelPapers) panelPapers.style.display = 'block';
   try { if (typeof initPapersSection === 'function') initPapersSection(); } catch(e) {}
 }
