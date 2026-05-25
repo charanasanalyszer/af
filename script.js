@@ -4358,6 +4358,7 @@ function openExamTab(id, btn) {
   if (id === 'tabAnalyse') checkAnalyseAccess();
   if (id === 'tabMeritList') populateMeritDropdowns();
   if (id === 'tabUploadMarks') populateUmDropdowns();
+  if (id === 'tabReportForms') populateReportDropdowns();
   if (id === 'tabSummaryAnalytics') {
     const allowed = currentUser && (currentUser.role==='superadmin'||currentUser.role==='admin'||
       (currentUser.role==='teacher' && !settings.restrictTeacherAnalytics && (currentUser.canAnalyse||currentUserIsClassTeacher())));
