@@ -700,10 +700,6 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
   .tt-wrap { border: none; }
   .tt-tch-wrap { border: none; }
   #ttTabBar { display: none !important; }
-
-  /* Exam builder print */
-  #ebExamPreview { padding: 0; border: none; }
-  #ebExamPreview .ebep-mcq-grid { grid-template-columns: 1fr 1fr; }
 }
 
 /* Merit list wrap is a card but also a container */
@@ -1733,185 +1729,6 @@ th[onclick]:hover { background: var(--blue-lt, #eff6ff); color: var(--primary); 
   .frow.c2, .frow.c3, .frow.c4 { grid-template-columns: 1fr; }
 }
 
-/* ═══════════════════════════════════════════════════════════
-   EXAM BUILDER — Integrated Styles
-   ═══════════════════════════════════════════════════════════ */
-
-/* Wizard */
-.eb-wizard-steps {
-  display:flex;align-items:center;background:var(--surface);border:1px solid var(--border-lt);
-  border-radius:10px;padding:1rem 1.5rem;margin-bottom:1.25rem;box-shadow:var(--shadow);overflow-x:auto;
-}
-.eb-step {
-  display:flex;align-items:center;gap:.5rem;color:var(--muted);font-size:.85rem;font-weight:600;
-  cursor:pointer;white-space:nowrap;transition:color .2s;
-}
-.eb-step-num {
-  width:30px;height:30px;border-radius:50%;background:var(--border-lt);color:var(--muted);
-  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.82rem;
-  transition:all .2s;flex-shrink:0;
-}
-.eb-step.active .eb-step-num { background:var(--primary);color:#fff;box-shadow:0 0 0 4px rgba(26,111,181,.18); }
-.eb-step.active { color:var(--primary); }
-.eb-step.completed .eb-step-num { background:#10b981;color:#fff; }
-.eb-step.completed { color:#10b981; }
-.eb-divider { flex:1;height:2px;background:var(--border-lt);margin:0 .5rem;min-width:12px; }
-.eb-wizard-content { display:none; }
-.eb-wizard-content.active { display:block; }
-
-/* Header Preview */
-.eb-header-preview {
-  margin:.25rem 1.25rem 1.25rem;padding:1.25rem;background:#fff;
-  border:2px solid var(--border-lt);border-radius:8px;text-align:center;
-  font-family:'Times New Roman',serif;position:relative;
-}
-.eb-preview-lbl {
-  position:absolute;top:-10px;left:12px;background:var(--primary);color:#fff;
-  font-size:9px;font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:1px;
-  font-family:var(--font);
-}
-.eb-prev-school { font-size:1.1rem;font-weight:900;color:#000;margin-bottom:4px; }
-.eb-prev-subject { font-size:.95rem;font-weight:700;color:#000;margin-bottom:3px; }
-.eb-prev-type { font-size:.88rem;font-weight:600;color:#000;margin-bottom:3px; }
-.eb-prev-meta { font-size:.8rem;color:#333; }
-
-/* Instruction items */
-.eb-inst-item { display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem; }
-.eb-inst-input { flex:1;padding:7px 10px;border:1.5px solid var(--border-lt);border-radius:6px;font-size:.85rem;outline:none; }
-.eb-inst-input:focus { border-color:var(--primary); }
-
-/* Section cards */
-.eb-section-card {
-  border:1.5px solid var(--border-lt);border-radius:8px;overflow:hidden;margin-bottom:.75rem;
-}
-.eb-section-hd {
-  display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;background:var(--bg);border-bottom:1px solid var(--border-lt);
-}
-.eb-section-color { width:8px;height:32px;border-radius:4px;flex-shrink:0; }
-.eb-section-title-inp { border:none;background:transparent;font-size:.95rem;font-weight:700;color:var(--text);flex:1;outline:none; }
-.eb-section-body { display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;padding:.75rem 1rem; }
-@media(max-width:700px){ .eb-section-body { grid-template-columns:repeat(2,1fr); } }
-.eb-section-field { display:flex;flex-direction:column;gap:3px; }
-.eb-section-field label { font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase; }
-.eb-section-field input, .eb-section-field select {
-  padding:6px 8px;border:1.5px solid var(--border-lt);border-radius:6px;font-size:.82rem;outline:none;
-}
-.eb-section-field input:focus, .eb-section-field select:focus { border-color:var(--primary); }
-
-/* Question cards */
-.eb-question-card {
-  background:var(--surface);border:1.5px solid var(--border-lt);border-radius:8px;
-  margin-bottom:.75rem;transition:border-color .15s;
-}
-.eb-question-card:hover { border-color:var(--primary); }
-.eb-qcard-hd {
-  display:flex;align-items:center;gap:.6rem;padding:.6rem .9rem;
-  background:var(--bg);border-bottom:1px solid var(--border-lt);
-}
-.eb-qnum {
-  width:26px;height:26px;background:var(--primary);color:#fff;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;
-}
-.eb-qcard-body { padding:.75rem .9rem; }
-.eb-qtextarea {
-  width:100%;padding:8px 10px;border:1.5px solid var(--border-lt);border-radius:6px;
-  font-size:.85rem;resize:vertical;min-height:52px;outline:none;
-}
-.eb-qtextarea:focus { border-color:var(--primary); }
-.eb-qmeta { display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-top:.5rem; }
-.eb-qmeta label { font-size:.78rem;color:var(--muted);font-weight:600; }
-.eb-qmeta input, .eb-qmeta select { padding:4px 7px;border:1.5px solid var(--border-lt);border-radius:5px;font-size:.82rem;outline:none; }
-.eb-qmeta input[type="number"] { width:60px; }
-.eb-mcq-grid { display:grid;grid-template-columns:1fr 1fr;gap:.75rem; }
-@media(max-width:700px){ .eb-mcq-grid { grid-template-columns:1fr; } }
-.eb-mcq-option { display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem; }
-.eb-opt-lbl {
-  width:22px;height:22px;background:var(--border-lt);border-radius:50%;display:flex;
-  align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;
-}
-.eb-mcq-option input[type="text"] {
-  flex:1;padding:5px 8px;border:1.5px solid var(--border-lt);border-radius:5px;font-size:.82rem;outline:none;
-  background:var(--surface);color:var(--text);
-}
-.eb-mcq-option input[type="text"]:focus { border-color:var(--primary); }
-
-/* Also fix instruction inputs visibility */
-.eb-inst-input {
-  flex:1;padding:7px 10px;border:1.5px solid var(--border-lt);border-radius:6px;font-size:.85rem;outline:none;
-  background:var(--surface);color:var(--text);
-}
-
-/* ── EXAM PREVIEW (print-like) ───────────────────────────── */
-#ebExamPreview {
-  background:#fff;color:#000;padding:1.5rem 2rem;font-family:'Times New Roman',Times,serif;
-  border:1px solid #ccc;border-radius:8px;line-height:1.5;
-}
-#ebExamPreview * { font-family:'Times New Roman',Times,serif; }
-#ebExamPreview h2 { text-align:center;font-size:1.5rem;font-weight:900;margin-bottom:4px;letter-spacing:.03em;font-family:'Times New Roman',Times,serif; }
-#ebExamPreview .ebep-subject { text-align:center;font-size:1.15rem;font-weight:bold;margin-bottom:3px;font-family:'Times New Roman',Times,serif; }
-#ebExamPreview .ebep-type { text-align:center;font-size:1rem;font-weight:700;margin-bottom:3px;font-family:'Times New Roman',Times,serif; }
-#ebExamPreview .ebep-meta { text-align:center;font-size:.88rem;margin-bottom:.75rem;line-height:1.5;font-family:'Times New Roman',Times,serif; }
-#ebExamPreview .ebep-sectitle { font-size:1rem;font-weight:900;margin:1rem 0 .4rem;text-align:center;text-transform:uppercase;letter-spacing:.04em;font-family:'Times New Roman',Times,serif; }
-#ebExamPreview .ebep-q { font-size:.9rem;margin-bottom:.6rem;line-height:1.5;font-family:'Times New Roman',Times,serif; }
-#ebExamPreview .ebep-q strong { font-weight:700; }
-#ebExamPreview .ebep-opts { margin:.25rem 0 .5rem .75rem; }
-#ebExamPreview .ebep-opt { font-size:.88rem;margin-bottom:2px;line-height:1.5;font-family:'Times New Roman',Times,serif; }
-#ebExamPreview .ebep-line { border-bottom:1px solid #aaa;height:22px;margin-bottom:4px; }
-/* MCQ 2-column layout in preview */
-#ebExamPreview .ebep-mcq-grid { display:grid;grid-template-columns:1fr 1fr;gap:.4rem 1.5rem;margin:.3rem 0 .5rem .75rem; }
-#ebExamPreview .ebep-mcq-grid { position:relative; }
-#ebExamPreview .ebep-mcq-col-divider { position:absolute;left:50%;top:0;bottom:0;width:1px;background:#bbb;transform:translateX(-50%); }
-/* Short-answer 2x2 matrix in preview */
-#ebExamPreview .ebep-sa-matrix { display:grid;grid-template-columns:1fr 1fr;gap:.5rem 1.5rem;margin:.3rem 0 .5rem; }
-#ebExamPreview .ebep-sa-cell { border:1px solid #ccc;border-radius:4px;padding:.35rem .5rem;min-height:56px; }
-#ebExamPreview .ebep-sa-qnum { font-size:.78rem;font-weight:700;color:#333;margin-bottom:.25rem; }
-/* Response space after structured question */
-#ebExamPreview .ebep-response { margin-top:.3rem; }
-/* Examiner box */
-#ebExamPreview .ebep-examiner-box {
-  float:right;border:2px solid #000;padding:.4rem .75rem;margin-left:1rem;margin-bottom:.5rem;
-  font-size:.75rem;font-weight:700;min-width:110px;text-align:center;
-}
-#ebExamPreview .ebep-examiner-box .ebep-score-line { border-bottom:1.5px solid #000;height:22px;margin:.3rem 0; }
-/* Footer in preview */
-#ebExamPreview .ebep-footer {
-  text-align:center;font-size:.75rem;color:#555;border-top:1px solid #ccc;
-  margin-top:1.5rem;padding-top:.5rem;font-style:italic;
-}
-/* Page 1 cover box */
-#ebExamPreview .ebep-coverbox {
-  border:2px solid #000;padding:.6rem 1rem;margin:1rem 0 1.5rem;font-size:.85rem;
-}
-#ebExamPreview .ebep-coverbox table { width:100%;border-collapse:collapse; }
-#ebExamPreview .ebep-coverbox td { padding:.25rem .4rem;border:1px solid #000;font-size:.82rem; }
-#ebExamPreview .ebep-coverbox .ebep-cb-label { font-weight:700;width:38%; }
-/* Image in question */
-#ebExamPreview .ebep-q-img { max-width:100%;max-height:200px;display:block;margin:.4rem 0; }
-
-/* Saved exam items */
-.eb-exam-item {
-  display:flex;align-items:center;gap:.75rem;padding:.9rem 1.25rem;
-  border-bottom:1px solid var(--border-lt);transition:background .15s;
-}
-.eb-exam-item:last-child { border-bottom:none; }
-.eb-exam-item:hover { background:var(--bg); }
-.eb-exam-icon { width:40px;height:40px;background:var(--primary-lt);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0; }
-.eb-exam-info { flex:1;min-width:0; }
-.eb-exam-title { font-size:.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-.eb-exam-meta { font-size:.76rem;color:var(--muted);margin-top:1px; }
-.eb-exam-actions { display:flex;gap:.35rem;flex-shrink:0; }
-
-/* AI result cards */
-.eb-gen-q { border:1.5px solid var(--border-lt);border-radius:8px;padding:.9rem;margin-bottom:.75rem;transition:border-color .15s; }
-.eb-gen-q:hover { border-color:var(--primary); }
-.eb-gen-q-text { font-size:.88rem;font-weight:600;margin-bottom:.4rem; }
-.eb-gen-q-ans { font-size:.78rem;color:#10b981;font-weight:600;background:#d1fae5;padding:4px 10px;border-radius:5px;display:inline-block;margin-top:.4rem; }
-
-/* Diff button active states */
-.ebai-diff.active, .eb-mdiff.active, .eb-gadiff.active {
-  background:var(--primary)!important;color:#fff!important;border-color:var(--primary)!important;
-}
-
 /* Spin keyframe (shared) */
 @keyframes spin { to { transform:rotate(360deg); } }
 
@@ -2633,36 +2450,6 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
 #schoolPlatResultsContainer > div:first-child {
   box-shadow: 0 4px 20px rgba(124,58,237,.15);
 }
-
-/* ── Exam Builder input visibility fixes ── */
-.eb-sp-text, .eb-sp-marks {
-  background: var(--surface) !important;
-  color: var(--text) !important;
-}
-.eb-section-field input,
-.eb-section-field select,
-.eb-qmeta input,
-.eb-qmeta select {
-  background: var(--surface);
-  color: var(--text);
-}
-/* Sub-parts modal inputs */
-#ebSubPartsList input[type="text"],
-#ebSubPartsList input[type="number"] {
-  background: var(--surface);
-  color: var(--text);
-}
-/* Math modal input */
-#ebMathInput {
-  background: var(--surface);
-  color: var(--text);
-}
-/* ── Print styles for exam preview ── */
-@media print {
-  #ebExamPreview { padding: 0; border: none; }
-  #ebExamPreview .ebep-mcq-grid { grid-template-columns: 1fr 1fr; }
-  #ebExamPreview .ebep-sa-matrix { grid-template-columns: 1fr 1fr; }
-  .ebep-footer { position: fixed; bottom: 0; width: 100%; }
 }
 
 
@@ -2705,16 +2492,13 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
 }
 
 /* Sections inside guest portal — remove top margin/padding */
-#guestEBMount .sec,
 #guestPapersMount .sec,
-#guestEBMount > .sec,
 #guestPapersMount > .sec {
   margin-top: 0 !important;
   padding-top: 0 !important;
 }
 
 /* Hide the .ph headers inside guest portal (section titles already in tab bar) */
-#guestEBMount .ph,
 #guestPapersMount .ph {
   display: none !important;
   margin: 0 !important;
@@ -2724,7 +2508,6 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
 }
 
 /* Tab bar inside sections — tighter when in guest context */
-#guestEBMount .tab-bar,
 #guestPapersMount .tab-bar {
   margin-top: 0 !important;
   margin-bottom: .75rem !important;
@@ -2732,23 +2515,11 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
 }
 
 /* Cards inside guest — slightly less padding on mobile */
-#guestEBMount .card,
 #guestPapersMount .card {
   margin-bottom: .75rem;
 }
 
-/* Exam builder wizard steps — no excess top gap */
-#guestEBMount .eb-wizard-steps {
-  margin-top: 0 !important;
-  margin-bottom: .85rem !important;
-}
-
 /* Wizard step content — no top gap */
-#guestEBMount .eb-wizard-content.active {
-  padding-top: 0 !important;
-}
-
-
 /* ═══════════════════════════════════════════════════════════
    GLOBAL SPACING — Fix excess top spacing across all sections
    ═══════════════════════════════════════════════════════════ */
@@ -2797,14 +2568,9 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
     padding: .5rem .5rem calc(62px + 1rem) !important;
   }
 
-  #guestEBMount .card,
-  #guestPapersMount .card {
+    #guestPapersMount .card {
     padding: 1rem !important;
     border-radius: 10px !important;
-  }
-
-  #guestEBMount .eb-wizard-steps {
-    padding: .65rem .75rem !important;
   }
 
   .tab-bar {
@@ -2825,8 +2591,7 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
   #guestPortal > div:last-child {
     padding: .4rem .4rem calc(62px + 1rem) !important;
   }
-  #guestEBMount .card,
-  #guestPapersMount .card {
+    #guestPapersMount .card {
     padding: .75rem !important;
   }
 }
@@ -3708,13 +3473,6 @@ body.dark .chart-box h3 { color: var(--text) !important; }
 }
 body.dark .card h3 { color: var(--text) !important; }
 
-/* Exam wizard step muted */
-.eb-step {
-  color: #4b5563 !important;
-}
-.eb-step.active { color: var(--primary) !important; }
-.eb-step.completed { color: #059669 !important; }
-body.dark .eb-step { color: var(--muted) !important; }
 
 /* Score bar track in light mode */
 .sbar {
