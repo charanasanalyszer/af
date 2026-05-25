@@ -10369,6 +10369,12 @@ function generateReport() {
   const classId = document.getElementById('rpClass')?.value || '';
   if (!examId) { showToast('Select an exam','error'); return; }
 
+  // Require a stream or specific student — do not allow generating all streams at once
+  if (!stuId && !streamId) {
+    showToast('<i class="fa-solid fa-triangle-exclamation"></i> Please select a stream to generate reports for', 'warning');
+    return;
+  }
+
   let stuList = stuId ? [students.find(s=>s.id===stuId)].filter(Boolean)
     : streamId ? students.filter(s=>s.streamId===streamId)
     : classId  ? students.filter(s=>s.classId===classId)
@@ -10376,6 +10382,15 @@ function generateReport() {
   stuList = stuList.sort((a,b)=>a.name.localeCompare(b.name));
 
   const area = document.getElementById('reportPreviewArea');
+
+  // Show loading spinner
+  area.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:.75rem;padding:3rem 1rem;color:var(--muted);font-size:.95rem"><i class="fa-solid fa-spinner fa-spin fa-lg" style="color:var(--primary)"></i><span>Generating ' + stuList.length + ' report form' + (stuList.length !== 1 ? 's' : '') + '…</span></div>';
+
+  // Defer heavy computation so spinner renders first
+  setTimeout(function() { _generateReportBody(stuList, examId, ctR, prR, nextOpen, schoolClosed, feeBalance, feeNextTerm, autoComments, rpTermOverride, rpYearOverride, area); }, 30);
+}
+
+function _generateReportBody(stuList, examId, ctR, prR, nextOpen, schoolClosed, feeBalance, feeNextTerm, autoComments, rpTermOverride, rpYearOverride, area) {
   // Load fees once before the loop — NOT inside it (critical performance fix)
   loadFees();
   area.innerHTML = stuList.map(stu => {
@@ -11447,7 +11462,7 @@ function onMlExamChange() {
 
 function onMlClassChange() {
   const classId = document.getElementById('mlClass')?.value || '';
-  onMlTypeChange(true); // refresh stream list, re-render
+  onMlTypeChange(true); // refresh stream list only, do NOT auto-render
 }
 
 function onMlTypeChange(skipRender) {
@@ -11460,8 +11475,7 @@ function onMlTypeChange(skipRender) {
   } else {
     streamRow.style.display = 'none';
   }
-  if (!skipRender) renderMeritList();
-  else renderMeritList();
+  // Never auto-render — user must click Generate
 }
 
 function populateMeritStreamDropdown(classId) {
@@ -11555,6 +11569,14 @@ function renderMeritList() {
     return;
   }
 
+  // Show loading spinner while heavy computation runs
+  container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:.75rem;padding:3rem 1rem;color:var(--muted);font-size:.95rem"><i class="fa-solid fa-spinner fa-spin fa-lg" style="color:var(--primary)"></i><span>Generating merit list…</span></div>';
+
+  // Defer so spinner renders before computation blocks the thread
+  setTimeout(function() { _renderMeritListBody(examId, type, classId, container); }, 30);
+}
+
+function _renderMeritListBody(examId, type, classId, container) {
   const exam = exams.find(e=>e.id===examId);
 
   // ── Single stream view ──────────────────────────────────────────────────
