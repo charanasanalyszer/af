@@ -5,7 +5,17 @@ var SUPABASE_ANON_KEY = 'sb_publishable_AB18dOT-C73q1XDkeEJMkg_DJrI7_yn';
 
 var SYNC_INTERVAL_MS  = 45000;
 var WRITE_DEBOUNCE_MS = 800;
-var LOCAL_ONLY_KEYS   = ['ei_dark','ei_lang','ei_session_user','ei_session_school_id'];
+// Keys that must NEVER be read from or written to Supabase.
+// Auth/credential keys are local-only so that data from other users or other
+// devices cannot overwrite the locally-established platform account or school list.
+var LOCAL_ONLY_KEYS = [
+  'ei_dark', 'ei_lang', 'ei_session_user', 'ei_session_school_id',
+  // ── Auth / credentials ── (must stay local; syncing these causes cross-user login failures)
+  'ei_platform_creds',    // platform admin username + password
+  'ei_platform_schools',  // list of all registered school accounts
+  'ei_saved_login',       // remembered username/password for auto-fill
+  'ei_platform_broadcast' // broadcast message (platform-specific)
+];
 
 function isLocalOnly(key) { return LOCAL_ONLY_KEYS.indexOf(key) !== -1; }
 
@@ -60,13 +70,20 @@ function sbHeaders(extra) {
 }
 
 function sbFetchAll() {
+  var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  var timeoutId = controller ? setTimeout(function() { controller.abort(); }, 10000) : null;
   return fetch(SB_ENDPOINT + '?select=key,value', {
     method: 'GET',
     headers: sbHeaders(),
-    mode: 'cors'
+    mode: 'cors',
+    signal: controller ? controller.signal : undefined
   }).then(function(res) {
+    if (timeoutId) clearTimeout(timeoutId);
     if (!res.ok) throw new Error('Fetch failed: ' + res.status);
     return res.json();
+  }).catch(function(err) {
+    if (timeoutId) clearTimeout(timeoutId);
+    throw err;
   });
 }
 
@@ -150,6 +167,18 @@ function sbInit() {
   document.body.appendChild(loader);
   setStatus('Fetching from Supabase...');
 
+  // Safety net: if something goes wrong and the promise never resolves,
+  // unblock the app after 12 seconds so the user can still log in.
+  var safetyTimer = setTimeout(function() {
+    if (!dbReady) {
+      console.warn('[SupaSync] Safety timeout hit — unblocking app');
+      document.addEventListener = _origAEL;
+      dbReady = true;
+      if (loader.parentNode) loader.remove();
+      domQueue.forEach(function(fn) { try { fn(); } catch(e) { console.error(e); } });
+    }
+  }, 12000);
+
   sbFetchAll().then(function(rows) {
     setStatus('Loading ' + rows.length + ' records...');
     rows.forEach(function(row) {
@@ -159,8 +188,9 @@ function sbInit() {
   }).catch(function(err) {
     console.error('[SupaSync] Failed:', err);
     setStatus('Cannot reach database - using local data');
-    return new Promise(function(r) { setTimeout(r, 1500); });
+    return new Promise(function(r) { setTimeout(r, 500); });
   }).then(function() {
+    clearTimeout(safetyTimer);
     document.addEventListener = _origAEL;
     dbReady = true;
     loader.remove();
