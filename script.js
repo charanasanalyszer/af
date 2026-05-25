@@ -4358,7 +4358,6 @@ function openExamTab(id, btn) {
   if (id === 'tabAnalyse') checkAnalyseAccess();
   if (id === 'tabMeritList') populateMeritDropdowns();
   if (id === 'tabUploadMarks') populateUmDropdowns();
-  if (id === 'tabReportForms') populateReportDropdowns();
   if (id === 'tabSummaryAnalytics') {
     const allowed = currentUser && (currentUser.role==='superadmin'||currentUser.role==='admin'||
       (currentUser.role==='teacher' && !settings.restrictTeacherAnalytics && (currentUser.canAnalyse||currentUserIsClassTeacher())));
@@ -5233,12 +5232,7 @@ function populateUmDropdowns() {
 
 function populateReportDropdowns() {
   const rpEx = document.getElementById('rpExam');
-  if (rpEx) {
-    const platExams = getPlatformExams();
-    const schoolOpts = exams.map(e=>`<option value="${e.id}">${e.name} (${e.term} ${e.year})</option>`).join('');
-    const platOpts   = platExams.map(e=>`<option value="${e.id}">[PLATFORM] ${e.title} (${e.term} ${e.year})</option>`).join('');
-    rpEx.innerHTML = '<option value="">— Select Exam —</option>' + schoolOpts + platOpts;
-  }
+  if (rpEx) rpEx.innerHTML = '<option value="">— Select Exam —</option>' + exams.map(e=>`<option value="${e.id}">${e.name} (${e.term} ${e.year})</option>`).join('');
   const rpStu = document.getElementById('rpStudent');
   if (rpStu) {
     const sorted = [...students].sort((a,b)=>a.name.localeCompare(b.name));
@@ -5248,11 +5242,10 @@ function populateReportDropdowns() {
   if (rpClass) {
     rpClass.innerHTML = '<option value="">— All Classes —</option>' + classes.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
   }
-  // Populate rpYear with years from school exams + platform exams + current year
+  // Populate rpYear with years from exams + current year
   const rpYear = document.getElementById('rpYear');
   if (rpYear) {
-    const platYears = getPlatformExams().map(e=>String(e.year)).filter(Boolean);
-    const years = [...new Set([...exams.map(e=>e.year), ...platYears, String(new Date().getFullYear())])].sort((a,b)=>b-a);
+    const years = [...new Set([...exams.map(e=>e.year), String(new Date().getFullYear())])].sort((a,b)=>b-a);
     rpYear.innerHTML = '<option value="">— Auto from Exam —</option>' + years.map(y=>`<option value="${y}">${y}</option>`).join('');
   }
 }
@@ -5278,12 +5271,7 @@ function onRpClassChange() {
 // Called when exam selection changes — update term/year and stream dropdowns
 function onRpExamChange() {
   const examId = document.getElementById('rpExam')?.value;
-  // Check school exams first, then platform exams
-  let exam = examId ? exams.find(e => e.id === examId) : null;
-  if (!exam && examId) {
-    const pe = getPlatformExams().find(e => e.id === examId);
-    if (pe) exam = { term: pe.term, year: pe.year, classId: null };
-  }
+  const exam   = examId ? exams.find(e => e.id === examId) : null;
   const rpTerm = document.getElementById('rpTerm');
   const rpYear = document.getElementById('rpYear');
   if (exam) {
@@ -9980,40 +9968,9 @@ function getTeacherSubjectIds(teacherId) {
 // ═══════════════ REPORT FORMS ═══════════════
 function getStudentReport(stuId, examId) {
   const stu    = students.find(s=>s.id===stuId); if(!stu) return null;
+  const exam   = exams.find(e=>e.id===examId);   if(!exam) return null;
   const cls    = classes.find(c=>c.id===stu.classId);
   const stream = streams.find(s=>s.id===stu.streamId);
-
-  // If exam not in school exams, check platform exams
-  let exam = exams.find(e=>e.id===examId);
-  if (!exam) {
-    const pe = getPlatformExams().find(e=>e.id===examId);
-    if (!pe) return null;
-    // Build report from platform exam + platform school marks
-    const schoolMarksAll = getPlatformSchoolMarks(examId);
-    const schoolMarks    = (schoolMarksAll[currentSchoolId] || []).filter(m=>m.adm===stu.adm);
-    if (!schoolMarks.length) return null;
-    const subjectRows = schoolMarks.map((m,i) => {
-      const score = (m.score !== undefined && m.score !== null && m.score !== '') ? Number(m.score) : null;
-      const absent = score === null || isNaN(score);
-      const max    = pe.maxScore || 100;
-      const g      = !absent ? getGrade(score, max) : null;
-      return { name: m.subject || pe.title, code: '', max, score: absent ? null : score, absent,
-               grade: absent ? 'X' : (g?.grade||'—'), points: absent ? 'X' : (g?.points||'—'),
-               label: absent ? 'Absent/Missing' : (g?.label||'—') };
-    });
-    const scoredRows  = subjectRows.filter(r=>!r.absent);
-    const total       = scoredRows.reduce((a,r)=>a+r.score, 0);
-    const mean        = scoredRows.length ? total / scoredRows.length : 0;
-    const meanMaxAvg  = scoredRows.length ? scoredRows.reduce((a,r)=>a+(r.max||100),0)/scoredRows.length : 100;
-    const mGrade      = getMeanGrade(mean/meanMaxAvg*8);
-    const totalPoints = scoredRows.reduce((a,r)=>a+(typeof r.points==='number'?r.points:0),0);
-    // Normalise platform exam to look like a school exam for buildReportHTML
-    const examNorm = { id: pe.id, name: pe.title, term: pe.term, year: pe.year,
-                       classId: null, subjectIds: [], maxScore: pe.maxScore||100,
-                       gradingSystemId: pe.gradingSystemId||null };
-    return { stu, exam: examNorm, cls, stream, subjectRows, total, mean, mGrade,
-             totalPoints, overallRank: 0, streamRank: 0, history: [], isConsolidated: false, sourceExamObjs: [] };
-  }
 
   const isConsolidated = exam.category === 'consolidated';
   const sourceExamObjs = isConsolidated
