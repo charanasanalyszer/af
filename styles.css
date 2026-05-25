@@ -357,11 +357,11 @@ kbd { background:var(--border);border-radius:4px;padding:.1rem .4rem;font-size:.
 .tbl-wrap { overflow-x:auto;border-radius:9px;border:1px solid var(--border-lt); }
 table { width:100%;border-collapse:collapse;font-size:.855rem; }
 thead { background:var(--bg); }
-th { padding:.65rem 1rem;text-align:left;font-weight:700;color:var(--muted);font-size:.73rem;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;border-bottom:1px solid var(--border); }
-td { padding:.68rem 1rem;border-bottom:1px solid rgba(203,213,225,.35);color:var(--text);white-space:nowrap;vertical-align:middle; }
-body.dark td { border-bottom-color:rgba(30,58,95,.5); }
+th { padding:.65rem 1rem;text-align:left;font-weight:700;color:#374151;font-size:.73rem;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;border-bottom:2px solid rgba(203,213,225,.85); }
+td { padding:.68rem 1rem;border-bottom:1px solid rgba(203,213,225,.75);color:var(--text);white-space:nowrap;vertical-align:middle; }
+body.dark td { border-bottom-color:rgba(59,130,246,.18); }
 tr:last-child td { border-bottom:none; }
-tbody tr:hover { background:rgba(26,111,181,.03); }
+tbody tr:hover { background:rgba(26,111,181,.04); }
 
 /* Badges */
 .badge { display:inline-block;padding:.18rem .55rem;border-radius:999px;font-size:.72rem;font-weight:700;letter-spacing:.03em; }
@@ -3581,10 +3581,10 @@ body.dark label {
 
 /* Table header text */
 th {
-  color: #475569 !important;
+  color: #374151 !important;
 }
 body.dark th {
-  color: var(--muted) !important;
+  color: #cbd5e1 !important;
 }
 
 /* Muted text — bump contrast */
@@ -3593,7 +3593,7 @@ body.dark th {
 }
 body.dark .muted,
 body.dark [class*="muted"] {
-  color: var(--muted) !important;
+  color: #94a3b8 !important;
 }
 
 /* Stat card labels */
@@ -4039,3 +4039,159 @@ body.plat-admin-mode #platTabBar {
 .sec > *:first-child { margin-top: 0 !important; }
 .sec > .ph + * { margin-top: 0 !important; }
 .sec > .ph { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   MERIT LIST — BOLD FONTS + SOLID VISIBLE LINES (SCREEN MODE)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Wrapper border */
+#meritListWrap .tbl-wrap {
+  border: 2px solid rgba(26,111,181,.45) !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+}
+body.dark #meritListWrap .tbl-wrap {
+  border-color: rgba(59,130,246,.35) !important;
+}
+
+/* Table structure */
+#meritListWrap table {
+  border-collapse: collapse !important;
+}
+
+/* Header row — strong blue with white bold text */
+#meritListWrap table thead tr th {
+  background: linear-gradient(180deg, #1a6fb5 0%, #155c9a 100%) !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  font-size: .78rem !important;
+  padding: .7rem .85rem !important;
+  border-right: 1.5px solid rgba(255,255,255,.22) !important;
+  border-bottom: 2px solid rgba(255,255,255,.3) !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,.25) !important;
+  letter-spacing: .03em !important;
+}
+body.dark #meritListWrap table thead tr th {
+  background: linear-gradient(180deg, #1a3a6b 0%, #0f2744 100%) !important;
+  color: #e2e8f0 !important;
+  border-right-color: rgba(59,130,246,.25) !important;
+  border-bottom-color: rgba(59,130,246,.4) !important;
+}
+
+/* Every cell — solid visible borders */
+#meritListWrap table td {
+  border-right: 1px solid rgba(203,213,225,.7) !important;
+  border-bottom: 1px solid rgba(203,213,225,.7) !important;
+  font-weight: 600 !important;
+  color: var(--text) !important;
+  padding: .6rem .85rem !important;
+}
+body.dark #meritListWrap table td {
+  border-right-color: rgba(59,130,246,.2) !important;
+  border-bottom-color: rgba(59,130,246,.2) !important;
+  color: #e2e8f0 !important;
+}
+
+/* Last cell in each row — no right border */
+#meritListWrap table td:last-child,
+#meritListWrap table th:last-child {
+  border-right: none !important;
+}
+
+/* Last row — no bottom border */
+#meritListWrap table tbody tr:last-child td {
+  border-bottom: none !important;
+}
+
+/* Alternating row shading */
+#meritListWrap table tbody tr:nth-child(even) td {
+  background: rgba(26,111,181,.04) !important;
+}
+body.dark #meritListWrap table tbody tr:nth-child(even) td {
+  background: rgba(59,130,246,.06) !important;
+}
+
+/* Hover */
+#meritListWrap table tbody tr:hover td {
+  background: rgba(26,111,181,.09) !important;
+}
+body.dark #meritListWrap table tbody tr:hover td {
+  background: rgba(59,130,246,.12) !important;
+}
+
+/* Student name — extra bold */
+#meritListWrap table td strong {
+  font-weight: 800 !important;
+  color: var(--text) !important;
+}
+body.dark #meritListWrap table td strong {
+  color: #f1f5f9 !important;
+}
+
+/* Rank badge — bold */
+#meritListWrap .badge {
+  font-weight: 800 !important;
+  font-size: .73rem !important;
+}
+
+/* Score sub-grade text — brighter in dark mode */
+body.dark #meritListWrap table td span[style*="color:var(--muted)"],
+body.dark #meritListWrap table td span[style*="color: var(--muted)"] {
+  color: #94a3b8 !important;
+}
+
+/* Results portal — results.html fixes */
+.marks-table th {
+  color: #374151 !important;
+  font-weight: 800 !important;
+  border-bottom: 2px solid rgba(203,213,225,.85) !important;
+}
+.marks-table td {
+  border-bottom: 1px solid rgba(203,213,225,.7) !important;
+  font-weight: 500 !important;
+}
+.marks-table .total-row td {
+  border-top: 2.5px solid rgba(26,111,181,.6) !important;
+  font-weight: 700 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DARK MODE — ADDITIONAL TEXT CONTRAST FIXES
+   ═══════════════════════════════════════════════════════════════ */
+
+/* General input/select text in dark mode */
+body.dark input,
+body.dark select,
+body.dark textarea {
+  color: #e2e8f0 !important;
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+/* Card body text */
+body.dark .card,
+body.dark .stat-card,
+body.dark .chart-box {
+  color: #e2e8f0 !important;
+}
+
+/* Stat card values — ensure visible */
+body.dark .sc-num {
+  color: inherit !important;
+}
+
+/* tbl-wrap border in dark mode */
+body.dark .tbl-wrap {
+  border-color: rgba(59,130,246,.22) !important;
+}
+
+/* thead in dark mode */
+body.dark thead {
+  background: rgba(15,39,68,.8) !important;
+}
+
+/* ─── LIGHT MODE — TABLE READABILITY ─── */
+/* Ensure thead has enough background contrast */
+thead {
+  background: #f1f5f9 !important;
+}
