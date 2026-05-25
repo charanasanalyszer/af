@@ -209,8 +209,7 @@
       <a class="sn" data-s="timetable"   onclick="go('timetable',this)"><i class="fa-solid fa-clock"></i><span>Timetables</span></a>
       <!-- 8. Exams — run & enter marks -->
       <a class="sn" data-s="exams"       onclick="go('exams',this)"><i class="fa-solid fa-file-pen"></i><span>Exams</span></a>
-      <!-- 9. Report Forms — generate after marks entered -->
-      <a class="sn" data-s="reports"     onclick="go('reports',this)"><i class="fa-solid fa-file-lines"></i><span>Report Forms</span></a>
+      <!-- 9. Report Forms moved under Exams tab -->
       <!-- 10. Papers & Resources -->
       <a class="sn" data-s="papers"      onclick="go('papers',this)" id="papersNavLink"><i class="fa-solid fa-folder-open"></i><span>Papers &amp; Resources</span></a>
 
@@ -307,7 +306,7 @@
         <div class="qcard green" onclick="go('exams',document.querySelector('[data-s=exams]'));openExamTab('tabUploadMarks')">
           <div class="qc-icon">⬆</div><div class="qc-label">Upload Marks</div>
         </div>
-        <div class="qcard teal" onclick="go('reports',document.querySelector('[data-s=reports]'))">
+        <div class="qcard teal" onclick="go('exams',document.querySelector('[data-s=exams]'));setTimeout(()=>openExamTab('tabReportForms',document.getElementById('tbReportForms')),100)">
           <div class="qc-icon"><i class="fa-solid fa-file-lines"></i></div><div class="qc-label">Generate Reports</div>
         </div>
         <div class="qcard amber" onclick="go('students',document.querySelector('[data-s=students]'))">
@@ -353,6 +352,7 @@
         <button class="tb" onclick="openExamTab('tabAnalyse',this)" id="tbAnalyse">Analyse</button>
         <button class="tb" onclick="openExamTab('tabMeritList',this)">Merit List</button>
         <button class="tb" onclick="openExamTab('tabSummaryAnalytics',this)" id="tbSummaryAnalytics"><i class="fa-solid fa-chart-pie" style="margin-right:.3rem"></i>Summary Analytics</button>
+        <button class="tb" onclick="openExamTab('tabReportForms',this)" id="tbReportForms"><i class="fa-solid fa-file-lines" style="margin-right:.3rem"></i>Report Forms</button>
         <button class="tb" onclick="openExamTab('tabPlatformMarks',this)" id="tbPlatformMarks" style="background:linear-gradient(135deg,rgba(5,150,105,.08),rgba(2,132,199,.08));border-color:#059669"><i class="fa-solid fa-upload"></i> Platform Exam Marks</button>
         <button class="tb" onclick="openExamTab('tabPlatformResults',this);renderSchoolPlatformResults()" id="tbPlatformResults" style="background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(29,78,216,.08));border-color:#7c3aed"><i class="fa-solid fa-trophy" style="margin-right:.3rem"></i>Platform Results</button>
       </div>
@@ -897,6 +897,80 @@
           </div>
           <div id="smResults"></div>
         </div>
+      </div>
+
+      <!-- ── TAB: Report Forms ── -->
+      <div id="tabReportForms" class="tab-panel">
+        <div class="card" style="margin-bottom:1.25rem">
+          <h3><i class="fa-solid fa-gear"></i> Report Settings</h3>
+          <div class="frow c3">
+            <div class="fg"><label>Select Exam *</label>
+              <select id="rpExam" onchange="onRpExamChange()"><option value="">— Select Exam —</option></select>
+            </div>
+            <div class="fg"><label>Select Student</label>
+              <select id="rpStudent" onchange="onRpStudentChange()"><option value="">— All Students —</option></select>
+            </div>
+            <div class="fg"><label>Filter by Class</label>
+              <select id="rpClass" onchange="onRpClassChange()"><option value="">— All Classes —</option></select>
+            </div>
+          </div>
+          <div class="frow c3">
+            <div class="fg"><label>Filter by Stream <span style="font-size:.75rem;color:#e53e3e;font-weight:600">● Required</span></label>
+              <select id="rpStream"><option value="">— Select Stream —</option></select>
+            </div>
+            <div class="fg">
+              <label>Term <span style="font-size:.75rem;color:#16a34a;font-weight:500">● Used for fee auto-link</span></label>
+              <select id="rpTerm" onchange="onRpTermYearChange()">
+                <option value="">— Auto from Exam —</option>
+                <option>Term 1</option><option>Term 2</option><option>Term 3</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>Year <span style="font-size:.75rem;color:#16a34a;font-weight:500">● Used for fee auto-link</span></label>
+              <select id="rpYear" onchange="onRpTermYearChange()">
+                <option value="">— Auto from Exam —</option>
+              </select>
+            </div>
+            <div class="fg" style="display:flex;flex-direction:column;justify-content:flex-end">
+              <div id="rpFeeAutoLinkStatus" style="padding:.45rem .75rem;border-radius:8px;border:1px solid var(--border);font-size:.8rem;color:var(--muted);background:var(--surface);min-height:2.2rem;display:flex;align-items:center;gap:.4rem">
+                <span><i class="fa-solid fa-link"></i></span> <span id="rpFeeAutoLinkText">Select exam &amp; student to auto-link fees</span>
+              </div>
+            </div>
+          </div>
+          <div class="frow c3">
+            <div class="fg">
+              <label class="check-label" style="font-size:.9rem;font-weight:500">
+                <input type="checkbox" id="rpAutoComments" checked/>
+                Auto-generate comments based on student performance (recommended)
+              </label>
+            </div>
+            <div class="fg"><label>Class Teacher Remarks (overrides auto if filled)</label>
+              <input type="text" id="rpCTRemarks" placeholder="Leave blank for auto-generated comment"/>
+            </div>
+            <div class="fg"><label>Principal Remarks (overrides auto if filled)</label>
+              <input type="text" id="rpPrincipalRemarks" placeholder="Leave blank for auto-generated comment"/>
+            </div>
+            <div class="fg"><label>School Closed On</label>
+              <input type="date" id="rpSchoolClosed"/>
+            </div>
+            <div class="fg"><label>Next Term Opens</label>
+              <input type="date" id="rpNextOpen"/>
+            </div>
+            <div class="fg"><label>Fee Balance This Term (KES) <span style="font-size:.75rem;color:#16a34a;font-weight:500">● Auto-linked from Fees</span></label>
+              <input type="number" id="rpFeeBalance" placeholder="Fallback default — used only when no fee record found for a student"/>
+              <span id="rpFeeStatusBadge" style="display:none;font-size:.78rem;font-weight:700;margin-top:.2rem"></span></div>
+            <div class="fg"><label>Fees for Next Term (KES) <span style="font-size:.75rem;color:#16a34a;font-weight:500">● Auto-linked from Fee Structure</span></label>
+              <input type="number" id="rpFeeNextTerm" placeholder="Auto-filled from fee structure — override if needed"/>
+            </div>
+          </div>
+          <div class="btn-row-compact">
+            <button class="btn btn-primary btn-sm" onclick="generateReport()"><i class="fa-solid fa-file-lines"></i> Generate</button>
+            <button class="btn btn-outline btn-sm" onclick="previewReport()"><i class="fa-solid fa-eye"></i> Preview</button>
+            <button class="btn btn-success btn-sm" onclick="downloadAllReportsPDF()"><i class="fa-solid fa-file-pdf"></i> Export All PDF</button>
+            <button class="btn btn-outline btn-sm" onclick="window.open('results.html','_blank')" title="Open the Student Results Portal where students access reports via admission number or QR code" style="border-color:#7c3aed;color:#7c3aed"><i class="fa-solid fa-mobile-screen"></i> Student Portal</button>
+          </div>
+        </div>
+        <div id="reportPreviewArea"></div>
       </div>
 
       <!-- ── TAB: Platform Exam Marks (School uploads marks for platform exam) ── -->
@@ -1611,83 +1685,6 @@
             </table>
           </div>
         </div>
-      </div>
-    </section>
-
-    <!-- ════ REPORTS ════ -->
-    <section id="s-reports" class="sec">
-      <div class="ph"><h2><i class="fa-solid fa-file-lines"></i> Report Forms</h2><p>Generate downloadable PDF report forms for students.</p></div>
-      <div class="card" style="margin-bottom:1.25rem">
-        <h3><i class="fa-solid fa-gear"></i> Report Settings</h3>
-        <div class="frow c3">
-          <div class="fg"><label>Select Exam *</label>
-            <select id="rpExam" onchange="onRpExamChange()"><option value="">— Select Exam —</option></select>
-          </div>
-          <div class="fg"><label>Select Student</label>
-            <select id="rpStudent" onchange="onRpStudentChange()"><option value="">— All Students —</option></select>
-          </div>
-          <div class="fg"><label>Filter by Class</label>
-            <select id="rpClass" onchange="onRpClassChange()"><option value="">— All Classes —</option></select>
-          </div>
-        </div>
-        <div class="frow c3">
-          <div class="fg"><label>Filter by Stream <span style="font-size:.75rem;color:#e53e3e;font-weight:600">● Required</span></label>
-            <select id="rpStream"><option value="">— Select Stream —</option></select>
-          </div>
-          <div class="fg">
-            <label>Term <span style="font-size:.75rem;color:#16a34a;font-weight:500">● Used for fee auto-link</span></label>
-            <select id="rpTerm" onchange="onRpTermYearChange()">
-              <option value="">— Auto from Exam —</option>
-              <option>Term 1</option><option>Term 2</option><option>Term 3</option>
-            </select>
-          </div>
-          <div class="fg">
-            <label>Year <span style="font-size:.75rem;color:#16a34a;font-weight:500">● Used for fee auto-link</span></label>
-            <select id="rpYear" onchange="onRpTermYearChange()">
-              <option value="">— Auto from Exam —</option>
-            </select>
-          </div>
-          <div class="fg" style="display:flex;flex-direction:column;justify-content:flex-end">
-            <div id="rpFeeAutoLinkStatus" style="padding:.45rem .75rem;border-radius:8px;border:1px solid var(--border);font-size:.8rem;color:var(--muted);background:var(--surface);min-height:2.2rem;display:flex;align-items:center;gap:.4rem">
-              <span><i class="fa-solid fa-link"></i></span> <span id="rpFeeAutoLinkText">Select exam &amp; student to auto-link fees</span>
-            </div>
-          </div>
-        </div>
-        <div class="frow c3">
-          <div class="fg">
-            <label class="check-label" style="font-size:.9rem;font-weight:500">
-              <input type="checkbox" id="rpAutoComments" checked/>
-              Auto-generate comments based on student performance (recommended)
-            </label>
-          </div>
-          <div class="fg"><label>Class Teacher Remarks (overrides auto if filled)</label>
-            <input type="text" id="rpCTRemarks" placeholder="Leave blank for auto-generated comment"/>
-          </div>
-          <div class="fg"><label>Principal Remarks (overrides auto if filled)</label>
-            <input type="text" id="rpPrincipalRemarks" placeholder="Leave blank for auto-generated comment"/>
-          </div>
-          <div class="fg"><label>School Closed On</label>
-            <input type="date" id="rpSchoolClosed"/>
-          </div>
-          <div class="fg"><label>Next Term Opens</label>
-            <input type="date" id="rpNextOpen"/>
-          </div>
-          <div class="fg"><label>Fee Balance This Term (KES) <span style="font-size:.75rem;color:#16a34a;font-weight:500">● Auto-linked from Fees</span></label>
-            <input type="number" id="rpFeeBalance" placeholder="Fallback default — used only when no fee record found for a student"/>
-            <span id="rpFeeStatusBadge" style="display:none;font-size:.78rem;font-weight:700;margin-top:.2rem"></span></div>
-          <div class="fg"><label>Fees for Next Term (KES) <span style="font-size:.75rem;color:#16a34a;font-weight:500">● Auto-linked from Fee Structure</span></label>
-            <input type="number" id="rpFeeNextTerm" placeholder="Auto-filled from fee structure — override if needed"/>
-          </div>
-        </div>
-        <div class="btn-row-compact">
-          <button class="btn btn-primary btn-sm" onclick="generateReport()"><i class="fa-solid fa-file-lines"></i> Generate</button>
-          <button class="btn btn-outline btn-sm" onclick="previewReport()"><i class="fa-solid fa-eye"></i> Preview</button>
-          <button class="btn btn-success btn-sm" onclick="downloadAllReportsPDF()"><i class="fa-solid fa-file-pdf"></i> Export All PDF</button>
-          <button class="btn btn-outline btn-sm" onclick="window.open('results.html','_blank')" title="Open the Student Results Portal where students access reports via admission number or QR code" style="border-color:#7c3aed;color:#7c3aed"><i class="fa-solid fa-mobile-screen"></i> Student Portal</button>
-        </div>
-      </div>
-      <!-- Preview area -->
-      <div id="reportPreviewArea"></div>
       </div>
     </section>
 
@@ -6054,7 +6051,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <a class="mbn-item"        data-s="subjects"    onclick="go('subjects',this);mbnActivate(this)"><i class="fa-solid fa-book"></i><span>Subjects</span></a>
   <a class="mbn-item"        data-s="timetable"   onclick="go('timetable',this);mbnActivate(this)"><i><i class="fa-solid fa-clock"></i></i><span>Timetable</span></a>
   <a class="mbn-item"        data-s="exams"       onclick="go('exams',this);mbnActivate(this)"><i class="fa-solid fa-file-pen"></i><span>Exams</span></a>
-  <a class="mbn-item"        data-s="reports"     onclick="go('reports',this);mbnActivate(this)"><i class="fa-solid fa-file-lines"></i><span>Reports</span></a>
+  <a class="mbn-item"        data-s="exams"       onclick="go('exams',this);mbnActivate(this)"><i class="fa-solid fa-file-pen"></i><span>Exams</span></a>
   <a class="mbn-item"        data-s="papers"      onclick="go('papers',this);mbnActivate(this)"><i class="fa-solid fa-folder-open"></i><span>Papers</span></a>
   <a class="mbn-item"        data-s="fees"        onclick="go('fees',this);mbnActivate(this)"><i class="fa-solid fa-coins"></i><span>Fees</span></a>
   <a class="mbn-item"        data-s="messaging"   onclick="go('messaging',this);mbnActivate(this)"><i class="fa-solid fa-comments"></i><span>Messaging</span></a>

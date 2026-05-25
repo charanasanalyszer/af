@@ -14079,7 +14079,6 @@ const I18N_MAP = [
   { key:'nav_subjects',   sel:'[data-s=subjects] span' },
   { key:'nav_classes',    sel:'[data-s=classes] span' },
   { key:'nav_timetable',  sel:'[data-s=timetable] span' },
-  { key:'nav_reports',    sel:'[data-s=reports] span' },
   { key:'nav_messaging',  sel:'[data-s=messaging] span' },
   { key:'nav_settings',   sel:'[data-s=settings] span' },
   // Page headers
@@ -14097,8 +14096,6 @@ const I18N_MAP = [
   { key:'ph_classes_sub',   sel:'#s-classes .ph p' },
   { key:'ph_timetable',     sel:'#s-timetable .ph h2' },
   { key:'ph_timetable_sub', sel:'#s-timetable .ph p' },
-  { key:'ph_reports',       sel:'#s-reports .ph h2' },
-  { key:'ph_reports_sub',   sel:'#s-reports .ph p' },
   { key:'ph_messaging',     sel:'#s-messaging .ph h2' },
   { key:'ph_messaging_sub', sel:'#s-messaging .ph p' },
   { key:'ph_settings',      sel:'#s-settings .ph h2' },
@@ -19760,7 +19757,7 @@ function applyRbacTeacher() {
   });
 
   // Exam sub-tabs
-  const examTabs = ['tabExamList','tabExamTimetable','tabCreateExam','tabUploadMarks','tabAnalyse','tabMeritList','tabSummaryAnalytics'];
+  const examTabs = ['tabExamList','tabExamTimetable','tabCreateExam','tabUploadMarks','tabAnalyse','tabMeritList','tabSummaryAnalytics','tabReportForms'];
   examTabs.forEach(tabId => {
     const key = 'exams__' + tabId;
     const allowed = cfg[key] !== false;
