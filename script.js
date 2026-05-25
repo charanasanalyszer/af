@@ -4150,15 +4150,6 @@ function launchApp() {
   // Guest is fully handled inside applyGuestRoleUI (called from applyRoleBasedUI).
   // Return here so launchApp() does NOT override guest nav restrictions with go('dashboard').
   if (currentUser && currentUser.role === 'guest') return;
-      setTimeout(() => {
-        openExamTab('tabUploadMarks', document.querySelector('[onclick*="tabUploadMarks"]'));
-        showToast(`<i class="fa-solid fa-triangle-exclamation"></i>️ You have ${pending.length} subject(s) with pending marks to upload`, 'warning');
-      }, 150);
-    } else {
-      go('dashboard', document.querySelector('[data-s="dashboard"]'));
-    }
-    return;
-  }
 
   // Apply platform nav visibility config to school portal
   applyPlatformNavConfig();
