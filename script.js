@@ -798,14 +798,14 @@ function doUnifiedLogin() {
   // ── FORMAT GATE: reject unrecognised username formats immediately ──
   const _detectedRole = detectUsernameRole(u);
   if (!_detectedRole) {
-    re('Username format not recognised.<br><small style="color:#94a3b8">Platform admin: <code>myname</code> &nbsp;|&nbsp; School: <code>name@school</code> &nbsp;|&nbsp; Teacher/Student: <code>name@schoolcode</code></small>');
+    re('Username format not recognised. Please check your username and try again.');
     return;
   }
   // Validate exact pattern for known roles (skip for teacherOrStudent — resolved at lookup)
   if (_detectedRole !== 'guest' && _detectedRole !== 'teacherOrStudent') {
     const _rule = USERNAME_RULES[_detectedRole];
     if (_rule && !_rule.rx.test(u)) {
-      re('Username format not recognised. ' + _rule.hint + '<br><small style="color:#94a3b8">Tip: School admin username must end exactly with <code>@school</code></small>');
+      re('Username format not recognised. Please check your username and try again.');
       return;
     }
   }
@@ -926,8 +926,7 @@ function doUnifiedLogin() {
     re('No schools found. Platform admin must add a school first.'); return;
   }
 
-    re('Invalid credentials. Check your username and password (case-sensitive).' +
-      (platformSchools.length === 0 ? '<br><small style="color:#94a3b8">No schools found — log in with your <strong>platform admin</strong> username (no @) to set up your first school.</small>' : ''));
+    re('Invalid credentials. Check your username and password.');
   } catch(e) {
     console.error('doUnifiedLogin error:', e);
     re('Something went wrong during sign-in. Please refresh and try again. (' + (e.message||'unknown error') + ')');

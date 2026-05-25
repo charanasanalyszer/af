@@ -139,13 +139,14 @@ function pollRemote() {
 }
 
 function buildLoader() {
+  // Lightweight non-blocking indicator: a small spinner badge in the corner.
+  // This keeps the login form fully visible and interactive.
   var el = document.createElement('div');
   el.id = 'sb-loader';
-  el.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;font-family:system-ui,sans-serif;color:#fff;';
+  el.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.85);backdrop-filter:blur(6px);color:#94a3b8;font-size:.75rem;padding:6px 14px 6px 10px;border-radius:999px;z-index:99999;font-family:system-ui,sans-serif;display:flex;align-items:center;gap:7px;pointer-events:none;';
   el.innerHTML = '<style>@keyframes sbspin{to{transform:rotate(360deg)}}</style>'
-    + '<div style="width:36px;height:36px;border:3px solid #334155;border-top-color:#7c3aed;border-radius:50%;animation:sbspin .75s linear infinite;margin-bottom:16px;"></div>'
-    + '<p style="font-size:.9rem;color:#94a3b8;margin:0;">Connecting to database...</p>'
-    + '<p id="sb-status" style="font-size:.75rem;color:#475569;margin:6px 0 0;">Loading your data</p>';
+    + '<div style="width:13px;height:13px;border:2px solid #334155;border-top-color:#7c3aed;border-radius:50%;animation:sbspin .7s linear infinite;flex-shrink:0"></div>'
+    + '<span id="sb-status">Syncing data…</span>';
   return el;
 }
 
@@ -165,35 +166,47 @@ function showSyncBadge() {
 function sbInit() {
   var loader = buildLoader();
   document.body.appendChild(loader);
-  setStatus('Fetching from Supabase...');
 
-  // Safety net: if something goes wrong and the promise never resolves,
-  // unblock the app after 12 seconds so the user can still log in.
+  // Also pulse the Sign In button to signal "loading" before user interacts
+  var btn = document.getElementById('uniBtn');
+  var btnOrigHTML = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right:.4rem"></i>Loading…';
+  }
+
+  function restoreBtn() {
+    if (btn) { btn.disabled = false; btn.innerHTML = btnOrigHTML; }
+  }
+
+  // Safety net: unblock after 12 seconds no matter what
   var safetyTimer = setTimeout(function() {
     if (!dbReady) {
       console.warn('[SupaSync] Safety timeout hit — unblocking app');
       document.addEventListener = _origAEL;
       dbReady = true;
       if (loader.parentNode) loader.remove();
+      restoreBtn();
       domQueue.forEach(function(fn) { try { fn(); } catch(e) { console.error(e); } });
     }
   }, 12000);
 
   sbFetchAll().then(function(rows) {
-    setStatus('Loading ' + rows.length + ' records...');
+    setStatus('Syncing ' + rows.length + ' records…');
     rows.forEach(function(row) {
       if (!isLocalOnly(row.key)) { _lsSet(row.key, row.value); lastPollKeys[row.key] = true; }
     });
     console.log('[SupaSync] Loaded ' + rows.length + ' keys');
   }).catch(function(err) {
     console.error('[SupaSync] Failed:', err);
-    setStatus('Cannot reach database - using local data');
+    setStatus('Offline — using local data');
     return new Promise(function(r) { setTimeout(r, 500); });
   }).then(function() {
     clearTimeout(safetyTimer);
     document.addEventListener = _origAEL;
     dbReady = true;
     loader.remove();
+    restoreBtn();
     domQueue.forEach(function(fn) { try { fn(); } catch(e) { console.error(e); } });
     setInterval(pollRemote, SYNC_INTERVAL_MS);
   });
