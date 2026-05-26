@@ -1735,16 +1735,16 @@
 #s-timetable table.setup input, #s-timetable table.setup select {padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;width:100%}
 #s-timetable .badge {display:inline-block;padding:1px 8px;border-radius:3px;font-size:11px;font-weight:600}
 /* APP */
-#s-timetable #app {display:none;flex-direction:column;height:100vh;overflow:hidden}
-#s-timetable #topbar {background:var(--primary);color:#fff;padding:0 16px;display:flex;align-items:center;gap:10px;height:46px;flex-shrink:0}
-#s-timetable #topbar h1 {font-size:14px;font-weight:700;color:#7dd3fc}
-#s-timetable #topbar .yr {color:#94a3b8;font-size:11px}
-#s-timetable #nav {background:var(--primary-l);display:flex;padding:0 10px;overflow-x:auto;flex-shrink:0}
+#s-timetable #tt-app {display:none;flex-direction:column;height:100vh;overflow:hidden}
+#s-timetable #tt-topbar {background:var(--primary);color:#fff;padding:0 16px;display:flex;align-items:center;gap:10px;height:46px;flex-shrink:0}
+#s-timetable #tt-topbar h1 {font-size:14px;font-weight:700;color:#7dd3fc}
+#s-timetable #tt-topbar .yr {color:#94a3b8;font-size:11px}
+#s-timetable #tt-nav {background:var(--primary-l);display:flex;padding:0 10px;overflow-x:auto;flex-shrink:0}
 #s-timetable .nav-btn {color:#94a3b8;padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:2px solid transparent;white-space:nowrap}
 #s-timetable .nav-btn:hover {color:#e2e8f0}#s-timetable .nav-btn.active {color:#fff;border-bottom-color:#38bdf8}
-#s-timetable #main {display:flex;flex:1;overflow:hidden;min-height:0}
-#s-timetable #sidebar {width:200px;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0}
-#s-timetable #content {flex:1;overflow:auto;padding:14px}
+#s-timetable #tt-main {display:flex;flex:1;overflow:hidden;min-height:0}
+#s-timetable #tt-sidebar {width:200px;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0}
+#s-timetable #tt-content {flex:1;overflow:auto;padding:14px}
 #s-timetable .sb-title {font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:10px 12px 4px}
 #s-timetable .sb-item {padding:6px 12px;cursor:pointer;display:flex;align-items:center;gap:7px;font-size:12px}
 #s-timetable .sb-item:hover {background:#f0f4f8}#s-timetable .sb-item.active {background:var(--accent-l);color:var(--accent);font-weight:600}
@@ -1801,10 +1801,10 @@
 #s-timetable .cell-rm {position:absolute;top:1px;right:1px;width:14px;height:14px;background:rgba(0,0,0,.45);color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;display:none;align-items:center;justify-content:center;padding:0;z-index:5}
 #s-timetable .tt-full td.fcell:hover .cell-rm {display:flex}
 /* Bench panel */
-#s-timetable #bench-panel {background:#1a2d45;border-top:2px solid #2563eb;padding:8px 14px;flex-shrink:0;min-height:58px}
-#s-timetable #bench-panel .bench-hdr {display:flex;align-items:center;gap:8px;margin-bottom:6px}
-#s-timetable #bench-panel .bench-hdr h3 {color:#7dd3fc;font-size:12px;font-weight:700;flex:1}
-#s-timetable #bench-panel .bench-hdr span {color:#64748b;font-size:11px}
+#s-timetable #tt-bench-panel {background:#1a2d45;border-top:2px solid #2563eb;padding:8px 14px;flex-shrink:0;min-height:58px}
+#s-timetable #tt-bench-panel .bench-hdr {display:flex;align-items:center;gap:8px;margin-bottom:6px}
+#s-timetable #tt-bench-panel .bench-hdr h3 {color:#7dd3fc;font-size:12px;font-weight:700;flex:1}
+#s-timetable #tt-bench-panel .bench-hdr span {color:#64748b;font-size:11px}
 #s-timetable #bench-cards {display:flex;flex-wrap:wrap;gap:5px;min-height:28px}
 #s-timetable .bench-card {padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:grab;border:1px solid rgba(255,255,255,.25);display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;user-select:none;position:relative}
 #s-timetable .bench-card:hover {opacity:.85;outline:2px solid rgba(255,255,255,.6)}
@@ -1823,9 +1823,9 @@
 #s-timetable .stat-card {background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px}
 #s-timetable .stat-label {font-size:11px;color:var(--muted);margin-bottom:3px}
 #s-timetable .stat-val {font-size:22px;font-weight:700;color:var(--accent)}
-#s-timetable #infobar {background:#1a2436;color:#cde;padding:4px 12px;font-size:11px;min-height:22px;flex-shrink:0}
-#s-timetable #notif {position:fixed;top:12px;right:12px;background:#1e3a5a;color:#fff;padding:8px 16px;border-radius:var(--r);font-size:12px;z-index:999;display:none;box-shadow:0 4px 16px rgba(0,0,0,.3)}
-#s-timetable #mbg {position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:900}
+#s-timetable #tt-infobar {background:#1a2436;color:#cde;padding:4px 12px;font-size:11px;min-height:22px;flex-shrink:0}
+#s-timetable #tt-notif {position:fixed;top:12px;right:12px;background:#1e3a5a;color:#fff;padding:8px 16px;border-radius:var(--r);font-size:12px;z-index:999;display:none;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+#s-timetable #tt-mbg {position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:900}
 #s-timetable .modal {background:#fff;border-radius:10px;padding:22px;width:360px;box-shadow:0 16px 48px rgba(0,0,0,.25)}
 #s-timetable .modal h3 {font-size:15px;margin-bottom:14px;color:var(--primary)}
 #s-timetable .modal label {display:block;font-size:11px;color:var(--muted);margin:8px 0 3px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
@@ -1955,16 +1955,16 @@ body.bw-print #s-timetable .tt .hc, body.bw-print #s-timetable .tt .hr {backgrou
 
 @media print {
   /* ── Hide screen-only chrome ── */
-  #s-timetable #wizard, #s-timetable #topbar, #s-timetable #nav, #s-timetable #sidebar, #s-timetable #infobar, #s-timetable #notif, #s-timetable #mbg, #s-timetable #bench-panel, #s-timetable .toolbar .btn, #s-timetable .no-print, #s-timetable .cell-rm, #s-timetable .zoom-bar, #s-timetable .legend {display:none!important}
+  #s-timetable #wizard, #s-timetable #tt-topbar, #s-timetable #tt-nav, #s-timetable #tt-sidebar, #s-timetable #tt-infobar, #s-timetable #tt-notif, #s-timetable #tt-mbg, #s-timetable #tt-bench-panel, #s-timetable .toolbar .btn, #s-timetable .no-print, #s-timetable .cell-rm, #s-timetable .zoom-bar, #s-timetable .legend {display:none!important}
   #s-timetable .print-hdr {display:none!important}
 
   /* ── Page setup: A4 landscape, tight margins ── */
   @page {size:A4 landscape;margin:6mm 7mm 6mm 7mm}
 
   /* ── App shell becomes a simple block ── */
-  #s-timetable #app {display:block!important;background:#fff;height:auto}
-  #s-timetable #main {display:block!important}
-  #s-timetable #content {padding:0!important;overflow:visible!important}
+  #s-timetable #tt-app {display:block!important;background:#fff;height:auto}
+  #s-timetable #tt-main {display:block!important}
+  #s-timetable #tt-content {padding:0!important;overflow:visible!important}
   #s-timetable {background:#fff;height:auto;font-size:10px}
 
   /* ── Each sheet fills one landscape A4 page ── */
@@ -2084,8 +2084,8 @@ body.bw-print #s-timetable .tt .hc, body.bw-print #s-timetable .tt .hr {backgrou
   </div>
 </div>
 
-<div id="app">
-  <div id="topbar">
+<div id="tt-app">
+  <div id="tt-topbar">
     <h1 id="app-name">School</h1><span class="yr" id="app-year"></span>
     <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn no-print" style="background:#253447;color:#aec;border-color:#3d5068;font-size:12px" onclick="showSetup()">⚙ Edit Setup</button>
@@ -2098,7 +2098,7 @@ body.bw-print #s-timetable .tt .hc, body.bw-print #s-timetable .tt .hr {backgrou
       <button class="btn no-print" style="background:#4b5563;color:#fff;border-color:#374151" onclick="doPrint(false)" title="Print in black & white">⬛ Print B&W</button>
     </div>
   </div>
-  <div id="nav">
+  <div id="tt-nav">
     <div class="nav-btn active" data-view="overview" onclick="setNav(this)">Overview</div>
     <div class="nav-btn" data-view="full" onclick="setNav(this)">Full Timetable</div>
     <div class="nav-btn" data-view="by-class" onclick="setNav(this)">By Class</div>
@@ -2107,11 +2107,11 @@ body.bw-print #s-timetable .tt .hc, body.bw-print #s-timetable .tt .hr {backgrou
     <div class="nav-btn" data-view="print-class" onclick="setNav(this)">Print — Classes</div>
     <div class="nav-btn" data-view="print-teacher" onclick="setNav(this)">Print — Teachers</div>
   </div>
-  <div id="main">
-    <div id="sidebar"></div>
-    <div id="content"></div>
+  <div id="tt-main">
+    <div id="tt-sidebar"></div>
+    <div id="tt-content"></div>
   </div>
-  <div id="bench-panel" class="no-print" style="display:none">
+  <div id="tt-bench-panel" class="no-print" style="display:none">
     <div class="bench-hdr">
       <h3>📋 Aside (removed lessons)</h3>
       <span id="bench-count">0 cards</span>
@@ -2119,10 +2119,10 @@ body.bw-print #s-timetable .tt .hc, body.bw-print #s-timetable .tt .hr {backgrou
     </div>
     <div id="bench-cards"><span class="bench-empty">No cards set aside yet. Click ✕ on any lesson to remove it here.</span></div>
   </div>
-  <div id="infobar">Hover a cell for lesson details</div>
+  <div id="tt-infobar">Hover a cell for lesson details</div>
 </div>
 
-<div id="mbg">
+<div id="tt-mbg">
   <div class="modal">
     <h3 id="m-title">Assign Lesson</h3>
     <label>Subject</label><select id="m-subj"></select>
@@ -2134,7 +2134,7 @@ body.bw-print #s-timetable .tt .hc, body.bw-print #s-timetable .tt .hr {backgrou
     </div>
   </div>
 </div>
-<div id="notif"></div>
+<div id="tt-notif"></div>
 
 <!-- ══ Save Modal ══ -->
 <div id="save-bg" onclick="if(event.target===this)closeSaveModal()">
@@ -2335,7 +2335,7 @@ function setHeaderPreset(thBg,thTxt,pdBg,pdTxt){
   renderCurrentView();
 }
 function pushCSSVars(){
-  const r=document.documentElement;
+  const r=document.getElementById('s-timetable');
   r.style.setProperty('--th-bg',HC.thBg);
   r.style.setProperty('--th-txt',HC.thTxt);
   r.style.setProperty('--pd-bg',HC.pdBg);
@@ -2878,10 +2878,10 @@ function finishWiz(){
   setupMode='fresh';
   document.getElementById('wiz-edit-banner').style.display='none';
   document.getElementById('wizard').style.display='none';
-  document.getElementById('app').style.display='flex';
+  document.getElementById('tt-app').style.display='flex';
   document.getElementById('app-name').textContent=S.school;
   document.getElementById('app-year').textContent=S.year;
-  setNav(document.querySelector('.nav-btn[data-view="overview"]'));
+  setNav(document.getElementById('s-timetable').querySelector('.nav-btn[data-view="overview"]'));
 }
 function finishAndGenerate(){
   finishWiz();
@@ -2896,7 +2896,7 @@ function showSetup(){
     teachers:S.teachers.map(t=>({...t,subjects:[...(t.subjects||[])],timeOff:(t.timeOff||[]).map(x=>[...x]),classMap:t.classMap?JSON.parse(JSON.stringify(t.classMap)):{}})),
     classes:S.classes.map(c=>({...c}))};
   ws=0;
-  document.getElementById('app').style.display='none';
+  document.getElementById('tt-app').style.display='none';
   document.getElementById('wizard').style.display='flex';
   const banner=document.getElementById('wiz-edit-banner');
   banner.style.display='flex';
@@ -2907,7 +2907,7 @@ function cancelEditSetup(){
   // Discard wizard changes, go back to app
   document.getElementById('wiz-edit-banner').style.display='none';
   document.getElementById('wizard').style.display='none';
-  document.getElementById('app').style.display='flex';
+  document.getElementById('tt-app').style.display='flex';
   setupMode='fresh';
 }
 function newTimetable(){
@@ -2922,7 +2922,7 @@ function newTimetable(){
     periods:[],subjects:[],teachers:[],classes:[]};
   ws=0;
   document.getElementById('wiz-edit-banner').style.display='none';
-  document.getElementById('app').style.display='none';
+  document.getElementById('tt-app').style.display='none';
   document.getElementById('wizard').style.display='flex';
   wizRender();
 }
@@ -3031,11 +3031,11 @@ function loadSave(id){
   currentSaveId=id;
   setupMode='fresh';
   closeManager();
-  document.getElementById('app').style.display='flex';
+  document.getElementById('tt-app').style.display='flex';
   document.getElementById('wizard').style.display='none';
   document.getElementById('app-name').textContent=S.school;
   document.getElementById('app-year').textContent=S.year;
-  setNav(document.querySelector('.nav-btn[data-view="overview"]'));
+  setNav(document.getElementById('s-timetable').querySelector('.nav-btn[data-view="overview"]'));
   notify(`📂 Opened: "${sv.name}"`);
 }
 function renameSave(id){
@@ -3589,7 +3589,7 @@ function openModal(cls,di,pi){
     const info=document.createElement('div');info.id='m-split-info';
     info.innerHTML=`<div style="font-size:11px;color:var(--muted);margin-bottom:8px">This is a <strong>split-slot cell</strong> from a <em>same slot</em> relation. Edit via the 🔗 Relations tab.</div>${parts}`;
     document.getElementById('m-subj').parentNode.insertBefore(info,document.getElementById('m-subj'));
-    document.getElementById('mbg').style.display='flex';
+    document.getElementById('tt-mbg').style.display='flex';
     return;
   }
   // Restore normal modal state
@@ -3608,7 +3608,7 @@ function openModal(cls,di,pi){
     return`<option value="${e(t.short)}" ${sel?'selected':''} ${onTimeOff?'style="color:#999"':''}>${e(label)}</option>`;
   });
   document.getElementById('m-teacher').innerHTML=`<option value="">— No teacher —</option>`+teacherOpts.join('');
-  document.getElementById('mbg').style.display='flex';
+  document.getElementById('tt-mbg').style.display='flex';
 }
 function saveModal(){
   if(!modalCtx)return;
@@ -3626,15 +3626,15 @@ function clearModal(){
   setC(modalCtx.cls,modalCtx.di,modalCtx.pi,null);closeModal();renderCurrentView();
 }
 function closeModal(){
-  document.getElementById('mbg').style.display='none';
+  document.getElementById('tt-mbg').style.display='none';
   modalCtx=null;
   const info=document.getElementById('m-split-info');if(info)info.remove();
   document.getElementById('m-subj').style.display='';
   document.getElementById('m-teacher').style.display='';
 }
-document.getElementById('mbg').addEventListener('click',ev=>{if(ev.target===ev.currentTarget)closeModal();});
+document.getElementById('tt-mbg').addEventListener('click',ev=>{if(ev.target===ev.currentTarget)closeModal();});
 function showInfo(cls,di,pi){
-  const val=getC(cls,di,pi);const bar=document.getElementById('infobar');
+  const val=getC(cls,di,pi);const bar=document.getElementById('tt-infobar');
   if(val){
     if(val.multi){
       const parts=val.multi.map(m=>{const sn=S.subjects.find(s=>s.short===m.subj);const tn=S.teachers.find(t=>t.short===m.teacher);return`<strong>${e(m.subj)}</strong>${sn?' '+e(sn.name):''} / ${e(m.teacher||'—')}${tn?' '+e(tn.name):''}`}).join('&nbsp;&nbsp;║&nbsp;&nbsp;');
@@ -3648,7 +3648,7 @@ function showInfo(cls,di,pi){
 
 // ════════════════════════════ NAVIGATION ════════════════════════════
 function setNav(el){
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('s-timetable').querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   if(el){el.classList.add('active');currentView=el.dataset.view;}
   sidebarSel='';renderCurrentView();
 }
@@ -3656,9 +3656,9 @@ function selSidebar(val){sidebarSel=val;renderCurrentView();}
 function renderCurrentView(){
   renderSidebar();
   // Hide bench panel unless in full view
-  const bp=document.getElementById('bench-panel');
+  const bp=document.getElementById('tt-bench-panel');
   if(bp)bp.style.display=(currentView==='full'?'block':'none');
-  const C=document.getElementById('content');
+  const C=document.getElementById('tt-content');
   if(currentView==='overview')renderOverview(C);
   else if(currentView==='full')renderFull(C);
   else if(currentView==='by-class')renderByClass(C,sidebarSel||S.classes[0]?.name);
@@ -3668,7 +3668,7 @@ function renderCurrentView(){
   else if(currentView==='print-teacher')renderPTeacher(C);
 }
 function renderSidebar(){
-  const s=document.getElementById('sidebar');
+  const s=document.getElementById('tt-sidebar');
   if(currentView==='by-class'){
     s.innerHTML=`<div class="sb-title">Classes</div>`+S.classes.map(c=>`
       <div class="sb-item ${sidebarSel===c.name?'active':''}" onclick="selSidebar('${e(c.name)}')">
@@ -3817,7 +3817,7 @@ function buildFullGrid(draggable=true){
 
 function renderFull(C){
   if(!S.classes.length){C.innerHTML='<p style="padding:20px;color:var(--muted)">No classes yet.</p>';return;}
-  document.getElementById('bench-panel').style.display='block';
+  document.getElementById('tt-bench-panel').style.display='block';
   renderBench();
   C.innerHTML=`
     <div class="toolbar no-print">
@@ -3986,7 +3986,7 @@ function removeTobench(cls,di,pi){
 }
 function clearBench(){bench=[];benchedCells={};renderCurrentView();}
 function renderBench(){
-  const panel=document.getElementById('bench-panel');
+  const panel=document.getElementById('tt-bench-panel');
   const cards=document.getElementById('bench-cards');
   const cnt=document.getElementById('bench-count');
   if(!panel||!cards)return;
@@ -4101,7 +4101,7 @@ function renderPTeacher(C){
 }
 function printOne(type,id){
   const sheet=type==='class'?pSheetClass(id):pSheetTeacher(id);
-  document.getElementById('content').innerHTML=`
+  document.getElementById('tt-content').innerHTML=`
     <div class="toolbar no-print">
       <button class="btn" onclick="renderCurrentView()">← Back</button>
       <button class="btn success" onclick="window.print()">🖨 Print</button>
@@ -4262,7 +4262,7 @@ function e(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 function v(id){return(document.getElementById(id)||{}).value||'';}
 function ti(t){if(!t)return'08:00';const p=String(t).split(':');return p[0].padStart(2,'0')+':'+(p[1]||'00').padStart(2,'0');}
 let nTO=null;
-function notify(msg){const el=document.getElementById('notif');el.textContent=msg;el.style.display='block';clearTimeout(nTO);nTO=setTimeout(()=>el.style.display='none',3500);}
+function notify(msg){const el=document.getElementById('tt-notif');el.textContent=msg;el.style.display='block';clearTimeout(nTO);nTO=setTimeout(()=>el.style.display='none',3500);}
 
 // ════════════════════════════ CLEAR / PRINT ════════════════════════════
 function clearAllData(){newTimetable();}
@@ -4284,7 +4284,7 @@ wizRender();
 document.addEventListener('keydown',function(ev){
   if((ev.ctrlKey||ev.metaKey)&&ev.key==='s'){
     ev.preventDefault();
-    if(document.getElementById('app').style.display!=='none') openSaveModal();
+    if(document.getElementById('tt-app').style.display!=='none') openSaveModal();
   }
 });
 document.getElementById('save-name-input').addEventListener('keydown',function(ev){
