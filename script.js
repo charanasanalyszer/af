@@ -4359,6 +4359,7 @@ function openExamTab(id, btn) {
   if (id === 'tabMeritList') populateMeritDropdowns();
   if (id === 'tabUploadMarks') populateUmDropdowns();
   if (id === 'tabReportForms') populateReportDropdowns();
+  if (id === 'tabExamTimetable') { if (typeof etPopulateExamSelect === 'function') etPopulateExamSelect(); }
   if (id === 'tabSummaryAnalytics') {
     const allowed = currentUser && (currentUser.role==='superadmin'||currentUser.role==='admin'||
       (currentUser.role==='teacher' && !settings.restrictTeacherAnalytics && (currentUser.canAnalyse||currentUserIsClassTeacher())));
@@ -5211,6 +5212,12 @@ function populateExamDropdowns() {
     const examList = id === 'umExam' ? filteredExams.filter(e => e.category !== 'consolidated') : filteredExams;
     el.innerHTML = '<option value="">— Select Exam —</option>' + examList.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
   });
+  // Also populate exam timetable selector
+  const etEl = document.getElementById('etExamSelect');
+  if (etEl) {
+    etEl.innerHTML = '<option value="">— Choose Exam —</option>' +
+      exams.map(e => `<option value="${e.id}">${e.name} (${e.term} ${e.year})</option>`).join('');
+  }
   // Refresh combined analysis dropdowns if open
   if (currentAnalysisMode === 'combined') populateCombinedDropdowns();
 }

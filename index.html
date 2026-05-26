@@ -3277,9 +3277,9 @@ function confirmSyncSelected() {
 
   const total = added + updated;
   if (total === 0) {
-    notify('ℹ️ No changes — selected teachers were already up to date.');
+    showToast('No changes — selected teachers were already up to date.', 'info');
   } else {
-    notify(`✅ Sync complete! ${added} teacher(s) added · ${updated} updated`);
+    showToast(`Sync complete! ${added} teacher(s) added · ${updated} updated <i class="fa-solid fa-check"></i>`, 'success');
   }
 }
 
@@ -7113,6 +7113,343 @@ document.addEventListener('click',function(e){
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
+
+<!-- ══ Exam Timetable Functions ══ -->
+<script>
+/* ─────────────────────────────────────────────────────────────────────────────
+   EXAM TIMETABLE — all etXxx functions
+   Depends on global: exams, subjects, streams, classes, teachers, streamAssignments
+   (all set by the main school app after login)
+───────────────────────────────────────────────────────────────────────────── */
+
+// Session definitions: [label, start, end, colour]
+const ET_SESSIONS = [
+  ['Morning',     '08:00', '10:00', '#3b82f6'],
+  ['Mid-Morning', '10:30', '12:30', '#8b5cf6'],
+  ['Afternoon',   '13:30', '15:30', '#10b981']
+];
+
+// Stored timetable data (kept in memory for the session; survives tab switches)
+let _etData = null; // { examId, rows: [{date, dayLabel, slots:[{subjectId,invigilatorId}|null]}] }
+
+/* Populate the exam selector — called by openExamTab and populateExamDropdowns */
+function etPopulateExamSelect() {
+  const sel = document.getElementById('etExamSelect'); if (!sel) return;
+  const src = (typeof exams !== 'undefined' && exams) ? exams : [];
+  sel.innerHTML = '<option value="">— Choose Exam —</option>' +
+    src.map(e => `<option value="${e.id}">${e.name} (${e.term||''} ${e.year||''})</option>`).join('');
+  etPopulateClassFilter(null);
+}
+
+/* When exam selection changes — update class filter */
+function etOnExamChange() {
+  const sel = document.getElementById('etExamSelect'); if (!sel) return;
+  const exam = (typeof exams !== 'undefined' && exams) ? exams.find(e => e.id === sel.value) : null;
+  etPopulateClassFilter(exam);
+  // Clear output when exam changes
+  _etData = null;
+  const out = document.getElementById('etOutput');
+  if (out) out.innerHTML = '<div class="empty-state" style="padding:2.5rem 1rem;text-align:center;color:var(--muted)"><div style="font-size:2.5rem;margin-bottom:.5rem"><i class="fa-solid fa-calendar-days"></i></div><p>Select an exam and click <strong>Generate Exam Timetable</strong></p></div>';
+}
+
+function etPopulateClassFilter(exam) {
+  const cf = document.getElementById('etClassFilter'); if (!cf) return;
+  const src = (typeof streams !== 'undefined' && streams) ? streams : [];
+  const cls = (typeof classes !== 'undefined' && classes) ? classes : [];
+  // If exam has a classId, show only streams of that class; otherwise show all
+  const relevant = exam && exam.classId ? src.filter(s => s.classId === exam.classId) : src;
+  cf.innerHTML = '<option value="">— All Classes —</option>' +
+    relevant.map(s => {
+      const parentCls = cls.find(c => c.id === s.classId);
+      const label = parentCls ? `${parentCls.name} ${s.name}` : s.name;
+      return `<option value="${s.id}">${label}</option>`;
+    }).join('');
+}
+
+/* Main generate */
+function etGenerate() {
+  const examId     = document.getElementById('etExamSelect')?.value;
+  const slotsPerDay= parseInt(document.getElementById('etSlotsPerDay')?.value) || 2;
+  const startDate  = document.getElementById('etStartDate')?.value;
+  const streamFilter = document.getElementById('etClassFilter')?.value;
+
+  if (!examId) { if (typeof showToast === 'function') showToast('Please select an exam first', 'warning'); else alert('Please select an exam first'); return; }
+  if (!startDate) { if (typeof showToast === 'function') showToast('Please set a start date', 'warning'); else alert('Please set a start date'); return; }
+
+  const src      = (typeof exams     !== 'undefined') ? exams     : [];
+  const subSrc   = (typeof subjects  !== 'undefined') ? subjects  : [];
+  const tchSrc   = (typeof teachers  !== 'undefined') ? teachers  : [];
+  const strSrc   = (typeof streams   !== 'undefined') ? streams   : [];
+  const saSrc    = (typeof streamAssignments !== 'undefined') ? streamAssignments : [];
+
+  const exam = src.find(e => e.id === examId);
+  if (!exam) { if (typeof showToast === 'function') showToast('Exam not found', 'error'); return; }
+
+  // Gather subjects for this exam
+  let subjectIds = exam.subjectIds || [];
+
+  // If stream filter is applied, restrict to subjects taught in that stream
+  if (streamFilter) {
+    const streamSubIds = saSrc.filter(a => a.streamId === streamFilter).map(a => a.subjectId);
+    subjectIds = subjectIds.filter(id => streamSubIds.includes(id));
+  }
+
+  if (!subjectIds.length) {
+    if (typeof showToast === 'function') showToast('No subjects found for this exam / filter', 'warning');
+    return;
+  }
+
+  // Helper: find invigilator for a subject (stream-assigned teacher first, else first teacher for subject)
+  function findInvigilator(subjectId) {
+    if (streamFilter) {
+      const sa = saSrc.find(a => a.streamId === streamFilter && a.subjectId === subjectId);
+      if (sa && sa.teacherId) return tchSrc.find(t => t.id === sa.teacherId) || null;
+    }
+    // Try first assignment for this subject across any stream
+    const anyAssign = saSrc.find(a => a.subjectId === subjectId && a.teacherId);
+    if (anyAssign) return tchSrc.find(t => t.id === anyAssign.teacherId) || null;
+    // Fall back to subject's teacherId field
+    const sub = subSrc.find(s => s.id === subjectId);
+    if (sub && sub.teacherId) return tchSrc.find(t => t.id === sub.teacherId) || null;
+    return null;
+  }
+
+  // Schedule subjects across days / sessions
+  const sessions = ET_SESSIONS.slice(0, slotsPerDay);
+  const rows = []; // { date, dayLabel, slots:[{subjectId, invigilator}|null] }
+  let subIdx  = 0;
+  let dateObj = new Date(startDate + 'T00:00:00');
+  const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const DAY_FULL  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+  while (subIdx < subjectIds.length) {
+    // Skip weekends
+    while (dateObj.getDay() === 0 || dateObj.getDay() === 6) {
+      dateObj.setDate(dateObj.getDate() + 1);
+    }
+    const isoDate  = dateObj.toISOString().slice(0, 10);
+    const dayLabel = DAY_FULL[dateObj.getDay()];
+    const slots = sessions.map(() => {
+      if (subIdx >= subjectIds.length) return null;
+      const sid = subjectIds[subIdx++];
+      return { subjectId: sid, invigilator: findInvigilator(sid) };
+    });
+    rows.push({ date: isoDate, dayLabel, slots });
+    dateObj.setDate(dateObj.getDate() + 1);
+  }
+
+  _etData = { examId, rows, slotsPerDay, streamFilter };
+  etRenderTable(exam, rows, sessions, subSrc, tchSrc, strSrc);
+
+  // Show legend
+  const legend = document.getElementById('etLegend');
+  if (legend) legend.style.display = 'flex';
+}
+
+function etRenderTable(exam, rows, sessions, subSrc, tchSrc, strSrc) {
+  const out = document.getElementById('etOutput'); if (!out) return;
+  const strSrcG = (typeof streams !== 'undefined') ? streams : strSrc;
+  const clsSrcG = (typeof classes !== 'undefined') ? classes : [];
+
+  // Header for stream filter
+  const sfId  = document.getElementById('etClassFilter')?.value;
+  const sfStr = sfId ? strSrcG.find(s => s.id === sfId) : null;
+  const sfCls = sfStr ? clsSrcG.find(c => c.id === sfStr.classId) : null;
+  const sfLabel = sfStr ? (sfCls ? `${sfCls.name} ${sfStr.name}` : sfStr.name) : 'All Classes';
+
+  let html = `
+  <div style="font-size:.82rem;color:var(--muted);margin-bottom:.6rem">
+    <strong>${exam.name}</strong> &nbsp;·&nbsp; ${exam.term || ''} ${exam.year || ''}
+    &nbsp;·&nbsp; ${sfLabel}
+  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+    <thead>
+      <tr style="background:var(--bg3,#f1f5f9)">
+        <th style="padding:.5rem .75rem;text-align:left;border:1px solid var(--border,#e2e8f0);white-space:nowrap">Day</th>
+        <th style="padding:.5rem .75rem;text-align:left;border:1px solid var(--border,#e2e8f0);white-space:nowrap">Date</th>
+        ${sessions.map((s,i) => `<th style="padding:.5rem .75rem;text-align:left;border:1px solid var(--border,#e2e8f0)">
+          <span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${s[3]};margin-right:5px;vertical-align:middle"></span>
+          ${s[0]}<div style="font-size:.72rem;font-weight:400;color:var(--muted)">${s[1]} – ${s[2]}</div>
+        </th>`).join('')}
+      </tr>
+    </thead>
+    <tbody>`;
+
+  rows.forEach(row => {
+    const dateDisp = new Date(row.date + 'T00:00:00').toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+    html += `<tr>
+      <td style="padding:.5rem .75rem;border:1px solid var(--border,#e2e8f0);font-weight:600;white-space:nowrap">${row.dayLabel}</td>
+      <td style="padding:.5rem .75rem;border:1px solid var(--border,#e2e8f0);white-space:nowrap">${dateDisp}</td>`;
+    row.slots.forEach((slot, si) => {
+      if (!slot) {
+        html += `<td style="padding:.5rem .75rem;border:1px solid var(--border,#e2e8f0);color:var(--muted);font-style:italic">—</td>`;
+      } else {
+        const sub = subSrc.find(s => s.id === slot.subjectId);
+        const subName = sub ? sub.name : slot.subjectId;
+        const inv = slot.invigilator;
+        const invBadge = inv
+          ? `<div style="margin-top:.25rem;font-size:.72rem;color:#fff;background:#10b981;display:inline-block;padding:1px 7px;border-radius:9px;cursor:pointer"
+               onclick="etOpenEditSlot('${row.date}',${si},'${slot.subjectId}','${inv.id}')"
+               title="Click to change invigilator">
+               <i class="fa-solid fa-user"></i> ${inv.name}
+             </div>`
+          : `<div style="margin-top:.25rem;font-size:.72rem;color:var(--muted);cursor:pointer"
+               onclick="etOpenEditSlot('${row.date}',${si},'${slot.subjectId}','')"
+               title="Assign invigilator">
+               <i class="fa-solid fa-user-plus"></i> Assign
+             </div>`;
+        html += `<td style="padding:.5rem .75rem;border:1px solid var(--border,#e2e8f0);background:${sessions[si][3]}11">
+          <div style="font-weight:600">${subName}</div>
+          ${invBadge}
+        </td>`;
+      }
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  out.innerHTML = html;
+}
+
+/* Edit invigilator modal */
+function etOpenEditSlot(date, sessionIdx, subjectId, currentTeacherId) {
+  const modal = document.getElementById('etSlotModal'); if (!modal) return;
+  const tchSrc = (typeof teachers !== 'undefined') ? teachers : [];
+  const subSrc = (typeof subjects !== 'undefined') ? subjects : [];
+  const sub    = subSrc.find(s => s.id === subjectId);
+
+  document.getElementById('etSlotSubject').value = sub ? sub.name : subjectId;
+  document.getElementById('etSlotKey').value     = `${date}|${sessionIdx}|${subjectId}`;
+
+  const tSel = document.getElementById('etSlotTeacher');
+  tSel.innerHTML = '<option value="">— No invigilator —</option>' +
+    tchSrc.map(t => `<option value="${t.id}" ${t.id === currentTeacherId ? 'selected' : ''}>${t.name}</option>`).join('');
+
+  modal.style.display = 'flex';
+}
+
+function etSaveSlotEdit() {
+  const key = document.getElementById('etSlotKey')?.value || '';
+  const [date, siStr, subjectId] = key.split('|');
+  const si = parseInt(siStr);
+  const tchId = document.getElementById('etSlotTeacher')?.value || '';
+  const tchSrc = (typeof teachers !== 'undefined') ? teachers : [];
+  const teacher = tchId ? tchSrc.find(t => t.id === tchId) : null;
+
+  // Update in _etData
+  if (_etData) {
+    const row = _etData.rows.find(r => r.date === date);
+    if (row && row.slots[si]) { row.slots[si].invigilator = teacher || null; }
+  }
+
+  document.getElementById('etSlotModal').style.display = 'none';
+
+  // Re-render
+  if (_etData) {
+    const src    = (typeof exams    !== 'undefined') ? exams    : [];
+    const subSrc = (typeof subjects !== 'undefined') ? subjects : [];
+    const tchSrc2= (typeof teachers !== 'undefined') ? teachers : [];
+    const strSrc = (typeof streams  !== 'undefined') ? streams  : [];
+    const exam   = src.find(e => e.id === _etData.examId);
+    const sessions = ET_SESSIONS.slice(0, _etData.slotsPerDay);
+    if (exam) etRenderTable(exam, _etData.rows, sessions, subSrc, tchSrc2, strSrc);
+  }
+}
+
+function etClear() {
+  _etData = null;
+  const out = document.getElementById('etOutput');
+  if (out) out.innerHTML = '<div class="empty-state" style="padding:2.5rem 1rem;text-align:center;color:var(--muted)"><div style="font-size:2.5rem;margin-bottom:.5rem"><i class="fa-solid fa-calendar-days"></i></div><p>Select an exam and click <strong>Generate Exam Timetable</strong></p></div>';
+  const legend = document.getElementById('etLegend');
+  if (legend) legend.style.display = 'none';
+}
+
+function etPrint() {
+  const out = document.getElementById('etOutput');
+  if (!out || !_etData) { if (typeof showToast === 'function') showToast('Generate the timetable first', 'warning'); return; }
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Exam Timetable</title>
+    <style>body{font-family:sans-serif;padding:24px;font-size:13px}
+    table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left}
+    th{background:#f3f4f6;font-weight:700}@media print{body{padding:0}}</style></head><body>
+    ${out.innerHTML}</body></html>`);
+  win.document.close();
+  win.print();
+}
+
+function etExportPDF() {
+  if (!_etData) { if (typeof showToast === 'function') showToast('Generate the timetable first', 'warning'); return; }
+  // Use jsPDF if available
+  if (typeof jspdf !== 'undefined' || typeof window.jspdf !== 'undefined') {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'landscape' });
+    const src    = (typeof exams    !== 'undefined') ? exams    : [];
+    const subSrc = (typeof subjects !== 'undefined') ? subjects : [];
+    const exam = src.find(e => e.id === _etData.examId);
+    const examName = exam ? `${exam.name} — ${exam.term||''} ${exam.year||''}` : 'Exam Timetable';
+    const sessions = ET_SESSIONS.slice(0, _etData.slotsPerDay);
+
+    doc.setFontSize(14); doc.setFont(undefined, 'bold');
+    doc.text(examName, 14, 15);
+    doc.setFontSize(9);  doc.setFont(undefined, 'normal');
+
+    const headers = ['Day', 'Date', ...sessions.map(s => `${s[0]}\n${s[1]}–${s[2]}`)];
+    const dataRows = _etData.rows.map(row => {
+      const dateDisp = new Date(row.date + 'T00:00:00').toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+      return [
+        row.dayLabel, dateDisp,
+        ...row.slots.map(slot => {
+          if (!slot) return '—';
+          const sub = subSrc.find(s => s.id === slot.subjectId);
+          return (sub ? sub.name : slot.subjectId) + (slot.invigilator ? `\n${slot.invigilator.name}` : '');
+        })
+      ];
+    });
+
+    if (doc.autoTable) {
+      doc.autoTable({ head:[headers], body:dataRows, startY:22, styles:{fontSize:9}, headStyles:{fillColor:[99,102,241]} });
+    } else {
+      // Fallback: plain text table
+      let y = 25;
+      dataRows.forEach(r => { doc.text(r.join('  |  '), 14, y); y += 8; if (y > 190) { doc.addPage(); y = 20; } });
+    }
+    doc.save(`ExamTimetable_${(exam?.name||'exam').replace(/\s+/g,'_')}.pdf`);
+  } else {
+    // Fallback: print as PDF
+    etPrint();
+  }
+}
+
+function etExportExcel() {
+  if (!_etData) { if (typeof showToast === 'function') showToast('Generate the timetable first', 'warning'); return; }
+  if (typeof XLSX === 'undefined') { if (typeof showToast === 'function') showToast('Excel library not loaded', 'error'); return; }
+  const src    = (typeof exams    !== 'undefined') ? exams    : [];
+  const subSrc = (typeof subjects !== 'undefined') ? subjects : [];
+  const exam   = src.find(e => e.id === _etData.examId);
+  const sessions = ET_SESSIONS.slice(0, _etData.slotsPerDay);
+
+  const wsData = [
+    [`${exam ? exam.name : 'Exam Timetable'} — ${exam?.term||''} ${exam?.year||''}`],
+    ['Day', 'Date', ...sessions.map(s => `${s[0]} (${s[1]}–${s[2]})`)],
+    ..._etData.rows.map(row => {
+      const dateDisp = new Date(row.date + 'T00:00:00').toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+      return [
+        row.dayLabel, dateDisp,
+        ...row.slots.map(slot => {
+          if (!slot) return '';
+          const sub = subSrc.find(s => s.id === slot.subjectId);
+          const name = sub ? sub.name : slot.subjectId;
+          return slot.invigilator ? `${name} [${slot.invigilator.name}]` : name;
+        })
+      ];
+    })
+  ];
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  XLSX.utils.book_append_sheet(wb, ws, 'Exam Timetable');
+  XLSX.writeFile(wb, `ExamTimetable_${(exam?.name||'exam').replace(/\s+/g,'_')}.xlsx`);
+}
+</script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
