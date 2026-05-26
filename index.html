@@ -2656,7 +2656,10 @@ function step4(b){
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <div><h3 style="font-size:14px;color:var(--primary)">Teachers</h3>
     <p style="font-size:12px;color:var(--muted);margin-top:2px">Click subject badges to assign what each teacher teaches, then select the class(es). Use 🕐 to block unavailable periods.</p></div>
-    <button class="btn sm primary" onclick="addTc()">+ Add Teacher</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+      <button class="btn sm" onclick="syncTeachersFromSchool()" style="border-color:#7c3aed;color:#7c3aed" title="Import teachers & their stream assignments from the school database">🔄 Sync from School</button>
+      <button class="btn sm primary" onclick="addTc()">+ Add Teacher</button>
+    </div>
   </div>
   <table class="setup"><thead><tr>
     <th style="width:70px">Code</th><th>Full Name</th>
@@ -2814,6 +2817,170 @@ function blockTcDay(i,di,blocked){
   renderTc();
 }
 function addTc(){const n=WD.teachers.length+1;WD.teachers.push({short:`T${n}`,name:`Teacher ${n}`,subjects:[],timeOff:[],classMap:{}});renderTc();}
+
+// ── Sync Teachers & Lessons from School Streams ──────────────────────────
+function syncTeachersFromSchool(){
+  // Requires a logged-in school session (currentSchoolId defined in script.js)
+  const schoolId = (typeof currentSchoolId !== 'undefined') ? currentSchoolId : null;
+  if(!schoolId){
+    alert('No school is currently logged in.\nPlease sign in to your school account first, then return to Timetables to sync.');
+    return;
+  }
+  const prefix = schoolId + '_';
+
+  // Read raw school data from localStorage
+  let schoolTeachers=[], schoolSubjects=[], schoolClasses=[], schoolStreams=[], schoolSA=[];
+  try { schoolTeachers = JSON.parse(localStorage.getItem(prefix+'ei_teachers')||'[]'); } catch(e){}
+  try { schoolSubjects = JSON.parse(localStorage.getItem(prefix+'ei_subjects')||'[]'); } catch(e){}
+  try { schoolClasses  = JSON.parse(localStorage.getItem(prefix+'ei_classes') ||'[]'); } catch(e){}
+  try { schoolStreams  = JSON.parse(localStorage.getItem(prefix+'ei_streams') ||'[]'); } catch(e){}
+  // Stream assignments key is un-prefixed ('ei_streamassign') in the app
+  try { schoolSA = JSON.parse(localStorage.getItem('ei_streamassign')||'[]'); } catch(e){}
+
+  if(!schoolTeachers.length){
+    alert('No teachers found in the school database.\nAdd teachers in the Teachers section first.');
+    return;
+  }
+
+  // Build lookup maps
+  const subjectById  = {};  schoolSubjects.forEach(s => subjectById[s.id]  = s);
+  const classById    = {};  schoolClasses.forEach( c => classById[c.id]    = c);
+  const streamById   = {};  schoolStreams.forEach( s => streamById[s.id]   = s);
+
+  // Build a map: teacherId → [{subjectId, streamId}] from streamAssignments
+  const saByTeacher = {};
+  schoolSA.forEach(a => {
+    if(!a.teacherId) return;
+    if(!saByTeacher[a.teacherId]) saByTeacher[a.teacherId] = [];
+    saByTeacher[a.teacherId].push(a);
+  });
+
+  // Make sure WD subjects and classes include all needed entries (merge, don't duplicate)
+  // Subjects: use subject code as "short"
+  const wdSubjByCode = {};
+  WD.subjects.forEach(s => wdSubjByCode[s.short] = s);
+
+  const wdClassByName = {};
+  WD.classes.forEach(c => wdClassByName[c.name] = c);
+
+  // ── Helper: get or create WD subject ──
+  function ensureWdSubject(schoolSubj){
+    const code = (schoolSubj.code||schoolSubj.name.substring(0,6)).toUpperCase().replace(/\s+/g,'');
+    if(!wdSubjByCode[code]){
+      const newSj = {
+        short: code,
+        name:  schoolSubj.name,
+        color: COLORS[WD.subjects.length % COLORS.length],
+        ppw:   4,
+        double:false,
+        timeOff:[]
+      };
+      WD.subjects.push(newSj);
+      wdSubjByCode[code] = newSj;
+    }
+    return wdSubjByCode[code];
+  }
+
+  // ── Helper: get or create WD class ──
+  function ensureWdClass(streamOrClass){
+    if(!wdClassByName[streamOrClass.name]){
+      // Try to find parent class for the stream
+      let label = streamOrClass.name;
+      if(streamOrClass.classId){
+        const parentCls = classById[streamOrClass.classId];
+        if(parentCls) label = parentCls.name + ' ' + streamOrClass.name;
+      }
+      const newCl = { name: label, size: 40 };
+      WD.classes.push(newCl);
+      wdClassByName[label] = newCl;
+      // Also index by original stream name
+      if(label !== streamOrClass.name) wdClassByName[streamOrClass.name] = newCl;
+    }
+    return wdClassByName[streamOrClass.name];
+  }
+
+  // ── Build initials / short code from teacher name ──
+  function makeShort(name, existing){
+    const parts = name.trim().split(/\s+/);
+    let candidate = parts.map(p=>p[0]||'').join('').toUpperCase().substring(0,4);
+    if(!candidate) candidate = name.substring(0,3).toUpperCase();
+    // Ensure uniqueness
+    let final = candidate;
+    let suffix = 2;
+    while(existing.has(final)) { final = candidate.substring(0,3)+suffix; suffix++; }
+    existing.add(final);
+    return final;
+  }
+
+  // ── Main sync ──
+  const usedShorts = new Set(WD.teachers.map(t=>t.short));
+  let added=0, updated=0;
+
+  schoolTeachers.forEach(st => {
+    const assignments = saByTeacher[st.id] || [];
+
+    // Build subject → classes mapping from stream assignments
+    const subjectClassMap = {}; // { subjectCode: [className, ...] }
+
+    assignments.forEach(a => {
+      const subj   = subjectById[a.subjectId];
+      const stream = streamById[a.streamId];
+      if(!subj || !stream) return;
+
+      const wdSubj = ensureWdSubject(subj);
+      const wdCls  = ensureWdClass(stream);
+
+      if(!subjectClassMap[wdSubj.short]) subjectClassMap[wdSubj.short] = [];
+      if(!subjectClassMap[wdSubj.short].includes(wdCls.name)){
+        subjectClassMap[wdSubj.short].push(wdCls.name);
+      }
+    });
+
+    // Also handle subjectIds on the teacher record (for teachers not yet in stream assignments)
+    (st.subjectIds || []).forEach(sid => {
+      const subj = subjectById[sid];
+      if(!subj) return;
+      ensureWdSubject(subj); // ensure exists in WD subjects even if no stream assignment
+    });
+
+    // Find existing WD teacher by name match
+    const existing = WD.teachers.find(t => t.name.trim().toLowerCase() === st.name.trim().toLowerCase());
+
+    if(existing){
+      // Merge assignments into existing teacher — don't wipe manual entries
+      Object.keys(subjectClassMap).forEach(code => {
+        if(!existing.subjects.includes(code)) existing.subjects.push(code);
+        if(!existing.classMap) existing.classMap = {};
+        if(!existing.classMap[code]) existing.classMap[code] = [];
+        subjectClassMap[code].forEach(cls => {
+          if(!existing.classMap[code].includes(cls)) existing.classMap[code].push(cls);
+        });
+      });
+      updated++;
+    } else {
+      // Create new WD teacher entry
+      const short = makeShort(st.name, usedShorts);
+      WD.teachers.push({
+        short,
+        name:     st.name,
+        subjects: Object.keys(subjectClassMap),
+        classMap: subjectClassMap,
+        timeOff:  []
+      });
+      added++;
+    }
+  });
+
+  renderTc();
+
+  // Show result summary
+  const total = added + updated;
+  const msg = total === 0
+    ? 'No changes — all teachers were already up to date.'
+    : `✅ Sync complete!\n• ${added} teacher(s) added\n• ${updated} teacher(s) updated with stream assignments`;
+  alert(msg);
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 
 // Step 5 — Finish
