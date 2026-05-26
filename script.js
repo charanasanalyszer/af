@@ -22368,3 +22368,194 @@ function acDownloadPDF() {
 }
 
 // Access control init is hooked into openPlatTab directly above
+
+/* ═══════════════════════════════════════════════════════════════════
+   TIMETABLE ↔ SCHOOL SYSTEM SYNC
+   Listens for tt_sectionVisible (fired every time the Timetables
+   section is opened) and pulls live data from the school system
+   (teachers, subjects, classes, streams, streamAssignments) into
+   es_state so the timetable generator always reflects the current
+   school configuration.
+═══════════════════════════════════════════════════════════════════ */
+
+document.addEventListener('tt_sectionVisible', function () {
+  try {
+    es_syncFromSchoolSystem();
+  } catch (e) {
+    console.warn('[TT Sync] Error during school system sync:', e);
+  }
+});
+
+/**
+ * Syncs teachers, subjects and classes from the main school system
+ * into the timetable (es_state).
+ *
+ * Mapping:
+ *  School teacher  → es_state.teachers   (preserves availability/maxPerDay/maxPerWeek if already set)
+ *  School subject  → es_state.subjects   (preserves lessonsPerWeek/color/priority if already set)
+ *  School stream   → es_state.classes    (each stream becomes a timetable "class"; grade = class name, stream = stream name)
+ *  streamAssignments → es_state._streamAssignments  (used by generator to pick the right teacher per slot)
+ */
+function es_syncFromSchoolSystem() {
+  // ── 1. Read school system data from localStorage ──────────────────
+  const schoolTeachers    = (() => { try { return JSON.parse(localStorage.getItem(K.teachers))  || []; } catch { return []; } })();
+  const schoolSubjects    = (() => { try { return JSON.parse(localStorage.getItem(K.subjects))  || []; } catch { return []; } })();
+  const schoolClasses     = (() => { try { return JSON.parse(localStorage.getItem(K.classes))   || []; } catch { return []; } })();
+  const schoolStreams      = (() => { try { return JSON.parse(localStorage.getItem(K.streams))   || []; } catch { return []; } })();
+  const schoolStreamAssign = (() => { try { return JSON.parse(localStorage.getItem(K_SA))        || []; } catch { return []; } })();
+
+  if (!schoolTeachers.length && !schoolSubjects.length && !schoolStreams.length) {
+    // Nothing to sync yet — school system is empty, leave timetable state untouched
+    return;
+  }
+
+  const ES_DEFAULT_COLORS = [
+    '#4f46e5','#0ea5e9','#10b981','#f59e0b','#ef4444',
+    '#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1'
+  ];
+  function pickColor(idx) { return ES_DEFAULT_COLORS[idx % ES_DEFAULT_COLORS.length]; }
+
+  // ── 2. Sync SUBJECTS ──────────────────────────────────────────────
+  // Build a lookup: schoolSubjectId → timetable subject id (may already exist)
+  const subIdMap = {};   // schoolSubjectId → es_state subject id
+
+  schoolSubjects.forEach((sSub, idx) => {
+    if (!sSub.id || !sSub.name) return;
+    // Try to match by same id first, then by name
+    let existing = es_state.subjects.find(x => x._schoolId === sSub.id)
+                || es_state.subjects.find(x => x.name.toLowerCase() === sSub.name.toLowerCase());
+    if (existing) {
+      // Update name and schoolId link but keep user-set timetable properties
+      existing._schoolId = sSub.id;
+      existing.name      = sSub.name;
+      subIdMap[sSub.id]  = existing.id;
+    } else {
+      const newSub = {
+        id:             es_uid(),
+        _schoolId:      sSub.id,
+        name:           sSub.name,
+        lessonsPerWeek: 5,
+        priority:       'core',
+        double:         true,
+        color:          pickColor(idx),
+        grades:         []          // will be populated from stream data below
+      };
+      es_state.subjects.push(newSub);
+      subIdMap[sSub.id] = newSub.id;
+    }
+  });
+
+  // Remove timetable subjects that no longer exist in the school system
+  // (only if they were originally synced, i.e. have a _schoolId)
+  const activeSchoolSubIds = new Set(schoolSubjects.map(s => s.id));
+  es_state.subjects = es_state.subjects.filter(x => !x._schoolId || activeSchoolSubIds.has(x._schoolId));
+
+  // ── 3. Sync TEACHERS ─────────────────────────────────────────────
+  // Build lookup: schoolTeacherId → timetable teacher id
+  const tchIdMap = {};   // schoolTeacherId → es_state teacher id
+
+  schoolTeachers.forEach(sTch => {
+    if (!sTch.id || !sTch.name) return;
+
+    // Gather all subjects this teacher is assigned to via streamAssignments + direct subjectIds
+    const schoolSubIds = new Set([
+      ...(sTch.subjectIds || []),
+      ...schoolStreamAssign.filter(a => a.teacherId === sTch.id).map(a => a.subjectId)
+    ]);
+    const esTimetableSubIds = [...schoolSubIds]
+      .map(sid => subIdMap[sid])
+      .filter(Boolean);
+
+    let existing = es_state.teachers.find(x => x._schoolId === sTch.id)
+                || es_state.teachers.find(x => x.name.toLowerCase() === sTch.name.toLowerCase());
+    if (existing) {
+      existing._schoolId = sTch.id;
+      existing.name      = sTch.name;
+      existing.subjects  = esTimetableSubIds;   // always refresh subject list from school data
+      tchIdMap[sTch.id]  = existing.id;
+    } else {
+      const newTch = {
+        id:           es_uid(),
+        _schoolId:    sTch.id,
+        name:         sTch.name,
+        subjects:     esTimetableSubIds,
+        maxPerDay:    6,
+        maxPerWeek:   25,
+        availability: {}
+      };
+      es_state.teachers.push(newTch);
+      tchIdMap[sTch.id] = newTch.id;
+    }
+  });
+
+  // Remove timetable teachers no longer in school system
+  const activeSchoolTchIds = new Set(schoolTeachers.map(t => t.id));
+  es_state.teachers = es_state.teachers.filter(x => !x._schoolId || activeSchoolTchIds.has(x._schoolId));
+
+  // ── 4. Sync CLASSES (from streams) ───────────────────────────────
+  // Each school stream → one timetable "class" entry
+  const clsIdMap = {};   // schoolStreamId → es_state class id
+
+  schoolStreams.forEach(sStr => {
+    if (!sStr.id) return;
+    const parentClass = schoolClasses.find(c => c.id === sStr.classId);
+    const grade  = parentClass ? parentClass.name : 'Class';
+    const stream = sStr.name || '';
+
+    // Gather grade names for subject filtering
+    let existing = es_state.classes.find(x => x._schoolStreamId === sStr.id)
+                || es_state.classes.find(x => x.grade === grade && x.stream === stream);
+    if (existing) {
+      existing._schoolStreamId = sStr.id;
+      existing.grade           = grade;
+      existing.stream          = stream;
+      clsIdMap[sStr.id]        = existing.id;
+    } else {
+      const newCls = {
+        id:               es_uid(),
+        _schoolStreamId:  sStr.id,
+        grade,
+        stream,
+        students:         40
+      };
+      es_state.classes.push(newCls);
+      clsIdMap[sStr.id] = newCls.id;
+    }
+  });
+
+  // Remove timetable classes whose stream no longer exists
+  const activeSchoolStreamIds = new Set(schoolStreams.map(s => s.id));
+  es_state.classes = es_state.classes.filter(x => !x._schoolStreamId || activeSchoolStreamIds.has(x._schoolStreamId));
+
+  // ── 5. Sync STREAM ASSIGNMENTS ───────────────────────────────────
+  // Translate school-system streamAssignments into timetable _streamAssignments
+  // using the id maps built above
+  es_state._streamAssignments = schoolStreamAssign
+    .filter(a => a.streamId && a.subjectId && a.teacherId)
+    .map(a => ({
+      streamId:  clsIdMap[a.streamId]  || null,
+      subjectId: subIdMap[a.subjectId] || null,
+      teacherId: tchIdMap[a.teacherId] || null
+    }))
+    .filter(a => a.streamId && a.subjectId && a.teacherId);
+
+  // ── 6. Also build _streamTeachers map for quick lookup ───────────
+  es_state._streamTeachers = {};
+  es_state._streamAssignments.forEach(a => {
+    if (!es_state._streamTeachers[a.streamId]) es_state._streamTeachers[a.streamId] = {};
+    es_state._streamTeachers[a.streamId][a.subjectId] = a.teacherId;
+  });
+
+  // ── 7. Persist and refresh UI ────────────────────────────────────
+  es_saveData();
+  if (typeof es_renderAll === 'function')     es_renderAll();
+  if (typeof es_updateDashboard === 'function') es_updateDashboard();
+
+  console.info('[TT Sync] Synced from school system — teachers:', es_state.teachers.length,
+    '| subjects:', es_state.subjects.length,
+    '| classes:', es_state.classes.length,
+    '| streamAssignments:', es_state._streamAssignments.length);
+}
+
+/* Expose so it can be called manually from the timetable UI (e.g. a "Refresh from School" button) */
+window.es_syncFromSchoolSystem = es_syncFromSchoolSystem;

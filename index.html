@@ -2535,7 +2535,10 @@ function step2(b){
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <div><h3 style="font-size:14px;color:var(--primary)">Subjects</h3>
     <p style="font-size:12px;color:var(--muted);margin-top:2px">Add subjects, set lessons per week, mark any periods they should not be scheduled.</p></div>
-    <button class="btn sm primary" onclick="addSj()">+ Add Subject</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+      <button class="btn sm" onclick="syncSubjectsFromSchool()" style="border-color:#0891b2;color:#0891b2" title="Import subjects from the school database">🔄 Sync from School</button>
+      <button class="btn sm primary" onclick="addSj()">+ Add Subject</button>
+    </div>
   </div>
   <table class="setup"><thead><tr>
     <th style="width:90px">Code</th><th>Full Name</th><th style="width:60px">Color</th>
@@ -2631,7 +2634,10 @@ function step3(b){
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <div><h3 style="font-size:14px;color:var(--primary)">Classes / Streams</h3>
     <p style="font-size:12px;color:var(--muted);margin-top:2px">Add all classes or streams that need a timetable.</p></div>
-    <button class="btn sm primary" onclick="addCl()">+ Add Class</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+      <button class="btn sm" onclick="syncClassesFromSchool()" style="border-color:#0891b2;color:#0891b2" title="Import streams/classes from the school database">🔄 Sync from School</button>
+      <button class="btn sm primary" onclick="addCl()">+ Add Class</button>
+    </div>
   </div>
   <table class="setup"><thead><tr><th>Class Name</th><th style="width:120px">No. of Students</th><th style="width:40px"></th></tr></thead>
   <tbody id="cl-body"></tbody></table>`;
@@ -2835,7 +2841,10 @@ function syncTeachersFromSchool(){
   try { schoolClasses  = JSON.parse(localStorage.getItem(prefix+'ei_classes') ||'[]'); } catch(e){}
   try { schoolStreams  = JSON.parse(localStorage.getItem(prefix+'ei_streams') ||'[]'); } catch(e){}
   // Stream assignments key is un-prefixed ('ei_streamassign') in the app
-  try { schoolSA = JSON.parse(localStorage.getItem('ei_streamassign')||'[]'); } catch(e){}
+  try {
+    const _saRaw = localStorage.getItem(prefix+'ei_streamassign') || localStorage.getItem('ei_streamassign') || '[]';
+    schoolSA = JSON.parse(_saRaw);
+  } catch(e){}
 
   if(!schoolTeachers.length){
     alert('No teachers found in the school database.\nAdd teachers in the Teachers section first.');
@@ -4767,6 +4776,266 @@ document.addEventListener('click',function(e){
       panel.style.display='none';
     }
   }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  SCHOOL SYSTEM SYNC — Subjects & Classes
+//  Complements the existing syncTeachersFromSchool() / openSyncPreviewModal().
+//  These functions pull subjects and streams from the school system and merge
+//  them into WD (wizard data) without wiping anything already manually set.
+// ══════════════════════════════════════════════════════════════════════════════
+
+/** Read school data for the currently logged-in school. Returns null if not logged in. */
+function _getSchoolSyncSource() {
+  const schoolId = (typeof currentSchoolId !== 'undefined') ? currentSchoolId : null;
+  if (!schoolId) return null;
+  const prefix = schoolId + '_';
+  let subjects=[], classes=[], streams=[], teachers=[], sa=[];
+  try { subjects  = JSON.parse(localStorage.getItem(prefix+'ei_subjects') || '[]'); } catch(e){}
+  try { classes   = JSON.parse(localStorage.getItem(prefix+'ei_classes')  || '[]'); } catch(e){}
+  try { streams   = JSON.parse(localStorage.getItem(prefix+'ei_streams')  || '[]'); } catch(e){}
+  try { teachers  = JSON.parse(localStorage.getItem(prefix+'ei_teachers') || '[]'); } catch(e){}
+  try {
+    const raw = localStorage.getItem(prefix+'ei_streamassign') || localStorage.getItem('ei_streamassign') || '[]';
+    sa = JSON.parse(raw);
+  } catch(e){}
+  return { prefix, subjects, classes, streams, teachers, sa };
+}
+
+/**
+ * Sync subjects from the school system into WD.subjects.
+ * New subjects are added; existing ones (matched by code) are left untouched
+ * so manual tweaks (color, lessons/wk, double, timeOff) are preserved.
+ * Returns { added, skipped }.
+ */
+function syncSubjectsFromSchool(silent) {
+  const src = _getSchoolSyncSource();
+  if (!src) {
+    if (!silent) alert('No school is currently logged in.\nPlease sign in first, then return to Timetables.');
+    return { added:0, skipped:0 };
+  }
+  if (!src.subjects.length) {
+    if (!silent) alert('No subjects found in the school database.\nAdd subjects in the Subjects section first.');
+    return { added:0, skipped:0 };
+  }
+
+  const wdByCode = {};
+  WD.subjects.forEach(s => { wdByCode[s.short] = s; });
+
+  let added = 0, skipped = 0;
+  src.subjects.forEach(s => {
+    const code = (s.code || s.name.substring(0,6)).toUpperCase().replace(/\s+/g,'');
+    if (wdByCode[code]) {
+      // Already present — update name only (keep all other settings)
+      wdByCode[code].name = s.name;
+      skipped++;
+    } else {
+      const newSj = {
+        short:   code,
+        name:    s.name,
+        color:   COLORS[WD.subjects.length % COLORS.length],
+        ppw:     4,
+        double:  false,
+        timeOff: []
+      };
+      WD.subjects.push(newSj);
+      wdByCode[code] = newSj;
+      added++;
+    }
+  });
+
+  if (!silent) {
+    const msg = added === 0
+      ? `No new subjects — all ${skipped} subject(s) were already present.`
+      : `✅ Subjects synced!\n• ${added} added\n• ${skipped} already present (settings preserved)`;
+    alert(msg);
+  }
+  return { added, skipped };
+}
+
+/**
+ * Sync classes/streams from the school system into WD.classes.
+ * Each stream becomes one timetable class labelled "ClassName StreamName".
+ * Existing entries (matched by label) are preserved.
+ * Returns { added, skipped }.
+ */
+function syncClassesFromSchool(silent) {
+  const src = _getSchoolSyncSource();
+  if (!src) {
+    if (!silent) alert('No school is currently logged in.\nPlease sign in first, then return to Timetables.');
+    return { added:0, skipped:0 };
+  }
+  if (!src.streams.length && !src.classes.length) {
+    if (!silent) alert('No classes or streams found in the school database.\nAdd classes and streams in the Classes section first.');
+    return { added:0, skipped:0 };
+  }
+
+  const classById = {};
+  src.classes.forEach(c => { classById[c.id] = c; });
+
+  const wdByName = {};
+  WD.classes.forEach(c => { wdByName[c.name.trim().toLowerCase()] = c; });
+
+  let added = 0, skipped = 0;
+
+  // Use streams as the timetable unit (each stream = one class row)
+  if (src.streams.length) {
+    src.streams.forEach(str => {
+      const parentCls = classById[str.classId];
+      const label = parentCls
+        ? (parentCls.name + ' ' + str.name).trim()
+        : str.name;
+      const key = label.trim().toLowerCase();
+      if (wdByName[key]) {
+        skipped++;
+      } else {
+        WD.classes.push({ name: label, size: 40 });
+        wdByName[key] = true;
+        added++;
+      }
+    });
+  } else {
+    // Fall back to classes if no streams defined
+    src.classes.forEach(cls => {
+      const key = cls.name.trim().toLowerCase();
+      if (wdByName[key]) {
+        skipped++;
+      } else {
+        WD.classes.push({ name: cls.name, size: 40 });
+        wdByName[key] = true;
+        added++;
+      }
+    });
+  }
+
+  if (!silent) {
+    const msg = added === 0
+      ? `No new classes — all ${skipped} class(es) were already present.`
+      : `✅ Classes synced!\n• ${added} added\n• ${skipped} already present`;
+    alert(msg);
+  }
+  return { added, skipped };
+}
+
+/**
+ * Silent full sync — runs automatically whenever the Timetables section is opened.
+ * Only does anything if a school is logged in AND the wizard hasn't been started yet
+ * (WD has no data). This way it pre-fills the wizard without overwriting manual work.
+ */
+function syncAllFromSchoolSilent() {
+  const src = _getSchoolSyncSource();
+  if (!src) return; // no school logged in — nothing to do
+
+  const wizardEmpty = !WD.subjects.length && !WD.teachers.length && !WD.classes.length;
+
+  if (wizardEmpty) {
+    // Pre-populate everything silently when the wizard has no data yet
+    syncSubjectsFromSchool(true);
+    syncClassesFromSchool(true);
+    // Teachers are synced via the existing confirmSyncSelected flow which handles the
+    // richer subject→class mapping; do a silent version here too.
+    _syncTeachersIntoWDSilent(src);
+    // If data was added, render the wizard on the subjects step so the user can see
+    if (WD.subjects.length || WD.classes.length || WD.teachers.length) {
+      // Set school name from current login if wizard hasn't got one yet
+      if (!WD.school && typeof currentUser !== 'undefined' && currentUser) {
+        const settings = (() => { try { return JSON.parse(localStorage.getItem(src.prefix+'ei_settings')||'{}'); } catch{ return {}; } })();
+        WD.school = settings.schoolName || settings.name || '';
+      }
+    }
+  } else {
+    // Wizard has data — only merge NEW entries so nothing is overwritten
+    syncSubjectsFromSchool(true);
+    syncClassesFromSchool(true);
+    _syncTeachersIntoWDSilent(src);
+  }
+}
+
+/** Internal: merge teachers from school into WD without any UI prompts. */
+function _syncTeachersIntoWDSilent(src) {
+  if (!src || !src.teachers.length) return;
+
+  const classById   = {}; src.classes.forEach(c  => { classById[c.id]   = c; });
+  const subjectById = {}; src.subjects.forEach(s  => { subjectById[s.id] = s; });
+  const streamById  = {}; src.streams.forEach(str => { streamById[str.id] = str; });
+
+  const saByTeacher = {};
+  src.sa.forEach(a => {
+    if (!a.teacherId) return;
+    if (!saByTeacher[a.teacherId]) saByTeacher[a.teacherId] = [];
+    saByTeacher[a.teacherId].push(a);
+  });
+
+  const wdSubjByCode  = {}; WD.subjects.forEach(s => { wdSubjByCode[s.short] = s; });
+  const wdClassByName = {}; WD.classes.forEach(c  => { wdClassByName[c.name.trim().toLowerCase()] = c; });
+
+  // Helper: derive WD class label from a stream
+  function wdLabelForStream(str) {
+    const parentCls = classById[str.classId];
+    return parentCls ? (parentCls.name + ' ' + str.name).trim() : str.name;
+  }
+
+  // Helper: make a short teacher code
+  const usedShorts = new Set(WD.teachers.map(t => t.short));
+  function makeShort(name) {
+    const parts = name.trim().split(/\s+/);
+    let cand = parts.map(p => p[0]||'').join('').toUpperCase().substring(0,4) || name.substring(0,3).toUpperCase();
+    let final = cand; let n = 2;
+    while (usedShorts.has(final)) { final = cand.substring(0,3) + n; n++; }
+    usedShorts.add(final);
+    return final;
+  }
+
+  src.teachers.forEach(st => {
+    if (!st.name) return;
+    const assignments = saByTeacher[st.id] || [];
+
+    // Build subject→classes map from stream assignments
+    const subjectClassMap = {}; // { wdSubjShort: [wdClassName, …] }
+    assignments.forEach(a => {
+      const subj   = subjectById[a.subjectId];
+      const stream = streamById[a.streamId];
+      if (!subj || !stream) return;
+      const code = (subj.code || subj.name.substring(0,6)).toUpperCase().replace(/\s+/g,'');
+      const lbl  = wdLabelForStream(stream);
+      if (!subjectClassMap[code]) subjectClassMap[code] = [];
+      if (!subjectClassMap[code].includes(lbl)) subjectClassMap[code].push(lbl);
+    });
+
+    // Also add subjects from the teacher record (no stream assignment)
+    (st.subjectIds || []).forEach(sid => {
+      const subj = subjectById[sid];
+      if (!subj) return;
+      const code = (subj.code || subj.name.substring(0,6)).toUpperCase().replace(/\s+/g,'');
+      if (!subjectClassMap[code]) subjectClassMap[code] = [];
+    });
+
+    const existing = WD.teachers.find(t => t.name.trim().toLowerCase() === st.name.trim().toLowerCase());
+    if (existing) {
+      // Merge without overwriting
+      Object.keys(subjectClassMap).forEach(code => {
+        if (!existing.subjects.includes(code)) existing.subjects.push(code);
+        if (!existing.classMap) existing.classMap = {};
+        if (!existing.classMap[code]) existing.classMap[code] = [];
+        subjectClassMap[code].forEach(cls => {
+          if (!existing.classMap[code].includes(cls)) existing.classMap[code].push(cls);
+        });
+      });
+    } else {
+      WD.teachers.push({
+        short:    makeShort(st.name),
+        name:     st.name,
+        subjects: Object.keys(subjectClassMap),
+        classMap: subjectClassMap,
+        timeOff:  []
+      });
+    }
+  });
+}
+
+// ── Listen for tt_sectionVisible (fired by script.js when Timetables tab is opened) ──
+document.addEventListener('tt_sectionVisible', function() {
+  try { syncAllFromSchoolSilent(); } catch(e) { console.warn('[TT Auto-Sync]', e); }
 });
 </script>
 
