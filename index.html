@@ -1704,7 +1704,7 @@
   --text:#1e293b;--muted:#64748b;--r:6px
 }
 #s-timetable * {box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-#s-timetable #wizard {display:flex;flex-direction:column;align-items:center;padding:30px 16px;min-height:100vh}
+#s-timetable #wizard {display:flex;flex-direction:column;align-items:center;padding:30px 16px;min-height:calc(100vh - var(--tb-h, 52px))}
 #s-timetable #wizard-card {background:var(--surface);border:1px solid var(--border);border-radius:12px;width:100%;max-width:800px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.1)}
 #s-timetable #wiz-header {background:var(--primary);color:#fff;padding:20px 28px;display:flex;align-items:center;gap:14px}
 #s-timetable #wiz-header h1 {font-size:17px;font-weight:700}
@@ -1735,7 +1735,7 @@
 #s-timetable table.setup input, #s-timetable table.setup select {padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;width:100%}
 #s-timetable .badge {display:inline-block;padding:1px 8px;border-radius:3px;font-size:11px;font-weight:600}
 /* APP */
-#s-timetable #tt-app {display:none;flex-direction:column;height:100vh;overflow:hidden}
+#s-timetable #tt-app {display:none;flex-direction:column;height:calc(100vh - var(--tb-h, 52px));overflow:hidden}
 #s-timetable #tt-topbar {background:var(--primary);color:#fff;padding:0 16px;display:flex;align-items:center;gap:10px;height:46px;flex-shrink:0}
 #s-timetable #tt-topbar h1 {font-size:14px;font-weight:700;color:#7dd3fc}
 #s-timetable #tt-topbar .yr {color:#94a3b8;font-size:11px}
