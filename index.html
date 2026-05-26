@@ -2657,7 +2657,7 @@ function step4(b){
     <div><h3 style="font-size:14px;color:var(--primary)">Teachers</h3>
     <p style="font-size:12px;color:var(--muted);margin-top:2px">Click subject badges to assign what each teacher teaches, then select the class(es). Use 🕐 to block unavailable periods.</p></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-      <button class="btn sm" onclick="syncTeachersFromSchool()" style="border-color:#7c3aed;color:#7c3aed" title="Import teachers & their stream assignments from the school database">🔄 Sync from School</button>
+      <button class="btn sm" onclick="openSyncPreviewModal()" style="border-color:#7c3aed;color:#7c3aed" title="Preview and import teachers & their stream assignments from the school database">🔄 Sync from School</button>
       <button class="btn sm primary" onclick="addTc()">+ Add Teacher</button>
     </div>
   </div>
@@ -2982,6 +2982,308 @@ function syncTeachersFromSchool(){
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ══════════════════════════════════════════════════════════════════════════════
+//  SYNC PREVIEW MODAL — Teachers × Streams × Subjects
+// ══════════════════════════════════════════════════════════════════════════════
+
+/** Shared state for the sync modal session */
+let _syncData = null; // built once per modal open, used by render + confirm
+
+function openSyncPreviewModal() {
+  const schoolId = (typeof currentSchoolId !== 'undefined') ? currentSchoolId : null;
+  if (!schoolId) {
+    alert('No school is currently logged in.\nPlease sign in to your school account first, then return to Timetables.');
+    return;
+  }
+  const prefix = schoolId + '_';
+
+  // ── Read school data ──
+  let schoolTeachers = [], schoolSubjects = [], schoolClasses = [], schoolStreams = [], schoolSA = [];
+  try { schoolTeachers = JSON.parse(localStorage.getItem(prefix + 'ei_teachers') || '[]'); } catch(e) {}
+  try { schoolSubjects = JSON.parse(localStorage.getItem(prefix + 'ei_subjects')  || '[]'); } catch(e) {}
+  try { schoolClasses  = JSON.parse(localStorage.getItem(prefix + 'ei_classes')   || '[]'); } catch(e) {}
+  try { schoolStreams  = JSON.parse(localStorage.getItem(prefix + 'ei_streams')   || '[]'); } catch(e) {}
+  // Stream assignments: try both prefixed and un-prefixed keys
+  try {
+    const raw = localStorage.getItem(prefix + 'ei_streamassign') || localStorage.getItem('ei_streamassign') || '[]';
+    schoolSA = JSON.parse(raw);
+  } catch(e) {}
+
+  if (!schoolTeachers.length) {
+    alert('No teachers found in the school database.\nAdd teachers in the Teachers section first.');
+    return;
+  }
+
+  // ── Build lookup maps ──
+  const subjectById = {}; schoolSubjects.forEach(s => subjectById[s.id] = s);
+  const classById   = {}; schoolClasses.forEach(c => classById[c.id]   = c);
+  const streamById  = {}; schoolStreams.forEach(s => streamById[s.id]  = s);
+
+  // ── Group stream assignments by teacher ──
+  const saByTeacher = {};
+  schoolSA.forEach(a => {
+    if (!a.teacherId) return;
+    if (!saByTeacher[a.teacherId]) saByTeacher[a.teacherId] = [];
+    saByTeacher[a.teacherId].push(a);
+  });
+
+  // ── Build structured preview records ──
+  _syncData = { prefix, schoolTeachers, schoolSubjects, schoolClasses, schoolStreams,
+                schoolSA, subjectById, classById, streamById, saByTeacher };
+
+  // Build preview items
+  _syncData.items = schoolTeachers.map(st => {
+    const assignments = saByTeacher[st.id] || [];
+
+    // Group by subject → streams
+    const bySubject = {}; // { subjectName: [streamLabel, …] }
+    assignments.forEach(a => {
+      const subj   = subjectById[a.subjectId];
+      const stream = streamById[a.streamId];
+      if (!subj || !stream) return;
+      const subjName = subj.name;
+      if (!bySubject[subjName]) bySubject[subjName] = [];
+      // Build stream label: "ClassName StreamName" or just stream.name
+      let streamLabel = stream.name;
+      if (stream.classId && classById[stream.classId]) {
+        streamLabel = classById[stream.classId].name + ' ' + stream.name;
+      }
+      if (!bySubject[subjName].includes(streamLabel)) bySubject[subjName].push(streamLabel);
+    });
+
+    // Teachers with no stream assignments but with subjectIds
+    const subjectsFromIds = (st.subjectIds || []).map(sid => subjectById[sid]).filter(Boolean).map(s => s.name);
+    const hasAssignments  = Object.keys(bySubject).length > 0;
+    const alreadyInWD     = WD.teachers.some(t => t.name.trim().toLowerCase() === st.name.trim().toLowerCase());
+    const streamCount     = [...new Set(assignments.map(a => a.streamId))].length;
+    const subjectCount    = Object.keys(bySubject).length || subjectsFromIds.length;
+
+    return { id: st.id, name: st.name, bySubject, subjectsFromIds,
+             hasAssignments, alreadyInWD, streamCount, subjectCount };
+  });
+
+  // Reset UI state
+  document.getElementById('syncFilterAssigned').checked = false;
+  document.getElementById('syncSelectAll').checked = true;
+
+  // Show modal
+  const bg = document.getElementById('syncPreviewBg');
+  bg.style.display = 'flex';
+  renderSyncPreviewList();
+}
+
+function closeSyncPreviewModal() {
+  document.getElementById('syncPreviewBg').style.display = 'none';
+  _syncData = null;
+}
+
+function renderSyncPreviewList() {
+  if (!_syncData) return;
+  const filterAssigned = document.getElementById('syncFilterAssigned').checked;
+  const list = document.getElementById('syncPreviewList');
+
+  const items = filterAssigned ? _syncData.items.filter(i => i.hasAssignments) : _syncData.items;
+
+  if (!items.length) {
+    list.innerHTML = `<p style="color:#9ca3af;font-size:13px;text-align:center;padding:20px 0">
+      No teachers match the current filter.</p>`;
+    updateSyncFooter();
+    return;
+  }
+
+  list.innerHTML = items.map(item => {
+    const statusBadge = item.alreadyInWD
+      ? `<span style="font-size:10px;background:#dbeafe;color:#1d4ed8;padding:2px 7px;border-radius:10px;font-weight:600">UPDATE</span>`
+      : `<span style="font-size:10px;background:#dcfce7;color:#15803d;padding:2px 7px;border-radius:10px;font-weight:600">NEW</span>`;
+
+    // Build subject × streams table
+    let assignmentRows = '';
+    if (item.hasAssignments) {
+      assignmentRows = Object.entries(item.bySubject).map(([subjName, streamLabels]) => {
+        const streamPills = streamLabels.map(sl =>
+          `<span style="display:inline-block;background:#ede9fe;color:#5b21b6;padding:1px 7px;border-radius:9px;font-size:10px;margin:2px 2px 0 0">${sl}</span>`
+        ).join('');
+        return `<div style="display:flex;align-items:flex-start;gap:8px;padding:3px 0;border-bottom:1px solid #f3f4f6;font-size:12px">
+          <span style="min-width:130px;color:#374151;font-weight:500;padding-top:2px">${subjName}</span>
+          <div style="flex:1">${streamPills}</div>
+        </div>`;
+      }).join('');
+    } else if (item.subjectsFromIds.length) {
+      assignmentRows = `<div style="font-size:11px;color:#9ca3af;font-style:italic;padding:4px 0">
+        No stream assignments — subjects from teacher record: ${item.subjectsFromIds.join(', ')}
+      </div>`;
+    } else {
+      assignmentRows = `<div style="font-size:11px;color:#d1d5db;font-style:italic;padding:4px 0">No subjects or stream assignments found</div>`;
+    }
+
+    const statStr = item.hasAssignments
+      ? `<span style="font-size:11px;color:#6b7280">${item.subjectCount} subject${item.subjectCount!==1?'s':''} · ${item.streamCount} stream${item.streamCount!==1?'s':''}</span>`
+      : `<span style="font-size:11px;color:#d1d5db">No stream assignments</span>`;
+
+    return `<div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden" id="syncItem_${item.id}">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fafafa;border-bottom:1px solid #f0f0f0">
+        <input type="checkbox" checked data-teacherid="${item.id}"
+               onchange="updateSyncFooter()"
+               style="accent-color:#7c3aed;width:15px;height:15px;cursor:pointer">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-weight:600;font-size:13px;color:#111">${item.name}</span>
+            ${statusBadge}
+          </div>
+          <div style="margin-top:2px">${statStr}</div>
+        </div>
+        <button onclick="toggleSyncItemDetail('${item.id}')"
+                style="background:none;border:1px solid #d1d5db;border-radius:5px;padding:3px 8px;font-size:11px;color:#6b7280;cursor:pointer"
+                id="syncToggleBtn_${item.id}">▾ Details</button>
+      </div>
+      <div id="syncDetail_${item.id}" style="padding:10px 14px;display:none">
+        <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Subject → Streams</div>
+        ${assignmentRows}
+      </div>
+    </div>`;
+  }).join('');
+
+  updateSyncFooter();
+}
+
+function toggleSyncItemDetail(teacherId) {
+  const det = document.getElementById('syncDetail_' + teacherId);
+  const btn = document.getElementById('syncToggleBtn_' + teacherId);
+  if (!det) return;
+  const open = det.style.display === 'block';
+  det.style.display = open ? 'none' : 'block';
+  btn.textContent   = open ? '▾ Details' : '▴ Hide';
+}
+
+function syncToggleAll(checked) {
+  document.querySelectorAll('#syncPreviewList input[data-teacherid]').forEach(cb => cb.checked = checked);
+  updateSyncFooter();
+}
+
+function updateSyncFooter() {
+  const checkboxes = [...document.querySelectorAll('#syncPreviewList input[data-teacherid]')];
+  const selected   = checkboxes.filter(c => c.checked).length;
+  const total      = checkboxes.length;
+  const allChecked = selected === total && total > 0;
+  const noneChecked = selected === 0;
+
+  // Keep "select all" checkbox in sync
+  const saEl = document.getElementById('syncSelectAll');
+  if (saEl) saEl.checked = allChecked;
+
+  document.getElementById('syncSummaryChip').textContent  = `${selected} / ${total} selected`;
+  document.getElementById('syncFooterNote').textContent   =
+    noneChecked ? 'Select at least one teacher to sync.' : `${selected} teacher(s) will be synced.`;
+  document.getElementById('syncConfirmBtn').disabled = noneChecked;
+}
+
+function confirmSyncSelected() {
+  if (!_syncData) return;
+
+  // Collect selected teacher IDs
+  const selectedIds = new Set(
+    [...document.querySelectorAll('#syncPreviewList input[data-teacherid]:checked')]
+      .map(cb => cb.dataset.teacherid)
+  );
+  if (!selectedIds.size) { alert('Please select at least one teacher.'); return; }
+
+  // ── Helpers (same logic as original syncTeachersFromSchool) ──
+  const { subjectById, classById, streamById, saByTeacher } = _syncData;
+
+  const wdSubjByCode  = {}; WD.subjects.forEach(s => wdSubjByCode[s.short]  = s);
+  const wdClassByName = {}; WD.classes.forEach(c => wdClassByName[c.name]   = c);
+
+  function ensureWdSubject(schoolSubj) {
+    const code = (schoolSubj.code || schoolSubj.name.substring(0,6)).toUpperCase().replace(/\s+/g,'');
+    if (!wdSubjByCode[code]) {
+      const ns = { short:code, name:schoolSubj.name,
+                   color:COLORS[WD.subjects.length % COLORS.length],
+                   ppw:4, double:false, timeOff:[] };
+      WD.subjects.push(ns); wdSubjByCode[code] = ns;
+    }
+    return wdSubjByCode[code];
+  }
+
+  function ensureWdClass(stream) {
+    let label = stream.name;
+    if (stream.classId && classById[stream.classId]) label = classById[stream.classId].name + ' ' + stream.name;
+    if (!wdClassByName[label]) {
+      const nc = { name:label, size:40 };
+      WD.classes.push(nc); wdClassByName[label] = nc;
+      if (label !== stream.name) wdClassByName[stream.name] = nc;
+    }
+    return wdClassByName[stream.name] || wdClassByName[label];
+  }
+
+  function makeShort(name, existing) {
+    const parts = name.trim().split(/\s+/);
+    let candidate = parts.map(p => p[0]||'').join('').toUpperCase().substring(0,4);
+    if (!candidate) candidate = name.substring(0,3).toUpperCase();
+    let final = candidate, suffix = 2;
+    while (existing.has(final)) { final = candidate.substring(0,3) + suffix; suffix++; }
+    existing.add(final);
+    return final;
+  }
+
+  const usedShorts = new Set(WD.teachers.map(t => t.short));
+  let added = 0, updated = 0;
+
+  _syncData.schoolTeachers.filter(st => selectedIds.has(st.id)).forEach(st => {
+    const assignments = saByTeacher[st.id] || [];
+
+    // Build subject → classes map for this teacher
+    const subjectClassMap = {};
+    assignments.forEach(a => {
+      const subj   = subjectById[a.subjectId];
+      const stream = streamById[a.streamId];
+      if (!subj || !stream) return;
+      const wdSubj = ensureWdSubject(subj);
+      const wdCls  = ensureWdClass(stream);
+      if (!subjectClassMap[wdSubj.short]) subjectClassMap[wdSubj.short] = [];
+      if (!subjectClassMap[wdSubj.short].includes(wdCls.name))
+        subjectClassMap[wdSubj.short].push(wdCls.name);
+    });
+
+    // Ensure subjects from subjectIds exist in WD even if no stream assignment
+    (st.subjectIds || []).forEach(sid => {
+      const subj = subjectById[sid]; if (subj) ensureWdSubject(subj);
+    });
+
+    const existing = WD.teachers.find(t => t.name.trim().toLowerCase() === st.name.trim().toLowerCase());
+    if (existing) {
+      Object.keys(subjectClassMap).forEach(code => {
+        if (!existing.subjects.includes(code)) existing.subjects.push(code);
+        if (!existing.classMap) existing.classMap = {};
+        if (!existing.classMap[code]) existing.classMap[code] = [];
+        subjectClassMap[code].forEach(cls => {
+          if (!existing.classMap[code].includes(cls)) existing.classMap[code].push(cls);
+        });
+      });
+      updated++;
+    } else {
+      WD.teachers.push({
+        short: makeShort(st.name, usedShorts),
+        name: st.name,
+        subjects: Object.keys(subjectClassMap),
+        classMap: subjectClassMap,
+        timeOff: []
+      });
+      added++;
+    }
+  });
+
+  renderTc();
+  closeSyncPreviewModal();
+
+  const total = added + updated;
+  if (total === 0) {
+    notify('ℹ️ No changes — selected teachers were already up to date.');
+  } else {
+    notify(`✅ Sync complete! ${added} teacher(s) added · ${updated} updated`);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Step 5 — Finish
 function step5(b){
@@ -6927,6 +7229,48 @@ if (typeof window.go === 'function') {
   </div>
 </div>
 
+<!-- ══ Sync Teachers Preview Modal ══ -->
+<div id="syncPreviewBg" onclick="if(event.target===this)closeSyncPreviewModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;align-items:flex-start;justify-content:center;padding:3vh 0;overflow-y:auto">
+  <div style="background:#fff;border-radius:12px;width:min(700px,96vw);margin:auto;box-shadow:0 24px 64px rgba(0,0,0,.28);overflow:hidden">
+
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#7c3aed,#4f46e5);padding:18px 22px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="color:#fff;font-size:15px;font-weight:700">🔄 Sync Teachers from School</div>
+        <div style="color:rgba(255,255,255,.75);font-size:12px;margin-top:3px">Preview stream assignments before importing into the timetable</div>
+      </div>
+      <button onclick="closeSyncPreviewModal()" style="background:rgba(255,255,255,.15);border:none;border-radius:50%;width:30px;height:30px;color:#fff;font-size:16px;cursor:pointer;line-height:1">✕</button>
+    </div>
+
+    <!-- Filter bar -->
+    <div style="background:#f8f7ff;border-bottom:1px solid #e5e7eb;padding:12px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;cursor:pointer">
+        <input type="checkbox" id="syncFilterAssigned" onchange="renderSyncPreviewList()" style="accent-color:#7c3aed">
+        Only teachers with stream assignments
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;cursor:pointer">
+        <input type="checkbox" id="syncSelectAll" checked onchange="syncToggleAll(this.checked)" style="accent-color:#7c3aed">
+        Select / deselect all
+      </label>
+      <span id="syncSummaryChip" style="margin-left:auto;font-size:11px;background:#ede9fe;color:#5b21b6;padding:3px 10px;border-radius:20px;font-weight:600"></span>
+    </div>
+
+    <!-- Teacher list -->
+    <div id="syncPreviewList" style="padding:16px 22px;max-height:52vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px">
+      <p style="color:#9ca3af;font-size:13px;text-align:center;padding:20px 0">Loading…</p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:14px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <span id="syncFooterNote" style="font-size:11px;color:#6b7280"></span>
+      <div style="display:flex;gap:8px">
+        <button onclick="closeSyncPreviewModal()" class="btn" style="font-size:13px">Cancel</button>
+        <button onclick="confirmSyncSelected()" class="btn primary" style="font-size:13px;background:#7c3aed;border-color:#7c3aed" id="syncConfirmBtn">✅ Sync Selected</button>
+      </div>
+    </div>
+
+  </div>
+</div>
 <!-- ── Floating Contact Buttons ── -->
 <div id="floatingContact" class="floating-contact" style="display:none">
   <div class="fc-label" id="fcLabel">Contact Us</div>
