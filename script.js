@@ -14635,7 +14635,11 @@ function populateFeesDropdowns() {
   });
   // Reset stream filter when class list reloads
   const fovStreamEl = document.getElementById('fovStream');
-  if (fovStreamEl) fovStreamEl.innerHTML = '<option value="">All Streams</option>';
+  if (fovStreamEl) {
+    const allStreams = getFeeVisibleStreams('');
+    fovStreamEl.innerHTML = '<option value="">All Streams</option>' +
+      allStreams.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  }
   ['fovYear','fsbYear','fremYear'].forEach(id => {
     const el = document.getElementById(id); if (el) el.innerHTML = yearOptions;
   });
@@ -14834,9 +14838,12 @@ function onFovClassChange() {
   const classId = document.getElementById('fovClass')?.value || '';
   const streamSel = document.getElementById('fovStream');
   if (streamSel) {
-    const classStreams = classId ? getFeeVisibleStreams(classId) : [];
+    const prevStream = streamSel.value;
+    const classStreams = classId ? getFeeVisibleStreams(classId) : getFeeVisibleStreams('');
     streamSel.innerHTML = '<option value="">All Streams</option>' +
       classStreams.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    // Preserve selection if still valid
+    if (prevStream && classStreams.find(s => s.id === prevStream)) streamSel.value = prevStream;
   }
   renderFeeOverview();
 }
@@ -14859,6 +14866,12 @@ function renderFeeOverview() {
     ? feeSyncedCls.filter(c => teacherClassIds.includes(c.id))
     : feeSyncedCls;
   if (filterClass) visibleClasses = visibleClasses.filter(c => c.id === filterClass);
+
+  // If stream filter active but no class filter, auto-narrow classes to those containing that stream
+  if (filterStream && !filterClass) {
+    const streamObj = streams.find(s => s.id === filterStream);
+    if (streamObj) visibleClasses = visibleClasses.filter(c => c.id === streamObj.classId);
+  }
 
   // Toggle stream column header visibility
   const streamHeader = document.getElementById('fovStreamHeader');
