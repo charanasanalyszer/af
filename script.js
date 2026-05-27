@@ -14746,7 +14746,7 @@ function initFeesSection() {
   const isClassTch = isTeacher && currentUserIsClassTeacher();
 
   // Full-fees users: all tabs visible
-  // Class teacher: Overview + Student Balances only (read their classes)
+  // Class teacher: Overview + Student Balances only (read their streams)
   // Regular teacher: should never reach here (no fees link), but guard anyway
   const tabs = {
     tbFeeStructure : isFullFees,
@@ -14756,7 +14756,7 @@ function initFeesSection() {
     tbFeeImport    : isFullFees,
     tbFeeStudents  : isFullFees || isClassTch,
     tbFeeSync      : isFullFees,
-    tbFeeOverview  : true, // always
+    tbFeeOverview  : true,
   };
   Object.entries(tabs).forEach(([id, show]) => {
     const el = document.getElementById(id);
@@ -14773,7 +14773,48 @@ function initFeesSection() {
     openFeesTab('tabFeeOverview', document.getElementById('tbFeeOverview'));
   }
 
+  // Class teacher: auto-select their stream and lock the stream dropdown
+  if (isClassTch) {
+    const myStreams = getMyClassTeacherStreams();
+    const myStreamIds = myStreams.map(s => s.id);
+    const myClassIds = [...new Set(myStreams.map(s => s.classId))];
+
+    // Lock fsbStream dropdown to class teacher's streams only
+    const fsbStreamEl = document.getElementById('fsbStream');
+    if (fsbStreamEl) {
+      fsbStreamEl.innerHTML = '<option value="">All My Streams</option>' +
+        myStreams.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+      if (myStreams.length === 1) fsbStreamEl.value = myStreamIds[0];
+      fsbStreamEl.disabled = false;
+    }
+
+    // Lock fsbClass dropdown to class teacher's classes only
+    const fsbClassEl = document.getElementById('fsbClass');
+    if (fsbClassEl) {
+      const myClasses = classes.filter(c => myClassIds.includes(c.id));
+      fsbClassEl.innerHTML = '<option value="">All My Classes</option>' +
+        myClasses.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      if (myClasses.length === 1) fsbClassEl.value = myClasses[0].id;
+    }
+
+    // Overview: lock stream dropdown too
+    const fovStreamEl = document.getElementById('fovStream');
+    if (fovStreamEl) {
+      fovStreamEl.innerHTML = '<option value="">All My Streams</option>' +
+        myStreams.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+      if (myStreams.length === 1) fovStreamEl.value = myStreamIds[0];
+    }
+    const fovClassEl = document.getElementById('fovClass');
+    if (fovClassEl) {
+      const myClasses = classes.filter(c => myClassIds.includes(c.id));
+      fovClassEl.innerHTML = '<option value="">All My Classes</option>' +
+        myClasses.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      if (myClasses.length === 1) fovClassEl.value = myClasses[0].id;
+    }
+  }
+
   renderFeeOverview();
+  if (isClassTch) renderStudentBalances();
 }
 
 
@@ -14922,14 +14963,16 @@ function renderFeeOverview() {
 
   visibleClasses.forEach(cls => {
     // Determine which streams to show
-    const clsStreams = filterStream
+    // Streams visible for this class — class teacher always limited to their own streams
+    let clsStreams = filterStream
       ? streams.filter(s => s.id === filterStream && s.classId === cls.id)
       : getFeeVisibleStreams(cls.id);
+    if (myStreamIds) clsStreams = clsStreams.filter(s => myStreamIds.includes(s.id));
 
-    if (filterStream && !clsStreams.length) return; // class doesn't have this stream
+    if (!clsStreams.length) return; // no accessible streams in this class
 
-    if (filterStream) {
-      // Stream-level rows
+    if (filterStream || isClassTch) {
+      // Stream-level rows (always for class teachers, or when stream filter active)
       clsStreams.forEach(stream => {
         const streamStudents = students.filter(s => s.classId === cls.id && s.streamId === stream.id);
         let expected=0, collected=0;
