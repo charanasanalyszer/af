@@ -4769,7 +4769,7 @@ function renderDashboard() {
   document.getElementById('dashRecentExams').innerHTML = exams.slice(-4).reverse().map(e=>`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid var(--border-lt)">
       <div><div style="font-weight:600;font-size:.85rem">${e.name}</div><div style="font-size:.75rem;color:var(--muted)">${e.type} · ${e.term} ${e.year}</div></div>
-      <span class="badge b-blue">${e.subjectIds.length} subs</span>
+      <span class="badge b-blue">${(e.subjectIds || []).length} subs</span>
     </div>`).join('') || '<p style="color:var(--muted);text-align:center;padding:1rem">No exams yet.</p>';
 
   // Admin / Principal: Subjects Without Marks monitor
@@ -5201,7 +5201,7 @@ function populateExamDropdowns() {
     : [];
   const filteredExams = isTeacherForExams
     ? exams.filter(e => {
-        const hasSubject = e.subjectIds.some(sid => mySubIdsForExams.includes(sid));
+        const hasSubject = (e.subjectIds || []).some(sid => mySubIdsForExams.includes(sid));
         const isMyClass  = !e.classId || myClassIdsForExams.length === 0 || myClassIdsForExams.includes(e.classId);
         return hasSubject || isMyClass;
       })
@@ -6231,7 +6231,7 @@ function renderExamList() {
       <td><span class="badge b-blue">${e.type||''}</span></td>
       <td>${e.term}</td><td>${e.year}</td>
       <td>${classes.find(c=>c.id===e.classId)?.name||'All'}</td>
-      <td>${e.subjectIds.length} subjects</td>
+      <td>${(e.subjectIds || []).length} subjects</td>
       <td><span style="font-weight:600">/${e.maxScore||100}</span></td>
       <td>${e.date||'—'}</td>
       <td><div class="act-cell">
@@ -9845,14 +9845,26 @@ function deleteStream(id){if(!confirm('Delete stream?'))return;streams=streams.f
 // ═══════════════ STREAM SUBJECT-TEACHER ASSIGNMENTS ═══════════════
 // streamAssignments: [{ id, streamId, subjectId, teacherId }]
 let streamAssignments = [];
-const K_SA = 'ei_streamassign';
+const K_SA_BASE = 'ei_streamassign';
+// Always school-prefixed so each school has its own stream assignments
+function _saKey() { return (currentSchoolId ? currentSchoolId + '_' : '') + K_SA_BASE; }
 
 function loadStreamAssignments() {
-  streamAssignments = (() => { try { return JSON.parse(localStorage.getItem(K_SA)) || []; } catch { return []; } })();
+  // Load from school-prefixed key; fall back to legacy global key on first run so existing data is not lost
+  const schoolKey  = _saKey();
+  const schoolData = (() => { try { return JSON.parse(localStorage.getItem(schoolKey)); } catch { return null; } })();
+  if (schoolData !== null) {
+    streamAssignments = schoolData || [];
+  } else {
+    // Migrate from old global key if present
+    const legacy = (() => { try { return JSON.parse(localStorage.getItem(K_SA_BASE)) || []; } catch { return []; } })();
+    streamAssignments = legacy;
+    if (legacy.length) saveStreamAssignments(); // persist under new key
+  }
 }
 
 function saveStreamAssignments() {
-  localStorage.setItem(K_SA, JSON.stringify(streamAssignments));
+  localStorage.setItem(_saKey(), JSON.stringify(streamAssignments));
 }
 
 function getStreamTeacher(streamId, subjectId) {
@@ -22402,7 +22414,7 @@ function es_syncFromSchoolSystem() {
   const schoolSubjects    = (() => { try { return JSON.parse(localStorage.getItem(K.subjects))  || []; } catch { return []; } })();
   const schoolClasses     = (() => { try { return JSON.parse(localStorage.getItem(K.classes))   || []; } catch { return []; } })();
   const schoolStreams      = (() => { try { return JSON.parse(localStorage.getItem(K.streams))   || []; } catch { return []; } })();
-  const schoolStreamAssign = (() => { try { return JSON.parse(localStorage.getItem(K_SA))        || []; } catch { return []; } })();
+  const schoolStreamAssign = (() => { try { return JSON.parse(localStorage.getItem(_saKey()))        || []; } catch { return []; } })();
 
   if (!schoolTeachers.length && !schoolSubjects.length && !schoolStreams.length) {
     // Nothing to sync yet — school system is empty, leave timetable state untouched
