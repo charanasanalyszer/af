@@ -14633,6 +14633,9 @@ function populateFeesDropdowns() {
   ['fovClass','fsbClass','fremClass','frctClass'].forEach(id => {
     const el = document.getElementById(id); if (el) el.innerHTML = classOptions;
   });
+  // Reset stream filter when class list reloads
+  const fovStreamEl = document.getElementById('fovStream');
+  if (fovStreamEl) fovStreamEl.innerHTML = '<option value="">All Streams</option>';
   ['fovYear','fsbYear','fremYear'].forEach(id => {
     const el = document.getElementById(id); if (el) el.innerHTML = yearOptions;
   });
@@ -14827,11 +14830,23 @@ function resetFeeSyncSettings() {
 // ═══════════════════════════════════════════
 // OVERVIEW
 // ═══════════════════════════════════════════
+function onFovClassChange() {
+  const classId = document.getElementById('fovClass')?.value || '';
+  const streamSel = document.getElementById('fovStream');
+  if (streamSel) {
+    const classStreams = classId ? getFeeVisibleStreams(classId) : [];
+    streamSel.innerHTML = '<option value="">All Streams</option>' +
+      classStreams.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  }
+  renderFeeOverview();
+}
+
 function renderFeeOverview() {
   loadFees();
-  const filterClass = document.getElementById('fovClass')?.value || '';
-  const filterTerm  = document.getElementById('fovTerm')?.value  || '';
-  const filterYear  = document.getElementById('fovYear')?.value  || '';
+  const filterClass  = document.getElementById('fovClass')?.value  || '';
+  const filterStream = document.getElementById('fovStream')?.value || '';
+  const filterTerm   = document.getElementById('fovTerm')?.value   || '';
+  const filterYear   = document.getElementById('fovYear')?.value   || '';
 
   const isTeacher = currentUser && currentUser.role === 'teacher';
   const isFullFeesRole = currentUser && (currentUser.role==='superadmin'||currentUser.role==='admin'||currentUser.role==='principal'||currentUser.role==='bursar');
@@ -14845,37 +14860,72 @@ function renderFeeOverview() {
     : feeSyncedCls;
   if (filterClass) visibleClasses = visibleClasses.filter(c => c.id === filterClass);
 
-  // Build summary per class
+  // Toggle stream column header visibility
+  const streamHeader = document.getElementById('fovStreamHeader');
+  if (streamHeader) streamHeader.style.display = filterStream ? '' : 'none';
+
+  // Build summary — per stream if stream filter active, else per class
   let totalExpected=0, totalCollected=0, totalOutstanding=0, totalStudents=0;
-  const rows = visibleClasses.map(cls => {
-    const classStudents = students.filter(s => s.classId === cls.id);
-    let expected=0, collected=0;
+  const rows = [];
 
-    classStudents.forEach(stu => {
-      const recs = feeRecords.filter(r => r.studentId===stu.id
-        && (!filterTerm || r.term===filterTerm)
-        && (!filterYear || String(r.year)===filterYear));
-      recs.forEach(r => {
-        expected   += parseFloat(r.totalFee||0);
-        collected  += getRecordTotalPaid(r);
+  visibleClasses.forEach(cls => {
+    // Determine which streams to show
+    const clsStreams = filterStream
+      ? streams.filter(s => s.id === filterStream && s.classId === cls.id)
+      : getFeeVisibleStreams(cls.id);
+
+    if (filterStream && !clsStreams.length) return; // class doesn't have this stream
+
+    if (filterStream) {
+      // Stream-level rows
+      clsStreams.forEach(stream => {
+        const streamStudents = students.filter(s => s.classId === cls.id && s.streamId === stream.id);
+        let expected=0, collected=0;
+        streamStudents.forEach(stu => {
+          const recs = feeRecords.filter(r => r.studentId===stu.id
+            && (!filterTerm || r.term===filterTerm)
+            && (!filterYear || String(r.year)===filterYear));
+          recs.forEach(r => { expected += parseFloat(r.totalFee||0); collected += getRecordTotalPaid(r); });
+          if (!recs.length) {
+            const structs = feeStructures.filter(f => f.classId===cls.id
+              && (!f.streamId || f.streamId===stream.id)
+              && (!filterTerm || f.term===filterTerm)
+              && (!filterYear || String(f.year)===filterYear));
+            structs.forEach(s => { expected += parseFloat(s.totalFee||0); });
+          }
+        });
+        const outstanding = expected - collected;
+        const pct = expected > 0 ? Math.round(collected/expected*100) : 0;
+        totalExpected    += expected;
+        totalCollected   += collected;
+        totalOutstanding += outstanding;
+        totalStudents    += streamStudents.length;
+        rows.push({ cls, stream, students: streamStudents.length, expected, collected, outstanding, pct });
       });
-      // If no record but structure exists, count as expected
-      if (!recs.length) {
-        const structs = feeStructures.filter(f => f.classId===cls.id
-          && (!filterTerm || f.term===filterTerm)
-          && (!filterYear || String(f.year)===filterYear));
-        structs.forEach(s => { expected += parseFloat(s.totalFee||0); });
-      }
-    });
-
-    const outstanding = expected - collected;
-    const pct = expected > 0 ? Math.round(collected/expected*100) : 0;
-    totalExpected    += expected;
-    totalCollected   += collected;
-    totalOutstanding += outstanding;
-    totalStudents    += classStudents.length;
-
-    return { cls, students: classStudents.length, expected, collected, outstanding, pct };
+    } else {
+      // Class-level rows (original behaviour)
+      const classStudents = students.filter(s => s.classId === cls.id);
+      let expected=0, collected=0;
+      classStudents.forEach(stu => {
+        const recs = feeRecords.filter(r => r.studentId===stu.id
+          && (!filterTerm || r.term===filterTerm)
+          && (!filterYear || String(r.year)===filterYear));
+        recs.forEach(r => { expected += parseFloat(r.totalFee||0); collected += getRecordTotalPaid(r); });
+        if (!recs.length) {
+          const structs = feeStructures.filter(f => f.classId===cls.id
+            && (!filterTerm || f.term===filterTerm)
+            && (!filterYear || String(f.year)===filterYear));
+          structs.forEach(s => { expected += parseFloat(s.totalFee||0); });
+        }
+      });
+      const outstanding = expected - collected;
+      const pct = expected > 0 ? Math.round(collected/expected*100) : 0;
+      totalExpected    += expected;
+      totalCollected   += collected;
+      totalOutstanding += outstanding;
+      totalStudents    += classStudents.length;
+      rows.push({ cls, stream: null, students: classStudents.length, expected, collected, outstanding, pct });
+    }
   });
 
   // Stats cards
@@ -14907,6 +14957,7 @@ function renderFeeOverview() {
     tbody.innerHTML = rows.length ? rows.map(r => `
       <tr>
         <td><strong>${r.cls.name}</strong></td>
+        ${r.stream ? `<td>${r.stream.name}</td>` : (filterStream ? '<td>—</td>' : '')}
         <td>${r.students}</td>
         <td>KES ${r.expected.toLocaleString()}</td>
         <td>KES ${r.collected.toLocaleString()}</td>
@@ -14920,10 +14971,10 @@ function renderFeeOverview() {
           </div>
         </td>
         <td>
-          <button class="btn btn-sm btn-outline" onclick="filterToClass('${r.cls.id}')">View Students</button>
+          <button class="btn btn-sm btn-outline" onclick="filterToClassStream('${r.cls.id}','${r.stream?r.stream.id:''}')">View Students</button>
         </td>
       </tr>`).join('')
-    : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">No fee data found. Set up fee structures first.</td></tr>';
+    : '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">No fee data found. Set up fee structures first.</td></tr>';
   }
 }
 
@@ -14932,6 +14983,24 @@ function filterToClass(classId) {
   setTimeout(() => {
     const el = document.getElementById('fsbClass');
     if (el) { el.value = classId; renderStudentBalances(); }
+  }, 100);
+}
+function filterToClassStream(classId, streamId) {
+  openFeesTab('tabFeeStudents', document.getElementById('tbFeeStudents'));
+  setTimeout(() => {
+    const cls = document.getElementById('fsbClass');
+    if (cls) { cls.value = classId; }
+    if (streamId) {
+      // trigger stream population then set stream
+      if (typeof onFsbClassChange === 'function') onFsbClassChange();
+      setTimeout(() => {
+        const str = document.getElementById('fsbStream');
+        if (str) str.value = streamId;
+        renderStudentBalances();
+      }, 80);
+    } else {
+      renderStudentBalances();
+    }
   }, 100);
 }
 

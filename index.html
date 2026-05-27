@@ -5156,8 +5156,14 @@ document.addEventListener('tt_sectionVisible', function() {
           <div class="frow c4">
             <div class="fg">
               <label>Filter by Class</label>
-              <select id="fovClass" onchange="renderFeeOverview()">
+              <select id="fovClass" onchange="onFovClassChange()">
                 <option value="">All Classes</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>Filter by Stream</label>
+              <select id="fovStream" onchange="renderFeeOverview()">
+                <option value="">All Streams</option>
               </select>
             </div>
             <div class="fg">
@@ -5183,7 +5189,7 @@ document.addEventListener('tt_sectionVisible', function() {
         <div class="card" style="margin-top:1rem">
           <h3><i class="fa-solid fa-clipboard-list"></i> Class-wise Fee Summary</h3>
           <div class="tbl-wrap"><table id="feeOverviewTable">
-            <thead><tr><th onclick="sortTable('feeOverviewBody',0,'str')" class="sortable-th">Class <span class="sort-ico">⇅</span></th><th onclick="sortTable('feeOverviewBody',1,'num')" class="sortable-th">Students <span class="sort-ico">⇅</span></th><th onclick="sortTable('feeOverviewBody',2,'kes')" class="sortable-th">Expected <span class="sort-ico">⇅</span></th><th onclick="sortTable('feeOverviewBody',3,'kes')" class="sortable-th">Collected <span class="sort-ico">⇅</span></th><th onclick="sortTable('feeOverviewBody',4,'kes')" class="sortable-th">Outstanding <span class="sort-ico">⇅</span></th><th onclick="sortTable('feeOverviewBody',5,'pct')" class="sortable-th">% Collected <span class="sort-ico">⇅</span></th><th>Action</th></tr></thead>
+            <thead><tr><th onclick="sortTable('feeOverviewBody',0,'str')" class="sortable-th">Class <span class="sort-ico">⇅</span></th><th id="fovStreamHeader" onclick="sortTable('feeOverviewBody',1,'str')" class="sortable-th" style="display:none">Stream <span class="sort-ico">⇅</span></th><th onclick="sortTable('feeOverviewBody',2,'num')" class="sortable-th">Students <span class="sort-ico">⇅</span></th><th onclick="sortTable('feeOverviewBody',3,'kes')" class="sortable-th">Expected <span class="sort-ico">⇅</span></th><th onclick="sortTable('feeOverviewBody',4,'kes')" class="sortable-th">Collected <span class="sort-ico">⇅</span></th><th onclick="sortTable('feeOverviewBody',5,'kes')" class="sortable-th">Outstanding <span class="sort-ico">⇅</span></th><th onclick="sortTable('feeOverviewBody',6,'pct')" class="sortable-th">% Collected <span class="sort-ico">⇅</span></th><th>Action</th></tr></thead>
             <tbody id="feeOverviewBody"></tbody>
           </table></div>
         </div>
