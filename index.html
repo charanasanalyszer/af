@@ -544,10 +544,14 @@
           <div class="frow c3" style="margin-bottom:1rem;align-items:flex-end">
             <div class="fg">
               <label>Exams Per Day (Sessions)</label>
-              <select id="etSlotsPerDay">
+              <select id="etSlotsPerDay" onchange="etUpdateSessionLegend()">
                 <option value="1">1 — Morning only (08:00–10:00)</option>
                 <option value="2" selected>2 — Morning + Mid-Morning</option>
-                <option value="3">3 — Morning + Mid-Morning + Afternoon</option>
+                <option value="3">3 — Morning + Afternoon (3 sessions)</option>
+                <option value="4">4 sessions per day (09:00–11:00 slots)</option>
+                <option value="5">5 sessions per day</option>
+                <option value="6">6 sessions per day</option>
+                <option value="7">7 sessions per day</option>
               </select>
             </div>
             <div class="fg">
@@ -577,12 +581,12 @@
           </div>
 
           <!-- Session time legend -->
-          <div style="margin-bottom:1rem;padding:.6rem 1rem;background:var(--bg3);border-radius:8px;font-size:.78rem;display:flex;gap:1.5rem;flex-wrap:wrap;align-items:center">
+          <div id="etSessionLegend" style="margin-bottom:1rem;padding:.6rem 1rem;background:var(--bg3);border-radius:8px;font-size:.78rem;display:flex;gap:1.5rem;flex-wrap:wrap;align-items:center">
             <span style="font-weight:700;color:var(--text2)"><i class="fa-solid fa-table-cells" style="margin-right:.3rem"></i>Daily Sessions:</span>
-            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#3b82f6;margin-right:4px"></span>Morning &nbsp;08:00 – 10:00</span>
-            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#8b5cf6;margin-right:4px"></span>Mid-Morning &nbsp;10:30 – 12:30</span>
-            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#10b981;margin-right:4px"></span>Afternoon &nbsp;13:30 – 15:30</span>
-            <span style="color:var(--muted)">Breaks are automatically inserted between sessions</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#3b82f6;margin-right:4px"></span>Session 1 &nbsp;08:00 – 10:00</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#8b5cf6;margin-right:4px"></span>Session 2 &nbsp;10:30 – 12:30</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#10b981;margin-right:4px"></span>Session 3 &nbsp;13:30 – 15:30</span>
+            <span style="color:var(--muted)" id="etSessionNote">Select sessions above to see timing</span>
           </div>
 
           <!-- Invigilator legend -->
@@ -7418,13 +7422,32 @@ document.addEventListener('tt_sectionVisible', function() {
 
 // Session definitions: [label, start, end, colour]
 const ET_SESSIONS = [
-  ['Morning',     '08:00', '10:00', '#3b82f6'],
-  ['Mid-Morning', '10:30', '12:30', '#8b5cf6'],
-  ['Afternoon',   '13:30', '15:30', '#10b981']
+  ['Morning',       '08:00', '10:00', '#3b82f6'],
+  ['Mid-Morning',   '10:30', '12:30', '#8b5cf6'],
+  ['Afternoon',     '13:30', '15:30', '#10b981'],
+  ['Session 4',     '08:00', '09:00', '#f59e0b'],
+  ['Session 5',     '09:15', '10:15', '#ef4444'],
+  ['Session 6',     '10:30', '11:30', '#6366f1'],
+  ['Session 7',     '11:45', '12:45', '#14b8a6']
 ];
 
 // Stored timetable data (kept in memory for the session; survives tab switches)
-let _etData = null; // { examId, rows: [{date, dayLabel, slots:[{subjectId, streamSlots:[{streamId,streamLabel,invigilator}]}|null]}], slotsPerDay, streamFilter, examStreams }
+let _etData = null; // { examId, classTimetables, slotsPerDay, examStreams }
+
+/* Update the session legend when the slots-per-day selector changes */
+function etUpdateSessionLegend() {
+  const sel = document.getElementById('etSlotsPerDay');
+  const n   = parseInt(sel?.value) || 2;
+  const leg = document.getElementById('etSessionLegend');
+  if (!leg) return;
+  const sessions = ET_SESSIONS.slice(0, n);
+  leg.innerHTML =
+    '<span style="font-weight:700;color:var(--text2)"><i class="fa-solid fa-table-cells" style="margin-right:.3rem"></i>Daily Sessions:</span>' +
+    sessions.map(s =>
+      `<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${s[3]};margin-right:4px"></span>${s[0]} &nbsp;${s[1]} – ${s[2]}</span>`
+    ).join('') +
+    '<span style="color:var(--muted)">' + n + ' exam slot' + (n>1?'s':'') + ' per day</span>';
+}
 
 /* Populate the exam selector */
 function etPopulateExamSelect() {
@@ -7518,8 +7541,17 @@ function etGenerate() {
   const exam = src.find(e => e.id === examId);
   if (!exam) { toast('Exam not found', 'error'); return; }
 
-  const subjectIds = exam.subjectIds || [];
+  // On regenerate (timetable already exists), shuffle subject order and reshuffle free invigilators
+  const isRegenerate = !!(_etData && _etData.examId === examId);
+  let subjectIds = [...(exam.subjectIds || [])];
   if (!subjectIds.length) { toast('No subjects found for this exam', 'warning'); return; }
+  if (isRegenerate) {
+    // Fisher-Yates shuffle so subjects appear in a different order each time
+    for (let i = subjectIds.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [subjectIds[i], subjectIds[j]] = [subjectIds[j], subjectIds[i]];
+    }
+  }
 
   const allExamStreams = exam.classId
     ? strSrc.filter(s => s.classId === exam.classId)
@@ -7545,16 +7577,36 @@ function etGenerate() {
   // slotUsed[date|si] = Set of teacherIds — prevents same teacher in two rooms simultaneously
   const slotUsed = {};
 
+  // Set of teacher IDs that are subject-assigned teachers (should keep their slots on regen)
+  const subjectTeacherIds = new Set(saSrc.map(a => a.teacherId).filter(Boolean));
+
   function assignInvigilator(subjectId, streamId, date, si) {
     const key = `${date}|${si}`;
     if (!slotUsed[key]) slotUsed[key] = new Set();
     const occupied = slotUsed[key];
+
+    // Preferred = stream-assignment teacher for this stream+subject
     const sa = saSrc.find(a => a.streamId === streamId && a.subjectId === subjectId && a.teacherId && !timedOffIds.has(a.teacherId));
     const preferredId = sa ? sa.teacherId : null;
+
     const candidates = activeTch.filter(t => !occupied.has(t.id));
     if (!candidates.length) return null;
+
+    // Subject teacher: always preferred (never reshuffled)
     let chosen = (preferredId && !occupied.has(preferredId)) ? (activeTch.find(t => t.id === preferredId) || null) : null;
-    if (!chosen) chosen = [...candidates].sort((a, b) => (invCount[a.id]||0) - (invCount[b.id]||0))[0] || null;
+
+    if (!chosen) {
+      // Free (non-subject) teachers: sort by load then apply random tie-breaking on regenerate
+      // This reshuffles who gets assigned when loads are equal, giving variety each time
+      const freeCandidates = [...candidates].sort((a, b) => {
+        const loadDiff = (invCount[a.id]||0) - (invCount[b.id]||0);
+        if (loadDiff !== 0) return loadDiff;
+        // On regenerate, random tiebreak so free teachers get reshuffled
+        return isRegenerate ? Math.random() - 0.5 : 0;
+      });
+      chosen = freeCandidates[0] || null;
+    }
+
     if (chosen) { occupied.add(chosen.id); invCount[chosen.id] = (invCount[chosen.id]||0) + 1; }
     return chosen;
   }
