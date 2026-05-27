@@ -2626,34 +2626,61 @@ function closePlatTimetableEditor() {
   const overlay = document.getElementById('platTimetableOverlay');
   if(overlay) overlay.style.display='none';
 }
+const PLAT_SESSION_META = {
+  'Morning':     { color:'#1e40af', bg:'#dbeafe', icon:'🌅', time:'8:00 AM – 10:00 AM' },
+  'Mid-Morning': { color:'#065f46', bg:'#d1fae5', icon:'☀️', time:'10:30 AM – 12:30 PM' },
+  'Afternoon':   { color:'#92400e', bg:'#fef3c7', icon:'🌤', time:'2:00 PM – 4:00 PM' },
+  'Evening':     { color:'#6d28d9', bg:'#ede9fe', icon:'🌇', time:'4:00 PM – 5:00 PM' },
+};
 function renderPlatTimetableRows(rows) {
   const tbody = document.getElementById('platTTBody'); if(!tbody) return;
-  if(!rows.length){ tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:1.25rem;font-size:.83rem">No sessions added yet. Use the form below to add exam sessions.</td></tr>'; return; }
-  tbody.innerHTML = rows.map((r,i)=>`
-    <tr>
+  if(!rows.length){ tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.25rem;font-size:.83rem">No sessions added yet. Use the form below to add exam sessions.</td></tr>'; return; }
+  tbody.innerHTML = rows.map((r,i)=>{
+    const parts = (r.time||'').split('|');
+    const sesName = parts[0]||r.time||'—';
+    const sesTime = parts[1]||'';
+    const meta = PLAT_SESSION_META[sesName]||{color:'#374151',bg:'#f3f4f6',icon:'🕐',time:sesTime};
+    const badge = `<span style="background:${meta.bg};color:${meta.color};padding:.15rem .45rem;border-radius:5px;font-size:.75rem;font-weight:700;white-space:nowrap">${meta.icon} ${sesName}</span>`;
+    return `<tr>
       <td style="padding:.5rem .6rem;font-size:.82rem;font-weight:600">${r.date||'—'}</td>
       <td style="padding:.5rem .6rem;font-size:.82rem">${r.day||'—'}</td>
-      <td style="padding:.5rem .6rem;font-size:.82rem">${r.time||'—'}</td>
+      <td style="padding:.5rem .6rem">${badge}</td>
+      <td style="padding:.5rem .6rem;font-size:.75rem;color:var(--muted)">${meta.time||sesTime||'—'}</td>
       <td style="padding:.5rem .6rem;font-size:.82rem;font-weight:600">${r.subject||'—'}</td>
       <td style="padding:.5rem .6rem;font-size:.82rem">${r.venue||'—'}</td>
       <td style="padding:.5rem .3rem;text-align:center"><button class="btn btn-danger btn-sm" style="font-size:.7rem;padding:.15rem .4rem" onclick="platRemoveTTRow(${i})"><i class="fa-solid fa-xmark"></i></button></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 function platAddTTRow() {
   const date    = (document.getElementById('platTTDate')?.value||'').trim();
   const day     = (document.getElementById('platTTDay')?.value||'').trim();
-  const time    = (document.getElementById('platTTTime')?.value||'').trim();
+  const timeVal = (document.getElementById('platTTTime')?.value||'').trim();
   const subject = (document.getElementById('platTTSubject')?.value||'').trim();
   const venue   = (document.getElementById('platTTVenue')?.value||'').trim();
   if(!subject){ showToast('Subject is required','error'); return; }
+  if(!timeVal){ showToast('Please select a session','error'); return; }
   const examId = document.getElementById('platTimetableOverlay')?.dataset.examId; if(!examId) return;
   let plExams=[]; try{plExams=JSON.parse(localStorage.getItem(K_PLATFORM_EXAMS)||'[]');}catch{}
   const idx = plExams.findIndex(e=>e.id===examId); if(idx<0) return;
   if(!plExams[idx].timetable) plExams[idx].timetable=[];
-  plExams[idx].timetable.push({date,day,time,subject,venue});
+  // Validate: max 5 exams per day (3 before lunch AM slots, 2 after lunch PM slots)
+  const sesName = timeVal.split('|')[0];
+  const isAM = sesName==='Morning'||sesName==='Mid-Morning';
+  const isPM = sesName==='Afternoon'||sesName==='Evening';
+  if(date){
+    const dayRows = plExams[idx].timetable.filter(r=>r.date===date);
+    if(dayRows.length>=5){ showToast('Maximum 5 exams per day reached','error'); return; }
+    const amCount = dayRows.filter(r=>{ const s=r.time.split('|')[0]; return s==='Morning'||s==='Mid-Morning'; }).length;
+    const pmCount = dayRows.filter(r=>{ const s=r.time.split('|')[0]; return s==='Afternoon'||s==='Evening'; }).length;
+    if(isAM && amCount>=3){ showToast('Max 3 before-lunch sessions per day reached','error'); return; }
+    if(isPM && pmCount>=2){ showToast('Max 2 after-lunch sessions per day reached','error'); return; }
+  }
+  plExams[idx].timetable.push({date,day,time:timeVal,subject,venue});
   localStorage.setItem(K_PLATFORM_EXAMS,JSON.stringify(plExams));
   renderPlatTimetableRows(plExams[idx].timetable);
-  ['platTTDate','platTTDay','platTTTime','platTTSubject','platTTVenue'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  ['platTTDate','platTTDay','platTTSubject','platTTVenue'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('platTTTime').value='';
   showToast('Session added <i class="fa-solid fa-check"></i>','success');
 }
 function platRemoveTTRow(rowIdx) {
@@ -2911,7 +2938,7 @@ function schoolDownloadPlatformTimetable(examId) {
   doc.setFont('helvetica','normal'); doc.setFontSize(8);
   doc.text(`Downloaded: ${new Date().toLocaleDateString()}`, pageW-margin, 36, {align:'right'});
   // Table header
-  let y=44; const colW=[28,22,28,70,32]; const cols=['Date','Day','Time','Subject / Paper','Venue'];
+  let y=44; const colW=[26,20,28,26,58,22]; const cols=['Date','Day','Session','Time','Subject / Paper','Venue'];
   doc.setFillColor(240,244,255);
   doc.rect(margin, y, pageW-2*margin, 8, 'F');
   doc.setTextColor(30,30,90); doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
@@ -2919,13 +2946,47 @@ function schoolDownloadPlatformTimetable(examId) {
   cols.forEach((c,i)=>{ doc.text(c,cx+2,y+5.5); cx+=colW[i]; });
   y+=8;
   doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
+  // Group rows by date for AM/PM section dividers
+  let lastDate='';
   tt.forEach((r,i)=>{
+    const parts=(r.time||'').split('|');
+    const sesName=parts[0]||r.time||'—';
+    const sesTime=parts[1]||'';
+    const isAM=sesName==='Morning'||sesName==='Mid-Morning';
+    // Day section header
+    if(r.date && r.date!==lastDate){
+      lastDate=r.date;
+      if(i>0) y+=2;
+      doc.setFillColor(220,234,255); doc.rect(margin,y,pageW-2*margin,6,'F');
+      doc.setTextColor(28,86,181); doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+      doc.text(`${r.date}  —  ${r.day||''}`,margin+2,y+4.2);
+      y+=6; doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
+    }
     if(i%2===0){ doc.setFillColor(250,252,255); doc.rect(margin,y,pageW-2*margin,8,'F'); }
     doc.setFontSize(8); cx=margin;
-    [r.date||'—',r.day||'—',r.time||'—',r.subject||'—',r.venue||'—'].forEach((v,j)=>{ doc.text(String(v).substring(0,j===3?40:20),cx+2,y+5.3); cx+=colW[j]; });
+    // Session badge colours via greyscale (jsPDF text only)
+    doc.setTextColor(30,30,30);
+    [r.date||'—',r.day||'—',sesName,sesTime,r.subject||'—',r.venue||'—'].forEach((v,j)=>{
+      if(j===2){ // Session cell — bold + colour
+        doc.setFont('helvetica','bold');
+        doc.setTextColor(isAM?28:100, isAM?86:40, isAM?181:9);
+      } else {
+        doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
+      }
+      doc.text(String(v).substring(0,j===4?38:18),cx+2,y+5.3);
+      cx+=colW[j];
+    });
     y+=8;
-    if(y>270){ doc.addPage(); y=20; }
+    if(y>270){ doc.addPage(); y=20; lastDate=''; }
   });
+  // Session legend
+  y+=4;
+  doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(80,80,80);
+  doc.text('Sessions:',margin,y);
+  doc.setFont('helvetica','normal');
+  const legend=[['Morning','8:00–10:00 AM'],['Mid-Morning','10:30 AM–12:30 PM'],['Afternoon','2:00–4:00 PM'],['Evening','4:00–5:00 PM']];
+  let lx=margin+16;
+  legend.forEach(([s,t])=>{ doc.text(`${s} (${t})`,lx,y); lx+=46; });
   // Footer
   doc.setFontSize(7.5); doc.setTextColor(120,120,120);
   doc.text('This timetable is issued by the platform. Contact the platform admin for queries.',pageW/2,290,{align:'center'});
