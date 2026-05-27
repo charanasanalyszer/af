@@ -5272,29 +5272,7 @@ function populateExamDropdowns() {
     : exams;
   ['umExam','anExam','mlExam'].forEach(id => {
     const el = document.getElementById(id); if(!el) return;
-    // Consolidated exams cannot have marks uploaded — they are computed automatically
     let examList = id === 'umExam' ? filteredExams.filter(e => e.category !== 'consolidated') : filteredExams;
-    // For teachers: umExam shows only exams where they still have unuploaded marks
-    if (id === 'umExam' && isTeacherForExams) {
-      const mySubIds = mySubIdsForExams;
-      examList = examList.filter(exam => {
-        return mySubIds.some(subId => {
-          if (!(exam.subjectIds||[]).includes(subId)) return false;
-          const relevantStreams = streams.filter(str => {
-            const assignment = streamAssignments.find(a=>a.streamId===str.id&&a.subjectId===subId&&a.teacherId===currentUser.teacherId);
-            const subObj = subjects.find(s=>s.id===subId);
-            const isDefault = subObj && subObj.teacherId === currentUser.teacherId;
-            return assignment || isDefault;
-          });
-          return relevantStreams.some(str => {
-            const stuInStream = students.filter(s=>s.streamId===str.id);
-            if (!stuInStream.length) return false;
-            const uploaded = marks.filter(m=>m.examId===exam.id&&m.subjectId===subId&&stuInStream.some(s=>s.id===m.studentId)).length;
-            return uploaded === 0;
-          });
-        });
-      });
-    }
     el.innerHTML = '<option value="">— Select Exam —</option>' + examList.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
   });
   // Also populate exam timetable selector
@@ -14650,15 +14628,18 @@ function exportBOMSalaryCSV() {
 
 // ── Populate Fees Filter Dropdowns ──
 function populateFeesDropdowns() {
-  const isTeacher = currentUser && currentUser.role === 'teacher';
+  const isTeacher    = currentUser && currentUser.role === 'teacher';
+  const isClassTch   = isTeacher && currentUserIsClassTeacher();
+  const myStreamIds  = isClassTch ? getMyClassTeacherStreams().map(s => s.id) : [];
+  const myClassIds   = isClassTch ? [...new Set(getMyClassTeacherStreams().map(s => s.classId))] : null;
   const teacherStreamIds = isTeacher ? getClassTeacherStreamIds(currentUser.teacherId) : [];
   const teacherClassIds  = isTeacher ? [...new Set(teacherStreamIds.map(sid => { const s=streams.find(x=>x.id===sid); return s?s.classId:null; }).filter(Boolean))] : null;
 
-  // Determine visible classes (apply fee sync settings, then teacher filter)
+  // Determine visible classes (apply fee sync settings, then class-teacher filter)
   const feeSyncedClasses = getFeeVisibleClasses();
-  const visibleClasses = teacherClassIds
-    ? feeSyncedClasses.filter(c => teacherClassIds.includes(c.id))
-    : feeSyncedClasses;
+  const visibleClasses = myClassIds
+    ? feeSyncedClasses.filter(c => myClassIds.includes(c.id))
+    : (teacherClassIds ? feeSyncedClasses.filter(c => teacherClassIds.includes(c.id)) : feeSyncedClasses);
 
   // Collect all years from structures + records
   const years = [...new Set([
@@ -14673,12 +14654,30 @@ function populateFeesDropdowns() {
   ['fovClass','fsbClass','fremClass','frctClass'].forEach(id => {
     const el = document.getElementById(id); if (el) el.innerHTML = classOptions;
   });
-  // Reset stream filter when class list reloads
+
+  // Overview stream filter — class teacher only sees their streams
   const fovStreamEl = document.getElementById('fovStream');
   if (fovStreamEl) {
-    const allStreams = getFeeVisibleStreams('');
+    const visibleStreams = isClassTch
+      ? streams.filter(s => myStreamIds.includes(s.id))
+      : getFeeVisibleStreams('');
     fovStreamEl.innerHTML = '<option value="">All Streams</option>' +
-      allStreams.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+      visibleStreams.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  }
+
+  // Student Balances stream filter — class teacher locked to their streams
+  const fsbStreamEl = document.getElementById('fsbStream');
+  if (fsbStreamEl) {
+    if (isClassTch && myStreamIds.length) {
+      const myStreamObjs = streams.filter(s => myStreamIds.includes(s.id));
+      fsbStreamEl.innerHTML = '<option value="">All My Streams</option>' +
+        myStreamObjs.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+      // Auto-select if only one stream
+      if (myStreamIds.length === 1) fsbStreamEl.value = myStreamIds[0];
+    } else {
+      fsbStreamEl.innerHTML = '<option value="">All Streams</option>' +
+        streams.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    }
   }
   ['fovYear','fsbYear','fremYear'].forEach(id => {
     const el = document.getElementById(id); if (el) el.innerHTML = yearOptions;
@@ -15425,9 +15424,14 @@ function renderStudentBalances() {
   const filterStatus = document.getElementById('fsbStatus')?.value || '';
   const filterMinBal = parseFloat(document.getElementById('fsbMinBalance')?.value || '0') || 0;
   const search       = (document.getElementById('fsbSearch')?.value || '').toLowerCase();
+  const filterStream = document.getElementById('fsbStream')?.value || '';
 
   const isTeacher = currentUser && currentUser.role === 'teacher';
+  const isClassTch = isTeacher && currentUserIsClassTeacher();
   const isFullFeesRole = currentUser && (currentUser.role==='superadmin'||currentUser.role==='admin'||currentUser.role==='principal'||currentUser.role==='bursar');
+
+  // Class teacher is strictly limited to their own streams
+  const myStreamIds = isClassTch ? getMyClassTeacherStreams().map(s => s.id) : null;
   const teacherClassIds = (isTeacher && !isFullFeesRole)
     ? [...new Set(getClassTeacherStreamIds(currentUser.teacherId).map(sid => { const s=streams.find(x=>x.id===sid); return s?s.classId:null; }).filter(Boolean))]
     : null;
@@ -15444,6 +15448,10 @@ function renderStudentBalances() {
     if (teacherClassIds && !teacherClassIds.includes(rec.classId)) return;
 
     const stu = students.find(s => s.id === rec.studentId); if (!stu) return;
+    // Class teacher: enforce stream restriction
+    if (myStreamIds && !myStreamIds.includes(stu.streamId)) return;
+    // Stream filter (from dropdown)
+    if (filterStream && stu.streamId !== filterStream) return;
     // Skip if class not synced to fees
     const feeSyncCls = getFeeSyncedClassIds();
     if (feeSyncCls && !feeSyncCls.includes(rec.classId)) return;
