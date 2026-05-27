@@ -5270,7 +5270,28 @@ function populateExamDropdowns() {
   ['umExam','anExam','mlExam'].forEach(id => {
     const el = document.getElementById(id); if(!el) return;
     // Consolidated exams cannot have marks uploaded — they are computed automatically
-    const examList = id === 'umExam' ? filteredExams.filter(e => e.category !== 'consolidated') : filteredExams;
+    let examList = id === 'umExam' ? filteredExams.filter(e => e.category !== 'consolidated') : filteredExams;
+    // For teachers: umExam shows only exams where they still have unuploaded marks
+    if (id === 'umExam' && isTeacherForExams) {
+      const mySubIds = mySubIdsForExams;
+      examList = examList.filter(exam => {
+        return mySubIds.some(subId => {
+          if (!(exam.subjectIds||[]).includes(subId)) return false;
+          const relevantStreams = streams.filter(str => {
+            const assignment = streamAssignments.find(a=>a.streamId===str.id&&a.subjectId===subId&&a.teacherId===currentUser.teacherId);
+            const subObj = subjects.find(s=>s.id===subId);
+            const isDefault = subObj && subObj.teacherId === currentUser.teacherId;
+            return assignment || isDefault;
+          });
+          return relevantStreams.some(str => {
+            const stuInStream = students.filter(s=>s.streamId===str.id);
+            if (!stuInStream.length) return false;
+            const uploaded = marks.filter(m=>m.examId===exam.id&&m.subjectId===subId&&stuInStream.some(s=>s.id===m.studentId)).length;
+            return uploaded === 0;
+          });
+        });
+      });
+    }
     el.innerHTML = '<option value="">— Select Exam —</option>' + examList.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
   });
   // Also populate exam timetable selector
@@ -6535,7 +6556,13 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
     if (missingAny) incompleteIds.add(stu.id);
   });
 
-  const rows = exam.subjectIds.map(sid => {
+  const isTeacherSAH = currentUser && currentUser.role === 'teacher';
+  const teacherSubIdsSAH = isTeacherSAH ? getMySubjectIds() : null;
+  const visibleSubjectIds = teacherSubIdsSAH
+    ? exam.subjectIds.filter(sid => teacherSubIdsSAH.includes(sid))
+    : exam.subjectIds;
+
+  const rows = visibleSubjectIds.map(sid => {
     const sub = subjects.find(s => s.id === sid); if (!sub) return '';
 
     let vals, maleVals, femaleVals;
@@ -8825,6 +8852,9 @@ function renderSummaryAnalytics() {
   const exam = exams.find(e=>e.id===examId);
   if (!exam) return;
   const isConsolidated = exam.category === 'consolidated';
+  // Teacher: restrict visible subjects to their own
+  const isTeacherSA = currentUser && currentUser.role === 'teacher';
+  const teacherSubIdsSA = isTeacherSA ? getMySubjectIds() : null;
   const sourceExamObjs = isConsolidated ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
 
   // Determine which classes to show
@@ -8880,7 +8910,10 @@ function renderSummaryAnalytics() {
     }).join('');
 
     // ── 2. Subject ranking by mean ──
-    const subjectRankRows = (exam.subjectIds||[]).map(sid=>{
+    const allSubjectIds = teacherSubIdsSA
+      ? (exam.subjectIds||[]).filter(sid => teacherSubIdsSA.includes(sid))
+      : (exam.subjectIds||[]);
+    const subjectRankRows = allSubjectIds.map(sid=>{
       const sub = subjects.find(s=>s.id===sid); if(!sub) return null;
       const vals = clsStudents.map(s=>smGetSubjectScore(exam,isConsolidated,sourceExamObjs,s.id,sid)).filter(v=>v!==null);
       if (!vals.length) return null;
@@ -16515,16 +16548,29 @@ function applyRoleBasedUI() {
     el.style.display = isTeacher ? 'none' : '';
   });
 
-  // ── Exams: hide Create Exam tab for teachers ──
+  // ── Exams: hide all tabs except Upload Marks for teachers ──
   const createExamBtn = document.querySelector('[onclick*="tabCreateExam"]');
   if (createExamBtn) createExamBtn.style.display = isTeacher ? 'none' : '';
 
-  // If teacher lands on exams, redirect to Upload Marks tab
   if (isTeacher) {
+    // Hide every exam tab button except Upload Marks
+    ['tabExamList','tabExamTimetable','tabAnalyse','tabMeritList','tabSummaryAnalytics','tabReportForms','tabPlatformMarks','tabPlatformResults'].forEach(tabId => {
+      const btn = document.querySelector(`[onclick*="${tabId}"]`);
+      if (btn) btn.style.display = 'none';
+    });
+    // Always land on Upload Marks
+    const uploadBtn = document.querySelector('[onclick*="tabUploadMarks"]');
+    if (uploadBtn) uploadBtn.style.display = '';
     const createPanel = document.getElementById('tabCreateExam');
     if (createPanel && createPanel.classList.contains('active')) {
       openExamTab('tabUploadMarks', document.querySelector('[onclick*="tabUploadMarks"]'));
     }
+  } else {
+    // Restore all tab buttons for non-teachers
+    ['tabExamList','tabExamTimetable','tabUploadMarks','tabPlatformMarks','tabPlatformResults'].forEach(tabId => {
+      const btn = document.querySelector(`[onclick*="${tabId}"]`);
+      if (btn) btn.style.display = '';
+    });
   }
 
   // ── Students: hide add/edit form and action buttons for teachers ──
