@@ -14050,9 +14050,11 @@ function es_loadSampleData() {
 // ── Patch go() to handle timetable section ───────────────
 
 function go(sec, el) {
-  // STRICT TEACHER LOCKDOWN: teachers can only navigate to 'exams'
+  // STRICT TEACHER LOCKDOWN: teachers can only navigate to 'exams' (or 'fees' if class teacher)
   if (currentUser && currentUser.role === 'teacher') {
-    if (sec !== 'exams') return;
+    const isClassTch = currentUserIsClassTeacher();
+    const allowed = ['exams', ...(isClassTch ? ['fees'] : [])];
+    if (!allowed.includes(sec)) return;
   }
   document.querySelectorAll('.sec').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.sn').forEach(n => n.classList.remove('active'));
@@ -16577,8 +16579,11 @@ function applyRoleBasedUI() {
     ALL_SECTIONS.forEach(sec => {
       document.querySelectorAll(`[data-s="${sec}"]`).forEach(el => el.style.display = 'none');
     });
-    // Keep Exams nav link visible
+    // Keep Exams nav link visible; also Fees for class teachers
     document.querySelectorAll('[data-s="exams"]').forEach(el => el.style.display = '');
+    if (isClassTch) {
+      document.querySelectorAll('[data-s="fees"]').forEach(el => el.style.display = '');
+    }
 
     // 2. Hide ALL exam tab buttons
     const ALL_EXAM_TABS = ['tabCreateExam','tabExamList','tabExamTimetable','tabAnalyse',
