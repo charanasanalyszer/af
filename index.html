@@ -680,9 +680,9 @@
               </select>
             </div>
             <div class="fg" style="display:flex;align-items:flex-end;gap:.5rem;flex-wrap:wrap">
-              <button class="btn btn-outline btn-sm" onclick="printMarksSheet()" style="border-color:#7c3aed;color:#7c3aed;flex:1"><i class="fa-solid fa-print"></i> Print Marks Sheet</button>
-              <button class="btn btn-outline btn-sm" onclick="deleteSubjectMarks()" style="border-color:#dc2626;color:#dc2626;flex:1" title="Delete marks for selected subject/stream"><i class="fa-solid fa-eraser"></i> Clear Subject</button>
-              <button class="btn btn-sm" onclick="deleteAllExamMarks()" style="background:#dc2626;color:#fff;border:none;flex:1" title="Delete ALL marks for selected exam"><i class="fa-solid fa-trash"></i> Delete All Marks</button>
+              <button id="umPrintMarksSheet" class="btn btn-outline btn-sm" onclick="printMarksSheet()" style="border-color:#7c3aed;color:#7c3aed;flex:1"><i class="fa-solid fa-print"></i> Print Marks Sheet</button>
+              <button id="umClearSubject" class="btn btn-outline btn-sm" onclick="deleteSubjectMarks()" style="border-color:#dc2626;color:#dc2626;flex:1" title="Delete marks for selected subject/stream"><i class="fa-solid fa-eraser"></i> Clear Subject</button>
+              <button id="umDeleteAllMarks" class="btn btn-sm" onclick="deleteAllExamMarks()" style="background:#dc2626;color:#fff;border:none;flex:1" title="Delete ALL marks for selected exam"><i class="fa-solid fa-trash"></i> Delete All Marks</button>
             </div>
           </div>
         </div>

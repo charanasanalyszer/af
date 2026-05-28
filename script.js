@@ -16680,8 +16680,8 @@ function applyRoleBasedUI() {
     const tchMyCard = document.getElementById('tchMyClassListCard');
     if (tchMyCard) tchMyCard.style.display = '';
 
-    // ── 5. Raw marks download: always hidden for teachers ───
-    ['umDownloadRaw','umManualRawDownload'].forEach(id => {
+    // ── 5. Raw marks download + destructive buttons: always hidden for teachers ───
+    ['umDownloadRaw','umManualRawDownload','umPrintMarksSheet','umClearSubject','umDeleteAllMarks'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     });
@@ -16726,6 +16726,12 @@ function applyRoleBasedUI() {
   ['umDownloadRaw','umManualRawDownload'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = isAdmin ? '' : 'none';
+  });
+
+  // Print Marks Sheet + destructive mark buttons: always visible for non-teachers
+  ['umPrintMarksSheet','umClearSubject','umDeleteAllMarks'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = '';
   });
 
   // Archived students card: admin-only
