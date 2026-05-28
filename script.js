@@ -4605,6 +4605,7 @@ function umRenderStudentMarks(studentId) {
       </td>
       <td id="umstu_gr_${sub.id}" style="text-align:center;font-weight:700;color:${gColor};font-size:.88rem">${g ? g.grade : '—'}</td>
       ${!isTeacher ? `<td id="umstu_pt_${sub.id}" style="text-align:center;color:var(--muted);font-size:.85rem">${g ? g.points : '—'}</td>` : ''}
+      <td id="umstu_ub_${sub.id}" style="text-align:center;font-size:.72rem;color:var(--muted)">${existing?.updatedBy ? `<span title="${existing.updatedAt||''}" style="color:var(--primary);font-weight:600">${existing.updatedBy}</span>` : '—'}</td>
       <td style="text-align:center">
         <button class="btn btn-sm" id="umstu_sv_${sub.id}" onclick="umStuSaveMark('${studentId}','${sub.id}')"
           style="background:var(--primary);color:#fff;border:none;padding:.22rem .55rem;font-size:.72rem;border-radius:5px;cursor:pointer">
@@ -4635,6 +4636,7 @@ function umRenderStudentMarks(studentId) {
             <th style="text-align:center">Mark</th>
             <th style="text-align:center">Grade</th>
             ${!isTeacher ? '<th style="text-align:center">Pts</th>' : ''}
+            <th style="text-align:center">Updated By</th>
             <th style="text-align:center">Save</th>
           </tr>
         </thead>
@@ -4669,8 +4671,10 @@ function umStuOnInput(inp) {
     inp.className = 'marks-input ' + (g.points>=6?'good':g.points>=4?'avg':'poor');
     // Auto-save
     const existing = marks.findIndex(m => m.examId===examId && m.studentId===stuId && m.subjectId===subId);
-    if (existing > -1) marks[existing].score = val;
-    else marks.push({ id:uid(), examId, studentId:stuId, subjectId:subId, score:val });
+    const updatedBy = currentUser ? (currentUser.name || currentUser.username) : 'Unknown';
+    const updatedAt = new Date().toLocaleString();
+    if (existing > -1) { marks[existing].score = val; marks[existing].updatedBy = updatedBy; marks[existing].updatedAt = updatedAt; }
+    else marks.push({ id:uid(), examId, studentId:stuId, subjectId:subId, score:val, updatedBy, updatedAt });
     save(K.marks, marks);
   }
 }
@@ -4703,9 +4707,14 @@ function umStuSaveMark(studentId, subjectId) {
   const max    = sub?.max || 100;
   if (isNaN(numVal) || numVal < 0 || numVal > max) { showToast(`Mark must be 0–${max}`, 'error'); return; }
   const existing = marks.findIndex(m => m.examId===examId && m.studentId===studentId && m.subjectId===subjectId);
-  if (existing > -1) marks[existing].score = numVal;
-  else marks.push({ id:uid(), examId, studentId, subjectId, score:numVal });
+  const updatedBy = currentUser ? (currentUser.name || currentUser.username) : 'Unknown';
+  const updatedAt = new Date().toLocaleString();
+  if (existing > -1) { marks[existing].score = numVal; marks[existing].updatedBy = updatedBy; marks[existing].updatedAt = updatedAt; }
+  else marks.push({ id:uid(), examId, studentId, subjectId, score:numVal, updatedBy, updatedAt });
   save(K.marks, marks);
+  // Update the "Updated By" label in the student row
+  const ubEl = document.getElementById(`umstu_ub_${subjectId}`);
+  if (ubEl) ubEl.innerHTML = `<span title="${updatedAt}" style="color:var(--primary);font-weight:600;font-size:.72rem">${updatedBy}</span>`;
   const btn = document.getElementById(`umstu_sv_${subjectId}`);
   if (btn) {
     btn.innerHTML = '<i class="fa-solid fa-check"></i>';
@@ -4720,6 +4729,8 @@ function umStuSaveAll(studentId) {
   const examId = document.getElementById('umExam')?.value;
   if (!examId) { showToast('Select exam first', 'error'); return; }
   let saved = 0;
+  const updatedBy = currentUser ? (currentUser.name || currentUser.username) : 'Unknown';
+  const updatedAt = new Date().toLocaleString();
   document.querySelectorAll('#umStuMarksPanel .marks-input').forEach(inp => {
     const val = parseFloat(inp.value);
     if (!isNaN(val)) {
@@ -4727,9 +4738,12 @@ function umStuSaveAll(studentId) {
       const max   = parseFloat(inp.dataset.max) || 100;
       if (val >= 0 && val <= max) {
         const existing = marks.findIndex(m => m.examId===examId && m.studentId===studentId && m.subjectId===subId);
-        if (existing > -1) marks[existing].score = val;
-        else marks.push({ id:uid(), examId, studentId, subjectId:subId, score:val });
+        if (existing > -1) { marks[existing].score = val; marks[existing].updatedBy = updatedBy; marks[existing].updatedAt = updatedAt; }
+        else marks.push({ id:uid(), examId, studentId, subjectId:subId, score:val, updatedBy, updatedAt });
         saved++;
+        // Update the "Updated By" label for this subject row
+        const ubEl = document.getElementById(`umstu_ub_${subId}`);
+        if (ubEl) ubEl.innerHTML = `<span title="${updatedAt}" style="color:var(--primary);font-weight:600;font-size:.72rem">${updatedBy}</span>`;
         // Flash individual save buttons
         const btn = document.getElementById(`umstu_sv_${subId}`);
         if (btn) {
@@ -4740,6 +4754,11 @@ function umStuSaveAll(studentId) {
       }
     }
   });
+  save(K.marks, marks);
+  showToast(`<i class="fa-solid fa-check"></i> ${saved} mark${saved!==1?'s':''} saved for ${students.find(s=>s.id===studentId)?.name||'learner'}`, 'success');
+  renderDashboard();
+  setTimeout(renderUmSubjectStatusPanel, 100);
+}
   save(K.marks, marks);
   showToast(`<i class="fa-solid fa-check"></i> ${saved} mark${saved!==1?'s':''} saved for ${students.find(s=>s.id===studentId)?.name||'learner'}`, 'success');
   renderDashboard();
@@ -5540,6 +5559,7 @@ function loadUmStudents() {
       </td>
       ${gradeCell}
       ${pointsCell}
+      <td style="text-align:center;font-size:.75rem;color:var(--muted)" id="ub_${stu.id}">${existing?.updatedBy ? `<span title="${existing.updatedAt||''}" style="color:var(--primary);font-weight:600">${existing.updatedBy}</span>` : '—'}</td>
       <td style="text-align:center">
         <button class="btn btn-sm" id="sv_${stu.id}" onclick="saveStudentMark('${stu.id}')"
           style="background:var(--primary);color:#fff;border:none;padding:.25rem .6rem;font-size:.75rem;border-radius:5px;cursor:pointer;white-space:nowrap">
@@ -5586,9 +5606,19 @@ function autoSaveMark(studentId, score) {
   const examId    = document.getElementById('umExam').value;
   const subjectId = document.getElementById('umSubject').value;
   const existing  = marks.findIndex(m => m.examId===examId && m.studentId===studentId && m.subjectId===subjectId);
-  if (existing > -1) marks[existing].score = score;
-  else marks.push({ id:uid(), examId, studentId, subjectId, score });
+  const updatedBy = currentUser ? (currentUser.name || currentUser.username) : 'Unknown';
+  const updatedAt = new Date().toLocaleString();
+  if (existing > -1) {
+    marks[existing].score     = score;
+    marks[existing].updatedBy = updatedBy;
+    marks[existing].updatedAt = updatedAt;
+  } else {
+    marks.push({ id:uid(), examId, studentId, subjectId, score, updatedBy, updatedAt });
+  }
   save(K.marks, marks);
+  // Refresh the Updated By cell if it exists in DOM
+  const ubCell = document.getElementById(`ub_${studentId}`);
+  if (ubCell) ubCell.innerHTML = `<span title="${updatedAt}" style="color:var(--primary);font-weight:600">${updatedBy}</span>`;
 }
 
 function saveStudentMark(studentId) {
@@ -5806,6 +5836,8 @@ function handleMarksUpload(input) {
           return;
         }
 
+        const importUpdatedBy = currentUser ? (currentUser.name || currentUser.username) : 'Import';
+        const importUpdatedAt = new Date().toLocaleString();
         data.forEach(row => {
           const adm = String(row['AdmNo']||row['admno']||row['Adm No']||'').trim();
           const stu = students.find(s => s.adm === adm); if (!stu) { skipped++; return; }
@@ -5816,8 +5848,8 @@ function handleMarksUpload(input) {
             if (isNaN(score)) return;
             const clampedScore = Math.min(Math.max(score,0), max);
             const existing = marks.findIndex(m => m.examId===examId && m.studentId===stu.id && m.subjectId===sid);
-            if (existing > -1) marks[existing].score = clampedScore;
-            else marks.push({ id:uid(), examId, studentId:stu.id, subjectId:sid, score:clampedScore });
+            if (existing > -1) { marks[existing].score = clampedScore; marks[existing].updatedBy = importUpdatedBy; marks[existing].updatedAt = importUpdatedAt; }
+            else marks.push({ id:uid(), examId, studentId:stu.id, subjectId:sid, score:clampedScore, updatedBy: importUpdatedBy, updatedAt: importUpdatedAt });
             rowSaved++;
           });
           if (rowSaved) count++;
@@ -15414,7 +15446,8 @@ function recordFeePayment() {
   const prevBal   = getPreviousBalance(stuId, term, year);
   const balBefore = prevBal + getRecordBalance(rec);
   const receiptNo = genReceiptNo();
-  const payment = { id: uid(), receiptNo, date, amount, mode, notes, prevBal, balanceBefore: balBefore, balanceAfter: balBefore - amount };
+  const recordedBy = currentUser ? (currentUser.name || currentUser.username) : 'Unknown';
+  const payment = { id: uid(), receiptNo, date, amount, mode, notes, prevBal, balanceBefore: balBefore, balanceAfter: balBefore - amount, recordedBy };
   rec.payments.push(payment);
   saveFees();
 
@@ -15681,7 +15714,7 @@ function viewStudentPaymentHistory(stuId, term, year) {
     </div>
     ${payments.length ? `
       <table style="width:100%;font-size:.82rem;border-collapse:collapse">
-        <thead><tr style="background:var(--surface)"><th style="padding:.4rem;text-align:left">Receipt No</th><th>Date</th><th>Amount</th><th>Mode</th><th>Balance After</th><th></th></tr></thead>
+        <thead><tr style="background:var(--surface)"><th style="padding:.4rem;text-align:left">Receipt No</th><th>Date</th><th>Amount</th><th>Mode</th><th>Balance After</th><th>Recorded By</th><th></th></tr></thead>
         <tbody>${payments.map(p => `
           <tr style="border-bottom:1px solid var(--border)">
             <td style="padding:.35rem;font-family:monospace;color:var(--primary)">${p.receiptNo}</td>
@@ -15689,6 +15722,7 @@ function viewStudentPaymentHistory(stuId, term, year) {
             <td style="padding:.35rem;color:var(--success);font-weight:700">KES ${parseFloat(p.amount).toLocaleString()}</td>
             <td style="padding:.35rem">${p.mode}</td>
             <td style="padding:.35rem;color:${p.balanceAfter>0?'var(--danger)':'var(--success)'}">KES ${parseFloat(p.balanceAfter||0).toLocaleString()}</td>
+            <td style="padding:.35rem;font-size:.78rem">${p.editedBy ? `<span style="color:var(--primary);font-weight:600">${p.editedBy}</span><br><span style="color:var(--muted);font-size:.7rem">edited ${p.editedAt||''}</span>` : (p.recordedBy ? `<span style="color:var(--primary);font-weight:600">${p.recordedBy}</span>` : '—')}</td>
             <td style="padding:.35rem;display:flex;gap:.3rem;flex-wrap:wrap">
               <button class="btn btn-sm btn-outline" onclick="reprintReceipt('${stuId}','${term}','${year}','${p.id}')" title="Reprint"><i class="fa-solid fa-print"></i></button>
               <button class="btn btn-sm btn-outline" style="color:var(--warning,#d97706);border-color:var(--warning,#d97706)" onclick="closeModal();editPayment('${stuId}','${term}','${year}','${p.id}')" title="Edit"><i class="fa-solid fa-pen"></i></button>
@@ -15850,10 +15884,12 @@ function _saveEditPayment(stuId, term, year, payId) {
   const newAmount = parseFloat(document.getElementById('editPayAmount')?.value || 0);
   if (isNaN(newAmount) || newAmount <= 0) { showToast('Enter a valid amount','error'); return; }
 
-  pay.amount = newAmount;
-  pay.date   = document.getElementById('editPayDate')?.value || pay.date;
-  pay.mode   = document.getElementById('editPayMode')?.value || pay.mode;
-  pay.notes  = document.getElementById('editPayNotes')?.value || '';
+  pay.amount   = newAmount;
+  pay.date     = document.getElementById('editPayDate')?.value || pay.date;
+  pay.mode     = document.getElementById('editPayMode')?.value || pay.mode;
+  pay.notes    = document.getElementById('editPayNotes')?.value || '';
+  pay.editedBy = currentUser ? (currentUser.name || currentUser.username) : 'Unknown';
+  pay.editedAt = new Date().toLocaleString();
 
   // Recalculate running balances across all payments for this record
   const prevBal = getPreviousBalance(stuId, term, year);
