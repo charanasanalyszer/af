@@ -4411,9 +4411,20 @@ function toggleSidebar() {
   }
 }
 function openExamTab(id, btn) {
-  // STRICT TEACHER LOCKDOWN: only Upload Marks allowed
-  const TEACHER_ALLOWED_TABS = ['tabUploadMarks'];
-  if (currentUser && currentUser.role === 'teacher' && !TEACHER_ALLOWED_TABS.includes(id)) return;
+  // Teacher lockdown: compute allowed tabs based on role + permissions
+  if (currentUser && currentUser.role === 'teacher') {
+    const _isCT   = currentUserIsClassTeacher();
+    const _canAn  = !settings.restrictTeacherAnalytics && (!!currentUser.canAnalyse || _isCT);
+    const _canRep = !!currentUser.canReport;
+    const _canMer = !!currentUser.canMerit;
+    const TEACHER_ALLOWED_TABS = [
+      'tabUploadMarks',
+      ...(_canAn  ? ['tabSubjectAnalysis','tabAnalyse'] : []),
+      ...(_canRep ? ['tabReportForms'] : []),
+      ...(_canMer ? ['tabMeritList']  : []),
+    ];
+    if (!TEACHER_ALLOWED_TABS.includes(id)) return;
+  }
   document.querySelectorAll('#s-exams .tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('#examTabBar .tb').forEach(b => b.classList.remove('active'));
   const p = document.getElementById(id); if (p) p.classList.add('active');
@@ -16591,56 +16602,91 @@ function applyRoleBasedUI() {
   const isPrincipal = role === 'principal';
   const isBursar  = role === 'bursar';
   const isTeacher = role === 'teacher';
-  const isFullFees = isAdmin || isPrincipal || isBursar; // full fees access
+  const isFullFees = isAdmin || isPrincipal || isBursar;
   const isClassTch = isTeacher && currentUserIsClassTeacher();
 
   // ══════════════════════════════════════════════
-  //  STRICT TEACHER LOCKDOWN
-  //  Teacher sees ONLY: Upload Marks + Subject Analysis (own subjects)
-  //  Everything else is completely hidden
+  //  TEACHER LOCKDOWN (regular + class teacher)
+  //  Only the sections and tabs each role actually uses are shown.
   // ══════════════════════════════════════════════
   if (isTeacher) {
-    // 1. Hide ALL sidebar + mobile nav sections except Exams
+    // ── 1. Sidebar / mobile nav ──────────────────
+    // Hide every section first, then reveal what this teacher can access.
     const ALL_SECTIONS = ['dashboard','students','subjects','classes','teachers','staffdetails',
       'timetable','reports','papers','fees','messaging','settings','people','platform','livechat'];
     ALL_SECTIONS.forEach(sec => {
       document.querySelectorAll(`[data-s="${sec}"]`).forEach(el => el.style.display = 'none');
     });
-    // Keep Exams nav link visible; also Fees for class teachers
+
+    // Exams: every teacher
     document.querySelectorAll('[data-s="exams"]').forEach(el => el.style.display = '');
+
+    // Fees + Settings: class teachers only
     if (isClassTch) {
       document.querySelectorAll('[data-s="fees"]').forEach(el => el.style.display = '');
+      if (!settings.restrictTeacherSettings) {
+        document.querySelectorAll('[data-s="settings"]').forEach(el => el.style.display = '');
+      }
     }
 
-    // 2. Hide ALL exam tab buttons
-    const ALL_EXAM_TABS = ['tabCreateExam','tabExamList','tabExamTimetable','tabAnalyse',
-      'tabMeritList','tabSummaryAnalytics','tabReportForms','tabPlatformMarks',
-      'tabPlatformResults','tabSubjectAnalysis'];
-    ALL_EXAM_TABS.forEach(tabId => {
+    // ── 2. Exam tabs: hide all admin-only tabs first ────────────────
+    // Tabs that are NEVER available to any teacher:
+    const ADMIN_EXAM_TABS = ['tabCreateExam','tabExamList','tabExamTimetable',
+      'tabSummaryAnalytics','tabPlatformMarks','tabPlatformResults'];
+    ADMIN_EXAM_TABS.forEach(tabId => {
       document.querySelectorAll(`[onclick*="${tabId}"]`).forEach(btn => btn.style.display = 'none');
       const panel = document.getElementById(tabId);
       if (panel) panel.style.display = 'none';
     });
 
-    // 3. Show ONLY Upload Marks tab button
+    // Upload Marks: every teacher
     document.querySelectorAll('[onclick*="tabUploadMarks"]').forEach(btn => btn.style.display = '');
 
-    // 4. Force active tab to Upload Marks
+    // Subject Analysis: class teachers OR teachers with canAnalyse (if not globally restricted)
+    const canSeeAnalysis = isClassTch
+      ? (!settings.restrictTeacherAnalytics)
+      : (!settings.restrictTeacherAnalytics && !!currentUser.canAnalyse);
+    document.querySelectorAll('[onclick*="tabSubjectAnalysis"]').forEach(btn => btn.style.display = canSeeAnalysis ? '' : 'none');
+    const subAnalysisPanel = document.getElementById('tabSubjectAnalysis');
+    if (subAnalysisPanel) subAnalysisPanel.style.display = canSeeAnalysis ? '' : 'none';
+
+    // Analyse tab: same permission as Subject Analysis
+    document.querySelectorAll('[onclick*="tabAnalyse"]').forEach(btn => btn.style.display = canSeeAnalysis ? '' : 'none');
+    const analysePanel = document.getElementById('tabAnalyse');
+    if (analysePanel) analysePanel.style.display = canSeeAnalysis ? '' : 'none';
+
+    // Report Forms: class teachers with canReport, or any teacher with canReport
+    const canSeeReports = isClassTch
+      ? (!!currentUser.canReport)
+      : (!!currentUser.canReport);
+    document.querySelectorAll('[onclick*="tabReportForms"]').forEach(btn => btn.style.display = canSeeReports ? '' : 'none');
+    const reportPanel = document.getElementById('tabReportForms');
+    if (reportPanel) reportPanel.style.display = canSeeReports ? '' : 'none';
+
+    // Merit List: class teachers with canMerit, or any teacher with canMerit
+    const canSeeMerit = !!currentUser.canMerit;
+    document.querySelectorAll('[onclick*="tabMeritList"]').forEach(btn => btn.style.display = canSeeMerit ? '' : 'none');
+    const meritPanel = document.getElementById('tabMeritList');
+    if (meritPanel) meritPanel.style.display = canSeeMerit ? '' : 'none';
+
+    // ── 3. Force active tab to Upload Marks ────────────────
     openExamTab('tabUploadMarks', document.querySelector('[onclick*="tabUploadMarks"]'));
 
-    // 5. Hide dashboard quick-action cards (student, fees, report)
-    ['stuAddCard','stuUploadCard','tchMyClassListCard'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = id === 'tchMyClassListCard' ? '' : 'none';
-    });
+    // ── 4. Dashboard cards ─────────────────────────────────
+    const stuAddCard = document.getElementById('stuAddCard');
+    if (stuAddCard) stuAddCard.style.display = 'none';
+    const stuUploadCard = document.getElementById('stuUploadCard');
+    if (stuUploadCard) stuUploadCard.style.display = 'none';
+    const tchMyCard = document.getElementById('tchMyClassListCard');
+    if (tchMyCard) tchMyCard.style.display = '';
 
-    // 6. Hide raw marks download buttons
+    // ── 5. Raw marks download: always hidden for teachers ───
     ['umDownloadRaw','umManualRawDownload'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     });
 
-    // 7. Hide archived students card
+    // ── 6. Archived students card: hidden ──────────────────
     const archCard = document.getElementById('archivedStudentsCard');
     if (archCard) archCard.style.display = 'none';
 
