@@ -4599,13 +4599,14 @@ function umRenderStudentMarks(studentId) {
   const gradeColorMap = { EE1:'#16a34a',EE2:'#0d9488',ME1:'#2563eb',ME2:'#0ea5e9',AE1:'#d97706',AE2:'#ea580c',BE1:'#dc2626',BE2:'#991b1b' };
 
   // Determine if ANY subject needs /100 conversion column (consistent header + rows)
+  // sub.max takes priority; exam.maxScore is only a fallback when sub.max is not set
   const showPctHeader = visibleSubs.some(sub => {
-    const subMax = (exam.maxScore) ? exam.maxScore : (sub.max || 100);
+    const subMax = sub.max || exam.maxScore || 100;
     return subMax !== 100;
   });
 
   const rows = visibleSubs.map((sub, idx) => {
-    const subMax  = (exam.maxScore) ? exam.maxScore : (sub.max || 100);
+    const subMax  = sub.max || exam.maxScore || 100;
     const existing = marks.find(m => m.examId === examId && m.studentId === studentId && m.subjectId === sub.id);
     const score    = existing !== undefined ? existing.score : '';
     const g        = score !== '' ? getGrade(score, subMax) : null;
@@ -5549,7 +5550,7 @@ function loadUmStudents() {
   const sub  = subjects.find(s=>s.id===subjectId);
   if (!sub) return;
   const exam    = exams.find(e=>e.id===examId);
-  const examMax = (exam && exam.maxScore) ? exam.maxScore : (sub.max || 100);
+  const examMax = sub.max || (exam && exam.maxScore) || 100;
   const showPct = examMax !== 100;
   const pctHeader = document.getElementById('umPctHeader');
   if (pctHeader) pctHeader.style.display = showPct ? '' : 'none';
@@ -5719,7 +5720,7 @@ function saveAllMarks() {
   if (!examId||!streamId||!subjectId) { showToast('Select exam, class, stream and subject first','error'); return; }
   const sub = subjects.find(s => s.id === subjectId);
   const exam = exams.find(e => e.id === examId);
-  const max = (exam && exam.maxScore) ? exam.maxScore : (sub ? sub.max : 100);
+  const max = (sub ? sub.max : null) || (exam && exam.maxScore) || 100;
   let invalid = 0;
   document.querySelectorAll('.marks-input').forEach(inp => {
     const val = parseInt(inp.value);
