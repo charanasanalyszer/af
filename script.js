@@ -4599,22 +4599,26 @@ function umRenderStudentMarks(studentId) {
   const gradeColorMap = { EE1:'#16a34a',EE2:'#0d9488',ME1:'#2563eb',ME2:'#0ea5e9',AE1:'#d97706',AE2:'#ea580c',BE1:'#dc2626',BE2:'#991b1b' };
 
   const rows = visibleSubs.map((sub, idx) => {
+    const subMax  = (exam.maxScore) ? exam.maxScore : (sub.max || 100);
+    const showPct = subMax !== 100;
     const existing = marks.find(m => m.examId === examId && m.studentId === studentId && m.subjectId === sub.id);
     const score    = existing !== undefined ? existing.score : '';
-    const g        = score !== '' ? getGrade(score, sub.max) : null;
+    const g        = score !== '' ? getGrade(score, subMax) : null;
     const gColor   = g ? (gradeColorMap[g.grade] || '#6b7280') : 'var(--muted)';
+    const pct100   = (score !== '' && subMax > 0 && showPct) ? Math.round((score / subMax) * 100) : '';
 
     return `<tr id="umstu_row_${sub.id}">
       <td style="font-weight:700;color:var(--primary)">${sub.code}</td>
       <td style="font-weight:600">${sub.name}</td>
-      <td style="text-align:center;color:var(--muted);font-size:.8rem">${sub.max}</td>
+      <td style="text-align:center;color:var(--muted);font-size:.8rem">${subMax}</td>
       <td style="text-align:center">
         <input type="number" class="marks-input${g ? ' '+(g.points>=6?'good':g.points>=4?'avg':'poor') : ''}"
-          id="umstu_mk_${sub.id}" min="0" max="${sub.max}" value="${score}"
-          data-subid="${sub.id}" data-stuid="${studentId}" data-examid="${examId}" data-max="${sub.max}" data-idx="${idx}" data-total="${visibleSubs.length}"
+          id="umstu_mk_${sub.id}" min="0" max="${subMax}" value="${score}"
+          data-subid="${sub.id}" data-stuid="${studentId}" data-examid="${examId}" data-max="${subMax}" data-idx="${idx}" data-total="${visibleSubs.length}"
           oninput="umStuOnInput(this)" onkeydown="umStuOnKey(event,this)"
           style="width:72px;text-align:center"/>
       </td>
+      ${showPct ? `<td id="umstu_pct_${sub.id}" style="text-align:center;font-size:.8rem;color:var(--muted)">${pct100 !== '' ? pct100 : '—'}</td>` : ''}
       <td id="umstu_gr_${sub.id}" style="text-align:center;font-weight:700;color:${gColor};font-size:.88rem">${g ? g.grade : '—'}</td>
       ${!isTeacher ? `<td id="umstu_pt_${sub.id}" style="text-align:center;color:var(--muted);font-size:.85rem">${g ? g.points : '—'}</td>` : ''}
       <td id="umstu_ub_${sub.id}" style="text-align:center;font-size:.72rem;color:var(--muted)">${existing?.updatedBy ? `<span title="${existing.updatedAt||''}" style="color:var(--primary);font-weight:600">${existing.updatedBy}</span>` : '—'}</td>
@@ -4646,6 +4650,7 @@ function umRenderStudentMarks(studentId) {
             <th>Subject</th>
             <th style="text-align:center">Max</th>
             <th style="text-align:center">Mark</th>
+            ${exam.maxScore && exam.maxScore !== 100 ? '<th style="text-align:center">/100</th>' : ''}
             <th style="text-align:center">Grade</th>
             ${!isTeacher ? '<th style="text-align:center">Pts</th>' : ''}
             <th style="text-align:center">Updated By</th>
@@ -4674,8 +4679,9 @@ function umStuOnInput(inp) {
   const isTeacher = currentUser && currentUser.role === 'teacher';
   const gradeColorMap = { EE1:'#16a34a',EE2:'#0d9488',ME1:'#2563eb',ME2:'#0ea5e9',AE1:'#d97706',AE2:'#ea580c',BE1:'#dc2626',BE2:'#991b1b' };
 
-  const gEl  = document.getElementById(`umstu_gr_${subId}`);
-  const ptEl = document.getElementById(`umstu_pt_${subId}`);
+  const gEl   = document.getElementById(`umstu_gr_${subId}`);
+  const ptEl  = document.getElementById(`umstu_pt_${subId}`);
+  const pctEl = document.getElementById(`umstu_pct_${subId}`);
 
   if (inp.value === '' || isNaN(val)) {
     inp.className = 'marks-input';
@@ -4683,6 +4689,7 @@ function umStuOnInput(inp) {
     inp.title = '';
     if (gEl) { gEl.textContent = '—'; gEl.style.color = 'var(--muted)'; }
     if (ptEl) ptEl.textContent = '—';
+    if (pctEl) pctEl.textContent = '—';
     return;
   }
   if (val < 0 || val > max) {
@@ -4691,10 +4698,12 @@ function umStuOnInput(inp) {
     inp.title = `Mark must be between 0 and ${max}`;
     if (gEl) { gEl.textContent = '—'; gEl.style.color = 'var(--muted)'; }
     if (ptEl) ptEl.textContent = '—';
+    if (pctEl) pctEl.textContent = '—';
     return;
   }
   inp.style.borderColor = '';
   inp.title = '';
+  if (pctEl) pctEl.textContent = max !== 100 ? Math.round((val / max) * 100) : '';
   const g = getGrade(val, max);
   if (gEl) { gEl.textContent = g.grade; gEl.style.color = gradeColorMap[g.grade] || '#6b7280'; }
   if (!isTeacher && ptEl) ptEl.textContent = g.points;
@@ -5532,9 +5541,14 @@ function loadUmStudents() {
   if (!examId || !subjectId) { empty.style.display=''; return; }
   empty.style.display = 'none';
 
-  const sub = subjects.find(s=>s.id===subjectId);
+  const sub  = subjects.find(s=>s.id===subjectId);
   if (!sub) return;
-  maxLabel.textContent = `(Max: ${sub.max})`;
+  const exam    = exams.find(e=>e.id===examId);
+  const examMax = (exam && exam.maxScore) ? exam.maxScore : (sub.max || 100);
+  const showPct = examMax !== 100;
+  const pctHeader = document.getElementById('umPctHeader');
+  if (pctHeader) pctHeader.style.display = showPct ? '' : 'none';
+  maxLabel.textContent = `(Max: ${examMax})`;
   subLabel.textContent = `— ${sub.name}`;
 
   // Determine if current user is a teacher (hide grade/points from teachers)
@@ -5561,12 +5575,14 @@ function loadUmStudents() {
   enrolled.forEach((stu, idx) => {
     const existing = marks.find(m => m.examId===examId && m.studentId===stu.id && m.subjectId===subjectId);
     const score    = existing ? existing.score : '';
-    const g        = score !== '' ? getGrade(score, sub.max) : null;
+    const g        = score !== '' ? getGrade(score, examMax) : null;
     const cls      = g ? (g.points>=6?'good':g.points>=4?'avg':'poor') : '';
     const stream   = streams.find(s=>s.id===stu.streamId);
+    const pct100   = (score !== '' && examMax > 0) ? Math.round((score / examMax) * 100) : '';
 
     const gradeCell   = isTeacher ? '' : `<td id="gr_${stu.id}">${g ? gradeTag(g) : '—'}</td>`;
     const pointsCell  = isTeacher ? '' : `<td id="pt_${stu.id}">${g ? g.points : '—'}</td>`;
+    const pctCell     = showPct ? `<td id="pct_${stu.id}" style="text-align:center;font-size:.82rem;color:var(--muted)">${pct100 !== '' ? pct100 : '—'}</td>` : '';
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -5577,10 +5593,11 @@ function loadUmStudents() {
       <td>${stream?stream.name:'—'}</td>
       <td>
         <input type="number" class="marks-input ${cls}" id="mk_${stu.id}"
-          min="0" max="${sub.max}" value="${score}"
-          data-stuId="${stu.id}" data-idx="${idx}" data-total="${enrolled.length}"
+          min="0" max="${examMax}" value="${score}"
+          data-stuId="${stu.id}" data-idx="${idx}" data-total="${enrolled.length}" data-max="${examMax}"
           oninput="onMarkInput(this)" onkeydown="onMarkKey(event,this)"/>
       </td>
+      ${pctCell}
       ${gradeCell}
       ${pointsCell}
       <td style="text-align:center;font-size:.75rem;color:var(--muted)" id="ub_${stu.id}">${existing?.updatedBy ? `<span title="${existing.updatedAt||''}" style="color:var(--primary);font-weight:600">${existing.updatedBy}</span>` : '—'}</td>
@@ -5598,27 +5615,30 @@ function loadUmStudents() {
 function onMarkInput(inp) {
   const val = parseInt(inp.value);
   const sub = subjects.find(s=>s.id===document.getElementById('umSubject').value);
-  const max = sub ? sub.max : 100;
+  const max = parseInt(inp.dataset.max) || (sub ? sub.max : 100);
   const isTeacher = currentUser && currentUser.role === 'teacher';
+  const pctEl = document.getElementById('pct_'+inp.dataset.stuId);
   if (inp.value === '' || isNaN(val)) {
     inp.className = 'marks-input';
-    inp.title = '';
     inp.style.borderColor = '';
+    inp.title = '';
+    if (pctEl) pctEl.textContent = '—';
     return;
   }
   if (val < 0 || val > max) {
     inp.className = 'marks-input poor';
     inp.style.borderColor = '#dc2626';
     inp.title = `Score must be between 0 and ${max}`;
-    // Clear grade/points display
     const grEl = document.getElementById('gr_'+inp.dataset.stuId);
     const ptEl = document.getElementById('pt_'+inp.dataset.stuId);
     if (grEl) grEl.innerHTML = '—';
     if (ptEl) ptEl.textContent = '—';
+    if (pctEl) pctEl.textContent = '—';
     return;
   }
   inp.style.borderColor = '';
   inp.title = '';
+  if (pctEl) pctEl.textContent = max !== 100 ? Math.round((val / max) * 100) : '';
   const g = getGrade(val, max);
   if (!isTeacher) {
     const grEl = document.getElementById('gr_'+inp.dataset.stuId);
@@ -5671,8 +5691,7 @@ function saveStudentMark(studentId) {
   const val = inp.value.trim();
   if (val === '') { showToast('Enter a mark first','warning'); return; }
   const numVal = parseFloat(val);
-  const sub = subjects.find(s=>s.id===subjectId);
-  const max = sub ? sub.max : 100;
+  const max = parseInt(inp.dataset.max) || (subjects.find(s=>s.id===subjectId)?.max || 100);
   if (isNaN(numVal) || numVal < 0 || numVal > max) { showToast(`Mark must be between 0 and ${max}`,'error'); return; }
   autoSaveMark(studentId, numVal);
   const btn = document.getElementById('sv_' + studentId);
@@ -5694,16 +5713,18 @@ function saveAllMarks() {
   const streamId  = document.getElementById('umStream').value;
   if (!examId||!streamId||!subjectId) { showToast('Select exam, class, stream and subject first','error'); return; }
   const sub = subjects.find(s => s.id === subjectId);
-  const max = sub ? sub.max : 100;
+  const exam = exams.find(e => e.id === examId);
+  const max = (exam && exam.maxScore) ? exam.maxScore : (sub ? sub.max : 100);
   let invalid = 0;
   document.querySelectorAll('.marks-input').forEach(inp => {
     const val = parseInt(inp.value);
+    const inpMax = parseInt(inp.dataset.max) || max;
     if (!isNaN(val)) {
-      if (val < 0 || val > max) {
+      if (val < 0 || val > inpMax) {
         invalid++;
         inp.className = 'marks-input poor';
         inp.style.borderColor = '#dc2626';
-        inp.title = `Score must be between 0 and ${max}`;
+        inp.title = `Score must be between 0 and ${inpMax}`;
       } else {
         autoSaveMark(inp.dataset.stuId, val);
       }
