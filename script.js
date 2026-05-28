@@ -14748,11 +14748,11 @@ function initFeesSection() {
   const isClassTch = isTeacher && currentUserIsClassTeacher();
 
   // Full-fees users: all tabs visible
-  // Class teacher: Overview + Student Balances only (read their streams)
+  // Class teacher: Overview + Student Balances + Record Payment (scoped to their stream)
   // Regular teacher: should never reach here (no fees link), but guard anyway
   const tabs = {
     tbFeeStructure : isFullFees,
-    tbFeePayments  : isFullFees,
+    tbFeePayments  : isFullFees || isClassTch,
     tbFeeReminders : isFullFees,
     tbFeeReceipts  : isFullFees,
     tbFeeImport    : isFullFees,
@@ -15258,6 +15258,16 @@ function initFeePaymentForm() {
   if (fpDate && !fpDate.value) fpDate.value = today;
   populateFeesDropdowns();
   onFpClassChange();
+  // Show scope notice for class teachers
+  const fpNotice = document.getElementById('fpClassTeacherNotice');
+  if (fpNotice) {
+    const _isClassTch = currentUser && currentUser.role === 'teacher' && currentUserIsClassTeacher();
+    fpNotice.style.display = _isClassTch ? '' : 'none';
+    if (_isClassTch) {
+      const myStreams = getMyClassTeacherStreams();
+      fpNotice.innerHTML = `<i class="fa-solid fa-thumbtack"></i> <strong>Scoped to your stream${myStreams.length > 1 ? 's' : ''}:</strong> ${myStreams.map(s => s.name).join(', ')}. Only your stream's students are shown.`;
+    }
+  }
 }
 
 function onFpClassChange() {
@@ -15272,7 +15282,12 @@ function onFpClassChange() {
     return;
   }
 
-  const classStudents = students.filter(s => s.classId === classId).sort((a,b) => a.name.localeCompare(b.name));
+  // Class teacher: restrict to their stream(s) only
+  const isClassTch_fp = currentUser && currentUser.role === 'teacher' && currentUserIsClassTeacher();
+  const myStreamIds_fp = isClassTch_fp ? getMyClassTeacherStreams().map(s => s.id) : null;
+  const classStudents = students
+    .filter(s => s.classId === classId && (!myStreamIds_fp || myStreamIds_fp.includes(s.streamId)))
+    .sort((a,b) => a.name.localeCompare(b.name));
   fpStudent.innerHTML = '<option value="">— Select Student —</option>' + classStudents.map(s => `<option value="${s.id}">${s.name} (${s.adm})</option>`).join('');
   onFpStudentChange();
 }
@@ -15581,7 +15596,7 @@ function renderStudentBalances() {
         <td>
           <button class="btn btn-sm btn-outline" onclick="viewStudentPaymentHistory('${r.stu.id}','${r.rec.term}','${r.rec.year}')"><i class="fa-solid fa-clipboard-list"></i> History</button>
           <button class="btn btn-sm btn-outline" onclick="quickPayStudent('${r.stu.id}','${r.rec.classId}','${r.rec.term}','${r.rec.year}')"><i class="fa-solid fa-credit-card"></i> Pay</button>
-          ${isFullFeesRole && r.rec.id ? `<button class="btn btn-sm btn-outline" style="color:var(--warning,#d97706);border-color:var(--warning,#d97706)" onclick="editFeeRecord('${r.rec.id}')"><i class="fa-solid fa-pen"></i> Edit</button>` : ''}
+          ${(isFullFeesRole || isClassTch) && r.rec.id ? `<button class="btn btn-sm btn-outline" style="color:var(--warning,#d97706);border-color:var(--warning,#d97706)" onclick="editFeeRecord('${r.rec.id}')"><i class="fa-solid fa-pen"></i> Edit</button>` : ''}
           ${isFullFeesRole && r.rec.id ? `<button class="btn btn-sm btn-danger-sm" onclick="deleteFeeRecord('${r.rec.id}')"><i class="fa-solid fa-trash"></i></button>` : ''}
         </td>
       </tr>`;
