@@ -726,9 +726,11 @@ function doPlatformLogin() {
   const errEl = document.getElementById('plErr');
   errEl.style.display = 'none';
   const btn = document.getElementById('plBtn');
-  const origText = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
-  const re = () => { if (btn) { btn.disabled = false; btn.textContent = origText; } };
+  const origText = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right:.4rem"></i>Signing in…'; }
+  const re = () => { if (btn) { btn.disabled = false; btn.innerHTML = origText; } };
+
+  setTimeout(() => {
   const creds = getPlatformCreds();
 
   // First-ever run: no creds saved yet — confirm before creating account
@@ -764,6 +766,7 @@ function doPlatformLogin() {
     errEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Invalid platform credentials. Check your username and password (case-sensitive). <br><span style="font-size:.78rem;color:#64748b">Forgot them? Use the <strong>Reset Platform Account</strong> button below.</span>';
     errEl.style.display = 'block';
   }
+  }, 50); // defer so loading state paints before sync work runs
 }
 
 // ══ UNIFIED LOGIN — single screen, password routes to platform or school ══
@@ -778,6 +781,7 @@ function doUnifiedLogin() {
     if (btn) { btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-arrow-right-to-bracket" style="margin-right:.4rem"></i>Sign In'; }
     if (msg && err) { err.innerHTML='<i class="fa-solid fa-circle-xmark"></i> ' + msg; err.style.display='block'; err.scrollIntoView({behavior:'smooth',block:'nearest'}); }
   };
+  setTimeout(() => { // defer so the loading spinner can paint before sync work runs
   try {
   // Helper: save credentials if "Remember me" is checked
   const maybeSaveCreds = () => {
@@ -929,6 +933,7 @@ function doUnifiedLogin() {
     console.error('doUnifiedLogin error:', e);
     re('Something went wrong during sign-in. Please refresh and try again. (' + (e.message||'unknown error') + ')');
   }
+  }, 50); // end setTimeout — allows loading spinner to paint first
 }
 
 // ══════════════════════════════════════════════
