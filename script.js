@@ -4674,21 +4674,38 @@ function umStuOnInput(inp) {
   const isTeacher = currentUser && currentUser.role === 'teacher';
   const gradeColorMap = { EE1:'#16a34a',EE2:'#0d9488',ME1:'#2563eb',ME2:'#0ea5e9',AE1:'#d97706',AE2:'#ea580c',BE1:'#dc2626',BE2:'#991b1b' };
 
-  if (!isNaN(val) && val >= 0 && val <= max) {
-    const g    = getGrade(val, max);
-    const gEl  = document.getElementById(`umstu_gr_${subId}`);
-    const ptEl = document.getElementById(`umstu_pt_${subId}`);
-    if (gEl) { gEl.textContent = g.grade; gEl.style.color = gradeColorMap[g.grade] || '#6b7280'; }
-    if (!isTeacher && ptEl) ptEl.textContent = g.points;
-    inp.className = 'marks-input ' + (g.points>=6?'good':g.points>=4?'avg':'poor');
-    // Auto-save
-    const existing = marks.findIndex(m => m.examId===examId && m.studentId===stuId && m.subjectId===subId);
-    const updatedBy = currentUser ? (currentUser.name || currentUser.username) : 'Unknown';
-    const updatedAt = new Date().toLocaleString();
-    if (existing > -1) { marks[existing].score = val; marks[existing].updatedBy = updatedBy; marks[existing].updatedAt = updatedAt; }
-    else marks.push({ id:uid(), examId, studentId:stuId, subjectId:subId, score:val, updatedBy, updatedAt });
-    save(K.marks, marks);
+  const gEl  = document.getElementById(`umstu_gr_${subId}`);
+  const ptEl = document.getElementById(`umstu_pt_${subId}`);
+
+  if (inp.value === '' || isNaN(val)) {
+    inp.className = 'marks-input';
+    inp.style.borderColor = '';
+    inp.title = '';
+    if (gEl) { gEl.textContent = '—'; gEl.style.color = 'var(--muted)'; }
+    if (ptEl) ptEl.textContent = '—';
+    return;
   }
+  if (val < 0 || val > max) {
+    inp.className = 'marks-input poor';
+    inp.style.borderColor = '#dc2626';
+    inp.title = `Mark must be between 0 and ${max}`;
+    if (gEl) { gEl.textContent = '—'; gEl.style.color = 'var(--muted)'; }
+    if (ptEl) ptEl.textContent = '—';
+    return;
+  }
+  inp.style.borderColor = '';
+  inp.title = '';
+  const g = getGrade(val, max);
+  if (gEl) { gEl.textContent = g.grade; gEl.style.color = gradeColorMap[g.grade] || '#6b7280'; }
+  if (!isTeacher && ptEl) ptEl.textContent = g.points;
+  inp.className = 'marks-input ' + (g.points>=6?'good':g.points>=4?'avg':'poor');
+  // Auto-save
+  const existing = marks.findIndex(m => m.examId===examId && m.studentId===stuId && m.subjectId===subId);
+  const updatedBy = currentUser ? (currentUser.name || currentUser.username) : 'Unknown';
+  const updatedAt = new Date().toLocaleString();
+  if (existing > -1) { marks[existing].score = val; marks[existing].updatedBy = updatedBy; marks[existing].updatedAt = updatedAt; }
+  else marks.push({ id:uid(), examId, studentId:stuId, subjectId:subId, score:val, updatedBy, updatedAt });
+  save(K.marks, marks);
 }
 
 function umStuOnKey(e, inp) {
@@ -5583,17 +5600,34 @@ function onMarkInput(inp) {
   const sub = subjects.find(s=>s.id===document.getElementById('umSubject').value);
   const max = sub ? sub.max : 100;
   const isTeacher = currentUser && currentUser.role === 'teacher';
-  if (!isNaN(val) && val >= 0 && val <= max) {
-    const g = getGrade(val, max);
-    if (!isTeacher) {
-      const grEl = document.getElementById('gr_'+inp.dataset.stuId);
-      const ptEl = document.getElementById('pt_'+inp.dataset.stuId);
-      if (grEl) grEl.innerHTML = gradeTag(g);
-      if (ptEl) ptEl.textContent = g.points;
-    }
-    inp.className = 'marks-input ' + (g.points>=6?'good':g.points>=4?'avg':'poor');
-    autoSaveMark(inp.dataset.stuId, val);
+  if (inp.value === '' || isNaN(val)) {
+    inp.className = 'marks-input';
+    inp.title = '';
+    inp.style.borderColor = '';
+    return;
   }
+  if (val < 0 || val > max) {
+    inp.className = 'marks-input poor';
+    inp.style.borderColor = '#dc2626';
+    inp.title = `Score must be between 0 and ${max}`;
+    // Clear grade/points display
+    const grEl = document.getElementById('gr_'+inp.dataset.stuId);
+    const ptEl = document.getElementById('pt_'+inp.dataset.stuId);
+    if (grEl) grEl.innerHTML = '—';
+    if (ptEl) ptEl.textContent = '—';
+    return;
+  }
+  inp.style.borderColor = '';
+  inp.title = '';
+  const g = getGrade(val, max);
+  if (!isTeacher) {
+    const grEl = document.getElementById('gr_'+inp.dataset.stuId);
+    const ptEl = document.getElementById('pt_'+inp.dataset.stuId);
+    if (grEl) grEl.innerHTML = gradeTag(g);
+    if (ptEl) ptEl.textContent = g.points;
+  }
+  inp.className = 'marks-input ' + (g.points>=6?'good':g.points>=4?'avg':'poor');
+  autoSaveMark(inp.dataset.stuId, val);
 }
 
 function onMarkKey(e, inp) {
@@ -5659,10 +5693,26 @@ function saveAllMarks() {
   const subjectId = document.getElementById('umSubject').value;
   const streamId  = document.getElementById('umStream').value;
   if (!examId||!streamId||!subjectId) { showToast('Select exam, class, stream and subject first','error'); return; }
+  const sub = subjects.find(s => s.id === subjectId);
+  const max = sub ? sub.max : 100;
+  let invalid = 0;
   document.querySelectorAll('.marks-input').forEach(inp => {
     const val = parseInt(inp.value);
-    if (!isNaN(val)) autoSaveMark(inp.dataset.stuId, val);
+    if (!isNaN(val)) {
+      if (val < 0 || val > max) {
+        invalid++;
+        inp.className = 'marks-input poor';
+        inp.style.borderColor = '#dc2626';
+        inp.title = `Score must be between 0 and ${max}`;
+      } else {
+        autoSaveMark(inp.dataset.stuId, val);
+      }
+    }
   });
+  if (invalid > 0) {
+    showToast(`${invalid} score${invalid>1?'s':''} exceed the maximum of ${max} — please correct before saving`, 'error');
+    return;
+  }
   showToast('All marks saved <i class="fa-solid fa-check"></i>','success');
   renderDashboard();
   // Refresh subject status panel
