@@ -14649,7 +14649,8 @@ function populateFeesDropdowns() {
   const teacherClassIds  = isTeacher ? [...new Set(teacherStreamIds.map(sid => { const s=streams.find(x=>x.id===sid); return s?s.classId:null; }).filter(Boolean))] : null;
 
   // Determine visible classes (apply fee sync settings, then class-teacher filter)
-  const feeSyncedClasses = getFeeVisibleClasses();
+  // Class teachers bypass fee-sync gating — they always see their own stream's class
+  const feeSyncedClasses = isClassTch ? classes : getFeeVisibleClasses();
   const visibleClasses = myClassIds
     ? feeSyncedClasses.filter(c => myClassIds.includes(c.id))
     : (teacherClassIds ? feeSyncedClasses.filter(c => teacherClassIds.includes(c.id)) : feeSyncedClasses);
@@ -14932,7 +14933,10 @@ function onFovClassChange() {
   const streamSel = document.getElementById('fovStream');
   if (streamSel) {
     const prevStream = streamSel.value;
-    const classStreams = classId ? getFeeVisibleStreams(classId) : getFeeVisibleStreams('');
+    const _isCT_fov = currentUser && currentUser.role === 'teacher' && currentUserIsClassTeacher();
+    const classStreams = classId
+      ? (_isCT_fov ? streams.filter(s => s.classId === classId) : getFeeVisibleStreams(classId))
+      : (_isCT_fov ? streams : getFeeVisibleStreams(''));
     streamSel.innerHTML = '<option value="">All Streams</option>' +
       classStreams.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
     // Preserve selection if still valid
@@ -14964,7 +14968,8 @@ function renderFeeOverview() {
     }
   }
 
-  const feeSyncedCls = getFeeVisibleClasses();
+  // Class teachers bypass fee-sync gating — their class is always visible
+  const feeSyncedCls = isClassTch ? classes : getFeeVisibleClasses();
   let visibleClasses = teacherClassIds
     ? feeSyncedCls.filter(c => teacherClassIds.includes(c.id))
     : feeSyncedCls;
@@ -14987,9 +14992,10 @@ function renderFeeOverview() {
   visibleClasses.forEach(cls => {
     // Determine which streams to show
     // Streams visible for this class — class teacher always limited to their own streams
+    // Class teacher: all streams of their class are visible (ignore fee sync)
     let clsStreams = effectiveStreamFilter
       ? streams.filter(s => s.id === effectiveStreamFilter && s.classId === cls.id)
-      : getFeeVisibleStreams(cls.id);
+      : (isClassTch ? streams.filter(s => s.classId === cls.id) : getFeeVisibleStreams(cls.id));
     if (myStreamIds) clsStreams = clsStreams.filter(s => myStreamIds.includes(s.id));
 
     if (!clsStreams.length) return; // no accessible streams in this class
@@ -15533,12 +15539,13 @@ function renderStudentBalances() {
     if (myStreamIds && !myStreamIds.includes(stu.streamId)) return;
     // Stream filter (from dropdown)
     if (filterStream && stu.streamId !== filterStream) return;
-    // Skip if class not synced to fees
-    const feeSyncCls = getFeeSyncedClassIds();
-    if (feeSyncCls && !feeSyncCls.includes(rec.classId)) return;
-    // Skip if student's stream not synced
-    const feeSyncStr = getFeeSyncedStreamIds();
-    if (feeSyncStr && stu.streamId && !feeSyncStr.includes(stu.streamId)) return;
+    // Skip if class not synced to fees (class teachers bypass this — they always see their stream)
+    if (!isClassTch) {
+      const feeSyncCls = getFeeSyncedClassIds();
+      if (feeSyncCls && !feeSyncCls.includes(rec.classId)) return;
+      const feeSyncStr = getFeeSyncedStreamIds();
+      if (feeSyncStr && stu.streamId && !feeSyncStr.includes(stu.streamId)) return;
+    }
     const cls = classes.find(c => c.id === rec.classId);
     const paid = getRecordTotalPaid(rec);
     const prevBal = getPreviousBalance(rec.studentId, rec.term, rec.year);
@@ -15564,9 +15571,11 @@ function renderStudentBalances() {
     if (filterClass && clsId !== filterClass) return;
     // Class teacher: enforce stream restriction on "no record" students too
     if (myStreamIds && !myStreamIds.includes(stu.streamId)) return;
-    // Respect fee sync settings
-    if (sbFeeSyncCls && !sbFeeSyncCls.includes(clsId)) return;
-    if (sbFeeSyncStr && stu.streamId && !sbFeeSyncStr.includes(stu.streamId)) return;
+    // Respect fee sync settings (class teachers bypass — they always see their stream)
+    if (!isClassTch) {
+      if (sbFeeSyncCls && !sbFeeSyncCls.includes(clsId)) return;
+      if (sbFeeSyncStr && stu.streamId && !sbFeeSyncStr.includes(stu.streamId)) return;
+    }
 
     // Find unique term+year combos where a structure applies to this student
     const termYearSet = new Set();
