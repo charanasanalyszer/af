@@ -5600,7 +5600,7 @@ function loadUmStudents() {
       <td>
         <input type="number" class="marks-input ${cls}" id="mk_${stu.id}"
           min="0" max="${examMax}" value="${score}"
-          data-stuId="${stu.id}" data-idx="${idx}" data-total="${enrolled.length}" data-max="${examMax}"
+          data-stuid="${stu.id}" data-idx="${idx}" data-total="${enrolled.length}" data-max="${examMax}"
           oninput="onMarkInput(this)" onkeydown="onMarkKey(event,this)"/>
       </td>
       ${pctCell}
@@ -5623,7 +5623,7 @@ function onMarkInput(inp) {
   const sub = subjects.find(s=>s.id===document.getElementById('umSubject').value);
   const max = parseInt(inp.dataset.max) || (sub ? sub.max : 100);
   const isTeacher = currentUser && currentUser.role === 'teacher';
-  const pctEl = document.getElementById('pct_'+inp.dataset.stuId);
+  const pctEl = document.getElementById('pct_'+inp.dataset.stuid);
   if (inp.value === '' || isNaN(val)) {
     inp.className = 'marks-input';
     inp.style.borderColor = '';
@@ -5635,8 +5635,8 @@ function onMarkInput(inp) {
     inp.className = 'marks-input poor';
     inp.style.borderColor = '#dc2626';
     inp.title = `Score must be between 0 and ${max}`;
-    const grEl = document.getElementById('gr_'+inp.dataset.stuId);
-    const ptEl = document.getElementById('pt_'+inp.dataset.stuId);
+    const grEl = document.getElementById('gr_'+inp.dataset.stuid);
+    const ptEl = document.getElementById('pt_'+inp.dataset.stuid);
     if (grEl) grEl.innerHTML = '—';
     if (ptEl) ptEl.textContent = '—';
     if (pctEl) pctEl.textContent = '—';
@@ -5647,13 +5647,13 @@ function onMarkInput(inp) {
   if (pctEl) pctEl.textContent = max > 0 ? Math.round((val / max) * 100) : '';
   const g = getGrade(val, max);
   if (!isTeacher) {
-    const grEl = document.getElementById('gr_'+inp.dataset.stuId);
-    const ptEl = document.getElementById('pt_'+inp.dataset.stuId);
+    const grEl = document.getElementById('gr_'+inp.dataset.stuid);
+    const ptEl = document.getElementById('pt_'+inp.dataset.stuid);
     if (grEl) grEl.innerHTML = gradeTag(g);
     if (ptEl) ptEl.textContent = g.points;
   }
   inp.className = 'marks-input ' + (g.points>=6?'good':g.points>=4?'avg':'poor');
-  autoSaveMark(inp.dataset.stuId, val);
+  autoSaveMark(inp.dataset.stuid, val);
 }
 
 function onMarkKey(e, inp) {
@@ -5732,7 +5732,7 @@ function saveAllMarks() {
         inp.style.borderColor = '#dc2626';
         inp.title = `Score must be between 0 and ${inpMax}`;
       } else {
-        autoSaveMark(inp.dataset.stuId, val);
+        autoSaveMark(inp.dataset.stuid, val);
       }
     }
   });
