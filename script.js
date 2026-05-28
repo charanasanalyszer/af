@@ -14101,9 +14101,9 @@ function go(sec, el) {
     const allowed = ['exams', ...(isClassTch ? ['fees'] : [])];
     if (!allowed.includes(sec)) return;
   }
-  // BURSAR LOCKDOWN: bursars can only navigate to 'fees' and 'staffdetails'
+  // BURSAR LOCKDOWN: bursars can only navigate to 'fees'
   if (currentUser && currentUser.role === 'bursar') {
-    if (!['fees', 'staffdetails'].includes(sec)) return;
+    if (sec !== 'fees') return;
   }
   document.querySelectorAll('.sec').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.sn').forEach(n => n.classList.remove('active'));
@@ -16780,14 +16780,12 @@ function applyRoleBasedUI() {
   //  Only Fees (Finance) and Staff Details (Salaries) are visible.
   // ══════════════════════════════════════════════
   if (isBursar) {
-    const ALL_SECTIONS = ['dashboard','students','subjects','classes','teachers',
+    const ALL_SECTIONS = ['dashboard','students','subjects','classes','teachers','staffdetails',
       'timetable','exams','reports','papers','messaging','settings','people','platform','livechat'];
     ALL_SECTIONS.forEach(sec => {
       document.querySelectorAll(`[data-s="${sec}"]`).forEach(el => el.style.display = 'none');
     });
     document.querySelectorAll('[data-s="fees"]').forEach(el => el.style.display = '');
-    document.querySelectorAll('[data-s="staffdetails"]').forEach(el => el.style.display = '');
-    // Hide admin-only cards and destructive buttons
     const stuAddCard = document.getElementById('stuAddCard');
     if (stuAddCard) stuAddCard.style.display = 'none';
     const stuUploadCard = document.getElementById('stuUploadCard');
