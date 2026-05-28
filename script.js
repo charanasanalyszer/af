@@ -4216,7 +4216,12 @@ function launchApp() {
   // Enforce access level restrictions for this school (must run after applyPlatformNavConfig)
   applyAccessLevelRestrictions();
 
-  go('dashboard', document.querySelector('[data-s="dashboard"]'));
+  // Teachers are locked out of dashboard — send them straight to exams
+  if (currentUser && currentUser.role === 'teacher') {
+    go('exams', document.querySelector('[data-s="exams"]'));
+  } else {
+    go('dashboard', document.querySelector('[data-s="dashboard"]'));
+  }
 }
 /**
  * Enforces the access level assigned to the current school.
