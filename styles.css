@@ -898,22 +898,79 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
 #strTbl td, #strTbl th { font-size: .82rem; }
 
 /* ═══════════ EXAM CATEGORY SELECTOR ═══════════ */
-.exam-category-row { margin-bottom: 1.25rem; }
-.exam-cat-label { display: block; font-size: .82rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .6rem; }
-.exam-cat-btns { display: flex; gap: .75rem; flex-wrap: wrap; }
-.exam-category-row + .exam-category-row { border-top: 1px dashed var(--border); padding-top: 1.1rem; }
-.exam-cat-btn {
-  flex: 1; min-width: 200px; display: flex; flex-direction: column; align-items: flex-start;
-  gap: .2rem; padding: .85rem 1.1rem; border: 2px solid var(--border);
-  border-radius: 10px; background: var(--surface); cursor: pointer;
-  transition: all .18s; text-align: left; font-family: inherit;
+/* ── Exam Type / Category — compact glassmorphic tabs ── */
+.exam-type-glass {
+  background: rgba(255,255,255,.6);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,.8);
+  border-radius: 14px;
+  padding: .6rem .85rem;
+  margin-bottom: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+  box-shadow: 0 2px 12px rgba(26,111,181,.07);
 }
-.exam-cat-btn:hover { border-color: var(--primary); background: var(--blue-lt); }
-.exam-cat-btn.active { border-color: var(--primary); background: var(--blue-lt); box-shadow: 0 0 0 3px rgba(26,111,181,.15); }
-.ecat-icon { font-size: 1.4rem; margin-bottom: .1rem; }
-.ecat-title { font-size: .9rem; font-weight: 700; color: var(--text); }
-.ecat-desc { font-size: .75rem; color: var(--muted); }
-.exam-cat-btn.active .ecat-title { color: var(--primary); }
+.exam-tab-row {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  flex-wrap: wrap;
+}
+.exam-tab-row + .exam-tab-row {
+  border-top: 1px solid rgba(0,0,0,.06);
+  padding-top: .45rem;
+}
+.exam-tab-lbl {
+  font-size: .7rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  min-width: 68px;
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  white-space: nowrap;
+}
+.exam-tab-strip {
+  display: flex;
+  gap: .3rem;
+  flex-wrap: wrap;
+  background: rgba(0,0,0,.05);
+  border-radius: 9px;
+  padding: .2rem;
+}
+.exam-tab {
+  padding: .28rem .85rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: .79rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .16s ease;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  white-space: nowrap;
+  line-height: 1.5;
+}
+.exam-tab:hover {
+  background: rgba(26,111,181,.1);
+  color: var(--primary);
+}
+.exam-tab.active {
+  background: #fff;
+  color: var(--primary);
+  box-shadow: 0 1px 5px rgba(0,0,0,.13);
+  font-weight: 700;
+}
+/* keep old .exam-cat-btn class working for any other places it's used */
+.exam-cat-btn { display: none; }
 
 /* ═══════════ EXAM SUBJECT CHECKBOXES ═══════════ */
 #examSubjectCheckboxes { display: flex; flex-wrap: wrap; gap: .4rem .75rem; }
@@ -3245,12 +3302,17 @@ body.dark .sub-check-label{ background:rgba(255,255,255,0.06) !important; border
 body.dark .sub-check-label:hover { background:rgba(109,77,242,0.14) !important; border-color:rgba(109,77,242,0.35) !important; }
 body.dark .sub-checkboxes-wrap { background:rgba(255,255,255,0.03) !important; border:1px solid rgba(255,255,255,0.07) !important; border-radius:9px !important; }
 
-.exam-cat-btn { background:rgba(255,255,255,0.06) !important; border:1px solid rgba(255,255,255,0.11) !important; border-radius:11px !important; transition:all .18s !important; }
-.exam-cat-btn:hover { background:rgba(109,77,242,0.13) !important; border-color:rgba(109,77,242,0.35) !important; }
-.exam-cat-btn.active { background:rgba(109,77,242,0.2) !important; border-color:rgba(109,77,242,0.5) !important; box-shadow:0 0 0 3px rgba(109,77,242,0.15) !important; }
-body.dark .ecat-title { color:#eef2ff !important; }
-.ecat-desc  { color:var(--muted) !important; }
-body.dark .exam-cat-btn.active .ecat-title { color:#c4b5fd !important; }
+/* Dark mode — exam glassmorphic tabs */
+body.dark .exam-type-glass {
+  background: rgba(20,20,38,.55) !important;
+  border-color: rgba(255,255,255,.08) !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,.25) !important;
+}
+body.dark .exam-tab-row + .exam-tab-row { border-top-color: rgba(255,255,255,.06) !important; }
+body.dark .exam-tab-strip { background: rgba(255,255,255,.05) !important; }
+body.dark .exam-tab { color: rgba(180,180,210,.75) !important; }
+body.dark .exam-tab:hover { background: rgba(109,77,242,.18) !important; color: #a78bfa !important; }
+body.dark .exam-tab.active { background: rgba(109,77,242,.28) !important; color: #c4b5fd !important; box-shadow: 0 1px 5px rgba(0,0,0,.4) !important; }
 
 body.dark .gs-item { background:rgba(255,255,255,0.05) !important; border:1px solid rgba(255,255,255,0.09) !important; border-radius:9px !important; }
 body.dark .gs-item.gs-active { background:rgba(109,77,242,0.14) !important; border-color:rgba(109,77,242,0.38) !important; }
