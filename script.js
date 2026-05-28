@@ -9761,6 +9761,8 @@ function saveTeacher() {
   const cls   = document.getElementById('tchClasses').value.trim();
   const qualEl= document.getElementById('tchQual');
   const qual  = qualEl ? qualEl.value.trim() : '';
+  const initialsEl = document.getElementById('tchInitials');
+  const initials = initialsEl ? initialsEl.value.trim().toUpperCase() : '';
   if (!name || !phone) { showToast('Name and phone are required','error'); return; }
   if (user && !validateUsername('teacher', user)) return;
   const editId = document.getElementById('editTchId').value;
@@ -9769,7 +9771,7 @@ function saveTeacher() {
   const canAn = existingTeacher ? !!existingTeacher.canAnalyse : false;
   const canRp = existingTeacher ? !!existingTeacher.canReport  : false;
   const canMr = existingTeacher ? !!existingTeacher.canMerit   : false;
-  const obj = { name, phone, email, username:user, password:pass, classes:cls, qual, canAnalyse:canAn, canReport:canRp, canMerit:canMr };
+  const obj = { name, phone, email, username:user, password:pass, classes:cls, qual, initials, canAnalyse:canAn, canReport:canRp, canMerit:canMr };
   if (editId) {
     const i = teachers.findIndex(t => t.id === editId);
     if (i > -1) {
@@ -9798,13 +9800,14 @@ function editTeacher(id) {
   document.getElementById('tchUser').value=t.username||'';
   document.getElementById('tchPass').value=t.password||'';
   document.getElementById('tchClasses').value=t.classes||'';
+  const inEl=document.getElementById('tchInitials'); if(inEl) inEl.value=t.initials||'';
   // Rights are read-only here (managed in Settings) — no UI to update
   document.getElementById('tchFormTitle').innerHTML = '<i class="fa-solid fa-pen"></i>️ Edit Teacher';
   document.getElementById('tchName').scrollIntoView({behavior:'smooth',block:'center'});
 }
 
 function cancelTchEdit() {
-  ['editTchId','tchName','tchPhone','tchEmail','tchUser','tchPass','tchClasses'].forEach(id=>{const el=document.getElementById(id);if(el){el.value='';delete el.dataset.edited;}});
+  ['editTchId','tchName','tchPhone','tchEmail','tchUser','tchPass','tchClasses','tchInitials'].forEach(id=>{const el=document.getElementById(id);if(el){el.value='';delete el.dataset.edited;}});
   const prevEl=document.getElementById('tchUserPreview'); if(prevEl) prevEl.textContent='';
   document.getElementById('tchFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Add Teacher';
 }
@@ -10262,7 +10265,10 @@ function getStudentReport(stuId, examId) {
       const score = mk ? mk.score : null;
       const absent = score === null;
       const g   = !absent ? getGrade(score, sub.max) : null;
-      return { name:sub.name, code:sub.code, max:sub.max, score, absent, grade:absent?'X':g?.grade||'—', points:absent?'X':g?.points||'—', label:absent?'Absent/Missing':g?.label||'—' };
+      const sa  = streamAssignments.find(a => a.streamId === stu.streamId && a.subjectId === sid);
+      const tch = sa ? teachers.find(t => t.id === sa.teacherId) : null;
+      const teacherInitials = tch ? (tch.initials || getInitials(tch.name)) : '—';
+      return { name:sub.name, code:sub.code, max:sub.max, score, absent, grade:absent?'X':g?.grade||'—', points:absent?'X':g?.points||'—', label:absent?'Absent/Missing':g?.label||'—', teacherInitials };
     }).filter(Boolean);
   }
 
@@ -10350,7 +10356,7 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
       return `<tr${r.absent ? ' style="background:#fff8f8;opacity:.85"' : ''}>
       <td>${i+1}</td>
       <td>${r.name}</td>
-      <td style="text-align:center">${r.max}</td>
+      <td style="text-align:center;font-size:.78rem;font-weight:700;color:var(--primary)">${r.teacherInitials||'—'}</td>
       <td style="text-align:center;font-weight:600">${r.absent ? '<span style="color:#dc2626;font-weight:700;font-size:.95rem">X</span>' : r.score}</td>
       <td style="text-align:center"><strong style="${r.absent ? 'color:#dc2626' : ''}">${r.grade}</strong></td>
       <td style="text-align:center">${r.absent ? '<span style="color:#dc2626">X</span>' : r.points}</td>
@@ -10398,7 +10404,7 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
               ${data.isConsolidated && srcExams.length > 0
                 ? srcExams.map(e=>`<th style="text-align:center;font-size:.68rem;padding:.2rem .3rem;white-space:nowrap">${e.name}</th>`).join('')
                   + '<th style="text-align:center;background:#dcfce7;padding:.2rem .3rem">Avg</th>'
-                : '<th style="text-align:center">Out Of</th><th style="text-align:center">Score</th>'}
+                : '<th style="text-align:center">Teacher</th><th style="text-align:center">Score</th>'}
               <th style="text-align:center${data.isConsolidated && srcExams.length > 0 ? ';padding:.2rem .3rem' : ''}">Grade</th>
               <th style="text-align:center${data.isConsolidated && srcExams.length > 0 ? ';padding:.2rem .3rem' : ''}">Pts</th>
               <th style="${data.isConsolidated && srcExams.length > 0 ? 'padding:.2rem .3rem' : ''}">Remarks</th>
@@ -10415,7 +10421,7 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
                     },0);
                     return `<td style="text-align:center;padding:.2rem .3rem;font-size:.75rem">${parseFloat(colTotal.toFixed(1))}</td>`;
                   }).join('') + `<td style="text-align:center;font-weight:700;background:#f0fdf4;padding:.2rem .3rem;font-size:.75rem">${parseFloat(data.total.toFixed(1))}</td>`
-                : `<td style="text-align:center">${data.subjectRows.filter(r=>!r.absent).reduce((a,r)=>a+r.max,0)}</td><td style="text-align:center">${data.total}</td>`}
+                : `<td style="text-align:center"></td><td style="text-align:center">${data.total}</td>`}
               <td style="text-align:center${data.isConsolidated && srcExams.length > 0 ? ';padding:.2rem .3rem;font-size:.75rem' : ''}">${data.mGrade.grade}</td>
               <td style="text-align:center${data.isConsolidated && srcExams.length > 0 ? ';padding:.2rem .3rem;font-size:.75rem' : ''}">${data.totalPoints}</td>
               <td style="${data.isConsolidated && srcExams.length > 0 ? 'padding:.2rem .3rem;font-size:.72rem' : ''}">Avg: <strong>${getAverageMark(data.total, data.subjectRows.filter(r=>!r.absent).length).toFixed(1)}</strong> &nbsp;|\&nbsp; ${getPointsGrade(data.totalPoints).grade}</td>

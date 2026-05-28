@@ -1147,6 +1147,9 @@
           <div class="fg"><label>Email</label><input type="email" id="tchEmail" placeholder="teacher@school.ke"/></div>
         </div>
         <div class="frow c3">
+          <div class="fg"><label>Initials <span style="font-size:.75rem;color:var(--muted)">(shown on report card)</span></label><input type="text" id="tchInitials" placeholder="e.g. JKM" maxlength="5" style="text-transform:uppercase"/></div>
+        </div>
+        <div class="frow c3">
           <div class="fg">
               <label>Username (Login) <span id="tchUserPreview" style="font-size:.72rem;color:var(--primary);font-weight:600"></span></label>
               <input type="text" id="tchUser" placeholder="firstname@schoolcode (auto-filled)" oninput="this.dataset.edited='1';document.getElementById('tchUserPreview').textContent=''"/>
