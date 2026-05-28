@@ -14945,6 +14945,19 @@ function onFovClassChange() {
   renderFeeOverview();
 }
 
+// Returns the effective totalFee for a fee record:
+// If the record's totalFee is 0 (e.g. created before a fee structure was set),
+// fall back to the current fee structure for that student/class/term/year.
+function getEffectiveTotalFee(rec) {
+  const stored = parseFloat(rec.totalFee || 0);
+  if (stored > 0) return stored;
+  const stu = students.find(s => s.id === rec.studentId);
+  const struct = stu
+    ? getFeeStructureForStudent(stu, rec.term, rec.year)
+    : getFeeStructure(rec.classId, rec.term, rec.year);
+  return struct ? parseFloat(struct.totalFee || 0) : 0;
+}
+
 function renderFeeOverview() {
   loadFees();
   const filterClass  = document.getElementById('fovClass')?.value  || '';
@@ -15009,13 +15022,7 @@ function renderFeeOverview() {
           const recs = feeRecords.filter(r => r.studentId===stu.id
             && (!filterTerm || r.term===filterTerm)
             && (!filterYear || String(r.year)===filterYear));
-          recs.forEach(r => { expected += parseFloat(r.totalFee||0); collected += getRecordTotalPaid(r); });
-          if (!recs.length) {
-            const structs = feeStructures.filter(f => f.classId===cls.id
-              && (!f.streamId || f.streamId===stream.id)
-              && (!filterTerm || f.term===filterTerm)
-              && (!filterYear || String(f.year)===filterYear));
-            structs.forEach(s => { expected += parseFloat(s.totalFee||0); });
+          recs.forEach(r => { expected += getEffectiveTotalFee(r); collected += getRecordTotalPaid(r); });
           }
         });
         const outstanding = expected - collected;
@@ -15034,7 +15041,7 @@ function renderFeeOverview() {
         const recs = feeRecords.filter(r => r.studentId===stu.id
           && (!filterTerm || r.term===filterTerm)
           && (!filterYear || String(r.year)===filterYear));
-        recs.forEach(r => { expected += parseFloat(r.totalFee||0); collected += getRecordTotalPaid(r); });
+        recs.forEach(r => { expected += getEffectiveTotalFee(r); collected += getRecordTotalPaid(r); });
         if (!recs.length) {
           const structs = feeStructures.filter(f => f.classId===cls.id
             && (!filterTerm || f.term===filterTerm)
@@ -15199,6 +15206,21 @@ function saveFeeStructure() {
     if (dup) { showToast('A structure already exists for this class/stream/term/year. Edit it instead.', 'error'); return; }
     feeStructures.push({ id: uid(), ...structObj });
   }
+
+  // Sync existing fee records that have totalFee=0 for this class/term/year
+  // (records created before the fee structure was set, or when no structure existed)
+  feeRecords.forEach(rec => {
+    if (rec.term !== term || String(rec.year) !== String(year)) return;
+    if (rec.classId !== classId) return;
+    // Stream-specific structure: only apply to students in that stream
+    if (streamId) {
+      const recStu = students.find(s => s.id === rec.studentId);
+      if (!recStu || recStu.streamId !== streamId) return;
+    }
+    if (parseFloat(rec.totalFee || 0) === 0) {
+      rec.totalFee = total;
+    }
+  });
 
   saveFees();
   clearFstrForm();
@@ -15547,11 +15569,14 @@ function renderStudentBalances() {
       if (feeSyncStr && stu.streamId && !feeSyncStr.includes(stu.streamId)) return;
     }
     const cls = classes.find(c => c.id === rec.classId);
+    const effectiveFee = getEffectiveTotalFee(rec);
+    // If the stored totalFee was 0 but a structure now exists, update the record in-memory for correct display
+    if (effectiveFee > 0 && parseFloat(rec.totalFee || 0) === 0) rec.totalFee = effectiveFee;
     const paid = getRecordTotalPaid(rec);
     const prevBal = getPreviousBalance(rec.studentId, rec.term, rec.year);
     const bal  = getRecordBalance(rec);
     const cumBal = prevBal + bal;
-    const pct  = rec.totalFee > 0 ? Math.round(paid/rec.totalFee*100) : 0;
+    const pct  = effectiveFee > 0 ? Math.round(paid/effectiveFee*100) : 0;
     const cumBalRounded = Math.round(cumBal * 100) / 100;
     let statusKey = cumBalRounded <= 0 ? 'cleared' : paid > 0 ? 'partial' : 'unpaid';
 
