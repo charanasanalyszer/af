@@ -4219,6 +4219,8 @@ function launchApp() {
   // Teachers are locked out of dashboard — send them straight to exams
   if (currentUser && currentUser.role === 'teacher') {
     go('exams', document.querySelector('[data-s="exams"]'));
+  } else if (currentUser && currentUser.role === 'bursar') {
+    go('fees', document.querySelector('[data-s="fees"]'));
   } else {
     go('dashboard', document.querySelector('[data-s="dashboard"]'));
   }
@@ -14099,6 +14101,10 @@ function go(sec, el) {
     const allowed = ['exams', ...(isClassTch ? ['fees'] : [])];
     if (!allowed.includes(sec)) return;
   }
+  // BURSAR LOCKDOWN: bursars can only navigate to 'fees' and 'staffdetails'
+  if (currentUser && currentUser.role === 'bursar') {
+    if (!['fees', 'staffdetails'].includes(sec)) return;
+  }
   document.querySelectorAll('.sec').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.sn').forEach(n => n.classList.remove('active'));
   const s = document.getElementById('s-'+sec);
@@ -16770,7 +16776,26 @@ function applyRoleBasedUI() {
   }
 
   // ══════════════════════════════════════════════
-  //  NON-TEACHER: restore full / role-appropriate UI
+  //  BURSAR LOCKDOWN
+  //  Only Fees (Finance) and Staff Details (Salaries) are visible.
+  // ══════════════════════════════════════════════
+  if (isBursar) {
+    const ALL_SECTIONS = ['dashboard','students','subjects','classes','teachers',
+      'timetable','exams','reports','papers','messaging','settings','people','platform','livechat'];
+    ALL_SECTIONS.forEach(sec => {
+      document.querySelectorAll(`[data-s="${sec}"]`).forEach(el => el.style.display = 'none');
+    });
+    document.querySelectorAll('[data-s="fees"]').forEach(el => el.style.display = '');
+    document.querySelectorAll('[data-s="staffdetails"]').forEach(el => el.style.display = '');
+    // Hide admin-only cards and destructive buttons
+    const stuAddCard = document.getElementById('stuAddCard');
+    if (stuAddCard) stuAddCard.style.display = 'none';
+    const stuUploadCard = document.getElementById('stuUploadCard');
+    if (stuUploadCard) stuUploadCard.style.display = 'none';
+    const tchMyCard = document.getElementById('tchMyClassListCard');
+    if (tchMyCard) tchMyCard.style.display = 'none';
+    return;
+  }
   // ══════════════════════════════════════════════
 
   // Restore all sidebar sections
