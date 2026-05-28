@@ -5542,20 +5542,68 @@ function loadUmStudents() {
   const empty    = document.getElementById('umEmpty');
   const maxLabel = document.getElementById('umMaxLabel');
   const subLabel = document.getElementById('umSubjectLabel');
+  const banner   = document.getElementById('umOutOfBanner');
   body.innerHTML = '';
 
-  if (!examId || !subjectId) { empty.style.display=''; return; }
-  empty.style.display = 'none';
+  if (!examId || !subjectId) {
+    if (empty) empty.style.display = '';
+    if (banner) banner.style.display = 'none';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
 
   const sub  = subjects.find(s=>s.id===subjectId);
   if (!sub) return;
-  const exam    = exams.find(e=>e.id===examId);
-  const examMax = sub.max || (exam && exam.maxScore) || 100;
-  const showPct = examMax !== 100;
+  const exam = exams.find(e=>e.id===examId);
+  if (subLabel) subLabel.textContent = `— ${sub.name}`;
+
+  // Show the Out-of banner so the teacher sets the max before marks load
+  if (banner) {
+    banner.style.display = 'flex';
+    const inp = document.getElementById('umOutOfInput');
+    if (inp) inp.value = sub.max && sub.max !== 100 ? sub.max : '';
+  }
+  // Hide the table header /100 col until confirmed
   const pctHeader = document.getElementById('umPctHeader');
+  if (pctHeader) pctHeader.style.display = 'none';
+  if (maxLabel) maxLabel.textContent = '';
+}
+
+function umOutOfChanged() {
+  // Real-time validation only — confirmation happens on button click
+}
+
+function umConfirmOutOf() {
+  const examId    = document.getElementById('umExam').value;
+  const subjectId = document.getElementById('umSubject').value;
+  const streamId  = document.getElementById('umStream').value;
+  const inp       = document.getElementById('umOutOfInput');
+  const banner    = document.getElementById('umOutOfBanner');
+  const body      = document.getElementById('umBody');
+  const empty     = document.getElementById('umEmpty');
+  const maxLabel  = document.getElementById('umMaxLabel');
+  const pctHeader = document.getElementById('umPctHeader');
+
+  const outOf = parseInt(inp?.value);
+  if (!outOf || outOf < 1) { showToast('Please enter a valid maximum mark (e.g. 80)', 'error'); inp?.focus(); return; }
+
+  // Persist the max on the subject so grading everywhere stays consistent
+  const sub = subjects.find(s => s.id === subjectId);
+  if (!sub) return;
+  sub.max = outOf;
+  save(K.subjects, subjects);
+
+  // Hide the banner
+  if (banner) banner.style.display = 'none';
+
+  const exam    = exams.find(e => e.id === examId);
+  const examMax = outOf;
+  const showPct = examMax !== 100;
   if (pctHeader) pctHeader.style.display = showPct ? '' : 'none';
-  maxLabel.textContent = `(Max: ${examMax})`;
-  subLabel.textContent = `— ${sub.name}`;
+  if (maxLabel)  maxLabel.textContent = `(Max: ${examMax})`;
+
+  if (empty) empty.style.display = 'none';
+  body.innerHTML = '';
 
   // Determine if current user is a teacher (hide grade/points from teachers)
   const isTeacher = currentUser && currentUser.role === 'teacher';

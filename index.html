@@ -454,20 +454,11 @@
               <select id="examClass"><option value="">— All Classes —</option></select>
             </div>
           </div>
-          <div class="frow c3" style="margin-top:-.25rem">
+          <div class="frow c3" style="margin-top:-.25rem;display:none">
             <div class="fg">
-              <label style="display:flex;align-items:center;gap:.4rem">
-                <i class="fa-solid fa-bullseye" style="color:var(--primary);font-size:.85rem"></i>
-                Total Marks <span style="font-weight:400;color:var(--muted);font-size:.78rem">(Out of / Maximum)</span>
-              </label>
-              <input type="number" id="examMaxScore" min="1" max="1000" placeholder="100" value="100" style="max-width:160px"/>
+              <input type="number" id="examMaxScore" min="1" max="1000" placeholder="100" value="100" style="max-width:160px;display:none"/>
             </div>
-            <div class="fg" style="display:flex;align-items:flex-end">
-              <div style="background:var(--blue-lt,#eef4ff);border:1px solid var(--border);border-radius:8px;padding:.45rem .85rem;font-size:.78rem;color:var(--muted);width:100%">
-                <i class="fa-solid fa-circle-info" style="color:var(--primary)"></i>
-                Sets the <strong>maximum score</strong> per subject for this exam. Used in percentage and grade calculations.
-              </div>
-            </div>
+            <div class="fg">
           </div>
 
           <!-- Source exams picker (Consolidated only) -->
@@ -717,6 +708,19 @@
           <!-- By Subject view (default) -->
           <div id="umSubjectView">
             <p style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem"><i class="fa-solid fa-lightbulb"></i> Press <kbd>Enter</kbd> or <kbd>Tab</kbd> to move to next student. Marks auto-save as you type.</p>
+            <!-- Out-of prompt: teacher sets the max before entering marks -->
+            <div id="umOutOfBanner" style="display:none;background:var(--blue-lt,#eef4ff);border:1.5px solid var(--primary);border-radius:10px;padding:.65rem 1rem;margin-bottom:.85rem;align-items:center;gap:.75rem;flex-wrap:wrap">
+              <i class="fa-solid fa-bullseye" style="color:var(--primary);font-size:1.1rem"></i>
+              <div style="flex:1;min-width:180px">
+                <div style="font-weight:700;font-size:.88rem;color:var(--primary)">What is this subject marked out of?</div>
+                <div style="font-size:.75rem;color:var(--muted);margin-top:.1rem">Marks will be automatically converted to /100 for grading.</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:.5rem">
+                <label style="font-size:.82rem;font-weight:600;color:var(--fg);white-space:nowrap">Out of:</label>
+                <input type="number" id="umOutOfInput" min="1" max="1000" placeholder="e.g. 80" style="width:90px;padding:.35rem .6rem;border:1.5px solid var(--primary);border-radius:7px;font-size:.95rem;font-weight:700;text-align:center;background:var(--surface)" oninput="umOutOfChanged()" onkeydown="if(event.key==='Enter')umConfirmOutOf()"/>
+              </div>
+              <button onclick="umConfirmOutOf()" style="background:var(--primary);color:#fff;border:none;padding:.38rem 1rem;border-radius:7px;font-size:.82rem;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fa-solid fa-check"></i> Confirm &amp; Load</button>
+            </div>
             <div class="tbl-wrap">
               <table id="umTable">
                 <thead><tr><th>#</th><th>Adm No</th><th>Student Name</th><th>Gender</th><th>Stream</th><th>Marks <span id="umMaxLabel"></span></th><th id="umPctHeader" style="text-align:center;display:none">/100</th><th class="um-grade-col">Grade</th><th class="um-points-col">Points</th><th style="text-align:center">Updated By</th><th style="text-align:center">Save</th></tr></thead>
