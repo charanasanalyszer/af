@@ -14939,9 +14939,19 @@ function renderFeeOverview() {
 
   const isTeacher = currentUser && currentUser.role === 'teacher';
   const isFullFeesRole = currentUser && (currentUser.role==='superadmin'||currentUser.role==='admin'||currentUser.role==='principal'||currentUser.role==='bursar');
+  const isClassTch = isTeacher && currentUserIsClassTeacher();
+  const myStreamIds = isClassTch ? getMyClassTeacherStreams().map(s => s.id) : null;
   const teacherClassIds = (isTeacher && !isFullFeesRole)
     ? [...new Set(getClassTeacherStreamIds(currentUser.teacherId).map(sid => { const s=streams.find(x=>x.id===sid); return s?s.classId:null; }).filter(Boolean))]
     : null;
+
+  // Class teacher: force stream filter to their stream(s) — override any dropdown value
+  let effectiveStreamFilter = filterStream;
+  if (isClassTch && myStreamIds && myStreamIds.length) {
+    if (!effectiveStreamFilter || !myStreamIds.includes(effectiveStreamFilter)) {
+      effectiveStreamFilter = myStreamIds.length === 1 ? myStreamIds[0] : '';
+    }
+  }
 
   const feeSyncedCls = getFeeVisibleClasses();
   let visibleClasses = teacherClassIds
@@ -14950,8 +14960,8 @@ function renderFeeOverview() {
   if (filterClass) visibleClasses = visibleClasses.filter(c => c.id === filterClass);
 
   // If stream filter active but no class filter, auto-narrow classes to those containing that stream
-  if (filterStream && !filterClass) {
-    const streamObj = streams.find(s => s.id === filterStream);
+  if (effectiveStreamFilter && !filterClass) {
+    const streamObj = streams.find(s => s.id === effectiveStreamFilter);
     if (streamObj) visibleClasses = visibleClasses.filter(c => c.id === streamObj.classId);
   }
 
@@ -14966,14 +14976,14 @@ function renderFeeOverview() {
   visibleClasses.forEach(cls => {
     // Determine which streams to show
     // Streams visible for this class — class teacher always limited to their own streams
-    let clsStreams = filterStream
-      ? streams.filter(s => s.id === filterStream && s.classId === cls.id)
+    let clsStreams = effectiveStreamFilter
+      ? streams.filter(s => s.id === effectiveStreamFilter && s.classId === cls.id)
       : getFeeVisibleStreams(cls.id);
     if (myStreamIds) clsStreams = clsStreams.filter(s => myStreamIds.includes(s.id));
 
     if (!clsStreams.length) return; // no accessible streams in this class
 
-    if (filterStream || isClassTch) {
+    if (effectiveStreamFilter || isClassTch) {
       // Stream-level rows (always for class teachers, or when stream filter active)
       clsStreams.forEach(stream => {
         const streamStudents = students.filter(s => s.classId === cls.id && s.streamId === stream.id);
@@ -15541,6 +15551,8 @@ function renderStudentBalances() {
     const clsId = stu.classId;
     if (teacherClassIds && !teacherClassIds.includes(clsId)) return;
     if (filterClass && clsId !== filterClass) return;
+    // Class teacher: enforce stream restriction on "no record" students too
+    if (myStreamIds && !myStreamIds.includes(stu.streamId)) return;
     // Respect fee sync settings
     if (sbFeeSyncCls && !sbFeeSyncCls.includes(clsId)) return;
     if (sbFeeSyncStr && stu.streamId && !sbFeeSyncStr.includes(stu.streamId)) return;
