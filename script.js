@@ -4759,11 +4759,6 @@ function umStuSaveAll(studentId) {
   renderDashboard();
   setTimeout(renderUmSubjectStatusPanel, 100);
 }
-  save(K.marks, marks);
-  showToast(`<i class="fa-solid fa-check"></i> ${saved} mark${saved!==1?'s':''} saved for ${students.find(s=>s.id===studentId)?.name||'learner'}`, 'success');
-  renderDashboard();
-  setTimeout(renderUmSubjectStatusPanel, 100);
-}
 
 
 function toggleDark() { const d=document.body.classList.toggle('dark'); applyDark(d); }
@@ -15055,6 +15050,12 @@ function renderFeeOverview() {
             && (!filterTerm || r.term===filterTerm)
             && (!filterYear || String(r.year)===filterYear));
           recs.forEach(r => { expected += getEffectiveTotalFee(r); collected += getRecordTotalPaid(r); });
+          if (!recs.length) {
+            const structs = feeStructures.filter(f => f.classId===cls.id
+              && (!f.streamId || f.streamId===stream.id)
+              && (!filterTerm || f.term===filterTerm)
+              && (!filterYear || String(f.year)===filterYear));
+            structs.forEach(s => { expected += parseFloat(s.totalFee||0); });
           }
         });
         const outstanding = expected - collected;
