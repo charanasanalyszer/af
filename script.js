@@ -4598,14 +4598,19 @@ function umRenderStudentMarks(studentId) {
 
   const gradeColorMap = { EE1:'#16a34a',EE2:'#0d9488',ME1:'#2563eb',ME2:'#0ea5e9',AE1:'#d97706',AE2:'#ea580c',BE1:'#dc2626',BE2:'#991b1b' };
 
+  // Determine if ANY subject needs /100 conversion column (consistent header + rows)
+  const showPctHeader = visibleSubs.some(sub => {
+    const subMax = (exam.maxScore) ? exam.maxScore : (sub.max || 100);
+    return subMax !== 100;
+  });
+
   const rows = visibleSubs.map((sub, idx) => {
     const subMax  = (exam.maxScore) ? exam.maxScore : (sub.max || 100);
-    const showPct = subMax !== 100;
     const existing = marks.find(m => m.examId === examId && m.studentId === studentId && m.subjectId === sub.id);
     const score    = existing !== undefined ? existing.score : '';
     const g        = score !== '' ? getGrade(score, subMax) : null;
     const gColor   = g ? (gradeColorMap[g.grade] || '#6b7280') : 'var(--muted)';
-    const pct100   = (score !== '' && subMax > 0 && showPct) ? Math.round((score / subMax) * 100) : '';
+    const pct100   = (score !== '' && subMax > 0) ? Math.round((score / subMax) * 100) : '';
 
     return `<tr id="umstu_row_${sub.id}">
       <td style="font-weight:700;color:var(--primary)">${sub.code}</td>
@@ -4618,7 +4623,7 @@ function umRenderStudentMarks(studentId) {
           oninput="umStuOnInput(this)" onkeydown="umStuOnKey(event,this)"
           style="width:72px;text-align:center"/>
       </td>
-      ${showPct ? `<td id="umstu_pct_${sub.id}" style="text-align:center;font-size:.8rem;color:var(--muted)">${pct100 !== '' ? pct100 : '—'}</td>` : ''}
+      ${showPctHeader ? `<td id="umstu_pct_${sub.id}" style="text-align:center;font-size:.8rem;color:var(--muted)">${pct100 !== '' ? pct100 : '—'}</td>` : ''}
       <td id="umstu_gr_${sub.id}" style="text-align:center;font-weight:700;color:${gColor};font-size:.88rem">${g ? g.grade : '—'}</td>
       ${!isTeacher ? `<td id="umstu_pt_${sub.id}" style="text-align:center;color:var(--muted);font-size:.85rem">${g ? g.points : '—'}</td>` : ''}
       <td id="umstu_ub_${sub.id}" style="text-align:center;font-size:.72rem;color:var(--muted)">${existing?.updatedBy ? `<span title="${existing.updatedAt||''}" style="color:var(--primary);font-weight:600">${existing.updatedBy}</span>` : '—'}</td>
@@ -4650,7 +4655,7 @@ function umRenderStudentMarks(studentId) {
             <th>Subject</th>
             <th style="text-align:center">Max</th>
             <th style="text-align:center">Mark</th>
-            ${exam.maxScore && exam.maxScore !== 100 ? '<th style="text-align:center">/100</th>' : ''}
+            ${showPctHeader ? '<th style="text-align:center">/100</th>' : ''}
             <th style="text-align:center">Grade</th>
             ${!isTeacher ? '<th style="text-align:center">Pts</th>' : ''}
             <th style="text-align:center">Updated By</th>
@@ -4703,7 +4708,7 @@ function umStuOnInput(inp) {
   }
   inp.style.borderColor = '';
   inp.title = '';
-  if (pctEl) pctEl.textContent = max !== 100 ? Math.round((val / max) * 100) : '';
+  if (pctEl) pctEl.textContent = max > 0 ? Math.round((val / max) * 100) : '';
   const g = getGrade(val, max);
   if (gEl) { gEl.textContent = g.grade; gEl.style.color = gradeColorMap[g.grade] || '#6b7280'; }
   if (!isTeacher && ptEl) ptEl.textContent = g.points;
@@ -5638,7 +5643,7 @@ function onMarkInput(inp) {
   }
   inp.style.borderColor = '';
   inp.title = '';
-  if (pctEl) pctEl.textContent = max !== 100 ? Math.round((val / max) * 100) : '';
+  if (pctEl) pctEl.textContent = max > 0 ? Math.round((val / max) * 100) : '';
   const g = getGrade(val, max);
   if (!isTeacher) {
     const grEl = document.getElementById('gr_'+inp.dataset.stuId);
