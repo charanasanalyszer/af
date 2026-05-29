@@ -4195,3 +4195,117 @@ body:not(.dark) .toast.success {
   -webkit-backdrop-filter: blur(10px);
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════
+   SECTION CONTENT FIX — Prevents blank top space in all sections.
+   Root causes addressed:
+   1. .ph is hidden but counted as first-child; subsequent hidden divs
+      (display:none, empty divs, <style> tags) also consume :first-child
+      selectors, leaving real content with unzeroed top margin.
+   2. Some sections have empty placeholder divs (e.g. #sdProxyStats)
+      that are visually empty but still render their margin-bottom.
+   3. Timetable #wizard had min-height:100vh causing content to push down.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Zero top margin on ALL direct children of .sec — safe because
+   inter-card spacing uses margin-bottom / gap, never margin-top */
+.sec > * {
+  margin-top: 0 !important;
+}
+
+/* Empty placeholder divs that are visible (not display:none) but have
+   no content should not produce vertical space */
+#sdProxyStats:empty {
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+}
+
+/* Finance feesAdminStats hidden div — ensure no space leaks through */
+#feesAdminStats {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Timetable: wizard should not try to fill full viewport —
+   .main already accounts for the topbar; overflow is handled by .main */
+#s-timetable #wizard {
+  min-height: auto !important;
+  padding-top: 16px !important;
+  align-items: flex-start !important;
+}
+
+/* When tt-app is shown, let .main handle scroll — don't double-constrain height */
+#s-timetable #tt-app {
+  height: calc(100vh - var(--tb-h, 52px) - 2rem) !important;
+}
+
+/* Ensure tab bars in sections sit flush at the top */
+.sec > .tab-bar,
+.sec > .finance-main-tabbar,
+.sec > .sec-stack,
+.sec > .card,
+.sec > .grid-2,
+.sec > .frow,
+.sec > .stat-row {
+  margin-top: 0 !important;
+}
+
+/* First real content after hidden elements (display:none divs, style tags, etc.)
+   Use :is() to catch common patterns */
+.sec > style + *,
+.sec > script + *,
+.sec > [style*="display:none"] + *,
+.sec > .ph + [style*="display:none"] + * {
+  margin-top: 0 !important;
+}
+
+
+/* ── Per-section first-content alignment ── */
+
+/* Staff Details: stats bar is empty on load — no top gap before tab bar */
+#s-staffdetails > #sdProxyStats {
+  min-height: 0 !important;
+}
+#s-staffdetails > #sdProxyStats:empty {
+  display: none !important;
+}
+#s-staffdetails > #sdProxyTabBar {
+  margin-top: 0 !important;
+}
+
+/* Finance: hidden admin stats div — no gap when hidden/empty */
+#s-fees > #feesAdminStats[style*="display:none"],
+#s-fees > #feesAdminStats:empty {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+#s-fees > #financeMainTabBar {
+  margin-top: 0 !important;
+}
+
+/* Settings: sec-stack starts immediately */
+#s-settings > .sec-stack {
+  margin-top: 0 !important;
+}
+
+/* Messaging: sec-stack starts immediately */
+#s-messaging > .sec-stack {
+  margin-top: 0 !important;
+}
+
+/* Subjects: card starts immediately */
+#s-subjects > .card {
+  margin-top: 0 !important;
+}
+
+/* Classes: grid-2 starts immediately */
+#s-classes > .grid-2 {
+  margin-top: 0 !important;
+}
+
+/* Students, Teachers — ensure first child card/stat-row has no top gap */
+#s-students > *:first-child,
+#s-students > .ph + * { margin-top: 0 !important; }
+#s-teachers > *:first-child,
+#s-teachers > .ph + * { margin-top: 0 !important; }
+
