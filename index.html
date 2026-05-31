@@ -28,16 +28,16 @@
   <div class="login-bg-images" aria-hidden="true">
     <!-- Grid of images — separate from overlay so overlay isn't a grid item -->
     <div class="login-bg-grid">
-      <!-- Row 1: students learning -->
-      <div class="lbi lbi1" style="background-image:url('https://images.unsplash.com/photo-1529390079861-591de354faf5?w=900&auto=format&fit=crop&q=60')"></div>
-      <div class="lbi lbi2" style="background-image:url('https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=900&auto=format&fit=crop&q=60')"></div>
-      <div class="lbi lbi3" style="background-image:url('https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=900&auto=format&fit=crop&q=60')"></div>
-      <div class="lbi lbi4" style="background-image:url('https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=900&auto=format&fit=crop&q=60')"></div>
-      <!-- Row 2: analytics & finance -->
-      <div class="lbi lbi5" style="background-image:url('https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=900&auto=format&fit=crop&q=60')"></div>
-      <div class="lbi lbi6" style="background-image:url('https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=900&auto=format&fit=crop&q=60')"></div>
-      <div class="lbi lbi7" style="background-image:url('https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=900&auto=format&fit=crop&q=60')"></div>
-      <div class="lbi lbi8" style="background-image:url('https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=900&auto=format&fit=crop&q=60')"></div>
+      <!-- Row 1: black students learning — picsum fixed seeds -->
+      <div class="lbi lbi1" style="background-image:url('https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80')"></div>
+      <div class="lbi lbi2" style="background-image:url('https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=800&auto=format&fit=crop&q=80')"></div>
+      <div class="lbi lbi3" style="background-image:url('https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=800&auto=format&fit=crop&q=80')"></div>
+      <div class="lbi lbi4" style="background-image:url('https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&auto=format&fit=crop&q=80')"></div>
+      <!-- Row 2: analytics dashboards & finance reports -->
+      <div class="lbi lbi5" style="background-image:url('https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&auto=format&fit=crop&q=80')"></div>
+      <div class="lbi lbi6" style="background-image:url('https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80')"></div>
+      <div class="lbi lbi7" style="background-image:url('https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop&q=80')"></div>
+      <div class="lbi lbi8" style="background-image:url('https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=800&auto=format&fit=crop&q=80')"></div>
     </div>
     <!-- Overlay sits outside the grid so it covers all cells properly -->
     <div class="lbi-overlay"></div>
@@ -8014,7 +8014,24 @@ function etPrint() {
     <style>body{font-family:sans-serif;padding:24px;font-size:12px}
     table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;vertical-align:top}
     th{background:#f3f4f6;font-weight:700}@media print{body{padding:0}}</style></head><body>
-    ${out.innerHTML}</body></html>`);
+    ${out.innerHTML}
+<script>
+/* Preload login background images so they're ready when page loads */
+(function(){
+  var urls = [
+    'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=800&auto=format&fit=crop&q=80'
+  ];
+  urls.forEach(function(u){ var i=new Image(); i.src=u; });
+})();
+</script>
+</body></html>`);
   win.document.close();
   win.print();
 }
@@ -8283,5 +8300,22 @@ if (typeof window.go === 'function') {
   </a>
 </div>
 
+
+<script>
+/* Preload login background images so they're ready when page loads */
+(function(){
+  var urls = [
+    'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=800&auto=format&fit=crop&q=80'
+  ];
+  urls.forEach(function(u){ var i=new Image(); i.src=u; });
+})();
+</script>
 </body>
 </html>

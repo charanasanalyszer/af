@@ -184,14 +184,14 @@ body.login-active { overflow: hidden !important; height: 100vh !important; }
   animation: lbiFadeIn 1.4s ease forwards;
   filter: saturate(0.7) brightness(0.65);
 }
-.lbi1 { grid-column:1; grid-row:1; animation-delay: 0s; }
-.lbi2 { grid-column:2; grid-row:1; animation-delay: 0.2s; }
-.lbi3 { grid-column:3; grid-row:1; animation-delay: 0.4s; }
-.lbi4 { grid-column:4; grid-row:1; animation-delay: 0.6s; }
-.lbi5 { grid-column:1; grid-row:2; animation-delay: 0.3s; }
-.lbi6 { grid-column:2; grid-row:2; animation-delay: 0.5s; }
-.lbi7 { grid-column:3; grid-row:2; animation-delay: 0.7s; }
-.lbi8 { grid-column:4; grid-row:2; animation-delay: 0.9s; }
+.lbi1 { grid-column:1; grid-row:1; animation-delay: 0s;   background-color:#1a4a2e; }
+.lbi2 { grid-column:2; grid-row:1; animation-delay: 0.2s; background-color:#0f3d5c; }
+.lbi3 { grid-column:3; grid-row:1; animation-delay: 0.4s; background-color:#1a3a4a; }
+.lbi4 { grid-column:4; grid-row:1; animation-delay: 0.6s; background-color:#2a1a4a; }
+.lbi5 { grid-column:1; grid-row:2; animation-delay: 0.3s; background-color:#0d3b2e; }
+.lbi6 { grid-column:2; grid-row:2; animation-delay: 0.5s; background-color:#1a2a4a; }
+.lbi7 { grid-column:3; grid-row:2; animation-delay: 0.7s; background-color:#2a3a1a; }
+.lbi8 { grid-column:4; grid-row:2; animation-delay: 0.9s; background-color:#1a3a2a; }
 @keyframes lbiFadeIn { from { opacity:0; } to { opacity:1; } }
 
 /* Blending overlay — sits on top of all images, does NOT go in grid */
