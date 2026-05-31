@@ -224,8 +224,8 @@ body.login-active { overflow: hidden !important; height: 100vh !important; }
   padding: 2.5rem;
   width: 100%; max-width: 430px;
   box-shadow: var(--shadow-lg);
-  position: relative; z-index: 1;
-  animation: slideUp .5s ease;
+  position: relative; z-index: 10;
+  /* card is always fully opaque — only the background images fade in */
 }
 @keyframes slideUp { from{opacity:0;transform:translateY(30px);} to{opacity:1;transform:translateY(0);} }
 
@@ -2426,11 +2426,8 @@ body.dark .sm-class-header { background: var(--primary); }
 
 /* Unified login — reuses .login-screen and .login-card from existing styles */
 #unifiedLogin .login-card {
-  animation: loginFadeIn .35s ease;
-}
-@keyframes loginFadeIn {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
+  /* no fade — card stays solid; background images handle the visual entrance */
+  animation: none;
 }
 
 /* Broadcast banner inside main */
