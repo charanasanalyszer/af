@@ -4197,49 +4197,49 @@ body:not(.dark) .toast.success {
 
 
 /* ══════════════════════════════════════════════════════════════
-   GLOBAL SECTION SPACING & SAFE-AREA FIX (v2)
-   - Eliminate empty space above first card in any section
-   - Ensure content never hides behind topbar or mobile bottom nav
+   MAIN SCROLL CONTAINER — CONSISTENT TOP/BOTTOM PADDING (v3)
+   Goal: content never overlaps the fixed topbar or the mobile
+   bottom nav, and every section starts flush at the top.
    ══════════════════════════════════════════════════════════════ */
 
-/* Strip any top spacing from sections and their immediate children */
+:root {
+  --main-pad-top: 1rem;
+  --main-pad-bottom: 2rem;
+  --mbn-h: 62px;
+}
+
+/* Desktop / tablet: consistent breathing room top and bottom */
+.main {
+  padding-top: var(--main-pad-top) !important;
+  padding-bottom: var(--main-pad-bottom) !important;
+  scroll-padding-top: var(--main-pad-top);
+  scroll-padding-bottom: var(--main-pad-bottom);
+}
+
+/* Mobile: reserve space for the fixed bottom nav so last card is visible */
+@media (max-width: 960px) {
+  .main {
+    padding-top: var(--main-pad-top) !important;
+    padding-bottom: calc(var(--mbn-h) + 1rem + env(safe-area-inset-bottom, 0px)) !important;
+    scroll-padding-bottom: calc(var(--mbn-h) + 1rem + env(safe-area-inset-bottom, 0px));
+  }
+  body.mbn-hidden .main {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+/* Sections inherit .main padding — don't add their own top space */
 .main > .sec,
 .main > .sec.active { margin-top: 0 !important; padding-top: 0 !important; }
 
-.sec > *:first-child,
-.sec > .ph + *,
-.sec > .sec-stack:first-child,
 .sec > .sec-stack > *:first-child,
-.sec-stack > *:first-child { margin-top: 0 !important; padding-top: 0 !important; }
+.sec-stack > *:first-child { margin-top: 0 !important; }
 
-/* Hidden placeholder/spacer elements must not occupy layout space */
-.sec > [hidden],
-.sec > [style*="display:none"],
-.sec > [style*="display: none"],
-.sec > .ph { display: none !important; height: 0 !important; margin: 0 !important; padding: 0 !important; }
+/* Empty placeholder headers shouldn't reserve vertical space */
+.sec > .ph:empty,
+.sec > .ph[hidden] { display: none !important; }
 
-/* Finance tabbar — collapse top gap */
+/* Finance tabbar sits flush at the top of its section */
 #s-fees .finance-main-tabbar,
 #s-fees #feesTabBar,
 #feesTabBar { margin-top: 0 !important; padding-top: 0 !important; }
-#s-fees > .sec-stack { margin-top: 0 !important; }
-
-/* Messaging & Settings — first card flush with topbar */
-#s-messaging > .sec-stack > *:first-child,
-#s-settings  > .sec-stack > *:first-child { margin-top: 0 !important; }
-
-/* Tighten .main top padding so cards meet the topbar */
-.main { padding-top: .35rem !important; }
-
-/* Bottom safe-area — ensure last card is fully visible above bottom nav */
-@media (min-width: 961px) {
-  .main { padding-bottom: 2.5rem !important; }
-}
-@media (max-width: 960px) {
-  .main { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important; }
-  body.mbn-hidden .main { padding-bottom: 1.25rem !important; }
-  /* Extra cushion on the very last child of each tab */
-  #s-messaging > .sec-stack > *:last-child,
-  #s-settings  > .sec-stack > *:last-child,
-  #s-fees      > .sec-stack > *:last-child { margin-bottom: 1rem !important; }
-}
