@@ -4442,6 +4442,7 @@ function openExamTab(id, btn) {
   const p = document.getElementById(id); if (p) p.classList.add('active');
   if (btn) btn.classList.add('active');
   else { const b = document.querySelector(`#examTabBar .tb[onclick*="${id}"]`); if(b) b.classList.add('active'); }
+  if (id === 'tabExamList') { try { renderExamList(); } catch(e) { console.warn('renderExamList', e); } }
   if (id === 'tabAnalyse') checkAnalyseAccess();
   if (id === 'tabMeritList') populateMeritDropdowns();
   if (id === 'tabUploadMarks') populateUmDropdowns();
@@ -6490,11 +6491,12 @@ function renderExamList() {
       <td>${e.class||'All Classes'}</td>
       <td>—</td>
       <td>—</td>
+      <td>—</td>
       <td><span style="font-size:.72rem;color:var(--muted)">Read-only</span></td>
     </tr>`;
   });
   const allRows = [...schoolRows, ...platRows];
-  document.getElementById('examListBody').innerHTML = allRows.join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:1.5rem">No exams yet.</td></tr>';
+  document.getElementById('examListBody').innerHTML = allRows.join('') || '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:1.5rem">No exams yet.</td></tr>';
 }
 
 function editExam(id) {
