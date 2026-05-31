@@ -8015,22 +8015,6 @@ function etPrint() {
     table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;vertical-align:top}
     th{background:#f3f4f6;font-weight:700}@media print{body{padding:0}}</style></head><body>
     ${out.innerHTML}
-<script>
-/* Preload login background images so they're ready when page loads */
-(function(){
-  var urls = [
-    'https://images.unsplash.com/photo-1529390079861-591de354faf5?w=800&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=800&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=800&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=800&auto=format&fit=crop&q=80'
-  ];
-  urls.forEach(function(u){ var i=new Image(); i.src=u; });
-})();
-</script>
 </body></html>`);
   win.document.close();
   win.print();
