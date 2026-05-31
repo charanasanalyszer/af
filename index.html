@@ -23,23 +23,6 @@
 <!-- ══ UNIFIED LOGIN ══ -->
 <div id="unifiedLogin" class="login-screen" style="display:flex">
   <div class="login-shapes"><div class="ls ls1"></div><div class="ls ls2"></div><div class="ls ls3"></div></div>
-
-  <!-- ══ BACKGROUND IMAGE COLLAGE ══ -->
-  <div class="login-bg-images" aria-hidden="true">
-    <!-- Students learning -->
-    <div class="lbi lbi1" style="background-image:url('https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=900&auto=format&fit=crop&q=60')"></div>
-    <div class="lbi lbi2" style="background-image:url('https://images.unsplash.com/photo-1529390079861-591de354faf5?w=900&auto=format&fit=crop&q=60')"></div>
-    <div class="lbi lbi3" style="background-image:url('https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=900&auto=format&fit=crop&q=60')"></div>
-    <!-- Analytics / charts -->
-    <div class="lbi lbi4" style="background-image:url('https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=900&auto=format&fit=crop&q=60')"></div>
-    <div class="lbi lbi5" style="background-image:url('https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=900&auto=format&fit=crop&q=60')"></div>
-    <!-- Finance reports -->
-    <div class="lbi lbi6" style="background-image:url('https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=900&auto=format&fit=crop&q=60')"></div>
-    <div class="lbi lbi7" style="background-image:url('https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=900&auto=format&fit=crop&q=60')"></div>
-    <!-- overlay to blend everything into background -->
-    <div class="lbi-overlay"></div>
-  </div>
-
   <div class="login-card">
     <div class="login-brand">
       <div class="login-logo" style="background:linear-gradient(135deg,#7c3aed,#1a6fb5)">CA</div>
@@ -1744,7 +1727,7 @@
   --text:#1e293b;--muted:#64748b;--r:6px
 }
 #s-timetable * {box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-#s-timetable #wizard {display:flex;flex-direction:column;align-items:center;padding:30px 16px;min-height:calc(100vh - var(--tb-h, 52px))}
+#s-timetable #wizard {display:flex;flex-direction:column;align-items:center;padding:20px 16px;min-height:auto}
 #s-timetable #wizard-card {background:var(--surface);border:1px solid var(--border);border-radius:12px;width:100%;max-width:800px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.1)}
 #s-timetable #wiz-header {background:var(--primary);color:#fff;padding:20px 28px;display:flex;align-items:center;gap:14px}
 #s-timetable #wiz-header h1 {font-size:17px;font-weight:700}
@@ -1775,7 +1758,7 @@
 #s-timetable table.setup input, #s-timetable table.setup select {padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;width:100%}
 #s-timetable .badge {display:inline-block;padding:1px 8px;border-radius:3px;font-size:11px;font-weight:600}
 /* APP */
-#s-timetable #tt-app {display:none;flex-direction:column;height:calc(100vh - var(--tb-h, 52px));overflow:hidden}
+#s-timetable #tt-app {display:none;flex-direction:column;height:calc(100vh - var(--tb-h, 52px) - 1rem);overflow:hidden}
 #s-timetable #tt-topbar {background:var(--primary);color:#fff;padding:0 16px;display:flex;align-items:center;gap:10px;height:46px;flex-shrink:0}
 #s-timetable #tt-topbar h1 {font-size:14px;font-weight:700;color:#7dd3fc}
 #s-timetable #tt-topbar .yr {color:#94a3b8;font-size:11px}
