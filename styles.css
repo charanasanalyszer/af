@@ -270,10 +270,8 @@ body.login-active { overflow: hidden !important; height: 100vh !important; }
   display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.85rem;align-items:center;
 }
 
-/* MAIN — locked frame between sidebar, topbar and (on mobile) bottom nav */
-.main { margin-left:var(--sb-w);margin-top:var(--tb-h);padding:.75rem 1.25rem 1.25rem;height:calc(100vh - var(--tb-h));width:calc(100% - var(--sb-w));max-width:calc(100% - var(--sb-w));box-sizing:border-box;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;transition:margin-left .3s ease,width .3s ease,max-width .3s ease;position:relative; }
-/* Consistent inner padding for Finance / Messaging / Settings so tab switches don't jump */
-#s-fees, #s-messaging, #s-settings { padding:0;margin:0;min-height:100%;box-sizing:border-box; }
+/* MAIN */
+.main { margin-left:var(--sb-w);margin-top:var(--tb-h);padding:.25rem 1.25rem 4rem;height:calc(100vh - var(--tb-h));width:calc(100% - var(--sb-w));max-width:calc(100% - var(--sb-w));box-sizing:border-box;overflow-x:hidden;overflow-y:auto;transition:margin-left .3s ease,width .3s ease,max-width .3s ease;position:relative; }
 
 /* SECTIONS */
 .sec { display:none;animation:fadeUp .3s ease;width:100%;box-sizing:border-box;overflow:visible;margin-top:0;padding-top:0; }
@@ -781,13 +779,12 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
   .sidebar.open { transform:translateX(0); }
   .sb-close { display:flex!important; }
   .topbar { left:0; z-index:65; }
-  /* Lock main scroll area between topbar and bottom nav (62px) on mobile */
-  .main { margin-left:0;margin-top:var(--tb-h);width:100%;max-width:100%;padding:.5rem 1rem 1rem;box-sizing:border-box;height:calc(100vh - var(--tb-h) - 62px); }
+  .main { margin-left:0;margin-top:var(--tb-h);width:100%;max-width:100%;padding:.25rem 1rem calc(62px + 1rem);box-sizing:border-box;height:calc(100vh - var(--tb-h)); }
   .menu-btn { display:flex; }
   .lang-btn { padding:.2rem .5rem;font-size:.7rem; }
 }
 @media (max-width:640px) {
-  .main { padding:.4rem .75rem .75rem; }
+  .main { padding:.2rem .75rem calc(62px + 1rem); }
   .frow.c2,.frow.c3,.frow.c4 { grid-template-columns:1fr; }
   .grid-2 { grid-template-columns:1fr; }
   .dash-charts { grid-template-columns:1fr; }
@@ -2021,8 +2018,7 @@ th[onclick]:hover { background: var(--blue-lt, #eff6ff); color: var(--primary); 
     margin-top: var(--tb-h) !important;
     width: 100% !important;
     max-width: 100% !important;
-    padding: .5rem 1rem 1rem !important;
-    height: calc(100vh - var(--tb-h) - 62px) !important;
+    padding: .3rem 1rem calc(62px + 1rem) !important;
   }
   .topbar {
     left: 0 !important;
@@ -4200,50 +4196,55 @@ body:not(.dark) .toast.success {
 }
 
 
-/* ══════════════════════════════════════════════════════════════
-   MAIN SCROLL CONTAINER — CONSISTENT TOP/BOTTOM PADDING (v3)
-   Goal: content never overlaps the fixed topbar or the mobile
-   bottom nav, and every section starts flush at the top.
-   ══════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════
+   FIX (post): remove empty space at top of Finance / Messaging /
+   Settings sections, and guarantee bottom-content clearance so
+   nothing sits behind the fixed topbar or the mobile bottom nav.
+   ════════════════════════════════════════════════════════════════ */
 
-:root {
-  --main-pad-top: 1rem;
-  --main-pad-bottom: 2rem;
-  --mbn-h: 62px;
+/* --- Top: kill any residual top padding/margin on sections --- */
+.sec { padding-top: 0 !important; margin-top: 0 !important; }
+.sec > .ph { display: none !important; }
+.sec > *:first-child,
+.sec > .ph + *,
+.sec > [style*="display:none"] + * {
+  margin-top: 0 !important;
 }
 
-/* Desktop / tablet: consistent breathing room top and bottom */
-.main {
-  padding-top: var(--main-pad-top) !important;
-  padding-bottom: var(--main-pad-bottom) !important;
-  scroll-padding-top: var(--main-pad-top);
-  scroll-padding-bottom: var(--main-pad-bottom);
+/* Finance: tighten the Fees/Salaries switcher and its inner tab bar */
+#s-fees .finance-main-tabbar {
+  margin-top: 0 !important;
+  margin-bottom: .6rem !important;
+  padding-bottom: .35rem !important;
 }
+#s-fees .finance-main-panel { margin-top: 0 !important; }
+#s-fees .finance-main-panel > .tab-bar,
+#s-fees #feesTabBar { margin-top: 0 !important; }
 
-/* Mobile: reserve space for the fixed bottom nav so last card is visible */
+/* Messaging & Settings: ensure first card hugs the top */
+#s-messaging .sec-stack,
+#s-settings  .sec-stack { margin-top: 0 !important; }
+#s-messaging .sec-stack > *:first-child,
+#s-settings  .sec-stack > *:first-child { margin-top: 0 !important; }
+
+/* --- Bottom: ensure content never sits behind topbar / bottom-nav --- */
+@media (min-width: 961px) {
+  .main { padding-bottom: 2.5rem !important; }
+}
 @media (max-width: 960px) {
-  .main {
-    padding-top: var(--main-pad-top) !important;
-    padding-bottom: calc(var(--mbn-h) + 1rem + env(safe-area-inset-bottom, 0px)) !important;
-    scroll-padding-bottom: calc(var(--mbn-h) + 1rem + env(safe-area-inset-bottom, 0px));
+  /* 62px bottom nav + comfortable gap */
+  .main { padding-bottom: calc(62px + 1.5rem) !important; }
+  body.mbn-hidden .main { padding-bottom: 1.75rem !important; }
+
+  /* Extra safety: last card in these sections gets its own clearance */
+  #s-messaging .sec-stack > *:last-child,
+  #s-settings  .sec-stack > *:last-child,
+  #s-fees .finance-main-panel.active > *:last-child {
+    margin-bottom: calc(62px + .5rem) !important;
   }
-  body.mbn-hidden .main {
-    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)) !important;
+  body.mbn-hidden #s-messaging .sec-stack > *:last-child,
+  body.mbn-hidden #s-settings  .sec-stack > *:last-child,
+  body.mbn-hidden #s-fees .finance-main-panel.active > *:last-child {
+    margin-bottom: .75rem !important;
   }
 }
-
-/* Sections inherit .main padding — don't add their own top space */
-.main > .sec,
-.main > .sec.active { margin-top: 0 !important; padding-top: 0 !important; }
-
-.sec > .sec-stack > *:first-child,
-.sec-stack > *:first-child { margin-top: 0 !important; }
-
-/* Empty placeholder headers shouldn't reserve vertical space */
-.sec > .ph:empty,
-.sec > .ph[hidden] { display: none !important; }
-
-/* Finance tabbar sits flush at the top of its section */
-#s-fees .finance-main-tabbar,
-#s-fees #feesTabBar,
-#feesTabBar { margin-top: 0 !important; padding-top: 0 !important; }
