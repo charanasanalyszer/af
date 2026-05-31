@@ -4195,3 +4195,56 @@ body:not(.dark) .toast.success {
   -webkit-backdrop-filter: blur(10px);
 }
 
+
+/* ════════════════════════════════════════════════════════════════
+   FIX (post): remove empty space at top of Finance / Messaging /
+   Settings sections, and guarantee bottom-content clearance so
+   nothing sits behind the fixed topbar or the mobile bottom nav.
+   ════════════════════════════════════════════════════════════════ */
+
+/* --- Top: kill any residual top padding/margin on sections --- */
+.sec { padding-top: 0 !important; margin-top: 0 !important; }
+.sec > .ph { display: none !important; }
+.sec > *:first-child,
+.sec > .ph + *,
+.sec > [style*="display:none"] + * {
+  margin-top: 0 !important;
+}
+
+/* Finance: tighten the Fees/Salaries switcher and its inner tab bar */
+#s-fees .finance-main-tabbar {
+  margin-top: 0 !important;
+  margin-bottom: .6rem !important;
+  padding-bottom: .35rem !important;
+}
+#s-fees .finance-main-panel { margin-top: 0 !important; }
+#s-fees .finance-main-panel > .tab-bar,
+#s-fees #feesTabBar { margin-top: 0 !important; }
+
+/* Messaging & Settings: ensure first card hugs the top */
+#s-messaging .sec-stack,
+#s-settings  .sec-stack { margin-top: 0 !important; }
+#s-messaging .sec-stack > *:first-child,
+#s-settings  .sec-stack > *:first-child { margin-top: 0 !important; }
+
+/* --- Bottom: ensure content never sits behind topbar / bottom-nav --- */
+@media (min-width: 961px) {
+  .main { padding-bottom: 2.5rem !important; }
+}
+@media (max-width: 960px) {
+  /* 62px bottom nav + comfortable gap */
+  .main { padding-bottom: calc(62px + 1.5rem) !important; }
+  body.mbn-hidden .main { padding-bottom: 1.75rem !important; }
+
+  /* Extra safety: last card in these sections gets its own clearance */
+  #s-messaging .sec-stack > *:last-child,
+  #s-settings  .sec-stack > *:last-child,
+  #s-fees .finance-main-panel.active > *:last-child {
+    margin-bottom: calc(62px + .5rem) !important;
+  }
+  body.mbn-hidden #s-messaging .sec-stack > *:last-child,
+  body.mbn-hidden #s-settings  .sec-stack > *:last-child,
+  body.mbn-hidden #s-fees .finance-main-panel.active > *:last-child {
+    margin-bottom: .75rem !important;
+  }
+}
