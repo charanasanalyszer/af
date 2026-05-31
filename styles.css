@@ -270,8 +270,10 @@ body.login-active { overflow: hidden !important; height: 100vh !important; }
   display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.85rem;align-items:center;
 }
 
-/* MAIN */
-.main { margin-left:var(--sb-w);margin-top:var(--tb-h);padding:.25rem 1.25rem 4rem;height:calc(100vh - var(--tb-h));width:calc(100% - var(--sb-w));max-width:calc(100% - var(--sb-w));box-sizing:border-box;overflow-x:hidden;overflow-y:auto;transition:margin-left .3s ease,width .3s ease,max-width .3s ease;position:relative; }
+/* MAIN — locked frame between sidebar, topbar and (on mobile) bottom nav */
+.main { margin-left:var(--sb-w);margin-top:var(--tb-h);padding:.75rem 1.25rem 1.25rem;height:calc(100vh - var(--tb-h));width:calc(100% - var(--sb-w));max-width:calc(100% - var(--sb-w));box-sizing:border-box;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;transition:margin-left .3s ease,width .3s ease,max-width .3s ease;position:relative; }
+/* Consistent inner padding for Finance / Messaging / Settings so tab switches don't jump */
+#s-fees, #s-messaging, #s-settings { padding:0;margin:0;min-height:100%;box-sizing:border-box; }
 
 /* SECTIONS */
 .sec { display:none;animation:fadeUp .3s ease;width:100%;box-sizing:border-box;overflow:visible;margin-top:0;padding-top:0; }
@@ -779,12 +781,13 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
   .sidebar.open { transform:translateX(0); }
   .sb-close { display:flex!important; }
   .topbar { left:0; z-index:65; }
-  .main { margin-left:0;margin-top:var(--tb-h);width:100%;max-width:100%;padding:.25rem 1rem calc(62px + 1rem);box-sizing:border-box;height:calc(100vh - var(--tb-h)); }
+  /* Lock main scroll area between topbar and bottom nav (62px) on mobile */
+  .main { margin-left:0;margin-top:var(--tb-h);width:100%;max-width:100%;padding:.5rem 1rem 1rem;box-sizing:border-box;height:calc(100vh - var(--tb-h) - 62px); }
   .menu-btn { display:flex; }
   .lang-btn { padding:.2rem .5rem;font-size:.7rem; }
 }
 @media (max-width:640px) {
-  .main { padding:.2rem .75rem calc(62px + 1rem); }
+  .main { padding:.4rem .75rem .75rem; }
   .frow.c2,.frow.c3,.frow.c4 { grid-template-columns:1fr; }
   .grid-2 { grid-template-columns:1fr; }
   .dash-charts { grid-template-columns:1fr; }
@@ -2018,7 +2021,8 @@ th[onclick]:hover { background: var(--blue-lt, #eff6ff); color: var(--primary); 
     margin-top: var(--tb-h) !important;
     width: 100% !important;
     max-width: 100% !important;
-    padding: .3rem 1rem calc(62px + 1rem) !important;
+    padding: .5rem 1rem 1rem !important;
+    height: calc(100vh - var(--tb-h) - 62px) !important;
   }
   .topbar {
     left: 0 !important;
