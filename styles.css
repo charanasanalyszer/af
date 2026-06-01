@@ -2108,7 +2108,16 @@ th[onclick]:hover { background: var(--blue-lt, #eff6ff); color: var(--primary); 
   display: none;
 }
 
+/* Restore tab arrow must NEVER show on desktop — JS sets display:'' which would reveal it */
+.mbn-restore-tab {
+  display: none !important;
+}
+
 @media (max-width: 960px) {
+  /* On mobile, JS can override with inline style; but we allow .visible to show it */
+  .mbn-restore-tab.visible {
+    display: flex !important;
+  }
   .mobile-bottom-nav {
     display: flex;
     position: fixed;

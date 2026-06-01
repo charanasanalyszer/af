@@ -8162,6 +8162,7 @@ function mbnActivate(el) {
 }
 
 function mbnCollapse() {
+  if (window.innerWidth > 960) return; // desktop: do nothing
   const nav = document.getElementById('mobileBottomNav');
   const tab = document.getElementById('mbnRestoreTab');
   if (nav) nav.classList.add('mbn-collapsed');
@@ -8171,21 +8172,29 @@ function mbnCollapse() {
 }
 
 function mbnExpand() {
+  if (window.innerWidth > 960) return; // desktop: do nothing
   const nav = document.getElementById('mobileBottomNav');
   const tab = document.getElementById('mbnRestoreTab');
   if (nav) nav.classList.remove('mbn-collapsed');
-  if (tab) { tab.classList.remove('visible'); }
+  if (tab) { tab.classList.remove('visible'); tab.style.display = 'none'; }
   document.body.classList.remove('mbn-hidden');
   try { localStorage.removeItem('mbn_collapsed'); } catch(e) {}
 }
 
-// Restore collapse state on load — only if logged in (nav is visible)
+// Restore collapse state on load — only if logged in (nav is visible) and on mobile
 (function() {
   try {
+    // On desktop: always clear any stale collapsed state
+    if (window.innerWidth > 960) {
+      localStorage.removeItem('mbn_collapsed');
+      document.body.classList.remove('mbn-hidden');
+      const tab = document.getElementById('mbnRestoreTab');
+      if (tab) { tab.style.display = 'none'; tab.classList.remove('visible'); }
+      return;
+    }
     if (localStorage.getItem('mbn_collapsed') === '1') {
       const nav = document.getElementById('mobileBottomNav');
       const tab = document.getElementById('mbnRestoreTab');
-      // Only restore if nav was made visible by launchApp (don't show before login)
       if (nav && nav.style.display !== 'none') {
         nav.classList.add('mbn-collapsed');
         if (tab) { tab.style.display = ''; tab.classList.add('visible'); }
