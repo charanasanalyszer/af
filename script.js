@@ -10806,7 +10806,132 @@ function sendBulkSMS() {
 }
 
 function sendResultsSMS() {
-  showToast('Connect to an SMS gateway (e.g. Africa\'s Talking) to enable this feature','info');
+  // Build exam selector
+  const examOptions = exams.map(e => `<option value="${e.id}">${e.title} (${e.term||''} ${e.year||''})</option>`).join('');
+  if (!examOptions) { showToast('No exams found. Please add exams first.', 'warning'); return; }
+
+  showModal('<i class="fa-solid fa-chart-bar"></i> Send Results to Parents',`
+    <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">
+      Select an exam to preview the result message that will be sent to each parent.
+    </p>
+    <div class="fg" style="margin-bottom:1rem">
+      <label>Select Exam</label>
+      <select id="rSmsExam" onchange="previewResultSMSMessage()">${examOptions}</select>
+    </div>
+    <div class="fg" style="margin-bottom:1rem">
+      <label>Filter by Class / Stream <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+      <select id="rSmsFilter">
+        <option value="">All Students</option>
+        ${classes.map(c=>`<option value="c:${c.id}">Class: ${c.name}</option>`).join('')}
+        ${streams.map(s=>`<option value="s:${s.id}">Stream: ${s.name}</option>`).join('')}
+      </select>
+    </div>
+    <div class="fg" style="margin-bottom:.5rem">
+      <label>Message Preview <span style="font-size:.75rem;color:var(--muted)">(first matching student)</span></label>
+      <div id="rSmsPreview" style="background:var(--bg);border:1.5px solid var(--border-lt);border-radius:8px;padding:.85rem 1rem;font-size:.84rem;line-height:1.65;white-space:pre-wrap;min-height:80px;color:var(--text)">Select an exam to see preview…</div>
+    </div>
+    <div style="font-size:.76rem;color:var(--muted);margin-bottom:.75rem">
+      <i class="fa-solid fa-circle-info"></i> Each parent receives a personalised message with their child's results.
+    </div>
+    <div id="rSmsRecipCount" style="font-size:.82rem;font-weight:600;color:var(--primary);margin-bottom:.25rem"></div>
+  `,[
+    {label:'<i class="fa-solid fa-upload"></i> Send SMS', cls:'btn-primary', action:'dispatchResultSMS()'},
+    {label:'Cancel', cls:'btn-outline', action:'closeModal()'}
+  ]);
+
+  // Trigger preview after modal renders
+  setTimeout(() => previewResultSMSMessage(), 100);
+}
+
+function buildResultSMSText(stu, examId) {
+  const schoolName = settings.schoolName || 'The School';
+  const exam = exams.find(e => e.id === examId);
+  if (!exam) return '';
+
+  const scored = buildMeritData(examId, null, null);
+  const entry  = scored.find(s => s.id === stu.id);
+  if (!entry) return '';
+
+  const stream     = streams.find(s => s.id === stu.streamId);
+  const cls        = classes.find(c => c.id === stu.classId);
+  const classLabel = stream ? `${cls?.name||''} ${stream.name}` : (cls?.name || '');
+
+  const totalStudents  = scored.filter(s => !s.incomplete).length;
+  const streamStudents = stream ? scored.filter(s => s.streamId === stu.streamId && !s.incomplete).length : null;
+
+  const total = entry.mean !== undefined
+    ? (exam.maxScore ? Math.round(entry.mean) : entry.mean)
+    : '—';
+  const grade    = entry.grade  || '—';
+  const ovPos    = entry.overallRank || '—';
+  const strPos   = entry.streamRank  || '—';
+
+  const examLabel = `${exam.title}${exam.term ? ' – ' + exam.term : ''}${exam.year ? ' ' + exam.year : ''}`;
+
+  let msg = `${schoolName}\n`;
+  msg += `${examLabel} Results\n\n`;
+  msg += `Student: ${stu.name}\n`;
+  msg += `Class: ${classLabel}\n`;
+  msg += `Total Score: ${total}\n`;
+  msg += `Grade: ${grade}\n`;
+  msg += `Stream Position: ${strPos}${streamStudents ? ' / ' + streamStudents : ''}\n`;
+  msg += `Overall Position: ${ovPos} / ${totalStudents}\n`;
+  msg += `\nFor more details, contact the school.`;
+  return msg;
+}
+
+function previewResultSMSMessage() {
+  const examId  = document.getElementById('rSmsExam')?.value;
+  const filter  = document.getElementById('rSmsFilter')?.value || '';
+  const preview = document.getElementById('rSmsPreview');
+  const countEl = document.getElementById('rSmsRecipCount');
+  if (!preview || !examId) return;
+
+  let stuList = students.filter(s => s.contact);
+  if (filter.startsWith('c:')) stuList = stuList.filter(s => s.classId === filter.slice(2));
+  else if (filter.startsWith('s:')) stuList = stuList.filter(s => s.streamId === filter.slice(2));
+
+  if (countEl) countEl.textContent = stuList.length
+    ? `${stuList.length} parent${stuList.length>1?'s':''} will receive this message.`
+    : 'No parents with phone numbers found for the selected filter.';
+
+  const sample = stuList[0];
+  if (!sample) { preview.textContent = 'No students with contact numbers found.'; return; }
+  const txt = buildResultSMSText(sample, examId);
+  preview.textContent = txt || 'Could not generate preview — ensure marks are entered for this exam.';
+}
+
+function dispatchResultSMS() {
+  const examId = document.getElementById('rSmsExam')?.value;
+  const filter = document.getElementById('rSmsFilter')?.value || '';
+  if (!examId) { showToast('Please select an exam','error'); return; }
+
+  let stuList = students.filter(s => s.contact);
+  if (filter.startsWith('c:')) stuList = stuList.filter(s => s.classId === filter.slice(2));
+  else if (filter.startsWith('s:')) stuList = stuList.filter(s => s.streamId === filter.slice(2));
+
+  if (!stuList.length) { showToast('No recipients with phone numbers found','warning'); return; }
+  if (smsCredits < stuList.length) {
+    showToast(`Insufficient SMS credits. Need ${stuList.length}, have ${smsCredits}`,'warning');
+    return;
+  }
+
+  const exam = exams.find(e => e.id === examId);
+  smsCredits -= stuList.length;
+  localStorage.setItem(K.smsCredits, smsCredits);
+  document.getElementById('smsCredits').textContent = smsCredits;
+
+  const preview = buildResultSMSText(stuList[0], examId) || `Results for ${exam?.title||'exam'}`;
+  const log = {
+    id: uid(), date: new Date().toLocaleString(),
+    to: `${stuList.length} parents`,
+    preview: preview.slice(0, 80) + '…',
+    status: 'Sent', credits: stuList.length
+  };
+  msgLog.unshift(log); save(K.msgLog, msgLog);
+  renderMsgLog();
+  closeModal();
+  showToast(`Results SMS sent to ${stuList.length} parent${stuList.length>1?'s':''} <i class="fa-solid fa-check"></i>`,'success');
 }
 
 function renderMsgLog() {
