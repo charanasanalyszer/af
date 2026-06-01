@@ -1008,6 +1008,7 @@
             <button class="btn btn-primary btn-sm" onclick="generateReport()"><i class="fa-solid fa-file-lines"></i> Generate</button>
             <button class="btn btn-outline btn-sm" onclick="previewReport()"><i class="fa-solid fa-eye"></i> Preview</button>
             <button class="btn btn-success btn-sm" onclick="downloadAllReportsPDF()"><i class="fa-solid fa-file-pdf"></i> Export All PDF</button>
+            <button class="btn btn-outline btn-sm" onclick="sendResultsSMS()" style="border-color:#0891b2;color:#0891b2"><i class="fa-solid fa-comments"></i> Send Results SMS</button>
             <button class="btn btn-outline btn-sm" onclick="window.open('results.html','_blank')" title="Open the Student Results Portal where students access reports via admission number or QR code" style="border-color:#7c3aed;color:#7c3aed"><i class="fa-solid fa-mobile-screen"></i> Student Portal</button>
           </div>
         </div>
@@ -8129,7 +8130,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <a class="mbn-item"        data-s="subjects"    onclick="go('subjects',this);mbnActivate(this)"><i class="fa-solid fa-book"></i><span>Subjects</span></a>
   <a class="mbn-item"        data-s="timetable"   onclick="go('timetable',this);mbnActivate(this)"><i><i class="fa-solid fa-clock"></i></i><span>Timetable</span></a>
   <a class="mbn-item"        data-s="exams"       onclick="go('exams',this);mbnActivate(this)"><i class="fa-solid fa-file-pen"></i><span>Exams</span></a>
-  <a class="mbn-item"        data-s="exams"       onclick="go('exams',this);mbnActivate(this)"><i class="fa-solid fa-file-pen"></i><span>Exams</span></a>
+  <a class="mbn-item"        data-s="reports"     onclick="go('reports',this);mbnActivate(this)"><i class="fa-solid fa-file-lines"></i><span>Reports</span></a>
   <a class="mbn-item"        data-s="papers"      onclick="go('papers',this);mbnActivate(this)"><i class="fa-solid fa-folder-open"></i><span>Papers</span></a>
   <a class="mbn-item"        data-s="fees"        onclick="go('fees',this);mbnActivate(this)"><i class="fa-solid fa-coins"></i><span>Fees</span></a>
   <a class="mbn-item"        data-s="messaging"   onclick="go('messaging',this);mbnActivate(this)"><i class="fa-solid fa-comments"></i><span>Messaging</span></a>
