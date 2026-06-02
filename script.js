@@ -2049,7 +2049,21 @@ function openPlatTab(tabId, btn) {
     btn.style.color = '#fff';
     btn.style.borderBottom = '3px solid var(--primary, #4f7cff)';
     btn.style.fontWeight = '700';
-    btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    // Scroll the tab button into view *within the tab bar only* — do NOT use
+    // scrollIntoView() here because when the platform section is freshly shown
+    // the browser has no scroll context yet and will scroll the entire .main
+    // container (or the viewport) downward to bring the button into view.
+    // Instead, manually scroll the tab bar element horizontally so the active
+    // button is visible without touching the vertical scroll position.
+    (function(b) {
+      const bar = b.closest('#platTabBar') || b.parentElement;
+      if (bar && bar.scrollWidth > bar.clientWidth) {
+        const btnLeft   = b.offsetLeft;
+        const btnWidth  = b.offsetWidth;
+        const barWidth  = bar.clientWidth;
+        bar.scrollLeft  = btnLeft - (barWidth / 2) + (btnWidth / 2);
+      }
+    })(btn);
   }
   // Init collapse buttons for newly visible tab
   setTimeout(initPlatformCollapse, 80);
@@ -14374,9 +14388,6 @@ function go(sec, el) {
   if (s) s.classList.add('active');
   if (el) el.classList.add('active');
   document.getElementById('tbTitle').textContent = el ? el.querySelector('span').textContent : sec;
-  // Scroll main content area back to top on every navigation
-  const mainEl = document.querySelector('.main');
-  if (mainEl) mainEl.scrollTop = 0;
   if (window.innerWidth < 960) closeSidebar(); // auto-close on mobile only
   if (sec === 'dashboard')  renderDashboard();
   if (sec === 'exams')      { populateExamDropdowns(); renderPlatformExamMarkEntry(); renderSchoolPlatformResults(); }
@@ -14392,6 +14403,17 @@ function go(sec, el) {
   if (sec === 'timetable')  {
     // Fire auto-sync event so the timetable pulls latest school data
     document.dispatchEvent(new CustomEvent('tt_sectionVisible'));
+  }
+  // Reset scroll AFTER all section-init calls have run.  Some init functions
+  // (e.g. openPlatTab, initFeesSection) previously called scrollIntoView()
+  // which moved the .main scrollbar before the user could see the top of the
+  // page.  Deferring to the next task (setTimeout 0) guarantees this fires
+  // after every synchronous init call AND after any scrollIntoView the browser
+  // queues during layout.
+  const mainEl = document.querySelector('.main');
+  if (mainEl) {
+    mainEl.scrollTop = 0;              // immediate reset (catches most cases)
+    setTimeout(() => { mainEl.scrollTop = 0; }, 0); // deferred reset (catches post-render scroll)
   }
 }
 
