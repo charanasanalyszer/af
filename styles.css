@@ -257,7 +257,7 @@ body.login-active { overflow: hidden !important; height: 100vh !important; }
 .pw-toggle { position:absolute;right:.75rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem; }
 
 /* ══════════════ APP LAYOUT ══════════════ */
-#app { display:flex;height:100vh;width:100%;overflow:hidden; }
+#app { display:flex;min-height:100vh;width:100%; }
 
 /* SIDEBAR */
 .sidebar {
@@ -324,7 +324,7 @@ body.login-active { overflow: hidden !important; height: 100vh !important; }
 }
 
 /* MAIN */
-.main { margin-left:var(--sb-w);margin-top:var(--tb-h);padding:.25rem 1.25rem 4rem;height:calc(100vh - var(--tb-h));width:calc(100% - var(--sb-w));max-width:calc(100% - var(--sb-w));box-sizing:border-box;overflow-x:hidden;overflow-y:auto;transition:margin-left .3s ease,width .3s ease,max-width .3s ease;position:relative; }
+.main { margin-left:var(--sb-w);margin-top:var(--tb-h);padding:.25rem 1.25rem 4rem;min-height:calc(100vh - var(--tb-h));width:calc(100% - var(--sb-w));max-width:calc(100% - var(--sb-w));box-sizing:border-box;overflow-x:hidden;overflow-y:visible;transition:margin-left .3s ease,width .3s ease,max-width .3s ease;position:relative; }
 
 /* SECTIONS */
 .sec { display:none;animation:fadeUp .3s ease;width:100%;box-sizing:border-box;overflow:visible;margin-top:0;padding-top:0; }
@@ -832,7 +832,7 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
   .sidebar.open { transform:translateX(0); }
   .sb-close { display:flex!important; }
   .topbar { left:0; z-index:65; }
-  .main { margin-left:0;margin-top:var(--tb-h);width:100%;max-width:100%;padding:.25rem 1rem calc(62px + 1rem);box-sizing:border-box;height:calc(100vh - var(--tb-h)); }
+  .main { margin-left:0;margin-top:var(--tb-h);width:100%;max-width:100%;padding:.25rem 1rem calc(62px + 1rem);box-sizing:border-box;min-height:calc(100vh - var(--tb-h));overflow-x:hidden;overflow-y:visible; }
   .menu-btn { display:flex; }
   .lang-btn { padding:.2rem .5rem;font-size:.7rem; }
 }
@@ -2902,9 +2902,9 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
 
 
 /* ═══════════════════════════════════════════════════════════
-   DEFINITIVE LAYOUT FIX v2 — Single source of truth
-   Replaces all previous duplicate .main overrides.
-   Topbar is fixed at --tb-h. Main starts immediately below it.
+   DEFINITIVE LAYOUT FIX v3 — Single source of truth
+   KEY: use min-height (not height) so content can grow beyond viewport.
+   overflow-y: visible on .main — scroll happens on the body/html level.
    ═══════════════════════════════════════════════════════════ */
 
 /* Desktop: sidebar visible, main offset by sidebar width */
@@ -2914,9 +2914,10 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
     margin-left: var(--sb-w) !important;
     width: calc(100% - var(--sb-w)) !important;
     max-width: calc(100% - var(--sb-w)) !important;
-    height: calc(100vh - var(--tb-h)) !important;
+    min-height: calc(100vh - var(--tb-h)) !important;
+    height: auto !important;
     padding: .4rem 1.1rem 4rem !important;
-    overflow-y: auto !important;
+    overflow-y: visible !important;
     overflow-x: hidden !important;
     box-sizing: border-box !important;
   }
@@ -2934,9 +2935,10 @@ button.tb-logout-btn:hover { background: #ef4444 !important; color: #fff !import
     margin-left: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
-    height: calc(100vh - var(--tb-h)) !important;
+    min-height: calc(100vh - var(--tb-h)) !important;
+    height: auto !important;
     padding: .3rem .9rem calc(62px + 1rem) !important;
-    overflow-y: auto !important;
+    overflow-y: visible !important;
     overflow-x: hidden !important;
     box-sizing: border-box !important;
   }
@@ -3121,7 +3123,8 @@ input[type=checkbox]:checked + .toggle-pill .toggle-knob { left: 23px; }
 /* Lite mode active banner shift for main content */
 body.lite-mode-active .main {
   margin-top: calc(var(--tb-h, 52px) + 34px) !important;
-  height: calc(100vh - var(--tb-h, 52px) - 34px) !important;
+  min-height: calc(100vh - var(--tb-h, 52px) - 34px) !important;
+  height: auto !important;
 }
 
 /* Toggle row header */
@@ -3812,7 +3815,7 @@ body.dark .sbar { background: rgba(255,255,255,0.10) !important; }
 
 /* Desktop: sidebar handles platform tabs, normal top padding */
 body.plat-admin-mode .main {
-  padding-top: var(--tb-h, 52px) !important;
+  /* margin-top already accounts for topbar — no extra padding-top needed */
 }
 
 /* Show platform sidebar items when in plat-admin-mode */
@@ -3900,6 +3903,7 @@ body.plat-admin-mode #platTabBar {
 /* ═══════════════════════════════════════════════════════════════
    FINAL LAYOUT OVERRIDE — Applied last, wins all conflicts.
    Ensures content is NEVER hidden behind the sidebar or topbar.
+   KEY: min-height not height — content grows, never clips.
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Desktop: sidebar visible ── */
@@ -3909,9 +3913,10 @@ body.plat-admin-mode #platTabBar {
     margin-top: var(--tb-h) !important;
     width: calc(100% - var(--sb-w)) !important;
     max-width: calc(100% - var(--sb-w)) !important;
-    height: calc(100vh - var(--tb-h)) !important;
+    min-height: calc(100vh - var(--tb-h)) !important;
+    height: auto !important;
     padding: .4rem 1.1rem 4rem !important;
-    overflow-y: auto !important;
+    overflow-y: visible !important;
     overflow-x: hidden !important;
     box-sizing: border-box !important;
   }
@@ -3922,9 +3927,10 @@ body.plat-admin-mode #platTabBar {
     margin-top: var(--tb-h) !important;
     width: 100% !important;
     max-width: 100% !important;
-    height: calc(100vh - var(--tb-h)) !important;
+    min-height: calc(100vh - var(--tb-h)) !important;
+    height: auto !important;
     padding: .4rem 1.1rem 4rem !important;
-    overflow-y: auto !important;
+    overflow-y: visible !important;
     overflow-x: hidden !important;
     box-sizing: border-box !important;
   }
@@ -3941,16 +3947,16 @@ body.plat-admin-mode #platTabBar {
 }
 
 /* ── Mobile/tablet: sidebar overlays, main fills full width ── */
-/* Bottom padding = mobile bottom nav height (62px) + comfortable gap (1rem) */
 @media (max-width: 960px) {
   .main {
     margin-left: 0 !important;
     margin-top: var(--tb-h) !important;
     width: 100% !important;
     max-width: 100% !important;
-    height: calc(100vh - var(--tb-h)) !important;
+    min-height: calc(100vh - var(--tb-h)) !important;
+    height: auto !important;
     padding: .3rem .9rem calc(62px + 1rem) !important;
-    overflow-y: auto !important;
+    overflow-y: visible !important;
     overflow-x: hidden !important;
     box-sizing: border-box !important;
   }
