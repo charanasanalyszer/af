@@ -10820,26 +10820,62 @@ function sendBulkSMS() {
 }
 
 function sendResultsSMS() {
-  // Build exam selector
-  const examOptions = exams.map(e => `<option value="${e.id}">${e.title} (${e.term||''} ${e.year||''})</option>`).join('');
-  if (!examOptions) { showToast('No exams found. Please add exams first.', 'warning'); return; }
+  // Build exam selector — use exam.name (not exam.title)
+  if (!exams.length) { showToast('No exams found. Please add exams first.', 'warning'); return; }
+  const examOptions = exams.map(e => `<option value="${e.id}">${e.name} (${e.term||''} ${e.year||''})</option>`).join('');
 
   showModal('<i class="fa-solid fa-chart-bar"></i> Send Results to Parents',`
     <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">
-      Select an exam to preview the result message that will be sent to each parent.
+      Select an exam, then choose recipients by class, stream, or pick individual students.
     </p>
-    <div class="fg" style="margin-bottom:1rem">
-      <label>Select Exam</label>
-      <select id="rSmsExam" onchange="previewResultSMSMessage()">${examOptions}</select>
+    <div class="frow c2" style="gap:.75rem;margin-bottom:1rem">
+      <div class="fg">
+        <label>Select Exam</label>
+        <select id="rSmsExam" onchange="onRSmsExamOrFilterChange()">${examOptions}</select>
+      </div>
+      <div class="fg">
+        <label>Recipient Mode</label>
+        <select id="rSmsMode" onchange="onRSmsModeChange()">
+          <option value="all">All Students</option>
+          <option value="class">By Class</option>
+          <option value="stream">By Stream</option>
+          <option value="individual">Individual Students</option>
+        </select>
+      </div>
     </div>
-    <div class="fg" style="margin-bottom:1rem">
-      <label>Filter by Class / Stream <span style="color:var(--muted);font-weight:400">(optional)</span></label>
-      <select id="rSmsFilter">
-        <option value="">All Students</option>
-        ${classes.map(c=>`<option value="c:${c.id}">Class: ${c.name}</option>`).join('')}
-        ${streams.map(s=>`<option value="s:${s.id}">Stream: ${s.name}</option>`).join('')}
+
+    <!-- Class filter (shown when mode=class) -->
+    <div class="fg" id="rSmsClassWrap" style="display:none;margin-bottom:1rem">
+      <label>Select Class</label>
+      <select id="rSmsClass" onchange="onRSmsExamOrFilterChange()">
+        ${classes.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}
       </select>
     </div>
+
+    <!-- Stream filter (shown when mode=stream) -->
+    <div class="fg" id="rSmsStreamWrap" style="display:none;margin-bottom:1rem">
+      <label>Select Stream</label>
+      <select id="rSmsStream" onchange="onRSmsExamOrFilterChange()">
+        ${streams.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}
+      </select>
+    </div>
+
+    <!-- Individual student picker (shown when mode=individual) -->
+    <div id="rSmsStuWrap" style="display:none;margin-bottom:1rem">
+      <label style="font-size:.82rem;font-weight:600;color:var(--text);display:block;margin-bottom:.4rem">
+        Select Students
+        <span style="font-weight:400;color:var(--muted);margin-left:.5rem">
+          (<button onclick="rSmsToggleAll(true)" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:.78rem;padding:0">All</button>
+          / <button onclick="rSmsToggleAll(false)" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.78rem;padding:0">None</button>)
+        </span>
+      </label>
+      <div style="margin-bottom:.4rem">
+        <input type="text" id="rSmsStuSearch" placeholder="Search student…" oninput="rSmsFilterStudents()"
+          style="width:100%;box-sizing:border-box;padding:.45rem .7rem;border:1.5px solid var(--border-lt);border-radius:7px;background:var(--bg);color:var(--text);font-size:.83rem"/>
+      </div>
+      <div id="rSmsStuList" style="max-height:180px;overflow-y:auto;border:1.5px solid var(--border-lt);border-radius:8px;padding:.4rem .6rem;background:var(--bg)"></div>
+    </div>
+
     <div class="fg" style="margin-bottom:.5rem">
       <label>Message Preview <span style="font-size:.75rem;color:var(--muted)">(first matching student)</span></label>
       <div id="rSmsPreview" style="background:var(--bg);border:1.5px solid var(--border-lt);border-radius:8px;padding:.85rem 1rem;font-size:.84rem;line-height:1.65;white-space:pre-wrap;min-height:80px;color:var(--text)">Select an exam to see preview…</div>
@@ -10853,8 +10889,63 @@ function sendResultsSMS() {
     {label:'Cancel', cls:'btn-outline', action:'closeModal()'}
   ]);
 
-  // Trigger preview after modal renders
-  setTimeout(() => previewResultSMSMessage(), 100);
+  setTimeout(() => { onRSmsModeChange(); onRSmsExamOrFilterChange(); }, 100);
+}
+
+function onRSmsModeChange() {
+  const mode = document.getElementById('rSmsMode')?.value;
+  if (!mode) return;
+  document.getElementById('rSmsClassWrap').style.display  = mode==='class'      ? '' : 'none';
+  document.getElementById('rSmsStreamWrap').style.display = mode==='stream'     ? '' : 'none';
+  document.getElementById('rSmsStuWrap').style.display    = mode==='individual' ? '' : 'none';
+  if (mode === 'individual') renderRSmsStuList();
+  onRSmsExamOrFilterChange();
+}
+
+function getRSmsCandidates() {
+  const mode = document.getElementById('rSmsMode')?.value || 'all';
+  let list = students.filter(s => s.contact);
+  if (mode === 'class') {
+    const cid = document.getElementById('rSmsClass')?.value;
+    if (cid) list = list.filter(s => s.classId === cid);
+  } else if (mode === 'stream') {
+    const sid = document.getElementById('rSmsSmsStream')?.value || document.getElementById('rSmsStream')?.value;
+    if (sid) list = list.filter(s => s.streamId === sid);
+  } else if (mode === 'individual') {
+    const checked = [...document.querySelectorAll('.rSmsStudentChk:checked')].map(cb => cb.value);
+    list = list.filter(s => checked.includes(s.id));
+  }
+  return list;
+}
+
+function renderRSmsStuList(filterText='') {
+  const box = document.getElementById('rSmsStuList');
+  if (!box) return;
+  const q = (filterText || document.getElementById('rSmsStuSearch')?.value || '').toLowerCase();
+  const visible = students.filter(s => s.contact && (!q || s.name.toLowerCase().includes(q)));
+  box.innerHTML = visible.length ? visible.map(s => {
+    const cls = classes.find(c=>c.id===s.classId);
+    const str = streams.find(st=>st.id===s.streamId);
+    const label = [cls?.name, str?.name].filter(Boolean).join(' ');
+    return `<label style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0;border-bottom:1px solid var(--border-lt);font-size:.82rem;cursor:pointer">
+      <input type="checkbox" class="rSmsStudentChk" value="${s.id}" onchange="onRSmsExamOrFilterChange()" style="accent-color:var(--primary)">
+      <span style="flex:1">${s.name}</span>
+      <span style="color:var(--muted);font-size:.75rem">${label}</span>
+    </label>`;
+  }).join('') : '<p style="color:var(--muted);font-size:.82rem;padding:.5rem 0">No students with contact numbers.</p>';
+}
+
+function rSmsFilterStudents() {
+  renderRSmsStuList();
+}
+
+function rSmsToggleAll(check) {
+  document.querySelectorAll('.rSmsStudentChk').forEach(cb => cb.checked = check);
+  onRSmsExamOrFilterChange();
+}
+
+function onRSmsExamOrFilterChange() {
+  previewResultSMSMessage();
 }
 
 function buildResultSMSText(stu, examId) {
@@ -10880,7 +10971,7 @@ function buildResultSMSText(stu, examId) {
   const ovPos    = entry.overallRank || '—';
   const strPos   = entry.streamRank  || '—';
 
-  const examLabel = `${exam.title}${exam.term ? ' – ' + exam.term : ''}${exam.year ? ' ' + exam.year : ''}`;
+  const examLabel = `${exam.name}${exam.term ? ' – ' + exam.term : ''}${exam.year ? ' ' + exam.year : ''}`;
 
   let msg = `${schoolName}\n`;
   msg += `${examLabel} Results\n\n`;
@@ -10896,14 +10987,11 @@ function buildResultSMSText(stu, examId) {
 
 function previewResultSMSMessage() {
   const examId  = document.getElementById('rSmsExam')?.value;
-  const filter  = document.getElementById('rSmsFilter')?.value || '';
   const preview = document.getElementById('rSmsPreview');
   const countEl = document.getElementById('rSmsRecipCount');
   if (!preview || !examId) return;
 
-  let stuList = students.filter(s => s.contact);
-  if (filter.startsWith('c:')) stuList = stuList.filter(s => s.classId === filter.slice(2));
-  else if (filter.startsWith('s:')) stuList = stuList.filter(s => s.streamId === filter.slice(2));
+  const stuList = getRSmsCandidates();
 
   if (countEl) countEl.textContent = stuList.length
     ? `${stuList.length} parent${stuList.length>1?'s':''} will receive this message.`
@@ -10917,12 +11005,9 @@ function previewResultSMSMessage() {
 
 function dispatchResultSMS() {
   const examId = document.getElementById('rSmsExam')?.value;
-  const filter = document.getElementById('rSmsFilter')?.value || '';
   if (!examId) { showToast('Please select an exam','error'); return; }
 
-  let stuList = students.filter(s => s.contact);
-  if (filter.startsWith('c:')) stuList = stuList.filter(s => s.classId === filter.slice(2));
-  else if (filter.startsWith('s:')) stuList = stuList.filter(s => s.streamId === filter.slice(2));
+  const stuList = getRSmsCandidates();
 
   if (!stuList.length) { showToast('No recipients with phone numbers found','warning'); return; }
   if (smsCredits < stuList.length) {
@@ -10935,7 +11020,7 @@ function dispatchResultSMS() {
   localStorage.setItem(K.smsCredits, smsCredits);
   document.getElementById('smsCredits').textContent = smsCredits;
 
-  const preview = buildResultSMSText(stuList[0], examId) || `Results for ${exam?.title||'exam'}`;
+  const preview = buildResultSMSText(stuList[0], examId) || `Results for ${exam?.name||'exam'}`;
   const log = {
     id: uid(), date: new Date().toLocaleString(),
     to: `${stuList.length} parents`,
