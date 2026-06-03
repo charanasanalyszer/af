@@ -10778,31 +10778,51 @@ function previewReport() { generateReport(); }
 
 // ═══════════════ MESSAGING ═══════════════
 function loadMsgRecipients() {
-  const type    = document.getElementById('msgType').value;
-  const filter  = document.getElementById('msgFilter').value;
-  const list    = document.getElementById('msgRecipientsList');
+  const typeEl   = document.getElementById('msgType');
+  const filterEl = document.getElementById('msgFilter');
+  const list     = document.getElementById('msgRecipientsList');
+  if (!typeEl || !filterEl || !list) return;
+
+  // Populate filter dropdown first (so value reads correctly on first load)
+  const prevFilter = filterEl.value;
+  filterEl.innerHTML = '<option value="">All</option>' +
+    classes.map(c=>`<option value="c:${c.id}">Class: ${c.name}</option>`).join('') +
+    streams.map(s=>`<option value="s:${s.id}">Stream: ${s.name}</option>`).join('');
+  if (prevFilter) filterEl.value = prevFilter; // restore selection
+
+  const type   = typeEl.value;
+  const filter = filterEl.value;
+
+  // Apply filter helper
+  function applyFilter(arr) {
+    if (!filter) return arr;
+    if (filter.startsWith('c:')) return arr.filter(s => s.classId === filter.slice(2));
+    if (filter.startsWith('s:')) return arr.filter(s => s.streamId === filter.slice(2));
+    // legacy: bare id (backward compat)
+    return arr.filter(s => s.streamId === filter || s.classId === filter);
+  }
+
   let recipients = [];
   if (type==='parent'||type==='all') {
-    let stuList = filter ? students.filter(s=>s.streamId===filter||s.classId===filter) : students;
-    recipients = stuList.filter(s=>s.contact).map(s=>({name:s.parent||s.name, phone:s.contact, student:s.name}));
+    recipients = applyFilter(students).filter(s=>s.contact)
+      .map(s=>({name:s.parent||s.name, phone:s.contact, student:s.name}));
   } else if (type==='teacher') {
     recipients = teachers.filter(t=>t.phone).map(t=>({name:t.name,phone:t.phone,student:''}));
   } else if (type==='individual') {
-    const filterStu = filter ? students.filter(s=>s.streamId===filter||s.classId===filter) : students;
-    recipients = filterStu.filter(s=>s.contact).map(s=>({name:s.parent||s.name,phone:s.contact,student:s.name}));
+    recipients = applyFilter(students).filter(s=>s.contact)
+      .map(s=>({name:s.parent||s.name, phone:s.contact, student:s.name}));
   }
-  list.innerHTML = recipients.length ? recipients.map(r=>`
+
+  const countLabel = recipients.length
+    ? `<div style="font-size:.78rem;color:var(--muted);margin-bottom:.5rem">${recipients.length} recipient${recipients.length!==1?'s':''}</div>`
+    : '';
+
+  list.innerHTML = countLabel + (recipients.length ? recipients.map(r=>`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid var(--border-lt);font-size:.85rem">
       <div><strong>${r.name}</strong>${r.student?' — '+r.student:''}</div>
       <span style="font-family:var(--mono);color:var(--muted);font-size:.78rem">${r.phone}</span>
     </div>`).join('')
-  : '<p style="color:var(--muted);text-align:center;padding:1rem">No recipients found.</p>';
-
-  // update filter dropdown
-  const mf=document.getElementById('msgFilter');
-  mf.innerHTML='<option value="">All</option>'+
-    streams.map(s=>`<option value="${s.id}">Stream: ${s.name}</option>`).join('')+
-    classes.map(c=>`<option value="${c.id}">Class: ${c.name}</option>`).join('');
+  : '<p style="color:var(--muted);text-align:center;padding:1rem">No recipients found.</p>');
 }
 
 function sendBulkSMS() {
@@ -10964,10 +10984,12 @@ function buildResultSMSText(stu, examId) {
   const totalStudents  = scored.filter(s => !s.incomplete).length;
   const streamStudents = stream ? scored.filter(s => s.streamId === stu.streamId && !s.incomplete).length : null;
 
-  const total = entry.mean !== undefined
-    ? (exam.maxScore ? Math.round(entry.mean) : entry.mean)
-    : '—';
-  const grade    = entry.grade  || '—';
+  const total    = entry.total !== undefined ? entry.total : '—';
+  const mean     = entry.mean  !== undefined ? parseFloat(entry.mean.toFixed(1)) : '—';
+  // entry.grade is an object {grade, label, cls} returned by getMeanGrade
+  const gradeObj  = entry.grade;
+  const gradeStr  = (gradeObj && typeof gradeObj === 'object') ? (gradeObj.grade || '—') : (gradeObj || '—');
+  const gradeLabel= (gradeObj && typeof gradeObj === 'object' && gradeObj.label) ? ` (${gradeObj.label})` : '';
   const ovPos    = entry.overallRank || '—';
   const strPos   = entry.streamRank  || '—';
 
@@ -10977,8 +10999,9 @@ function buildResultSMSText(stu, examId) {
   msg += `${examLabel} Results\n\n`;
   msg += `Student: ${stu.name}\n`;
   msg += `Class: ${classLabel}\n`;
-  msg += `Total Score: ${total}\n`;
-  msg += `Grade: ${grade}\n`;
+  msg += `Total Marks: ${total}\n`;
+  msg += `Mean Score: ${mean}\n`;
+  msg += `Grade: ${gradeStr}${gradeLabel}\n`;
   msg += `Stream Position: ${strPos}${streamStudents ? ' / ' + streamStudents : ''}\n`;
   msg += `Overall Position: ${ovPos} / ${totalStudents}\n`;
   msg += `\nFor more details, contact the school.`;
