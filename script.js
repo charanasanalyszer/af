@@ -10592,18 +10592,10 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
       <span>Printed: ${new Date().toLocaleDateString()}</span>
     </div>
 
-    <!-- QR CODE SECTION (auto-generated, shows on print) -->
+    <!-- RESULTS LINK (auto-generated, shows on print) -->
     <div class="rf-qr-section" id="rf-qr-${data.stu.id}-${data.exam.id}"
-         style="display:flex;align-items:center;gap:.6rem;margin-top:.4rem;padding:.4rem .75rem;
-                background:#f0f7ff;border:1px dashed #b3d4f5;border-radius:6px;page-break-inside:avoid">
-      <div id="rf-qr-canvas-${data.stu.id}-${data.exam.id}" style="flex-shrink:0;background:#fff;padding:3px;border-radius:4px;width:52px;height:52px;display:flex;align-items:center;justify-content:center">
-        <span style="font-size:.55rem;color:#94a3b8;text-align:center">Loading QR…</span>
-      </div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:.65rem;font-weight:700;color:#1a6fb5;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.1rem"><i class="fa-solid fa-mobile-screen"></i> Scan to View Results Online</div>
-        <div style="font-size:.62rem;color:#555;line-height:1.4">Student can scan to access full results on any device.</div>
-        <div style="font-size:.58rem;color:#94a3b8;margin-top:.15rem;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="rf-qr-url-${data.stu.id}-${data.exam.id}"></div>
-      </div>
+         style="margin-top:.4rem;padding:.35rem .75rem;background:#f0f7ff;border:1px dashed #b3d4f5;border-radius:6px;page-break-inside:avoid;font-size:.6rem;color:#1a6fb5;word-break:break-all">
+      <i class="fa-solid fa-link"></i> <span id="rf-qr-url-${data.stu.id}-${data.exam.id}"></span>
     </div>
   </div>`;
 }
@@ -10730,12 +10722,11 @@ function _generateReportBody(stuList, examId, ctR, prR, nextOpen, schoolClosed, 
     });
   }, 200);
 
-  // ── Generate QR codes on each printed report card ────────────
+  // ── Populate results links on each printed report card ────────────
   setTimeout(() => {
     area.querySelectorAll('.rf-qr-section').forEach(section => {
-      const canvasEl = section.querySelector('[id^="rf-qr-canvas-"]');
-      const urlEl    = section.querySelector('[id^="rf-qr-url-"]');
-      if (!canvasEl) return;
+      const urlEl = section.querySelector('[id^="rf-qr-url-"]');
+      if (!urlEl) return;
 
       // Locate admNo from this report card's info grid
       const reportDiv = section.closest('.report-form');
@@ -10752,24 +10743,14 @@ function _generateReportBody(stuList, examId, ctR, prR, nextOpen, schoolClosed, 
       }
       const examSel = document.getElementById('rpExam');
       const examId2 = examSel ? examSel.value : null;
-      if (!stuId || !examId2) { canvasEl.innerHTML = ''; return; }
+      if (!stuId || !examId2) { urlEl.textContent = ''; return; }
 
       const stuAdm = students.find(s => s.id === stuId)?.adm || '';
-      // Build results.html URL relative to current page
       const base = location.href.split('?')[0].replace(/[^/]+$/, '') + 'results.html';
       const params = new URLSearchParams({ adm: stuAdm, exam: examId2 });
       if (currentSchoolId) params.set('school', currentSchoolId);
       const url = base + '?' + params.toString();
-
-      if (urlEl) urlEl.textContent = url;
-      canvasEl.innerHTML = '';
-      try {
-        new QRCode(canvasEl, {
-          text: url, width: 46, height: 46,
-          colorDark: '#0f172a', colorLight: '#ffffff',
-          correctLevel: QRCode.CorrectLevel.H
-        });
-      } catch(e) { canvasEl.innerHTML = '<span style="font-size:.55rem;color:#aaa">QR unavailable</span>'; }
+      urlEl.textContent = url;
     });
   }, 500);
 }
@@ -11697,7 +11678,7 @@ function filterTbl(id, q) {
 }
 
 function showModal(title, bodyHTML, buttons=[]) {
-  document.getElementById('modalTitle').textContent=title;
+  document.getElementById('modalTitle').innerHTML=title;
   document.getElementById('modalBody').innerHTML=bodyHTML;
   document.getElementById('modalFt').innerHTML=buttons.map(b=>`<button class="btn ${b.cls}" onclick="${b.action}">${b.label}</button>`).join('');
   document.getElementById('modalOverlay').classList.add('open');
