@@ -6369,7 +6369,21 @@ function setExamCategory(cat) {
 function renderExamSubjectCheckboxes(selectedIds) {
   const wrap = document.getElementById('examSubjectCheckboxes');
   if (!wrap) return;
-  wrap.innerHTML = subjects.map(s => `
+  // Senior school: show all subjects (pathway-linked or not).
+  // Junior school: exclude pathway-linked subjects (senior-only).
+  const visibleSubjects = isSeniorSchool()
+    ? subjects
+    : subjects.filter(s => !s.pathway);
+  if (!visibleSubjects.length) {
+    wrap.innerHTML = '<p style="color:var(--muted);font-size:.82rem;padding:.5rem 0">'
+      + (isSeniorSchool()
+          ? 'No subjects found. Go to <strong>Subjects</strong> and seed or add senior school subjects first.'
+          : 'No subjects found. Add subjects under the <strong>Subjects</strong> tab.')
+      + '</p>';
+    updateExamSelectAll();
+    return;
+  }
+  wrap.innerHTML = visibleSubjects.map(s => `
     <label class="sub-check-label">
       <input type="checkbox" value="${s.id}" class="exam-sub-chk" ${selectedIds && selectedIds.includes(s.id) ? 'checked' : ''} onchange="updateExamSelectAll()"/>
       <span class="sub-chk-code badge b-teal" style="font-size:.65rem">${s.code}</span>
