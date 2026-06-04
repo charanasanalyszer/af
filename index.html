@@ -1757,6 +1757,8 @@
           <div class="btn-row-compact">
             <button class="btn btn-primary btn-sm" onclick="saveClass()"><i class="fa-solid fa-floppy-disk" style="margin-right:.3rem"></i>Save</button>
             <button class="btn btn-outline btn-sm" onclick="cancelClsEdit()"><i class="fa-solid fa-xmark" style="margin-right:.3rem"></i>Cancel</button>
+            <label class="btn btn-outline btn-sm" style="cursor:pointer"><i class="fa-solid fa-upload" style="margin-right:.3rem"></i>Upload Excel<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleClassUpload(this)"/></label>
+            <button class="btn btn-outline btn-sm" onclick="downloadClassTemplate()"><i class="fa-solid fa-download" style="margin-right:.3rem"></i>Template</button>
           </div>
           <div class="tbl-wrap" style="margin-top:1rem">
             <table id="clsTbl">
@@ -1780,6 +1782,8 @@
           <div class="btn-row-compact">
             <button class="btn btn-primary btn-sm" onclick="saveStream()"><i class="fa-solid fa-floppy-disk" style="margin-right:.3rem"></i>Save</button>
             <button class="btn btn-outline btn-sm" onclick="cancelStrEdit()"><i class="fa-solid fa-xmark" style="margin-right:.3rem"></i>Cancel</button>
+            <label class="btn btn-outline btn-sm" style="cursor:pointer"><i class="fa-solid fa-upload" style="margin-right:.3rem"></i>Upload Excel<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleStreamUpload(this)"/></label>
+            <button class="btn btn-outline btn-sm" onclick="downloadStreamTemplate()"><i class="fa-solid fa-download" style="margin-right:.3rem"></i>Template</button>
           </div>
           <div class="tbl-wrap" style="margin-top:1rem">
             <table id="strTbl">

@@ -10435,6 +10435,56 @@ function manageClassStudents(classId){
 function cancelClsEdit(){['editClsId','clsName','clsLevel'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('clsFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Add Class';}
 function deleteClass(id){if(!confirm('Delete class?'))return;classes=classes.filter(c=>c.id!==id);save(K.classes,classes);renderClasses();showToast('Class deleted','info');}
 
+// ── Class Excel Upload ────────────────────────────────────────────────────────
+function downloadClassTemplate() {
+  const data = [
+    { ClassName: 'Grade 7', Level: '7' },
+    { ClassName: 'Grade 8', Level: '8' },
+    { ClassName: 'Grade 9', Level: '9' },
+    { ClassName: 'Grade 10', Level: '10' },
+  ];
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = [{ wch: 20 }, { wch: 10 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Classes');
+  // Guide sheet
+  const guide = [
+    { Column: 'ClassName', Description: 'Required. Name of the class (e.g. Grade 7, Form 1).' },
+    { Column: 'Level',     Description: 'Optional. Numeric level/year (e.g. 7, 8, 9).' },
+    { Column: '',          Description: 'Duplicate class names are skipped automatically.' },
+  ];
+  const wsG = XLSX.utils.json_to_sheet(guide);
+  wsG['!cols'] = [{ wch: 14 }, { wch: 52 }];
+  XLSX.utils.book_append_sheet(wb, wsG, 'How To Use');
+  XLSX.writeFile(wb, 'classes_template.xlsx');
+  showToast('Classes template downloaded <i class="fa-solid fa-check"></i>', 'success');
+}
+
+function handleClassUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb   = XLSX.read(e.target.result, { type: 'array' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws);
+      let added = 0, skipped = 0;
+      data.forEach(row => {
+        const name  = String(row['ClassName'] || row['classname'] || row['Class Name'] || row['Class'] || row['name'] || '').trim();
+        const level = String(row['Level']     || row['level']     || row['Year']       || '').trim();
+        if (!name) { skipped++; return; }
+        if (classes.find(c => c.name.toLowerCase() === name.toLowerCase())) { skipped++; return; }
+        classes.push({ id: uid(), name, level });
+        added++;
+      });
+      save(K.classes, classes);
+      renderClasses(); populateAllDropdowns();
+      showToast(`${added} class${added !== 1 ? 'es' : ''} added, ${skipped} skipped <i class="fa-solid fa-check"></i>`, 'success');
+    } catch (err) { showToast('Error reading file', 'error'); console.error(err); }
+  };
+  reader.readAsArrayBuffer(file); input.value = '';
+}
+
 function renderStreams() {
   const sc=sortState.streams.col, sd=sortState.streams.dir;
   const list=[...streams].sort((a,b)=>{
@@ -10497,6 +10547,75 @@ function populateStrTeacherDropdown(){
 }
 function cancelStrEdit(){['editStrId','strName'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('strFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Add Stream';}
 function deleteStream(id){if(!confirm('Delete stream?'))return;streams=streams.filter(s=>s.id!==id);save(K.streams,streams);renderStreams();showToast('Stream deleted','info');}
+
+// ── Stream Excel Upload ───────────────────────────────────────────────────────
+function downloadStreamTemplate() {
+  const existingClasses = classes.map(c => c.name).join(', ') || 'Grade 7, Grade 8, Grade 9';
+  const data = [
+    { StreamName: 'East',  ClassName: 'Grade 7', ClassTeacher: '' },
+    { StreamName: 'West',  ClassName: 'Grade 7', ClassTeacher: '' },
+    { StreamName: 'North', ClassName: 'Grade 8', ClassTeacher: '' },
+    { StreamName: 'South', ClassName: 'Grade 8', ClassTeacher: '' },
+  ];
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = [{ wch: 18 }, { wch: 18 }, { wch: 24 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Streams');
+  // Guide sheet
+  const guide = [
+    { Column: 'StreamName',   Description: 'Required. Name of the stream (e.g. East, A, Blue).' },
+    { Column: 'ClassName',    Description: 'Required. Must match an existing class name exactly.' },
+    { Column: 'ClassTeacher', Description: 'Optional. Teacher name — must match an existing teacher exactly.' },
+    { Column: '',             Description: `Current classes in system: ${existingClasses}` },
+    { Column: '',             Description: 'Duplicate StreamName+ClassName combinations are skipped.' },
+    { Column: '',             Description: 'Classes must be added first before adding their streams.' },
+  ];
+  const wsG = XLSX.utils.json_to_sheet(guide);
+  wsG['!cols'] = [{ wch: 16 }, { wch: 60 }];
+  XLSX.utils.book_append_sheet(wb, wsG, 'How To Use');
+  XLSX.writeFile(wb, 'streams_template.xlsx');
+  showToast('Streams template downloaded <i class="fa-solid fa-check"></i>', 'success');
+}
+
+function handleStreamUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb   = XLSX.read(e.target.result, { type: 'array' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws);
+      let added = 0, skipped = 0, warnings = [];
+      data.forEach(row => {
+        const name    = String(row['StreamName']   || row['streamname']   || row['Stream Name'] || row['Stream'] || row['name'] || '').trim();
+        const clsName = String(row['ClassName']    || row['classname']    || row['Class Name']  || row['Class']  || '').trim();
+        const tchName = String(row['ClassTeacher'] || row['classteacher'] || row['Teacher']     || '').trim();
+        if (!name) { skipped++; return; }
+        // Resolve class
+        const cls = classes.find(c => c.name.toLowerCase() === clsName.toLowerCase());
+        if (!cls) {
+          warnings.push(`"${name}": class "${clsName}" not found — skipped`);
+          skipped++; return;
+        }
+        // Skip duplicate stream in same class
+        if (streams.find(s => s.name.toLowerCase() === name.toLowerCase() && s.classId === cls.id)) { skipped++; return; }
+        // Resolve class teacher (optional)
+        const tch = tchName ? teachers.find(t => t.name.toLowerCase() === tchName.toLowerCase()) : null;
+        if (tchName && !tch) warnings.push(`"${name}": teacher "${tchName}" not found — stream added without class teacher`);
+        streams.push({ id: uid(), name, classId: cls.id, streamTeacherId: tch?.id || '' });
+        added++;
+      });
+      save(K.streams, streams);
+      renderStreams(); populateAllDropdowns();
+      const msg = `${added} stream${added !== 1 ? 's' : ''} added, ${skipped} skipped`;
+      showToast(`${msg} <i class="fa-solid fa-check"></i>`, warnings.length ? 'warning' : 'success');
+      if (warnings.length) {
+        setTimeout(() => warnings.forEach(w => showToast(w, 'warning')), 600);
+      }
+    } catch (err) { showToast('Error reading file', 'error'); console.error(err); }
+  };
+  reader.readAsArrayBuffer(file); input.value = '';
+}
 
 // ═══════════════ STREAM SUBJECT-TEACHER ASSIGNMENTS ═══════════════
 // streamAssignments: [{ id, streamId, subjectId, teacherId }]
