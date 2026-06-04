@@ -9260,6 +9260,67 @@ function renderSummaryAnalytics() {
       }).join('');
     }
 
+    // ── Pathway breakdown (senior school only) ──
+    let pathwayHTML = '';
+    if (isSeniorSchool()) {
+      const pathwayCards = PATHWAYS.map(pw => {
+        const pwStudents = clsStudentData.filter(d => d.stu.pathway === pw.id);
+        if (!pwStudents.length) return '';
+        const pwMean  = parseFloat((pwStudents.reduce((a,d)=>a+d.mean,0)/pwStudents.length).toFixed(1));
+        const pwGrade = getMeanGrade ? getMeanGrade((pwMean/100)*8) : {grade:'—',cls:''};
+        const pwPct   = Math.round(pwStudents.length / clsStudentData.length * 100);
+        const top1    = pwStudents[0];
+        const top1G   = getMeanGrade ? getMeanGrade((top1.mean/100)*8) : {grade:'—',cls:''};
+        return `<div style="flex:1;min-width:200px;border:1.5px solid ${pw.color}40;border-radius:10px;padding:.85rem 1rem;background:${pw.color}08">
+          <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.55rem">
+            <span style="width:30px;height:30px;border-radius:50%;background:${pw.color}20;display:flex;align-items:center;justify-content:center">
+              <i class="fa-solid ${pw.icon}" style="color:${pw.color};font-size:.85rem"></i>
+            </span>
+            <div>
+              <div style="font-weight:700;font-size:.85rem;color:var(--text)">${pw.label}</div>
+              <div style="font-size:.72rem;color:var(--muted)">${pwStudents.length} student${pwStudents.length!==1?'s':''} &nbsp;·&nbsp; ${pwPct}% of class</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:.75rem;align-items:center;margin-bottom:.45rem">
+            <div style="text-align:center">
+              <div style="font-size:1.3rem;font-weight:800;color:${pw.color}">${pwMean.toFixed(1)}</div>
+              <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase">Mean</div>
+            </div>
+            <span class="badge ${pwGrade.cls||'b-blue'}" style="font-size:.72rem">${pwGrade.grade}</span>
+          </div>
+          <div style="font-size:.72rem;color:var(--muted);border-top:1px solid ${pw.color}20;padding-top:.4rem;margin-top:.3rem">
+            <i class="fa-solid fa-trophy" style="color:${pw.color}"></i>
+            <strong>${top1.stu.name}</strong> &mdash; ${top1.mean.toFixed(1)}
+            <span class="badge ${top1G.cls||'b-blue'}" style="font-size:.6rem">${top1G.grade}</span>
+          </div>
+        </div>`;
+      }).filter(Boolean).join('');
+
+      // Pathway distribution bar
+      const pwCounts = PATHWAYS.map(pw=>({ pw, n: clsStudentData.filter(d=>d.stu.pathway===pw.id).length }));
+      const pwBarSegs = pwCounts.map(({pw,n}) => {
+        const pct = clsStudentData.length ? Math.round(n/clsStudentData.length*100) : 0;
+        return pct ? `<div title="${pw.label}: ${n} (${pct}%)" style="width:${pct}%;background:${pw.color};height:100%;display:flex;align-items:center;justify-content:center">
+          <span style="font-size:.6rem;font-weight:700;color:#fff;white-space:nowrap">${pct}%</span>
+        </div>` : '';
+      }).join('');
+
+      pathwayHTML = pathwayCards ? `<div class="card sm-section">
+        <h4 class="sm-section-title"><i class="fa-solid fa-sitemap"></i> Pathway Analysis</h4>
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:.75rem">${pathwayCards}</div>
+        <div style="margin-top:.5rem">
+          <div style="font-size:.68rem;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:.3rem">Pathway Distribution</div>
+          <div style="display:flex;border-radius:8px;overflow:hidden;height:26px;width:100%">${pwBarSegs}</div>
+          <div style="display:flex;gap:1rem;margin-top:.4rem;flex-wrap:wrap">
+            ${PATHWAYS.map(pw=>{
+              const n = clsStudentData.filter(d=>d.stu.pathway===pw.id).length;
+              return n ? `<span style="font-size:.72rem;color:var(--muted)"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${pw.color};margin-right:.25rem"></span>${pw.label}: ${n}</span>` : '';
+            }).filter(Boolean).join('')}
+          </div>
+        </div>
+      </div>` : '';
+    }
+
     // Assemble class section
     html += `<div class="sm-class-section">
       <div class="sm-class-header">
@@ -9286,6 +9347,7 @@ function renderSummaryAnalytics() {
         <div class="sm-subgrid">${bestPerSubHTML||'<p style="color:var(--muted)">No data</p>'}</div>
       </div>
 
+      ${pathwayHTML}
       ${mostImprovedHTML}
       ${mostImprovedSubHTML}
       ${genderAnalysisHTML}
@@ -9302,11 +9364,12 @@ function renderSummaryAnalytics() {
 
 // ═══════════════ STUDENTS CRUD ═══════════════
 function applyStudentFilters() {
-  const text    = (document.getElementById('stuSearchBox')?.value || '').toLowerCase();
-  const gender  = document.getElementById('stuGenderFilter')?.value || '';
-  const classId = document.getElementById('stuClassFilter')?.value || '';
-  const streamId= document.getElementById('stuStreamFilter')?.value || '';
-  renderStudents(text, gender, classId, streamId);
+  const text     = (document.getElementById('stuSearchBox')?.value || '').toLowerCase();
+  const gender   = document.getElementById('stuGenderFilter')?.value || '';
+  const classId  = document.getElementById('stuClassFilter')?.value || '';
+  const streamId = document.getElementById('stuStreamFilter')?.value || '';
+  const pathway  = document.getElementById('stuPathwayFilter')?.value || '';
+  renderStudents(text, gender, classId, streamId, pathway);
 }
 
 function populateStudentFilterDropdowns() {
@@ -9326,12 +9389,13 @@ function populateStudentFilterDropdowns() {
   }
 }
 
-function renderStudents(filter='', genderFilter='', classFilter='', streamFilter='') {
+function renderStudents(filter='', genderFilter='', classFilter='', streamFilter='', pathwayFilter='') {
   let list = [...students];
-  if (filter)       list = list.filter(s=>s.name.toLowerCase().includes(filter)||s.adm.toLowerCase().includes(filter));
-  if (genderFilter) list = list.filter(s=>s.gender===genderFilter);
-  if (classFilter)  list = list.filter(s=>s.classId===classFilter);
-  if (streamFilter) list = list.filter(s=>s.streamId===streamFilter);
+  if (filter)        list = list.filter(s=>s.name.toLowerCase().includes(filter)||s.adm.toLowerCase().includes(filter));
+  if (genderFilter)  list = list.filter(s=>s.gender===genderFilter);
+  if (classFilter)   list = list.filter(s=>s.classId===classFilter);
+  if (streamFilter)  list = list.filter(s=>s.streamId===streamFilter);
+  if (pathwayFilter) list = list.filter(s=>s.pathway===pathwayFilter);
   // Apply column sort
   const sc=sortState.students.col, sd=sortState.students.dir;
   list.sort((a,b)=>{
@@ -9343,6 +9407,7 @@ function renderStudents(filter='', genderFilter='', classFilter='', streamFilter
     return sd==='asc'?va.localeCompare(vb):vb.localeCompare(va);
   });
   // Inject sortable header row
+  const senior = isSeniorSchool();
   const stuThead=document.querySelector('#stuTbl thead tr');
   if(stuThead) stuThead.innerHTML=
     '<th><input type="checkbox" id="stuSelectAll" onchange="toggleSelectAllStudents(this)" title="Select all"/></th><th>#</th>'+
@@ -9351,14 +9416,20 @@ function renderStudents(filter='', genderFilter='', classFilter='', streamFilter
     thSort('students','gender','Gender')+
     thSort('students','class','Class')+
     thSort('students','stream','Stream')+
+    (senior ? '<th>Pathway</th>' : '')+
     thSort('students','parent','Parent')+
     thSort('students','contact','Contact')+
     '<th>Subjects</th><th>Actions</th>';
+  const colSpan = senior ? 12 : 11;
   document.getElementById('stuBody').innerHTML = list.map((s,i)=>{
     const cls   = classes.find(c=>c.id===s.classId);
     const str   = streams.find(st=>st.id===s.streamId);
     const subs  = (s.subjectIds||[]).map(sid=>{ const sub=subjects.find(x=>x.id===sid); return sub?`<span class="badge b-teal" style="font-size:.65rem">${sub.code}</span>`:''; }).join(' ');
     const _isT  = currentUser && currentUser.role === 'teacher';
+    const pw    = senior ? getPathway(s.pathway) : null;
+    const pathwayCell = senior
+      ? `<td>${pw ? `<span class="badge" style="background:${pw.color}20;color:${pw.color};border:1px solid ${pw.color}40;font-size:.65rem"><i class="fa-solid ${pw.icon}"></i> ${pw.label}</span>` : '<span style="color:var(--muted);font-size:.8rem">—</span>'}</td>`
+      : '';
     return `<tr>
       <td>${_isT ? '' : `<input type="checkbox" class="stu-sel-chk" data-id="${s.id}" onchange="onStuSelChange()"/>`}</td>
       <td>${i+1}</td>
@@ -9366,6 +9437,7 @@ function renderStudents(filter='', genderFilter='', classFilter='', streamFilter
       <td><strong>${s.name}</strong></td>
       <td><span class="badge ${s.gender==='M'?'b-m':'b-f'}">${s.gender==='M'?'Male':'Female'}</span></td>
       <td>${cls?.name||'—'}</td><td>${str?.name||'—'}</td>
+      ${pathwayCell}
       <td>${s.parent||'—'}</td><td>${s.contact||'—'}</td>
       <td style="max-width:150px;overflow:hidden">${subs||'—'}</td>
       <td><div class="act-cell">
@@ -9374,7 +9446,7 @@ function renderStudents(filter='', genderFilter='', classFilter='', streamFilter
         <button class="icb" style="background:var(--purple,#7c3aed);color:#fff;border:none" title="View Analytics" onclick="showStudentAnalytics('${s.id}')"><i class="fa-solid fa-chart-bar"></i></button>
       </div></td>
     </tr>`;
-  }).join('') || `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:1.5rem">No students yet.</td></tr>`;
+  }).join('') || `<tr><td colspan="${colSpan}" style="text-align:center;color:var(--muted);padding:1.5rem">No students yet.</td></tr>`;
   const saChk = document.getElementById('stuSelectAll');
   if (saChk) { saChk.checked = false; saChk.indeterminate = false; }
   updateBulkDeleteUI();
@@ -9557,15 +9629,17 @@ function saveStudent() {
   const notes   = document.getElementById('stuNotes').value;
   // All subjects apply to all students
   const subIds = subjects.map(s => s.id);
+  const pathway = isSeniorSchool() ? (document.getElementById('stuPathway')?.value || '') : '';
   if (!adm||!name||!classId||!streamId) { showToast('Adm No, Name, Class and Stream are required','error'); return; }
+  if (isSeniorSchool() && !pathway) { showToast('Please select a pathway for senior school','error'); return; }
   const editId = document.getElementById('editStuId').value;
   if (editId) {
     const i=students.findIndex(s=>s.id===editId);
-    if(i>-1) students[i]={...students[i],adm,name,gender,classId,streamId,parent,contact,dob,notes,subjectIds:subIds};
+    if(i>-1) students[i]={...students[i],adm,name,gender,classId,streamId,parent,contact,dob,notes,pathway,subjectIds:subIds};
     showToast('Student updated <i class="fa-solid fa-check"></i>','success');
   } else {
     if(students.find(s=>s.adm===adm)){showToast('Admission number exists','error');return;}
-    const stu={id:uid(),adm,name,gender,classId,streamId,parent,contact,dob,notes,subjectIds:subIds};
+    const stu={id:uid(),adm,name,gender,classId,streamId,parent,contact,dob,notes,pathway,subjectIds:subIds};
     students.push(stu);
     // Enrol in all subjects
     subIds.forEach(sid=>{const sub=subjects.find(x=>x.id===sid);if(sub&&!sub.studentIds.includes(stu.id))sub.studentIds.push(stu.id);});
@@ -9589,6 +9663,9 @@ function editStudent(id) {
   document.getElementById('stuContact').value=s.contact||'';
   document.getElementById('stuDOB').value=s.dob||'';
   document.getElementById('stuNotes').value=s.notes||'';
+  if (isSeniorSchool() && document.getElementById('stuPathway')) {
+    document.getElementById('stuPathway').value = s.pathway || '';
+  }
   document.querySelectorAll('#stuSubjectsCheckboxes input[type=checkbox]').forEach(cb=>{cb.checked=(s.subjectIds||[]).includes(cb.value);});
   updateSelectAllCheckbox();
   document.getElementById('stuFormTitle').innerHTML = '<i class="fa-solid fa-pen"></i>️ Edit Student';
@@ -9598,6 +9675,7 @@ function editStudent(id) {
 function cancelStuEdit() {
   ['editStuId','stuAdm','stuName','stuParent','stuContact','stuDOB','stuNotes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('stuGender').value='M';
+  if (document.getElementById('stuPathway')) document.getElementById('stuPathway').value='';
   document.getElementById('stuFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Add Student';
 }
 
@@ -9635,13 +9713,15 @@ function handleStudentUpload(input) {
         const strName=String(row['Stream']||row['stream']||'').trim();
         const contact=String(row['ParentContact']||row['parent_contact']||'').trim();
         const parent =String(row['ParentName']||row['parent_name']||'').trim();
+        const pwRaw  =String(row['Pathway']||row['pathway']||'').trim().toLowerCase();
+        const pathway= ['stem','ss','arts'].includes(pwRaw) ? pwRaw : (['social sciences','social science'].includes(pwRaw)?'ss':(['arts and sports','arts & sports'].includes(pwRaw)?'arts':''));
         if(!adm||!name){skipped++;return;}
         if(students.find(s=>s.adm.toLowerCase()===adm.toLowerCase()&&s.name.toLowerCase()===name.toLowerCase())){skipped++;return;}
         const cls=classes.find(c=>c.name.toLowerCase()===clsName.toLowerCase());
         // Match stream by name AND classId so "East" in Grade 7 ≠ "East" in Grade 8
         const str=streams.find(s=>s.name.toLowerCase()===strName.toLowerCase()&&(!cls||s.classId===cls.id))
                || (strName ? streams.find(s=>s.name.toLowerCase()===strName.toLowerCase()) : null);
-        const stu={id:uid(),adm,name,gender,classId:cls?.id||'',streamId:str?.id||'',parent,contact,dob:'',notes:'',subjectIds:subjects.map(s=>s.id)};
+        const stu={id:uid(),adm,name,gender,classId:cls?.id||'',streamId:str?.id||'',pathway:pathway||'',parent,contact,dob:'',notes:'',subjectIds:subjects.map(s=>s.id)};
         students.push(stu);
         subjects.forEach(sub=>{if(!sub.studentIds.includes(stu.id))sub.studentIds.push(stu.id);});
         added++;
@@ -11076,7 +11156,10 @@ function loadSettings() {
   document.getElementById('setSchoolEmail').value=s.email||'';
   document.getElementById('setTerm').value=s.term||'Term 1';
   document.getElementById('setYear').value=s.year||'2025';
+  const slEl = document.getElementById('setSchoolLevel');
+  if (slEl) slEl.value = s.schoolLevel || 'junior';
   document.getElementById('sbSchoolName').textContent=s.schoolName||'School';
+  applySchoolLevelUI();
   // Global teacher restrictions (super admin only)
   const rta = document.getElementById('restrictTeacherAnalytics');
   const rtf = document.getElementById('restrictTeacherFees');
@@ -11098,6 +11181,7 @@ function saveSettings() {
     email:document.getElementById('setSchoolEmail').value.trim(),
     term:document.getElementById('setTerm').value,
     year:document.getElementById('setYear').value,
+    schoolLevel: document.getElementById('setSchoolLevel')?.value || 'junior',
     restrictTeacherAnalytics: settings.restrictTeacherAnalytics || false,
     restrictTeacherFees:      settings.restrictTeacherFees      || false,
     restrictTeacherList:      settings.restrictTeacherList      || false,
@@ -11105,7 +11189,29 @@ function saveSettings() {
   };
   save(K.settings,[settings]);
   document.getElementById('sbSchoolName').textContent=settings.schoolName||'School';
+  applySchoolLevelUI();
   showToast('Settings saved <i class="fa-solid fa-check"></i>','success');
+}
+
+// ─── School-level helpers ───────────────────────────────────
+const PATHWAYS = [
+  { id:'stem',   label:'STEM',                  color:'#3b82f6', icon:'fa-flask' },
+  { id:'ss',     label:'Social Sciences',        color:'#10b981', icon:'fa-globe' },
+  { id:'arts',   label:'Arts & Sports Science',  color:'#f59e0b', icon:'fa-palette' },
+];
+function isSeniorSchool() { return (settings.schoolLevel || 'junior') === 'senior'; }
+function getPathway(id) { return PATHWAYS.find(p=>p.id===id) || null; }
+
+function applySchoolLevelUI() {
+  const senior = isSeniorSchool();
+  // Show/hide Pathway column in student table header (re-rendered by renderStudents)
+  renderStudents();
+  // Show/hide pathway filter
+  const pf = document.getElementById('stuPathwayFilterWrap');
+  if (pf) pf.style.display = senior ? '' : 'none';
+  // Show/hide pathway field in add-student form
+  const pfw = document.getElementById('stuPathwayWrap');
+  if (pfw) pfw.style.display = senior ? '' : 'none';
 }
 
 function saveGlobalTeacherRestrictions() {

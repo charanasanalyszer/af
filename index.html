@@ -1071,6 +1071,14 @@
         </div>
         <div class="frow c4">
           <div class="fg"><label>Stream *</label><select id="stuStream"><option value="">— Select —</option></select></div>
+          <div class="fg" id="stuPathwayWrap" style="display:none"><label>Pathway *</label>
+            <select id="stuPathway">
+              <option value="">— Select Pathway —</option>
+              <option value="stem">STEM</option>
+              <option value="ss">Social Sciences</option>
+              <option value="arts">Arts &amp; Sports Science</option>
+            </select>
+          </div>
           <div class="fg"><label>Parent/Guardian Name</label><input type="text" id="stuParent" placeholder="Parent Name"/></div>
           <div class="fg"><label>Parent Contact *</label><input type="tel" id="stuContact" placeholder="07XX XXX XXX"/></div>
           <div class="fg"><label>Date of Birth</label><input type="date" id="stuDOB"/></div>
@@ -1091,7 +1099,7 @@
         <div class="upload-zone" onclick="document.getElementById('stuFile').click()">
           <div class="uz-icon"><i class="fa-solid fa-user-graduate"></i></div>
           <h4>Click or drag Excel/CSV file</h4>
-          <p>Columns: AdmNo, Name, Gender <span style="color:var(--muted)">(M or F)</span>, Class, Stream, ParentContact, ParentName</p>
+          <p>Columns: AdmNo, Name, Gender <span style="color:var(--muted)">(M or F)</span>, Class, Stream, ParentContact, ParentName<span id="uploadPathwayHint">, <strong>Pathway</strong> <span style="color:var(--muted)">(stem / ss / arts — senior school only)</span></span></p>
           <input type="file" id="stuFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleStudentUpload(this)"/>
         </div>
         <div style="display:flex;gap:.75rem;margin-top:.75rem">
@@ -1114,6 +1122,14 @@
             <select id="stuStreamFilter" style="height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem" onchange="applyStudentFilters()">
               <option value="">All Streams</option>
             </select>
+            <span id="stuPathwayFilterWrap" style="display:none">
+              <select id="stuPathwayFilter" style="height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem" onchange="applyStudentFilters()">
+                <option value="">All Pathways</option>
+                <option value="stem">STEM</option>
+                <option value="ss">Social Sciences</option>
+                <option value="arts">Arts &amp; Sports Science</option>
+              </select>
+            </span>
             <button class="btn btn-outline btn-sm" onclick="exportFilteredStudentsExcel()" title="Export currently filtered students (full details)">⬇ Export List</button>
             <button class="btn btn-danger btn-sm" id="stuBulkDelBtn" style="display:none" onclick="deleteSelectedStudents()"><i class="fa-solid fa-trash"></i> Delete Selected (<span id="stuSelCount">0</span>)</button>
           </div>
@@ -6802,6 +6818,12 @@ document.addEventListener('tt_sectionVisible', function() {
               <select id="setTerm"><option>Term 1</option><option>Term 2</option><option>Term 3</option></select>
             </div>
             <div class="fg"><label>Academic Year</label><input type="number" id="setYear" value="2025"/></div>
+            <div class="fg"><label>School Level</label>
+              <select id="setSchoolLevel" onchange="saveSettings()">
+                <option value="junior">Junior School (No Pathways)</option>
+                <option value="senior">Senior School (STEM / Social Sciences / Arts)</option>
+              </select>
+            </div>
           </div>
           <button class="btn btn-primary btn-sm" onclick="saveSettings()"><i class="fa-solid fa-floppy-disk"></i> Save Settings</button>
         </div>
