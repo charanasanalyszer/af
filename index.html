@@ -1100,6 +1100,7 @@
           <div class="uz-icon"><i class="fa-solid fa-user-graduate"></i></div>
           <h4>Click or drag Excel/CSV file</h4>
           <p>Columns: AdmNo, Name, Gender <span style="color:var(--muted)">(M or F)</span>, Class, Stream, ParentContact, ParentName<span id="uploadPathwayHint">, <strong>Pathway</strong> <span style="color:var(--muted)">(stem / ss / arts — senior school only)</span></span></p>
+          <p id="uploadElectivesHint" style="display:none;font-size:.76rem;color:#8b5cf6;margin-top:.25rem"><i class="fa-solid fa-circle-info"></i> Core subjects are auto-assigned. Add an <strong>Electives</strong> column with comma-separated subject codes to pre-assign electives (e.g. <em>BIO,CHE,PHY</em>).</p>
           <input type="file" id="stuFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleStudentUpload(this)"/>
         </div>
         <div style="display:flex;gap:.75rem;margin-top:.75rem">
@@ -1683,9 +1684,29 @@
             <select id="subTeacher"><option value="">— None —</option></select>
           </div>
         </div>
+        <!-- Senior school pathway fields (hidden for junior) -->
+        <div id="subPathwayWrap" style="display:none">
+          <div class="frow c2" style="margin-top:.5rem">
+            <div class="fg"><label>Pathway <span style="color:var(--muted);font-weight:400">(Senior School)</span></label>
+              <select id="subPathway">
+                <option value="">— All Pathways / Universal —</option>
+                <option value="stem">STEM</option>
+                <option value="ss">Social Sciences</option>
+                <option value="arts">Arts &amp; Sports Science</option>
+              </select>
+            </div>
+            <div class="fg" style="display:flex;align-items:center;gap:.5rem;padding-top:1.5rem">
+              <input type="checkbox" id="subCbcCore" style="accent-color:var(--primary);width:16px;height:16px"/>
+              <label for="subCbcCore" style="margin:0;font-weight:500;cursor:pointer">Mark as CBC Core Subject</label>
+            </div>
+          </div>
+        </div>
         <div class="btn-row-compact">
           <button class="btn btn-primary btn-sm" onclick="saveSubject()"><i class="fa-solid fa-floppy-disk" style="margin-right:.3rem"></i>Save</button>
           <button class="btn btn-outline btn-sm" onclick="cancelSubEdit()"><i class="fa-solid fa-xmark" style="margin-right:.3rem"></i>Cancel</button>
+          <button id="seniorSubjectSeedBtn" class="btn btn-outline btn-sm" style="display:none;border-color:#8b5cf6;color:#8b5cf6" onclick="showSeniorSubjectPanel()">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Seed CBC Subjects
+          </button>
         </div>
       </div>
       <div class="card">
