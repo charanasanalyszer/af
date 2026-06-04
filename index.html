@@ -1072,16 +1072,32 @@
         <div class="frow c4">
           <div class="fg"><label>Stream *</label><select id="stuStream"><option value="">— Select —</option></select></div>
           <div class="fg" id="stuPathwayWrap" style="display:none"><label>Pathway *</label>
-            <select id="stuPathway">
+            <select id="stuPathway" onchange="updateStuTrackDropdown()">
               <option value="">— Select Pathway —</option>
               <option value="stem">STEM</option>
               <option value="ss">Social Sciences</option>
               <option value="arts">Arts &amp; Sports Science</option>
             </select>
           </div>
+          <div class="fg" id="stuTrackWrap" style="display:none"><label>Track *</label>
+            <select id="stuTrack" onchange="updateStuSubjectCombination()">
+              <option value="">— Select Track —</option>
+            </select>
+          </div>
           <div class="fg"><label>Parent/Guardian Name</label><input type="text" id="stuParent" placeholder="Parent Name"/></div>
           <div class="fg"><label>Parent Contact *</label><input type="tel" id="stuContact" placeholder="07XX XXX XXX"/></div>
           <div class="fg"><label>Date of Birth</label><input type="date" id="stuDOB"/></div>
+        </div>
+        <div id="stuSubjectCombWrap" style="display:none;margin-bottom:.75rem">
+          <div style="background:var(--surface2,var(--surface));border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem">
+            <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem">
+              <i class="fa-solid fa-book-open" style="color:var(--primary);font-size:.85rem"></i>
+              <span style="font-weight:700;font-size:.85rem;color:var(--text)">Subject Combination</span>
+              <span id="stuSubjectTrackLabel" style="font-size:.72rem;color:var(--muted);margin-left:.25rem"></span>
+            </div>
+            <div id="stuCoreSubjectsList" style="margin-bottom:.65rem"></div>
+            <div id="stuElectiveSubjectsList"></div>
+          </div>
         </div>
         <div class="frow c2">
           <div class="fg"><label>Notes</label><textarea id="stuNotes" rows="4" placeholder="Optional..."></textarea></div>
@@ -1124,11 +1140,16 @@
               <option value="">All Streams</option>
             </select>
             <span id="stuPathwayFilterWrap" style="display:none">
-              <select id="stuPathwayFilter" style="height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem" onchange="applyStudentFilters()">
+              <select id="stuPathwayFilter" style="height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem" onchange="onPathwayFilterChange()">
                 <option value="">All Pathways</option>
                 <option value="stem">STEM</option>
                 <option value="ss">Social Sciences</option>
                 <option value="arts">Arts &amp; Sports Science</option>
+              </select>
+            </span>
+            <span id="stuTrackFilterWrap" style="display:none">
+              <select id="stuTrackFilter" style="height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem" onchange="applyStudentFilters()">
+                <option value="">All Tracks</option>
               </select>
             </span>
             <button class="btn btn-outline btn-sm" onclick="exportFilteredStudentsExcel()" title="Export currently filtered students (full details)">⬇ Export List</button>

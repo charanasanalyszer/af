@@ -9293,6 +9293,30 @@ function renderSummaryAnalytics() {
             <strong>${top1.stu.name}</strong> &mdash; ${top1.mean.toFixed(1)}
             <span class="badge ${top1G.cls||'b-blue'}" style="font-size:.6rem">${top1G.grade}</span>
           </div>
+          ${(() => {
+            // Track breakdown within this pathway
+            const tracks = PATHWAY_TRACKS[pw.id] || [];
+            if (!tracks.length) return '';
+            const trackRows = tracks.map(t => {
+              const tStudents = pwStudents.filter(d => d.stu.track === t);
+              if (!tStudents.length) return '';
+              const tMean = parseFloat((tStudents.reduce((a,d)=>a+d.mean,0)/tStudents.length).toFixed(1));
+              const tGrade = getMeanGrade ? getMeanGrade((tMean/100)*8) : {grade:'—',cls:''};
+              const tTop = tStudents[0];
+              return `<div style="display:flex;justify-content:space-between;align-items:center;padding:.2rem 0;border-bottom:1px dashed ${pw.color}15">
+                <div style="font-size:.7rem;font-weight:600;color:var(--text)">${t}</div>
+                <div style="display:flex;align-items:center;gap:.3rem">
+                  <span style="font-size:.68rem;color:var(--muted)">${tStudents.length} stu</span>
+                  <span style="font-size:.75rem;font-weight:700;color:${pw.color}">${tMean.toFixed(1)}</span>
+                  <span class="badge ${tGrade.cls||'b-blue'}" style="font-size:.58rem">${tGrade.grade}</span>
+                </div>
+              </div>`;
+            }).filter(Boolean).join('');
+            return trackRows ? `<div style="margin-top:.55rem;border-top:1.5px solid ${pw.color}25;padding-top:.45rem">
+              <div style="font-size:.62rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:.3rem"><i class="fa-solid fa-layer-group" style="margin-right:.25rem"></i>Tracks</div>
+              ${trackRows}
+            </div>` : '';
+          })()}
         </div>`;
       }).filter(Boolean).join('');
 
@@ -9369,7 +9393,25 @@ function applyStudentFilters() {
   const classId  = document.getElementById('stuClassFilter')?.value || '';
   const streamId = document.getElementById('stuStreamFilter')?.value || '';
   const pathway  = document.getElementById('stuPathwayFilter')?.value || '';
-  renderStudents(text, gender, classId, streamId, pathway);
+  const track    = document.getElementById('stuTrackFilter')?.value  || '';
+  renderStudents(text, gender, classId, streamId, pathway, track);
+}
+
+function onPathwayFilterChange() {
+  const pw = document.getElementById('stuPathwayFilter')?.value || '';
+  const trackFilterWrap = document.getElementById('stuTrackFilterWrap');
+  const trackSel = document.getElementById('stuTrackFilter');
+  if (pw && PATHWAY_TRACKS[pw]) {
+    if (trackSel) {
+      trackSel.innerHTML = '<option value="">All Tracks</option>' +
+        PATHWAY_TRACKS[pw].map(t => `<option value="${t}">${t}</option>`).join('');
+    }
+    if (trackFilterWrap) trackFilterWrap.style.display = '';
+  } else {
+    if (trackFilterWrap) trackFilterWrap.style.display = 'none';
+    if (trackSel) trackSel.value = '';
+  }
+  applyStudentFilters();
 }
 
 function populateStudentFilterDropdowns() {
@@ -9389,13 +9431,14 @@ function populateStudentFilterDropdowns() {
   }
 }
 
-function renderStudents(filter='', genderFilter='', classFilter='', streamFilter='', pathwayFilter='') {
+function renderStudents(filter='', genderFilter='', classFilter='', streamFilter='', pathwayFilter='', trackFilter='') {
   let list = [...students];
   if (filter)        list = list.filter(s=>s.name.toLowerCase().includes(filter)||s.adm.toLowerCase().includes(filter));
   if (genderFilter)  list = list.filter(s=>s.gender===genderFilter);
   if (classFilter)   list = list.filter(s=>s.classId===classFilter);
   if (streamFilter)  list = list.filter(s=>s.streamId===streamFilter);
   if (pathwayFilter) list = list.filter(s=>s.pathway===pathwayFilter);
+  if (trackFilter)   list = list.filter(s=>s.track===trackFilter);
   // Apply column sort
   const sc=sortState.students.col, sd=sortState.students.dir;
   list.sort((a,b)=>{
@@ -9416,7 +9459,7 @@ function renderStudents(filter='', genderFilter='', classFilter='', streamFilter
     thSort('students','gender','Gender')+
     thSort('students','class','Class')+
     thSort('students','stream','Stream')+
-    (senior ? '<th>Pathway</th>' : '')+
+    (senior ? '<th>Pathway / Track</th>' : '')+
     thSort('students','parent','Parent')+
     thSort('students','contact','Contact')+
     '<th>Subjects</th><th>Actions</th>';
@@ -9428,7 +9471,10 @@ function renderStudents(filter='', genderFilter='', classFilter='', streamFilter
     const _isT  = currentUser && currentUser.role === 'teacher';
     const pw    = senior ? getPathway(s.pathway) : null;
     const pathwayCell = senior
-      ? `<td>${pw ? `<span class="badge" style="background:${pw.color}20;color:${pw.color};border:1px solid ${pw.color}40;font-size:.65rem"><i class="fa-solid ${pw.icon}"></i> ${pw.label}</span>` : '<span style="color:var(--muted);font-size:.8rem">—</span>'}</td>`
+      ? `<td>${pw ? `<div style="display:flex;flex-direction:column;gap:.2rem">
+            <span class="badge" style="background:${pw.color}20;color:${pw.color};border:1px solid ${pw.color}40;font-size:.65rem"><i class="fa-solid ${pw.icon}"></i> ${pw.label}</span>
+            ${s.track ? `<span style="font-size:.62rem;color:var(--muted);padding-left:.1rem"><i class="fa-solid fa-layer-group" style="font-size:.55rem;margin-right:.2rem"></i>${s.track}</span>` : ''}
+          </div>` : '<span style="color:var(--muted);font-size:.8rem">—</span>'}</td>`
       : '';
     return `<tr>
       <td>${_isT ? '' : `<input type="checkbox" class="stu-sel-chk" data-id="${s.id}" onchange="onStuSelChange()"/>`}</td>
@@ -9589,6 +9635,80 @@ function renderStudentSubjectCheckboxes() {
       <span class="sub-chk-name">${s.name}</span>
     </label>`).join('');
 }
+
+// ── Track-based subject combination (Senior School) ──────────────────────────
+const PATHWAY_TRACKS = {
+  stem:  ['Pure Sciences', 'Applied Sciences', 'Technical Studies'],
+  ss:    ['Humanities', 'Business Studies', 'Languages'],
+  arts:  ['Arts', 'Sports'],
+};
+
+function updateStuTrackDropdown() {
+  const pw = document.getElementById('stuPathway')?.value || '';
+  const trackWrap = document.getElementById('stuTrackWrap');
+  const combWrap  = document.getElementById('stuSubjectCombWrap');
+  if (!pw) {
+    if (trackWrap) trackWrap.style.display = 'none';
+    if (combWrap)  combWrap.style.display  = 'none';
+    return;
+  }
+  const tracks = PATHWAY_TRACKS[pw] || [];
+  const sel = document.getElementById('stuTrack');
+  if (sel) {
+    sel.innerHTML = '<option value="">— Select Track —</option>' +
+      tracks.map(t => `<option value="${t}">${t}</option>`).join('');
+  }
+  if (trackWrap) trackWrap.style.display = '';
+  if (combWrap)  combWrap.style.display  = 'none';
+}
+
+function updateStuSubjectCombination() {
+  const pw    = document.getElementById('stuPathway')?.value || '';
+  const track = document.getElementById('stuTrack')?.value   || '';
+  const combWrap = document.getElementById('stuSubjectCombWrap');
+  if (!pw || !track) { if (combWrap) combWrap.style.display = 'none'; return; }
+  if (combWrap) combWrap.style.display = '';
+
+  const { core, elective } = getCBCSubjectsForPathway(pw);
+  const trackElectives = elective.filter(e => e.track === track);
+
+  // Label
+  const labelEl = document.getElementById('stuSubjectTrackLabel');
+  if (labelEl) labelEl.textContent = `${PATHWAYS.find(p=>p.id===pw)?.label || pw} → ${track}`;
+
+  // Core subjects (universal + pathway core) — shown as tags, auto-assigned
+  const coreEl = document.getElementById('stuCoreSubjectsList');
+  if (coreEl) {
+    coreEl.innerHTML = `<div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:.35rem">
+      Core (auto-assigned)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:.3rem">
+        ${core.map(s=>`<span class="badge b-teal" style="font-size:.7rem;opacity:.85">${s.code} <span style="font-weight:400;opacity:.8">${s.name}</span></span>`).join('')}
+      </div>`;
+  }
+
+  // Elective subjects for the selected track — shown as checkboxes
+  const electEl = document.getElementById('stuElectiveSubjectsList');
+  if (electEl) {
+    if (!trackElectives.length) {
+      electEl.innerHTML = '<div style="font-size:.78rem;color:var(--muted);margin-top:.35rem">No electives defined for this track.</div>';
+    } else {
+      electEl.innerHTML = `<div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;margin:.5rem 0 .35rem">
+        Electives (${track})</div>
+        <div style="display:flex;flex-wrap:wrap;gap:.4rem">
+          ${trackElectives.map(s => {
+            const sub = subjects.find(x => x.code === s.code);
+            const subId = sub ? sub.id : '';
+            return `<label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.2rem .5rem;cursor:pointer">
+              <input type="checkbox" class="stu-elective-chk" data-code="${s.code}" value="${subId}" ${!subId?'disabled title="Subject not seeded yet"':''} />
+              <span class="badge b-purple" style="font-size:.65rem">${s.code}</span>
+              <span>${s.name}</span>
+            </label>`;
+          }).join('')}
+        </div>
+        <div style="font-size:.7rem;color:var(--muted);margin-top:.4rem"><i class="fa-solid fa-circle-info"></i> Select the electives for this student. Core subjects are added automatically.</div>`;
+    }
+  }
+}
 function toggleSelectAllSubjects(cb) {
   document.querySelectorAll('#stuSubjectsCheckboxes input[type=checkbox]').forEach(c=>c.checked=cb.checked);
 }
@@ -9627,21 +9747,32 @@ function saveStudent() {
   const contact = document.getElementById('stuContact').value.trim();
   const dob     = document.getElementById('stuDOB').value;
   const notes   = document.getElementById('stuNotes').value;
-  // All subjects apply to all students
-  const subIds = subjects.map(s => s.id);
   const pathway = isSeniorSchool() ? (document.getElementById('stuPathway')?.value || '') : '';
+  const track   = isSeniorSchool() ? (document.getElementById('stuTrack')?.value   || '') : '';
   if (!adm||!name||!classId||!streamId) { showToast('Adm No, Name, Class and Stream are required','error'); return; }
   if (isSeniorSchool() && !pathway) { showToast('Please select a pathway for senior school','error'); return; }
+  if (isSeniorSchool() && pathway && !track) { showToast('Please select a track for this pathway','error'); return; }
+
+  // Build subjectIds: core (auto) + selected electives
+  let subIds;
+  if (isSeniorSchool() && pathway) {
+    const { core } = getCBCSubjectsForPathway(pathway);
+    subIds = [];
+    core.forEach(c => { const sub = subjects.find(x=>x.code===c.code); if(sub && !subIds.includes(sub.id)) subIds.push(sub.id); });
+    document.querySelectorAll('.stu-elective-chk:checked').forEach(cb => { if(cb.value && !subIds.includes(cb.value)) subIds.push(cb.value); });
+  } else {
+    subIds = subjects.map(s => s.id);
+  }
+
   const editId = document.getElementById('editStuId').value;
   if (editId) {
     const i=students.findIndex(s=>s.id===editId);
-    if(i>-1) students[i]={...students[i],adm,name,gender,classId,streamId,parent,contact,dob,notes,pathway,subjectIds:subIds};
+    if(i>-1) students[i]={...students[i],adm,name,gender,classId,streamId,parent,contact,dob,notes,pathway,track,subjectIds:subIds};
     showToast('Student updated <i class="fa-solid fa-check"></i>','success');
   } else {
     if(students.find(s=>s.adm===adm)){showToast('Admission number exists','error');return;}
-    const stu={id:uid(),adm,name,gender,classId,streamId,parent,contact,dob,notes,pathway,subjectIds:subIds};
+    const stu={id:uid(),adm,name,gender,classId,streamId,parent,contact,dob,notes,pathway,track,subjectIds:subIds};
     students.push(stu);
-    // Enrol in all subjects
     subIds.forEach(sid=>{const sub=subjects.find(x=>x.id===sid);if(sub&&!sub.studentIds.includes(stu.id))sub.studentIds.push(stu.id);});
     save(K.subjects,subjects);
     showToast('Student added <i class="fa-solid fa-check"></i>','success');
@@ -9670,6 +9801,16 @@ function editStudent(id) {
   document.getElementById('stuNotes').value=s.notes||'';
   if (isSeniorSchool() && document.getElementById('stuPathway')) {
     document.getElementById('stuPathway').value = s.pathway || '';
+    updateStuTrackDropdown();
+    if (s.track) {
+      const trackSel = document.getElementById('stuTrack');
+      if (trackSel) trackSel.value = s.track;
+      updateStuSubjectCombination();
+      setTimeout(() => {
+        const enrolledIds = new Set(s.subjectIds || []);
+        document.querySelectorAll('.stu-elective-chk').forEach(cb => { cb.checked = enrolledIds.has(cb.value); });
+      }, 50);
+    }
   }
   document.querySelectorAll('#stuSubjectsCheckboxes input[type=checkbox]').forEach(cb=>{cb.checked=(s.subjectIds||[]).includes(cb.value);});
   updateSelectAllCheckbox();
@@ -9681,6 +9822,13 @@ function cancelStuEdit() {
   ['editStuId','stuAdm','stuName','stuParent','stuContact','stuDOB','stuNotes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('stuGender').value='M';
   if (document.getElementById('stuPathway')) document.getElementById('stuPathway').value='';
+  // Reset track + subject combination
+  const trackSel = document.getElementById('stuTrack');
+  if (trackSel) { trackSel.innerHTML = '<option value="">— Select Track —</option>'; }
+  const trackWrap = document.getElementById('stuTrackWrap');
+  if (trackWrap) trackWrap.style.display = 'none';
+  const combWrap = document.getElementById('stuSubjectCombWrap');
+  if (combWrap) combWrap.style.display = 'none';
   document.getElementById('stuFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Add Student';
 }
 
@@ -9725,6 +9873,10 @@ function handleStudentUpload(input) {
           if(['arts','arts & sports science','arts and sports science','arts & sports','arts and sports','arts/sports'].includes(pwRaw)) return 'arts';
           return '';
         })();
+        const trackRaw = String(row['Track']||row['track']||'').trim();
+        // Validate track belongs to pathway
+        const validTracks = pathway ? (PATHWAY_TRACKS[pathway] || []) : [];
+        const track = validTracks.find(t => t.toLowerCase() === trackRaw.toLowerCase()) || trackRaw || '';
         if(!adm||!name){skipped++;return;}
         if(students.find(s=>s.adm.toLowerCase()===adm.toLowerCase()&&s.name.toLowerCase()===name.toLowerCase())){skipped++;return;}
         const cls=classes.find(c=>c.name.toLowerCase()===clsName.toLowerCase());
@@ -9741,7 +9893,7 @@ function handleStudentUpload(input) {
         } else {
           subIds = subjects.map(s=>s.id);
         }
-        const stu={id:uid(),adm,name,gender,classId:cls?.id||'',streamId:str?.id||'',pathway:pathway||'',parent,contact,dob:'',notes:'',subjectIds:subIds};
+        const stu={id:uid(),adm,name,gender,classId:cls?.id||'',streamId:str?.id||'',pathway:pathway||'',track:track||'',parent,contact,dob:'',notes:'',subjectIds:subIds};
         students.push(stu);
         subIds.forEach(sid=>{const sub=subjects.find(x=>x.id===sid);if(sub&&!sub.studentIds.includes(stu.id))sub.studentIds.push(stu.id);});
         added++;
@@ -9762,9 +9914,9 @@ function downloadStudentTemplate() {
   let studentData;
   if (senior) {
     studentData = [
-      { AdmNo:'001', Name:'John Kamau',   Gender:'M', Class:'Grade 10', Stream:'East',  ParentName:'Peter Kamau',  ParentContact:'0712345678', Pathway:'stem',  Electives:'BIO,CHE,PHY' },
-      { AdmNo:'002', Name:'Mary Wanjiku', Gender:'F', Class:'Grade 10', Stream:'West',  ParentName:'Alice Wanjiku',ParentContact:'0723456789', Pathway:'ss',    Electives:'HIS,GEO,BST' },
-      { AdmNo:'003', Name:'James Ochieng',Gender:'M', Class:'Grade 10', Stream:'North', ParentName:'Tom Ochieng', ParentContact:'0734567890', Pathway:'arts',  Electives:'VSA,PFA,BLG' },
+      { AdmNo:'001', Name:'John Kamau',   Gender:'M', Class:'Grade 10', Stream:'East',  ParentName:'Peter Kamau',  ParentContact:'0712345678', Pathway:'stem',  Track:'Pure Sciences',     Electives:'BIO,CHE,PHY' },
+      { AdmNo:'002', Name:'Mary Wanjiku', Gender:'F', Class:'Grade 10', Stream:'West',  ParentName:'Alice Wanjiku',ParentContact:'0723456789', Pathway:'ss',    Track:'Humanities',        Electives:'HIS,GEO,BST' },
+      { AdmNo:'003', Name:'James Ochieng',Gender:'M', Class:'Grade 10', Stream:'North', ParentName:'Tom Ochieng', ParentContact:'0734567890', Pathway:'arts',  Track:'Arts',              Electives:'VSA,PFA,FNA' },
     ];
   } else {
     studentData = [
@@ -9787,11 +9939,11 @@ function downloadStudentTemplate() {
     const refRows = [];
 
     // Universal core first
-    refRows.push({ Pathway:'ALL PATHWAYS', Category:'Universal Core', SubjectName:'English',                  Code:'ENG',  Note:'Auto-added for every student' });
-    refRows.push({ Pathway:'',             Category:'Universal Core', SubjectName:'Kiswahili',                Code:'KSW',  Note:'Auto-added for every student' });
-    refRows.push({ Pathway:'',             Category:'Universal Core', SubjectName:'Community Service Learning',Code:'CSL',  Note:'Auto-added for every student' });
-    refRows.push({ Pathway:'',             Category:'Universal Core', SubjectName:'Physical Education',       Code:'PE',   Note:'Auto-added for every student' });
-    refRows.push({ Pathway:'', Category:'', SubjectName:'', Code:'', Note:'' }); // blank spacer
+    refRows.push({ Pathway:'ALL PATHWAYS', Category:'Universal Core', Track:'(all)',  SubjectName:'English',                  Code:'ENG',  Note:'Auto-added for every student' });
+    refRows.push({ Pathway:'',             Category:'Universal Core', Track:'(all)',  SubjectName:'Kiswahili',                Code:'KSW',  Note:'Auto-added for every student' });
+    refRows.push({ Pathway:'',             Category:'Universal Core', Track:'(all)',  SubjectName:'Community Service Learning',Code:'CSL',  Note:'Auto-added for every student' });
+    refRows.push({ Pathway:'',             Category:'Universal Core', Track:'(all)',  SubjectName:'Physical Education',       Code:'PE',   Note:'Auto-added for every student' });
+    refRows.push({ Pathway:'', Category:'', Track:'', SubjectName:'', Code:'', Note:'' }); // blank spacer
 
     const pathwayDefs = [
       { id:'stem',  label:'STEM',                 pathwayValue:'stem' },
@@ -9805,14 +9957,14 @@ function downloadStudentTemplate() {
       const universalCodes = CBC_SUBJECTS.universal_core.map(u=>u.code);
       const pwCore = core.filter(c=>!universalCodes.includes(c.code));
 
-      refRows.push({ Pathway:`=== ${pw.label.toUpperCase()} ===`, Category:'', SubjectName:'Use "'+pw.pathwayValue+'" in the Pathway column', Code:'', Note:'' });
+      refRows.push({ Pathway:`=== ${pw.label.toUpperCase()} ===`, Category:'', Track:'', SubjectName:'Use "'+pw.pathwayValue+'" in the Pathway column, then pick a Track', Code:'', Note:'' });
 
       if (pwCore.length) {
         pwCore.forEach((s,i) => {
-          refRows.push({ Pathway: i===0 ? pw.label : '', Category:'Pathway Core', SubjectName:s.name, Code:s.code, Note:'Auto-added (do not need to list in Electives)' });
+          refRows.push({ Pathway: i===0 ? pw.label : '', Category:'Pathway Core', Track:'(all tracks)', SubjectName:s.name, Code:s.code, Note:'Auto-added (do not need to list in Electives)' });
         });
       } else {
-        refRows.push({ Pathway: pw.label, Category:'Pathway Core', SubjectName:'(none beyond universal)', Code:'', Note:'' });
+        refRows.push({ Pathway: pw.label, Category:'Pathway Core', Track:'(all tracks)', SubjectName:'(none beyond universal)', Code:'', Note:'' });
       }
 
       // Group electives by track
@@ -9820,15 +9972,15 @@ function downloadStudentTemplate() {
       tracks.forEach(track => {
         const trackSubs = elective.filter(e=>(e.track||'General')===track);
         trackSubs.forEach((s,i) => {
-          refRows.push({ Pathway:'', Category:`Elective – ${track}`, SubjectName:s.name, Code:s.code, Note:'Add code to Electives column (comma-separated)' });
+          refRows.push({ Pathway:'', Category:'Elective', Track:track, SubjectName:s.name, Code:s.code, Note:'Add code to Electives column (comma-separated)' });
         });
       });
 
-      refRows.push({ Pathway:'', Category:'', SubjectName:'', Code:'', Note:'' }); // blank spacer
+      refRows.push({ Pathway:'', Category:'', Track:'', SubjectName:'', Code:'', Note:'' }); // blank spacer
     });
 
     const wsRef = XLSX.utils.json_to_sheet(refRows);
-    wsRef['!cols'] = [{wch:28},{wch:22},{wch:32},{wch:8},{wch:42}];
+    wsRef['!cols'] = [{wch:28},{wch:18},{wch:22},{wch:32},{wch:8},{wch:42}];
     XLSX.utils.book_append_sheet(wb, wsRef, 'Pathway & Subject Reference');
 
     // ── Sheet 3: Quick Guide ────────────────────────────────────────────
@@ -9842,15 +9994,22 @@ function downloadStudentTemplate() {
       { '#':'', Instructions:'  • stem  → STEM pathway' },
       { '#':'', Instructions:'  • ss    → Social Sciences pathway' },
       { '#':'', Instructions:'  • arts  → Arts & Sports Science pathway' },
-      { '#':'5', Instructions:'Electives: comma-separated subject CODES (e.g. BIO,CHE,PHY).' },
+      { '#':'5', Instructions:'Track: the subject track within the pathway. Required for senior school.' },
+      { '#':'', Instructions:'  • STEM tracks: Pure Sciences | Applied Sciences | Technical Studies' },
+      { '#':'', Instructions:'  • Social Sciences tracks: Humanities | Business Studies | Languages' },
+      { '#':'', Instructions:'  • Arts & Sports Science tracks: Arts | Sports' },
+      { '#':'6', Instructions:'Electives: comma-separated subject CODES (e.g. BIO,CHE,PHY).' },
       { '#':'', Instructions:'  Core subjects for your pathway are added automatically.' },
       { '#':'', Instructions:'  See the "Pathway & Subject Reference" sheet for all codes.' },
-      { '#':'6', Instructions:'Leave Pathway blank for Junior School students (Grades 7–9).' },
+      { '#':'7', Instructions:'Leave Pathway blank for Junior School students (Grades 7–9).' },
       { '#':'', Instructions:'' },
-      { '#':'PATHWAY SUMMARY', Instructions:'' },
-      { '#':'stem',  Instructions:'Core auto: ENG, KSW, CSL, PE, ICT, MTH. Add elective codes from STEM list.' },
-      { '#':'ss',    Instructions:'Core auto: ENG, KSW, CSL, PE. Add elective codes from Social Sciences list.' },
-      { '#':'arts',  Instructions:'Core auto: ENG, KSW, CSL, PE, LEA, CMS. Add elective codes from Arts list.' },
+      { '#':'PATHWAY + TRACK SUMMARY', Instructions:'' },
+      { '#':'stem',  Instructions:'Core auto: ENG, KSW, CSL, PE, ICT, MTH' },
+      { '#':'',      Instructions:'  Tracks: Pure Sciences (BIO,CHE,PHY) | Applied Sciences (AGR,CPS,GSC,HSC) | Technical Studies (DRD,BLD,ELT,MET,PWM,WDT,MDT,AVT,MFT)' },
+      { '#':'ss',    Instructions:'Core auto: ENG, KSW, CSL, PE' },
+      { '#':'',      Instructions:'  Tracks: Humanities (HIS,GEO,CRE,IRE,HRE) | Business Studies (BST,MTH) | Languages (LIT,LKS,FKS,FRN,GER,ARB,MAN)' },
+      { '#':'arts',  Instructions:'Core auto: ENG, KSW, CSL, PE, LEA, CMS' },
+      { '#':'',      Instructions:'  Tracks: Arts (VSA,PFA,FNA,APA,CRF,TBM) | Sports (BLG,ATH,ING,GYM,WTS,MAR,APE)' },
     ];
     const wsGuide = XLSX.utils.json_to_sheet(guideRows);
     wsGuide['!cols'] = [{wch:16},{wch:70}];
@@ -9878,7 +10037,10 @@ function exportFilteredStudentsExcel() {
   const data = list.map((s,i)=>{
     const cls=classes.find(c=>c.id===s.classId); const str=streams.find(x=>x.id===s.streamId);
     const subNames=(s.subjectIds||[]).map(sid=>subjects.find(x=>x.id===sid)?.name||'').filter(Boolean).join(', ');
-    return { '#':i+1, AdmNo:s.adm, Name:s.name, Gender:s.gender==='M'?'Male':'Female', Class:cls?.name||'', Stream:str?.name||'', DOB:s.dob||'', ParentName:s.parent||'', Contact:s.contact||'', Subjects:subNames };
+    const pw = isSeniorSchool() ? getPathway(s.pathway) : null;
+    return { '#':i+1, AdmNo:s.adm, Name:s.name, Gender:s.gender==='M'?'Male':'Female', Class:cls?.name||'', Stream:str?.name||'', DOB:s.dob||'', ParentName:s.parent||'', Contact:s.contact||'',
+      ...(isSeniorSchool() ? { Pathway: pw?.label||s.pathway||'', Track: s.track||'' } : {}),
+      Subjects:subNames };
   });
   const ws=XLSX.utils.json_to_sheet(data); const wb=XLSX.utils.book_new();
   const clsName = classId ? (classes.find(c=>c.id===classId)?.name||'Class') : 'All';
@@ -11530,12 +11692,18 @@ function applySchoolLevelUI() {
   const senior = isSeniorSchool();
   // Show/hide Pathway column in student table header (re-rendered by renderStudents)
   renderStudents();
-  // Show/hide pathway filter
+  // Show/hide pathway + track filter
   const pf = document.getElementById('stuPathwayFilterWrap');
   if (pf) pf.style.display = senior ? '' : 'none';
-  // Show/hide pathway field in add-student form
+  const tf = document.getElementById('stuTrackFilterWrap');
+  if (tf) tf.style.display = 'none'; // reset; shown when pathway is selected
+  // Show/hide pathway + track fields in add-student form
   const pfw = document.getElementById('stuPathwayWrap');
   if (pfw) pfw.style.display = senior ? '' : 'none';
+  const tfw = document.getElementById('stuTrackWrap');
+  if (tfw) tfw.style.display = 'none'; // reset; updateStuTrackDropdown handles showing it
+  const cfw = document.getElementById('stuSubjectCombWrap');
+  if (cfw) cfw.style.display = 'none';
   // Show/hide pathway fields in subjects form
   const spw = document.getElementById('subPathwayWrap');
   if (spw) spw.style.display = senior ? '' : 'none';
