@@ -17967,7 +17967,7 @@ function applyRoleBasedUI() {
   if (isTeacher) {
     // ── 1. Sidebar / mobile nav ──────────────────
     // Hide every section first, then reveal what this teacher can access.
-    const ALL_SECTIONS = ['dashboard','students','subjects','classes','teachers','staffdetails',
+    const ALL_SECTIONS = ['students','subjects','classes','teachers','staffdetails',
       'timetable','reports','papers','fees','messaging','settings','people','platform','livechat'];
     ALL_SECTIONS.forEach(sec => {
       document.querySelectorAll(`[data-s="${sec}"]`).forEach(el => el.style.display = 'none');
@@ -18053,7 +18053,7 @@ function applyRoleBasedUI() {
   //  Only Fees (Finance) and Staff Details (Salaries) are visible.
   // ══════════════════════════════════════════════
   if (isBursar) {
-    const ALL_SECTIONS = ['dashboard','students','subjects','classes','teachers','staffdetails',
+    const ALL_SECTIONS = ['students','subjects','classes','teachers','staffdetails',
       'timetable','exams','reports','papers','messaging','settings','people','platform','livechat'];
     ALL_SECTIONS.forEach(sec => {
       document.querySelectorAll(`[data-s="${sec}"]`).forEach(el => el.style.display = 'none');
