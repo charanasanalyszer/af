@@ -9936,58 +9936,95 @@ function showStudentUpload() {
 
 function handleStudentUpload(input) {
   const file=input.files[0]; if(!file) return;
+
+  // Progress toast
+  let progEl = document.getElementById('stuUploadProgress');
+  if(!progEl){ progEl=document.createElement('div'); progEl.id='stuUploadProgress';
+    progEl.style.cssText='position:fixed;bottom:1.5rem;right:1.5rem;background:#1e293b;color:#fff;padding:.75rem 1.25rem;border-radius:10px;font-size:.85rem;z-index:9999;display:flex;align-items:center;gap:.6rem;box-shadow:0 4px 20px #0004';
+    progEl.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> <span id="stuUploadMsg">Reading file\u2026</span>';
+    document.body.appendChild(progEl); }
+  const setMsg = m => { const s=document.getElementById('stuUploadMsg'); if(s) s.textContent=m; };
+
   const reader=new FileReader();
-  reader.onload=e=>{
+  reader.onload=async e=>{
     try {
+      setMsg('Parsing sheet\u2026');
+      await new Promise(r=>setTimeout(r,30));
+
       const wb=XLSX.read(e.target.result,{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
       const data=XLSX.utils.sheet_to_json(ws);
+      if(!data.length){ progEl.remove(); showToast('Sheet is empty','error'); return; }
+
+      // O(1) lookup maps
+      const clsMap   = new Map(classes.map(c=>[c.name.toLowerCase(),c]));
+      const strMap   = new Map();
+      streams.forEach(s=>{ strMap.set(s.name.toLowerCase()+'|'+s.classId,s); if(!strMap.has(s.name.toLowerCase())) strMap.set(s.name.toLowerCase(),s); });
+      const subByCode= new Map(subjects.map(s=>[s.code,s]));
+      const allSubIds= subjects.map(s=>s.id);
+      const existing = new Set(students.map(s=>s.adm.toLowerCase()+'|'+s.name.toLowerCase()));
+      const pwSubCache={};
+      const senior   = isSeniorSchool();
       let added=0, skipped=0;
-      data.forEach(row=>{
-        const adm    =String(row['AdmNo']||row['admno']||row['Adm No']||'').trim();
-        const name   =String(row['Name']||row['name']||'').trim();
-        const gRaw   = String(row['Gender']||row['gender']||'').trim().toUpperCase();
-        const gender = ['F','FEMALE','GIRL'].includes(gRaw) ? 'F' : 'M';
-        const clsName=String(row['Class']||row['class']||'').trim();
-        const strName=String(row['Stream']||row['stream']||'').trim();
-        const contact=String(row['ParentContact']||row['parent_contact']||'').trim();
-        const parent =String(row['ParentName']||row['parent_name']||'').trim();
-        const pwRaw  =String(row['Pathway']||row['pathway']||'').trim().toLowerCase();
-        const pathway= (()=>{
-          if(['stem'].includes(pwRaw)) return 'stem';
-          if(['ss','social sciences','social science','humanities'].includes(pwRaw)) return 'ss';
-          if(['arts','arts & sports science','arts and sports science','arts & sports','arts and sports','arts/sports'].includes(pwRaw)) return 'arts';
-          return '';
-        })();
-        const trackRaw = String(row['Track']||row['track']||'').trim();
-        // Validate track belongs to pathway
-        const validTracks = pathway ? (PATHWAY_TRACKS[pathway] || []) : [];
-        const track = validTracks.find(t => t.toLowerCase() === trackRaw.toLowerCase()) || trackRaw || '';
-        if(!adm||!name){skipped++;return;}
-        if(students.find(s=>s.adm.toLowerCase()===adm.toLowerCase()&&s.name.toLowerCase()===name.toLowerCase())){skipped++;return;}
-        const cls=classes.find(c=>c.name.toLowerCase()===clsName.toLowerCase());
-        // Match stream by name AND classId so "East" in Grade 7 ≠ "East" in Grade 8
-        const str=streams.find(s=>s.name.toLowerCase()===strName.toLowerCase()&&(!cls||s.classId===cls.id))
-               || (strName ? streams.find(s=>s.name.toLowerCase()===strName.toLowerCase()) : null);
-        // Electives column: comma-separated subject codes
-        const electiveCodes = String(row['Electives']||row['electives']||'').split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);
-        let subIds = [];
-        if (isSeniorSchool() && pathway) {
-          const { core } = getCBCSubjectsForPathway(pathway);
-          core.forEach(c => { const sub=subjects.find(x=>x.code===c.code); if(sub&&!subIds.includes(sub.id))subIds.push(sub.id); });
-          electiveCodes.forEach(code => { const sub=subjects.find(x=>x.code===code); if(sub&&!subIds.includes(sub.id))subIds.push(sub.id); });
-        } else {
-          subIds = subjects.map(s=>s.id);
+      const newStudents=[];
+      const CHUNK=250;
+
+      for(let i=0;i<data.length;i+=CHUNK){
+        data.slice(i,i+CHUNK).forEach(row=>{
+          const adm =String(row['AdmNo']||row['admno']||row['Adm No']||'').trim();
+          const name=String(row['Name']||row['name']||'').trim();
+          if(!adm||!name){skipped++;return;}
+          const key=adm.toLowerCase()+'|'+name.toLowerCase();
+          if(existing.has(key)){skipped++;return;}
+          const gRaw=String(row['Gender']||row['gender']||'').trim().toUpperCase();
+          const gender=['F','FEMALE','GIRL'].includes(gRaw)?'F':'M';
+          const clsName=String(row['Class']||row['class']||'').trim().toLowerCase();
+          const strName=String(row['Stream']||row['stream']||'').trim().toLowerCase();
+          const contact=String(row['ParentContact']||row['parent_contact']||'').trim();
+          const parent =String(row['ParentName']||row['parent_name']||'').trim();
+          const pwRaw=String(row['Pathway']||row['pathway']||'').trim().toLowerCase();
+          const pathway=(()=>{ if(pwRaw==='stem')return 'stem'; if(['ss','social sciences','social science','humanities'].includes(pwRaw))return 'ss'; if(['arts','arts & sports science','arts and sports science','arts & sports','arts and sports','arts/sports'].includes(pwRaw))return 'arts'; return ''; })();
+          const trackRaw=String(row['Track']||row['track']||'').trim();
+          const validTracks=pathway?(PATHWAY_TRACKS[pathway]||[]):[];
+          const track=validTracks.find(t=>t.toLowerCase()===trackRaw.toLowerCase())||trackRaw||'';
+          const cls=clsMap.get(clsName);
+          const str=(cls?strMap.get(strName+'|'+cls.id):null)||strMap.get(strName)||null;
+          let subIds=[];
+          if(senior&&pathway){
+            if(!pwSubCache[pathway]){const{core}=getCBCSubjectsForPathway(pathway);pwSubCache[pathway]=core.map(c=>subByCode.get(c.code)?.id).filter(Boolean);}
+            subIds=[...pwSubCache[pathway]];
+            String(row['Electives']||row['electives']||'').split(',').map(s=>s.trim().toUpperCase()).filter(Boolean).forEach(code=>{const sub=subByCode.get(code);if(sub&&!subIds.includes(sub.id))subIds.push(sub.id);});
+          } else { subIds=[...allSubIds]; }
+          newStudents.push({id:uid(),adm,name,gender,classId:cls?.id||'',streamId:str?.id||'',pathway:pathway||'',track:track||'',parent,contact,dob:'',notes:'',subjectIds:subIds});
+          existing.add(key); added++;
+        });
+        setMsg('Processing\u2026 '+Math.min(i+CHUNK,data.length)+' / '+data.length);
+        await new Promise(r=>setTimeout(r,0));
+      }
+
+      // Bulk-link subjects
+      setMsg('Linking subjects\u2026');
+      await new Promise(r=>setTimeout(r,0));
+      const subMap=new Map(subjects.map(s=>[s.id,s]));
+      newStudents.forEach(stu=>stu.subjectIds.forEach(sid=>{const sub=subMap.get(sid);if(sub){if(!sub.studentIds)sub.studentIds=[];if(!sub.studentIds.includes(stu.id))sub.studentIds.push(stu.id);}}));
+
+      students.push(...newStudents);
+      setMsg('Saving\u2026');
+      await new Promise(r=>setTimeout(r,0));
+      try { save(K.students,students); save(K.subjects,subjects); }
+      catch(qe){
+        if(qe.name==='QuotaExceededError'||qe.code===22){
+          students.splice(students.length-newStudents.length,newStudents.length);
+          progEl.remove();
+          showToast('\u274c Storage full \u2014 '+added+' students could not be saved. Export existing data or reduce the batch size.','error');
+          input.value=''; return;
         }
-        const stu={id:uid(),adm,name,gender,classId:cls?.id||'',streamId:str?.id||'',pathway:pathway||'',track:track||'',parent,contact,dob:'',notes:'',subjectIds:subIds};
-        students.push(stu);
-        subIds.forEach(sid=>{const sub=subjects.find(x=>x.id===sid);if(sub&&!sub.studentIds.includes(stu.id))sub.studentIds.push(stu.id);});
-        added++;
-      });
-      save(K.students,students); save(K.subjects,subjects);
+        throw qe;
+      }
+      progEl.remove();
       renderStudents(); populateAllDropdowns(); renderDashboard();
-      showToast(`${added} students added, ${skipped} skipped <i class="fa-solid fa-check"></i>`,'success');
-    } catch(err){showToast('Error reading file','error');console.error(err);}
+      showToast(added+' students added, '+skipped+' skipped <i class="fa-solid fa-check"></i>','success');
+    } catch(err){ const p=document.getElementById('stuUploadProgress'); if(p)p.remove(); showToast('Error reading file: '+err.message,'error'); console.error(err); }
   };
   reader.readAsArrayBuffer(file); input.value='';
 }
