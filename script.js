@@ -6369,27 +6369,65 @@ function setExamCategory(cat) {
 function renderExamSubjectCheckboxes(selectedIds) {
   const wrap = document.getElementById('examSubjectCheckboxes');
   if (!wrap) return;
-  // Senior school: show all subjects (pathway-linked or not).
-  // Junior school: exclude pathway-linked subjects (senior-only).
-  const visibleSubjects = isSeniorSchool()
-    ? subjects
-    : subjects.filter(s => !s.pathway);
-  if (!visibleSubjects.length) {
-    wrap.innerHTML = '<p style="color:var(--muted);font-size:.82rem;padding:.5rem 0">'
-      + (isSeniorSchool()
-          ? 'No subjects found. Go to <strong>Subjects</strong> and seed or add senior school subjects first.'
-          : 'No subjects found. Add subjects under the <strong>Subjects</strong> tab.')
-      + '</p>';
+
+  // Determine which class is selected in the exam form
+  const clsId = document.getElementById('examClass')?.value || '';
+
+  // Base pool: junior school excludes senior-only (pathway) subjects
+  let pool = isSeniorSchool() ? [...subjects] : subjects.filter(s => !s.pathway);
+
+  // If a class is chosen, keep only subjects that have at least one student in that class enrolled
+  if (clsId) {
+    const classStudentIds = new Set(students.filter(s => s.classId === clsId).map(s => s.id));
+    pool = pool.filter(s => (s.studentIds || []).some(sid => classStudentIds.has(sid)));
+  }
+
+  if (!pool.length) {
+    const cls = classes.find(c => c.id === clsId);
+    const hint = clsId
+      ? `No subjects are enrolled for <strong>${cls?.name || 'this class'}</strong>. Enroll students in subjects first.`
+      : (isSeniorSchool()
+          ? 'No subjects found. Seed or add senior school subjects under <strong>Subjects</strong> first.'
+          : 'No subjects found. Add subjects under the <strong>Subjects</strong> tab.');
+    wrap.innerHTML = `<p style="color:var(--muted);font-size:.82rem;padding:.5rem 0">${hint}</p>`;
     updateExamSelectAll();
     return;
   }
-  wrap.innerHTML = visibleSubjects.map(s => `
-    <label class="sub-check-label">
-      <input type="checkbox" value="${s.id}" class="exam-sub-chk" ${selectedIds && selectedIds.includes(s.id) ? 'checked' : ''} onchange="updateExamSelectAll()"/>
-      <span class="sub-chk-code badge b-teal" style="font-size:.65rem">${s.code}</span>
-      <span class="sub-chk-name">${s.name}</span>
-    </label>`).join('');
+
+  // Group by category
+  const cats = [...new Set(pool.map(s => s.category || 'Other'))].sort();
+  const rows = cats.map(cat => {
+    const subs = pool.filter(s => (s.category || 'Other') === cat);
+    const catBadgeClass = cat === 'Core' ? 'b-green' : cat === 'Technical' ? 'b-amber' : cat === 'Languages' ? 'b-teal' : 'b-purple';
+    return `<div style="margin-bottom:.6rem">
+      <div style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.3rem;display:flex;align-items:center;gap:.4rem">
+        <span class="badge ${catBadgeClass}" style="font-size:.6rem;padding:.15rem .4rem">${cat}</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:.3rem .5rem">
+        ${subs.map(s => {
+          const enrolled = clsId
+            ? (s.studentIds || []).filter(sid => students.find(st => st.id === sid && st.classId === clsId)).length
+            : (s.studentIds || []).length;
+          const chk = (selectedIds && selectedIds.includes(s.id)) ? 'checked' : '';
+          return `<label class="sub-check-label" style="min-width:160px">
+            <input type="checkbox" value="${s.id}" class="exam-sub-chk" ${chk} onchange="updateExamSelectAll()"/>
+            <span class="sub-chk-code badge b-teal" style="font-size:.65rem">${s.code}</span>
+            <span class="sub-chk-name">${s.name}</span>
+            <span style="font-size:.62rem;color:var(--muted);margin-left:.2rem">(${enrolled})</span>
+          </label>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  wrap.innerHTML = rows;
   updateExamSelectAll();
+}
+
+function onExamClassChange() {
+  // Preserve currently checked subject IDs, then re-render for the new class
+  const checked = [...document.querySelectorAll('#examSubjectCheckboxes input[type=checkbox]:checked')].map(c => c.value);
+  renderExamSubjectCheckboxes(checked);
 }
 
 function toggleExamAllSubjects(cb) {

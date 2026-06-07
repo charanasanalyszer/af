@@ -472,7 +472,7 @@
             <div class="fg"><label>Year</label><input type="number" id="examYear" placeholder="2025" value="2025"/></div>
             <div class="fg"><label>Exam Date</label><input type="date" id="examDate"/></div>
             <div class="fg"><label>Class</label>
-              <select id="examClass"><option value="">— All Classes —</option></select>
+              <select id="examClass" onchange="onExamClassChange()"><option value="">— All Classes —</option></select>
             </div>
           </div>
           <div class="frow c3" style="margin-top:-.25rem;display:none">
@@ -493,7 +493,8 @@
           <div class="fg" style="margin-bottom:1rem">
             <label style="display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem;flex-wrap:wrap">
               Subjects *
-              <label class="check-label" style="font-weight:400;text-transform:none;font-size:.82rem">
+              <span style="font-size:.78rem;color:var(--muted);font-weight:400">(filtered by class selected above · number in brackets = enrolled students)</span>
+              <label class="check-label" style="font-weight:400;text-transform:none;font-size:.82rem;margin-left:auto">
                 <input type="checkbox" id="examSelectAllSubjects" onchange="toggleExamAllSubjects(this)"/> Check All
               </label>
             </label>
