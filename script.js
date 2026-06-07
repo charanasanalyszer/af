@@ -157,6 +157,69 @@ const load = k => { try { return JSON.parse(localStorage.getItem(k)) || []; } ca
 const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 const uid  = () => 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
 
+// ═══════════════ INDEXEDDB (marks + students — large arrays) ═══════════════
+const IDB_NAME = 'af_main_db';
+const IDB_STORE = 'kv';
+const IDB_VERSION = 1;
+let _idb = null;
+
+function openIDB() {
+  if (_idb) return Promise.resolve(_idb);
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+    req.onsuccess = e => { _idb = e.target.result; resolve(_idb); };
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+async function idbGet(key) {
+  try {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = () => resolve(req.result ?? null);
+      req.onerror   = () => reject(req.error);
+    });
+  } catch(e) { return null; }
+}
+
+async function idbPut(key, value) {
+  try {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      const req = tx.objectStore(IDB_STORE).put(value, key);
+      req.onsuccess = () => resolve();
+      req.onerror   = () => reject(req.error);
+    });
+  } catch(e) { /* silent */ }
+}
+
+async function idbDelete(key) {
+  try {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      const req = tx.objectStore(IDB_STORE).delete(key);
+      req.onsuccess = () => resolve();
+      req.onerror   = () => reject(req.error);
+    });
+  } catch(e) { /* silent */ }
+}
+
+// Async save/load for IDB-backed keys; falls back gracefully
+async function saveIDB(key, arr) { await idbPut(key, arr); }
+async function loadIDB(key) {
+  const val = await idbGet(key);
+  return Array.isArray(val) ? val : [];
+}
+
+// Write-through helpers — keep in-memory array current, persist to IDB async
+function saveMarks()    { idbPut(K.marks,    marks);    }
+function saveStudents() { idbPut(K.students, students); }
+
 // ═══════════════ APP STATE ═══════════════
 let students=[], subjects=[], teachers=[], classes=[], streams=[];
 let exams=[], marks=[], settings={}, admins=[], msgLog=[];
@@ -770,7 +833,7 @@ function doPlatformLogin() {
 }
 
 // ══ UNIFIED LOGIN — single screen, password routes to platform or school ══
-function doUnifiedLogin() {
+async function doUnifiedLogin() {
   const u   = (document.getElementById('uniUser')?.value || '').trim();
   const p   = document.getElementById('uniPass')?.value || '';
   const err = document.getElementById('uniErr');
@@ -781,7 +844,7 @@ function doUnifiedLogin() {
     if (btn) { btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-arrow-right-to-bracket" style="margin-right:.4rem"></i>Sign In'; }
     if (msg && err) { err.innerHTML='<i class="fa-solid fa-circle-xmark"></i> ' + msg; err.style.display='block'; err.scrollIntoView({behavior:'smooth',block:'nearest'}); }
   };
-  setTimeout(() => { // defer so the loading spinner can paint before sync work runs
+  setTimeout(async () => { // defer so the loading spinner can paint before sync work runs
   try {
   // Helper: save credentials if "Remember me" is checked
   const maybeSaveCreds = () => {
@@ -848,7 +911,7 @@ function doUnifiedLogin() {
     maybeSaveCreds();
     currentSchoolId = null;
     const school = platformSchools[0];
-    loadSchoolContext(school);
+    await loadSchoolContext(school);
     saveSession();
     finishLogin(school);
     return;
@@ -860,21 +923,21 @@ function doUnifiedLogin() {
         re('<strong>Account Suspended:</strong> ' + (school.deactivationMessage||'This school account has been suspended.')); return;
       }
       // also check admins/teachers in suspended school — block them too
-      loadSchoolContext(school);
+      loadSchoolContextSync(school);
       const matchInSuspended = admins.find(a=>a.username===u&&a.password===p) || teachers.find(t=>t.username===u&&t.password===p);
       if (matchInSuspended) { re('<strong>Account Suspended:</strong> ' + (school.deactivationMessage||'This school account has been suspended.')); return; }
       currentSchoolId = null; continue;
     }
     if (school.username===u && school.password===p) {
-      loadSchoolContext(school);
+      await loadSchoolContext(school);
       currentUser={ username:school.username, role:'admin', name:school.name, canAnalyse:true, canReport:true, canMerit:true };
       re(); maybeSaveCreds(); finishLogin(school); return;
     }
-    loadSchoolContext(school);
+    loadSchoolContextSync(school);
     const admin = admins.find(a=>a.username===u&&a.password===p);
-    if (admin) { currentUser={...admin,canAnalyse:true,canReport:true,canMerit:true}; re(); maybeSaveCreds(); finishLogin(school); return; }
+    if (admin) { await loadSchoolContext(school); currentUser={...admin,canAnalyse:true,canReport:true,canMerit:true}; re(); maybeSaveCreds(); finishLogin(school); return; }
     const teacher = teachers.find(t=>t.username===u&&t.password===p);
-    if (teacher) { currentUser={username:teacher.username,role:'teacher',name:teacher.name,teacherId:teacher.id,canAnalyse:teacher.canAnalyse,canReport:teacher.canReport,canMerit:teacher.canMerit}; re(); maybeSaveCreds(); finishLogin(school); return; }
+    if (teacher) { await loadSchoolContext(school); currentUser={username:teacher.username,role:'teacher',name:teacher.name,teacherId:teacher.id,canAnalyse:teacher.canAnalyse,canReport:teacher.canReport,canMerit:teacher.canMerit}; re(); maybeSaveCreds(); finishLogin(school); return; }
 
     // ── Staff Payslip Portal login: staffId as username, natId (or staffId) as password ──
     const staffList = JSON.parse(localStorage.getItem(staffDetailsKey()) || '[]');
@@ -1915,8 +1978,8 @@ function sppRenderDetails() {
 // ══════════════════════════════════════════════
 //   GUEST LOGIN
 // ══════════════════════════════════════════════
-function finishGuestLogin(school) {
-  loadSchoolContext(school);
+async function finishGuestLogin(school) {
+  await loadSchoolContext(school);
   // Guest sees only: Papers (revision + termly view — read-only)
   const ul = document.getElementById('unifiedLogin'); if (ul) ul.style.display = 'none';
   saveSession();
@@ -2230,14 +2293,14 @@ function enterPlatformDashboard() {
 }
 
 // ── Platform admin: enter any school without password ──
-function enterSchoolAsPlatformAdmin(schoolId) {
+async function enterSchoolAsPlatformAdmin(schoolId) {
   loadPlatform();
   const school = platformSchools.find(s => s.id === schoolId);
   if (!school) return;
   // Save platform admin session so we can return
   _platformAdminSession = { user: { ...currentUser } };
   currentSchoolId = school.id;
-  loadSchoolContext(school);
+  await loadSchoolContext(school);
   currentUser = {
     username: school.username,
     role: 'admin',
@@ -3712,7 +3775,7 @@ function showSchoolSelector(isPlatformAdmin) {
   }
 }
 
-function enterSchool(schoolId) {
+async function enterSchool(schoolId) {
   loadPlatform();
   const school = platformSchools.find(s => s.id === schoolId);
   if (!school) return;
@@ -3722,7 +3785,7 @@ function enterSchool(schoolId) {
     // Save the platform admin session so we can return later
     _platformAdminSession = { user: { ...currentUser }, schoolId: null };
     currentSchoolId = school.id;
-    loadSchoolContext(school);
+    await loadSchoolContext(school);
     currentUser = {
       username: school.username,
       role: 'admin',
@@ -3920,15 +3983,50 @@ function editDeactivationMessage(id) {
 }
 
 // ── School Login ──
-function loadSchoolContext(school) {
+// Lightweight sync load — only used during login loop to check credentials
+// (skips marks/students which are IDB-backed and large)
+function loadSchoolContextSync(school) {
   currentSchoolId = school.id;
-  students = load(K.students); subjects = load(K.subjects);
-  teachers = load(K.teachers); classes  = load(K.classes);
-  streams  = load(K.streams);  exams    = load(K.exams);
-  marks    = load(K.marks);    settings = load(K.settings)[0] || defaultSettings();
-  admins   = load(K.admins);   msgLog   = load(K.msgLog);
+  subjects  = load(K.subjects);
+  teachers  = load(K.teachers); classes  = load(K.classes);
+  streams   = load(K.streams);  exams    = load(K.exams);
+  settings  = load(K.settings)[0] || defaultSettings();
+  admins    = load(K.admins);   msgLog   = load(K.msgLog);
   heldExams = load(K.heldExams);
   smsCredits = parseInt(localStorage.getItem(K.smsCredits) || '0');
+  // marks and students left as-is (not needed for login checks)
+}
+
+async function loadSchoolContext(school) {
+  currentSchoolId = school.id;
+  // Small arrays — fast sync localStorage
+  subjects  = load(K.subjects);
+  teachers  = load(K.teachers); classes  = load(K.classes);
+  streams   = load(K.streams);  exams    = load(K.exams);
+  settings  = load(K.settings)[0] || defaultSettings();
+  admins    = load(K.admins);   msgLog   = load(K.msgLog);
+  heldExams = load(K.heldExams);
+  smsCredits = parseInt(localStorage.getItem(K.smsCredits) || '0');
+  // Large arrays — load from IndexedDB, migrate from localStorage on first run
+  const idbStudents = await loadIDB(K.students);
+  const idbMarks    = await loadIDB(K.marks);
+  if (idbStudents.length === 0) {
+    // First run or migration: pull from localStorage, move to IDB, clear localStorage
+    const lsStudents = load(K.students);
+    if (lsStudents.length > 0) {
+      students = lsStudents;
+      await idbPut(K.students, students);
+      localStorage.removeItem(K.students);
+    } else { students = []; }
+  } else { students = idbStudents; }
+  if (idbMarks.length === 0) {
+    const lsMarks = load(K.marks);
+    if (lsMarks.length > 0) {
+      marks = lsMarks;
+      await idbPut(K.marks, marks);
+      localStorage.removeItem(K.marks);
+    } else { marks = []; }
+  } else { marks = idbMarks; }
   // Inherit platform-level API key into school settings if not already set
   if (!settings.ebApiKey) {
     const platformKey = localStorage.getItem('ei_platform_api_key') || '';
@@ -3947,7 +4045,7 @@ function loadSchoolContext(school) {
   seedData();
 }
 
-function doLogin() {
+async function doLogin() {
   const u = document.getElementById('lUser').value.trim();
   const p = document.getElementById('lPass').value;
   document.getElementById('loginErr').style.display = 'none';
@@ -3972,7 +4070,7 @@ function doLogin() {
     // If a specific school was pre-selected, log into it; otherwise show selector.
     if (currentSchoolId) {
       const school = platformSchools.find(s => s.id === currentSchoolId);
-      if (school) { loadSchoolContext(school); re(); finishLogin(school); return; }
+      if (school) { await loadSchoolContext(school); re(); finishLogin(school); return; }
     }
     // No school pre-selected or school not found — go to school selector as platform admin.
     re();
@@ -4012,7 +4110,7 @@ function doLogin() {
         errEl.style.display = 'block';
         return;
       }
-      loadSchoolContext(school);
+      await loadSchoolContext(school);
       currentUser = {
         username: school.username,
         role: 'admin',
@@ -4023,8 +4121,8 @@ function doLogin() {
       return;
     }
 
-    // 3. Load this school's data so we can check its admins/teachers
-    loadSchoolContext(school);
+    // 3. Load this school's data so we can check its admins/teachers (sync — only needs small arrays)
+    loadSchoolContextSync(school);
 
     // 4. Check admins registered inside this school
     const admin = admins.find(a => a.username === u && a.password === p);
@@ -4041,6 +4139,7 @@ function doLogin() {
         errEl.style.display = 'block';
         return;
       }
+      await loadSchoolContext(school);
       currentUser = { ...admin, canAnalyse:true, canReport:true, canMerit:true };
       re(); finishLogin(school);
       return;
@@ -4060,6 +4159,7 @@ function doLogin() {
         errEl.style.display = 'block';
         return;
       }
+      await loadSchoolContext(school);
       currentUser = { username:teacher.username, role:'teacher', name:teacher.name, teacherId:teacher.id,
         canAnalyse:teacher.canAnalyse, canReport:teacher.canReport, canMerit:teacher.canMerit };
       re(); finishLogin(school);
@@ -4289,7 +4389,7 @@ function applyAccessLevelRestrictions() {
   );
 }
 
-function initApp() {
+async function initApp() {
   initLang();
   if (localStorage.getItem('ei_dark') === '1') applyDark(true);
 
@@ -4314,7 +4414,7 @@ function initApp() {
       currentSchoolId = savedSchoolId;
       loadPlatform();
       const school = platformSchools.find(s => s.id === savedSchoolId);
-      if (school) { loadSchoolContext(school); finishStaffPayslipPortal(school); return; }
+      if (school) { await loadSchoolContext(school); finishStaffPayslipPortal(school); return; }
     }
 
     // Student portal restore
@@ -4323,7 +4423,7 @@ function initApp() {
       currentSchoolId = savedSchoolId;
       loadPlatform();
       const school = platformSchools.find(s => s.id === savedSchoolId);
-      if (school) { loadSchoolContext(school); finishStudentPortal(school); return; }
+      if (school) { await loadSchoolContext(school); finishStudentPortal(school); return; }
     }
 
     // Guest restore
@@ -4332,7 +4432,7 @@ function initApp() {
       currentSchoolId = savedSchoolId;
       loadPlatform();
       const school = platformSchools.find(s => s.id === savedSchoolId);
-      if (school) { loadSchoolContext(school); finishGuestLogin(school); return; }
+      if (school) { await loadSchoolContext(school); finishGuestLogin(school); return; }
     }
 
     // School user
@@ -4342,7 +4442,7 @@ function initApp() {
       loadPlatform();
       const school = platformSchools.find(s => s.id === savedSchoolId);
       if (school) {
-        loadSchoolContext(school);
+        await loadSchoolContext(school);
         renderDashboard(); populateAllDropdowns();
         renderStudents(); renderTeachers(); renderSubjects();
         renderClasses(); renderStreams(); renderExamList();
@@ -4401,7 +4501,7 @@ function seedData() {
       classId:r[3], streamId:r[4], parent:r[5], contact:r[6], dob:'', notes:'',
       subjectIds: subjects.map(s=>s.id)
     }));
-    save(K.students, students);
+    saveStudents();
     // Enrol all in all subjects
     subjects.forEach(sub => { sub.studentIds = students.map(s=>s.id); });
     save(K.subjects, subjects);
@@ -4419,7 +4519,7 @@ function seedData() {
         marks.push({ id:uid(), examId:'ex1', studentId:stu.id, subjectId:sub.id, score:scores[i]||0 });
       });
     });
-    save(K.marks, marks);
+    saveMarks();
   }
 }
 
@@ -4735,7 +4835,7 @@ function umStuOnInput(inp) {
   const updatedAt = new Date().toLocaleString();
   if (existing > -1) { marks[existing].score = val; marks[existing].updatedBy = updatedBy; marks[existing].updatedAt = updatedAt; }
   else marks.push({ id:uid(), examId, studentId:stuId, subjectId:subId, score:val, updatedBy, updatedAt });
-  save(K.marks, marks);
+  saveMarks();
 }
 
 function umStuOnKey(e, inp) {
@@ -4770,7 +4870,7 @@ function umStuSaveMark(studentId, subjectId) {
   const updatedAt = new Date().toLocaleString();
   if (existing > -1) { marks[existing].score = numVal; marks[existing].updatedBy = updatedBy; marks[existing].updatedAt = updatedAt; }
   else marks.push({ id:uid(), examId, studentId, subjectId, score:numVal, updatedBy, updatedAt });
-  save(K.marks, marks);
+  saveMarks();
   // Update the "Updated By" label in the student row
   const ubEl = document.getElementById(`umstu_ub_${subjectId}`);
   if (ubEl) ubEl.innerHTML = `<span title="${updatedAt}" style="color:var(--primary);font-weight:600;font-size:.72rem">${updatedBy}</span>`;
@@ -4813,7 +4913,7 @@ function umStuSaveAll(studentId) {
       }
     }
   });
-  save(K.marks, marks);
+  saveMarks();
   showToast(`<i class="fa-solid fa-check"></i> ${saved} mark${saved!==1?'s':''} saved for ${students.find(s=>s.id===studentId)?.name||'learner'}`, 'success');
   renderDashboard();
   setTimeout(renderUmSubjectStatusPanel, 100);
@@ -5745,7 +5845,7 @@ function autoSaveMark(studentId, score) {
   } else {
     marks.push({ id:uid(), examId, studentId, subjectId, score, updatedBy, updatedAt });
   }
-  save(K.marks, marks);
+  saveMarks();
   // Refresh the Updated By cell if it exists in DOM
   const ubCell = document.getElementById(`ub_${studentId}`);
   if (ubCell) ubCell.innerHTML = `<span title="${updatedAt}" style="color:var(--primary);font-weight:600">${updatedBy}</span>`;
@@ -5821,12 +5921,13 @@ function deleteSubjectMarks() {
   const exam = exams.find(e => e.id === examId);
   const stuInStream = streamId ? students.filter(s => s.streamId === streamId) : students;
   const stuIds = new Set(stuInStream.map(s => s.id));
+  const originalMarks = marks.slice(); // snapshot before filtering
   const before = marks.length;
   marks = marks.filter(m => !(m.examId === examId && m.subjectId === subjectId && stuIds.has(m.studentId)));
   const removed = before - marks.length;
   if (!removed) { showToast('No marks found to delete for this selection', 'info'); return; }
-  if (!confirm(`Delete ${removed} mark entry(ies) for "${sub?.name || 'subject'}" in "${exam?.name || 'exam'}"${streamId ? ' (selected stream)' : ''}? This cannot be undone.`)) { marks = load(K.marks); return; }
-  save(K.marks, marks);
+  if (!confirm(`Delete ${removed} mark entry(ies) for "${sub?.name || 'subject'}" in "${exam?.name || 'exam'}"${streamId ? ' (selected stream)' : ''}? This cannot be undone.`)) { marks = originalMarks; return; }
+  saveMarks();
   loadUmStudents();
   setTimeout(renderUmSubjectStatusPanel, 100);
   showToast(`<i class="fa-solid fa-trash"></i> Deleted ${removed} mark(s) for ${sub?.name || 'subject'}`, 'success');
@@ -5841,7 +5942,7 @@ function deleteAllExamMarks() {
   if (!count) { showToast('No marks found for this exam', 'info'); return; }
   if (!confirm(`Delete ALL ${count} mark entries for "${exam?.name || 'exam'}"?\n\nThis will erase marks for every subject and student. This cannot be undone.`)) return;
   marks = marks.filter(m => m.examId !== examId);
-  save(K.marks, marks);
+  saveMarks();
   loadUmStudents();
   setTimeout(renderUmSubjectStatusPanel, 100);
   renderDashboard();
@@ -6002,7 +6103,7 @@ function handleMarksUpload(input) {
 
         setMsg('Saving\u2026');
         await new Promise(r => setTimeout(r, 0));
-        try { save(K.marks, marks); }
+        try { saveMarks(); }
         catch (qe) {
           if (qe.name === 'QuotaExceededError' || qe.code === 22) {
             progEl.remove();
@@ -6073,7 +6174,7 @@ function handleMarksUpload(input) {
 
         setMsg('Saving\u2026');
         await new Promise(r => setTimeout(r, 0));
-        try { save(K.marks, marks); }
+        try { saveMarks(); }
         catch (qe) {
           if (qe.name === 'QuotaExceededError' || qe.code === 22) {
             progEl.remove();
@@ -6707,7 +6808,7 @@ function deleteExam(id) {
   if(!confirm('Delete this exam? All marks for this exam will also be removed.')) return;
   exams=exams.filter(e=>e.id!==id);
   marks=marks.filter(m=>m.examId!==id);
-  save(K.exams,exams); save(K.marks,marks);
+  save(K.exams,exams); saveMarks();
   renderExamList(); populateExamDropdowns();
   showToast('Exam deleted','info');
 }
@@ -9740,7 +9841,7 @@ function deleteSelectedStudents() {
     marks    = marks.filter(m=>m.studentId!==id);
     subjects.forEach(sub=>{ sub.studentIds=(sub.studentIds||[]).filter(x=>x!==id); });
   });
-  save(K.students,students); save(K.marks,marks); save(K.subjects,subjects);
+  saveStudents(); saveMarks(); save(K.subjects,subjects);
   renderStudents(); renderDashboard(); populateAllDropdowns(); renderArchivedStudents();
   showToast(`${ids.length} student(s) deleted`,'info');
 }
@@ -9992,7 +10093,7 @@ function saveStudent() {
     const savedStu = editId ? students.find(s=>s.id===editId) : students[students.length-1];
     if (savedStu) { autoEnrolCoreSubjects(savedStu); save(K.subjects, subjects); }
   }
-  save(K.students,students); cancelStuEdit(); renderStudents(); renderDashboard(); populateAllDropdowns(); renderArchivedStudents();
+  saveStudents(); cancelStuEdit(); renderStudents(); renderDashboard(); populateAllDropdowns(); renderArchivedStudents();
 }
 
 function editStudent(id) {
@@ -10048,7 +10149,7 @@ function deleteStudent(id) {
   students=students.filter(s=>s.id!==id);
   marks=marks.filter(m=>m.studentId!==id);
   subjects.forEach(sub=>{sub.studentIds=(sub.studentIds||[]).filter(x=>x!==id);});
-  save(K.students,students); save(K.marks,marks); save(K.subjects,subjects);
+  saveStudents(); saveMarks(); save(K.subjects,subjects);
   renderStudents(); renderDashboard(); renderArchivedStudents(); showToast('Student deleted','info');
 }
 
@@ -10135,7 +10236,7 @@ function handleStudentUpload(input) {
       students.push(...newStudents);
       setMsg('Saving\u2026');
       await new Promise(r=>setTimeout(r,0));
-      try { save(K.students,students); save(K.subjects,subjects); }
+      try { saveStudents(); save(K.subjects,subjects); }
       catch(qe){
         if(qe.name==='QuotaExceededError'||qe.code===22){
           students.splice(students.length-newStudents.length,newStudents.length);
@@ -10573,7 +10674,7 @@ function saveSubject() {
       const stu=students.find(s=>s.id===sid);
       if(stu){const newSubId=subjects[subjects.length-1].id;if(!stu.subjectIds)stu.subjectIds=[];if(!stu.subjectIds.includes(newSubId))stu.subjectIds.push(newSubId);}
     });
-    save(K.students,students);
+    saveStudents();
     showToast('Subject added <i class="fa-solid fa-check"></i>','success');
   }
   save(K.subjects,subjects); cancelSubEdit(); renderSubjects(); populateAllDropdowns();
@@ -10609,7 +10710,7 @@ function deleteSubject(id) {
   if(!confirm('Delete this subject? Marks data for this subject will also be removed.')) return;
   subjects=subjects.filter(s=>s.id!==id);
   marks=marks.filter(m=>m.subjectId!==id);
-  save(K.subjects,subjects); save(K.marks,marks);
+  save(K.subjects,subjects); saveMarks();
   renderSubjects(); showToast('Subject deleted','info');
 }
 
@@ -10976,7 +11077,7 @@ function saveStreamAssignmentsFromModal(streamId) {
   });
   saveStreamAssignments();
   save(K.subjects, subjects);
-  save(K.students, students);
+  saveStudents();
   closeModal();
   showToast('Stream assignments saved <i class="fa-solid fa-check"></i>', 'success');
   // Update teacher subject list derived from assignments
@@ -12371,13 +12472,13 @@ function importData(input) {
   reader.onload=e=>{
     try {
       const data=JSON.parse(e.target.result);
-      if(data.students){students=data.students;save(K.students,students);}
+      if(data.students){students=data.students;saveStudents();}
       if(data.subjects){subjects=data.subjects;save(K.subjects,subjects);}
       if(data.teachers){teachers=data.teachers;save(K.teachers,teachers);}
       if(data.classes){classes=data.classes;save(K.classes,classes);}
       if(data.streams){streams=data.streams;save(K.streams,streams);}
       if(data.exams){exams=data.exams;save(K.exams,exams);}
-      if(data.marks){marks=data.marks;save(K.marks,marks);}
+      if(data.marks){marks=data.marks;saveMarks();}
       if(data.settings){settings=data.settings;save(K.settings,[settings]);}
       if(data.admins){admins=data.admins;save(K.admins,admins);}
       renderStudents();renderTeachers();renderSubjects();renderClasses();renderStreams();renderExamList();
@@ -12388,10 +12489,13 @@ function importData(input) {
   reader.readAsText(file); input.value='';
 }
 
-function clearAllData() {
+async function clearAllData() {
   if(!confirm('DELETE ALL DATA? This cannot be undone!'))return;
   if(!confirm('Are you absolutely sure? All students, marks, and exams will be lost.'))return;
   Object.values(K).forEach(k=>localStorage.removeItem(k));
+  // Also clear IDB-backed large arrays
+  await idbDelete(K.marks);
+  await idbDelete(K.students);
   location.reload();
 }
 
@@ -12876,7 +12980,7 @@ function restoreArchivedStudent(id) {
   if (!confirm(`Restore ${stu.name} to active students?`)) return;
   const { lastClass, lastStream, archivedAt, ...restored } = stu;
   students.push(restored);
-  save(K.students, students);
+  saveStudents();
   saveCurrentArchive(archived.filter(s=>s.id!==id));
   renderStudents(); renderDashboard(); renderArchivedStudents();
   showToast(`${stu.name} restored <i class="fa-solid fa-check"></i>`,'success');
