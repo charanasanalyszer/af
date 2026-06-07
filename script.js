@@ -5927,87 +5927,173 @@ function handleMarksUpload(input) {
   const subjectId = document.getElementById('umSubject').value;
   if (!examId) { showToast('Select an exam first','error'); return; }
 
+  // Progress toast
+  let progEl = document.getElementById('marksUploadProgress');
+  if (!progEl) {
+    progEl = document.createElement('div');
+    progEl.id = 'marksUploadProgress';
+    progEl.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;background:#1e293b;color:#fff;padding:.75rem 1.25rem;border-radius:10px;font-size:.85rem;z-index:9999;display:flex;align-items:center;gap:.6rem;box-shadow:0 4px 20px #0004';
+    progEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span id="marksUploadMsg">Reading file\u2026</span>';
+    document.body.appendChild(progEl);
+  }
+  const setMsg = m => { const s = document.getElementById('marksUploadMsg'); if (s) s.textContent = m; };
+
   const reader = new FileReader();
-  reader.onload = e => {
+  reader.onload = async e => {
     try {
-      const wb   = XLSX.read(e.target.result, { type:'array' });
+      setMsg('Parsing sheet\u2026');
+      await new Promise(r => setTimeout(r, 30));
+
+      const wb   = XLSX.read(e.target.result, { type: 'array' });
       const ws   = wb.Sheets[wb.SheetNames[0]];
       const data = XLSX.utils.sheet_to_json(ws);
-      if (!data.length) { showToast('File is empty','warning'); return; }
+      if (!data.length) { progEl.remove(); showToast('File is empty', 'warning'); return; }
 
-      // Detect mode: if file has "Marks" column → single subject mode
-      // If file has subject codes/names as columns → all-subjects mode
-      const firstRow  = data[0];
-      const colKeys   = Object.keys(firstRow);
-      const hasSingle = colKeys.some(k => k.toLowerCase()==='marks' || k.toLowerCase()==='score');
+      // O(1) student lookup by admission number
+      const stuByAdm = new Map(students.map(s => [s.adm.toLowerCase(), s]));
 
+      const firstRow = data[0];
+      const colKeys  = Object.keys(firstRow);
+      const hasSingle = colKeys.some(k => k.toLowerCase() === 'marks' || k.toLowerCase() === 'score');
+
+      const CHUNK = 250;
       let count = 0, skipped = 0;
+      const updatedBy = currentUser ? (currentUser.name || currentUser.username) : 'Import';
+      const updatedAt = new Date().toLocaleString();
 
       if (hasSingle || subjectId) {
-        // ── MODE A: single subject ──
+        // ── MODE A: single subject ──────────────────────────────
         const sub = subjects.find(s => s.id === subjectId);
-        if (!sub && !hasSingle) { showToast('Select a subject for single-subject upload','error'); return; }
-        data.forEach(row => {
-          const adm   = String(row['AdmNo']||row['admno']||row['Adm No']||'').trim();
-          const score = parseInt(row['Marks']||row['marks']||row['Score']||row['score']||0);
-          const stu   = students.find(s => s.adm === adm); if (!stu) { skipped++; return; }
-          const maxM  = sub ? sub.max : 100;
-          // Temporarily set subjectId for autoSaveMark
-          const origSubId = document.getElementById('umSubject').value;
-          if (subjectId) {
-            autoSaveMark(stu.id, Math.min(Math.max(score,0), maxM));
-          }
-          count++;
+        if (!sub && !hasSingle) { progEl.remove(); showToast('Select a subject for single-subject upload', 'error'); return; }
+        const maxM = sub ? sub.max : 100;
+
+        // Build mark index for this exam+subject
+        const markIdx = new Map();
+        marks.forEach((m, i) => {
+          if (m.examId === examId && m.subjectId === subjectId) markIdx.set(m.studentId, i);
         });
-        showToast(`${count} marks uploaded${skipped?' ('+skipped+' skipped)':''} <i class="fa-solid fa-check"></i>`, 'success');
+
+        for (let i = 0; i < data.length; i += CHUNK) {
+          data.slice(i, i + CHUNK).forEach(row => {
+            const adm   = String(row['AdmNo'] || row['admno'] || row['Adm No'] || '').trim().toLowerCase();
+            const raw   = row['Marks'] || row['marks'] || row['Score'] || row['score'];
+            const score = parseInt(raw);
+            if (!adm || isNaN(score)) { skipped++; return; }
+            const stu = stuByAdm.get(adm);
+            if (!stu) { skipped++; return; }
+            const clamped = Math.min(Math.max(score, 0), maxM);
+            if (subjectId) {
+              const idx = markIdx.get(stu.id);
+              if (idx !== undefined) {
+                marks[idx].score = clamped;
+                marks[idx].updatedBy = updatedBy;
+                marks[idx].updatedAt = updatedAt;
+              } else {
+                const newMark = { id: uid(), examId, studentId: stu.id, subjectId, score: clamped, updatedBy, updatedAt };
+                markIdx.set(stu.id, marks.length);
+                marks.push(newMark);
+              }
+            }
+            count++;
+          });
+          setMsg('Processing\u2026 ' + Math.min(i + CHUNK, data.length) + ' / ' + data.length);
+          await new Promise(r => setTimeout(r, 0));
+        }
+
+        setMsg('Saving\u2026');
+        await new Promise(r => setTimeout(r, 0));
+        try { save(K.marks, marks); }
+        catch (qe) {
+          if (qe.name === 'QuotaExceededError' || qe.code === 22) {
+            progEl.remove();
+            showToast('\u274c Storage full \u2014 marks could not be saved. Export existing data to free up space.', 'error');
+            input.value = ''; return;
+          }
+          throw qe;
+        }
+        progEl.remove();
+        showToast(count + ' marks uploaded' + (skipped ? ' (' + skipped + ' skipped)' : '') + ' <i class="fa-solid fa-check"></i>', 'success');
         loadUmStudents();
         setTimeout(renderUmSubjectStatusPanel, 100);
 
       } else {
-        // ── MODE B: all subjects in one file ──
-        // Map column headers to subject ids
-        // Column can be subject code (ENG, KIS...) or subject name (English, Kiswahili...)
+        // ── MODE B: all-subjects columns ────────────────────────
         const exam = exams.find(e => e.id === examId);
-        const examSubIds = exam ? exam.subjectIds : subjects.map(s=>s.id);
-        const colSubMap = {}; // colKey → { subjectId, maxMarks }
+        const examSubIds = exam ? exam.subjectIds : subjects.map(s => s.id);
+
+        // Map column headers → subject
+        const colSubMap = {};
         colKeys.forEach(col => {
           const colU = col.trim().toUpperCase();
-          const byCode = subjects.find(s => s.code.toUpperCase() === colU && examSubIds.includes(s.id));
-          const byName = subjects.find(s => s.name.toUpperCase() === col.trim().toUpperCase() && examSubIds.includes(s.id));
-          const matched = byCode || byName;
+          const matched = subjects.find(s => examSubIds.includes(s.id) && (s.code.toUpperCase() === colU || s.name.toUpperCase() === colU));
           if (matched) colSubMap[col] = { subjectId: matched.id, max: matched.max };
         });
 
         if (!Object.keys(colSubMap).length) {
-          showToast('No subject columns found. Use subject codes (ENG, KIS, MTH…) or names as column headers.','error');
+          progEl.remove();
+          showToast('No subject columns found. Use subject codes (ENG, KIS, MTH\u2026) or names as column headers.', 'error');
           return;
         }
 
-        const importUpdatedBy = currentUser ? (currentUser.name || currentUser.username) : 'Import';
-        const importUpdatedAt = new Date().toLocaleString();
-        data.forEach(row => {
-          const adm = String(row['AdmNo']||row['admno']||row['Adm No']||'').trim();
-          const stu = students.find(s => s.adm === adm); if (!stu) { skipped++; return; }
-          let rowSaved = 0;
-          Object.entries(colSubMap).forEach(([col, {subjectId:sid, max}]) => {
-            const raw   = row[col];
-            const score = parseInt(raw);
-            if (isNaN(score)) return;
-            const clampedScore = Math.min(Math.max(score,0), max);
-            const existing = marks.findIndex(m => m.examId===examId && m.studentId===stu.id && m.subjectId===sid);
-            if (existing > -1) { marks[existing].score = clampedScore; marks[existing].updatedBy = importUpdatedBy; marks[existing].updatedAt = importUpdatedAt; }
-            else marks.push({ id:uid(), examId, studentId:stu.id, subjectId:sid, score:clampedScore, updatedBy: importUpdatedBy, updatedAt: importUpdatedAt });
-            rowSaved++;
-          });
-          if (rowSaved) count++;
+        // Build mark index: "examId|studentId|subjectId" → marks[] index
+        const markIdx = new Map();
+        marks.forEach((m, i) => {
+          if (m.examId === examId) markIdx.set(m.studentId + '|' + m.subjectId, i);
         });
-        save(K.marks, marks);
-        showToast(`All-subjects upload: ${count} students processed${skipped?' ('+skipped+' not found)':''} <i class="fa-solid fa-check"></i>`, 'success');
+
+        for (let i = 0; i < data.length; i += CHUNK) {
+          data.slice(i, i + CHUNK).forEach(row => {
+            const adm = String(row['AdmNo'] || row['admno'] || row['Adm No'] || '').trim().toLowerCase();
+            if (!adm) { skipped++; return; }
+            const stu = stuByAdm.get(adm);
+            if (!stu) { skipped++; return; }
+            let rowSaved = 0;
+            Object.entries(colSubMap).forEach(([col, { subjectId: sid, max }]) => {
+              const score = parseInt(row[col]);
+              if (isNaN(score)) return;
+              const clamped = Math.min(Math.max(score, 0), max);
+              const key = stu.id + '|' + sid;
+              const idx = markIdx.get(key);
+              if (idx !== undefined) {
+                marks[idx].score = clamped;
+                marks[idx].updatedBy = updatedBy;
+                marks[idx].updatedAt = updatedAt;
+              } else {
+                markIdx.set(key, marks.length);
+                marks.push({ id: uid(), examId, studentId: stu.id, subjectId: sid, score: clamped, updatedBy, updatedAt });
+              }
+              rowSaved++;
+            });
+            if (rowSaved) count++;
+            else skipped++;
+          });
+          setMsg('Processing\u2026 ' + Math.min(i + CHUNK, data.length) + ' / ' + data.length);
+          await new Promise(r => setTimeout(r, 0));
+        }
+
+        setMsg('Saving\u2026');
+        await new Promise(r => setTimeout(r, 0));
+        try { save(K.marks, marks); }
+        catch (qe) {
+          if (qe.name === 'QuotaExceededError' || qe.code === 22) {
+            progEl.remove();
+            showToast('\u274c Storage full \u2014 marks could not be saved. Export existing data to free up space.', 'error');
+            input.value = ''; return;
+          }
+          throw qe;
+        }
+        progEl.remove();
+        showToast('All-subjects upload: ' + count + ' students processed' + (skipped ? ' (' + skipped + ' not found)' : '') + ' <i class="fa-solid fa-check"></i>', 'success');
         loadUmStudents();
         renderDashboard();
         setTimeout(renderUmSubjectStatusPanel, 100);
       }
-    } catch(err) { showToast('Error reading file: ' + err.message, 'error'); console.error(err); }
+    } catch (err) {
+      const p = document.getElementById('marksUploadProgress');
+      if (p) p.remove();
+      showToast('Error reading file: ' + err.message, 'error');
+      console.error(err);
+    }
   };
   reader.readAsArrayBuffer(file);
   input.value = '';
