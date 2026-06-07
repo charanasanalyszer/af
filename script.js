@@ -6822,7 +6822,7 @@ let anCharts = {};
 // filterClassId  — restrict to one class (ranks within that class)
 // filterStreamId — further restrict to one stream (ranks within that stream)
 // If neither is given, scores all students but ranks per-class then per-stream.
-function buildMeritData(examId, filterStreamId, filterClassId) {
+function buildMeritData(examId, filterStreamId, filterClassId, filterPathwayId) {
   const exam      = exams.find(e => e.id === examId); if (!exam) return [];
   const isConsolidated = exam.category === 'consolidated';
   const sourceExamObjs = isConsolidated ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
@@ -6843,6 +6843,8 @@ function buildMeritData(examId, filterStreamId, filterClassId) {
     return true;
   });
   if (filterStreamId) stuList = stuList.filter(s => s.streamId === filterStreamId);
+  // Senior mode: filter by pathway if requested
+  if (seniorMode && filterPathwayId) stuList = stuList.filter(s => s.pathway === filterPathwayId);
 
   const allMapped = stuList.map(stu => {
     let total, pts;
@@ -6871,20 +6873,27 @@ function buildMeritData(examId, filterStreamId, filterClassId) {
       if (!stuMarks.length) return null; // no marks at all
 
       if (seniorMode) {
-        // ── CBC Senior: best-7 = all core subjects + best 3 electives ──────
-        const stuSubIds = exam.subjectIds.filter(sid => stuMarks.find(m=>m.subjectId===sid));
-        // Classify each subject as core or elective for this student's pathway
+        // ── CBC Senior: pathway-aware scoring ─────────────────────────────
+        // Only score subjects belonging to this student's pathway (school-offered)
         const stuPathway = stu.pathway || '';
-        const { core: coreDefs } = getCBCSubjectsForPathway(stuPathway);
-        const coreCodes = coreDefs.map(c=>c.code);
+        const { core: coreDefs, elective: electiveDefs } = getSchoolSubjectsForPathway(stuPathway);
+        const coreCodes     = coreDefs.map(c => c.code);
+        const electiveCodes = electiveDefs.map(e => e.code);
 
-        const coreMarks = stuMarks.filter(m => {
-          const sub = subjects.find(s=>s.id===m.subjectId);
+        // Only consider marks for subjects in this pathway (core + school electives)
+        const pathwayCodes = new Set([...coreCodes, ...electiveCodes]);
+        const pathwayMarks = stuMarks.filter(m => {
+          const sub = subjects.find(s => s.id === m.subjectId);
+          return sub && pathwayCodes.has(sub.code);
+        });
+
+        const coreMarks = pathwayMarks.filter(m => {
+          const sub = subjects.find(s => s.id === m.subjectId);
           return sub && coreCodes.includes(sub.code);
         });
-        const electiveMarks = stuMarks.filter(m => {
-          const sub = subjects.find(s=>s.id===m.subjectId);
-          return sub && !coreCodes.includes(sub.code);
+        const electiveMarks = pathwayMarks.filter(m => {
+          const sub = subjects.find(s => s.id === m.subjectId);
+          return sub && electiveCodes.includes(sub.code);
         });
 
         // Sort electives by points descending, take best 3
@@ -6897,7 +6906,11 @@ function buildMeritData(examId, filterStreamId, filterClassId) {
         const gradedMarks = [...coreMarks, ...best3Elec];
 
         if (!gradedMarks.length) return null;
-        // Incomplete if fewer than 7 graded subjects (core < expected or elec < 3)
+
+        // Must have at least 7 graded subjects to receive a rank (min 7 rule)
+        const totalGraded = gradedMarks.length;
+        if (totalGraded < 7) incomplete = true;
+        // Also flag incomplete if fewer core than expected or fewer than 3 electives
         if (coreMarks.length < coreDefs.length || best3Elec.length < 3) incomplete = true;
 
         total = parseFloat(gradedMarks.reduce((a,m)=>a+m.score,0).toFixed(1));
@@ -13116,12 +13129,18 @@ function onMlClassChange() {
 function onMlTypeChange(skipRender) {
   const type    = document.getElementById('mlType').value;
   const classId = document.getElementById('mlClass')?.value || '';
-  const streamRow = document.getElementById('mlStreamRow');
+  const streamRow  = document.getElementById('mlStreamRow');
+  const pathwayRow = document.getElementById('mlPathwayRow');
+
   if (type === 'class_stream') {
     streamRow.style.display = '';
     populateMeritStreamDropdown(classId);
   } else {
     streamRow.style.display = 'none';
+  }
+  // Show pathway selector for senior school on compare-streams view or stream view
+  if (pathwayRow) {
+    pathwayRow.style.display = (isSeniorSchool() && (type === 'pathway_compare_streams' || type === 'class_stream')) ? '' : 'none';
   }
   // Never auto-render — user must click Generate
 }
@@ -13226,6 +13245,7 @@ function renderMeritList() {
 
 function _renderMeritListBody(examId, type, classId, container) {
   const exam = exams.find(e=>e.id===examId);
+  const seniorMode = isSeniorSchool();
 
   // ── Single stream view ──────────────────────────────────────────────────
   if (type === 'class_stream') {
@@ -13236,22 +13256,20 @@ function _renderMeritListBody(examId, type, classId, container) {
     }
     const str = streams.find(s=>s.id===streamId);
     const cls = classes.find(c=>c.id===str?.classId);
+    const pathwayId = seniorMode ? (document.getElementById('mlPathway')?.value || '') : '';
     // Build merit data scoped to just this stream (ranks within stream)
-    const streamScored = buildMeritData(examId, streamId, str?.classId||classId||null);
+    const streamScored = buildMeritData(examId, streamId, str?.classId||classId||null, pathwayId||null);
     const { headerRow, bodyRows } = buildMeritTableHTML(streamScored, examId, false);
     const subAnalysis = buildSubjectAnalysisHTML(examId, streamScored.map(s=>s.id));
-    const ptsLegendStream = `<div style="margin-bottom:.75rem;padding:.4rem .85rem;background:#f0f7ff;border:1px solid #dbeafe;border-radius:7px;font-size:.72rem;display:flex;flex-wrap:wrap;gap:.2rem .5rem;align-items:center">
-      <strong style="color:#1a6fb5;margin-right:.3rem">Points Grade Scale ${isSeniorSchool()?'(7 graded subjects, max 56)':'(out of 72)'}:</strong>
-      ${POINTS_GRADE_BANDS.slice().reverse().map(b=>`<span class="badge ${b.cls}" style="font-size:.65rem">${b.grade}: ${b.min}–${b.max}</span>`).join('')}
-    </div>`;
+    const ptsLegendStream = _buildPtsLegend(true);
     const streamGenderAnalysis = buildGenderAnalysisMeritHTML(streamScored, examId);
     const streamVsClass = buildStreamVsClassHTML(examId, str?.classId||classId||null, streamId);
-    const rankByLabel = (document.getElementById('mlRankBy')?.value||'points')==='points'
-      ? '<span style="font-size:.68rem;font-weight:600;background:#eef4ff;color:var(--primary);border:1px solid #c7d7f0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-chart-line" style="font-size:.6rem"></i> Ranked by Mean Points</span>'
-      : '<span style="font-size:.68rem;font-weight:600;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-sigma" style="font-size:.6rem"></i> Ranked by Total Marks</span>';
+    const rankByLabel = _rankByLabel();
+    const pathwayBadge = seniorMode && pathwayId ? _pathwayBadge(pathwayId) : '';
     container.innerHTML = ptsLegendStream + `
       <h3 data-stream-id="${streamId}" style="margin-bottom:.5rem;font-family:var(--font);font-weight:700">
          ${cls ? cls.name + ' &rsaquo; ' : ''}${str?.name||streamId} &mdash; Stream Merit List
+        ${pathwayBadge}
         <span style="font-size:.78rem;font-weight:400;color:var(--muted);margin-left:.5rem">${exam?.name||''}</span>
         ${rankByLabel}
       </h3>
@@ -13266,15 +13284,91 @@ function _renderMeritListBody(examId, type, classId, container) {
     return;
   }
 
+  // ── Compare streams within a pathway (senior school only) ──────────────
+  if (type === 'pathway_compare_streams') {
+    if (!seniorMode) {
+      container.innerHTML = '<p style="color:var(--muted);padding:1rem">This view is only available for Senior School (CBC).</p>';
+      return;
+    }
+    const pathwayId = document.getElementById('mlPathway')?.value || '';
+    if (!pathwayId) {
+      container.innerHTML = '<p style="color:var(--muted);padding:1rem">Select a pathway to compare streams.</p>';
+      return;
+    }
+    const pw = getPathway(pathwayId);
+
+    // Get all streams relevant to this exam + class filter
+    const effectiveClassId = classId || exam.classId || null;
+    let allStreams = effectiveClassId
+      ? streams.filter(s=>s.classId===effectiveClassId)
+      : streams;
+    // Only streams that have scored students in this pathway
+    const pwStreamsData = allStreams.map(str => {
+      const scored = buildMeritData(examId, str.id, str.classId||null, pathwayId);
+      return { str, scored: scored.filter(s=>!s.incomplete) };
+    }).filter(d => d.scored.length > 0);
+
+    if (!pwStreamsData.length) {
+      container.innerHTML = `<p style="color:var(--muted);padding:1rem">No scored students found for <strong>${pw?.label||pathwayId}</strong> pathway.</p>`;
+      return;
+    }
+
+    // Build side-by-side comparison table
+    const rankBy = document.getElementById('mlRankBy')?.value || 'points';
+    let html = `<div style="margin-bottom:1rem;padding:.65rem 1rem;background:${pw?.color||'#3b82f6'}12;border:1.5px solid ${pw?.color||'#3b82f6'}40;border-radius:10px;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+      <span style="width:32px;height:32px;border-radius:50%;background:${pw?.color||'#3b82f6'}22;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fa-solid ${pw?.icon||'fa-graduation-cap'}" style="color:${pw?.color||'#3b82f6'};font-size:.85rem"></i>
+      </span>
+      <div>
+        <strong style="font-size:.95rem;color:${pw?.color||'#3b82f6'}">${pw?.label||pathwayId} — Stream Comparison</strong>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:.1rem">${exam?.name||''} · ${pwStreamsData.length} stream(s) · Ranked by ${rankBy==='points'?'Mean Points':'Total Marks'} · Min 7 subjects required</div>
+      </div>
+    </div>`;
+
+    // Per-stream summary cards row
+    html += `<div style="display:flex;gap:.65rem;flex-wrap:wrap;margin-bottom:1.25rem">`;
+    pwStreamsData.forEach(({ str, scored }) => {
+      const cls = classes.find(c=>c.id===str.classId);
+      const mean = scored.length ? (scored.reduce((a,s)=>a+s.mean,0)/scored.length).toFixed(1) : '—';
+      const top = scored[0];
+      html += `<div style="flex:1;min-width:180px;border:1.5px solid ${pw?.color||'#3b82f6'}30;border-radius:9px;padding:.7rem .9rem;background:${pw?.color||'#3b82f6'}06">
+        <div style="font-weight:700;font-size:.88rem;color:var(--primary);margin-bottom:.3rem">${cls?cls.name+' › ':''}${str.name}</div>
+        <div style="font-size:.75rem;color:var(--muted)"><strong>${scored.length}</strong> student${scored.length!==1?'s':''} ranked</div>
+        <div style="font-size:.75rem;color:var(--muted)">Stream mean: <strong>${mean}</strong></div>
+        ${top?`<div style="font-size:.72rem;color:#16a34a;margin-top:.2rem">🥇 ${top.name} — ${rankBy==='points'?top.points+'pts':top.total+' marks'}</div>`:''}
+      </div>`;
+    });
+    html += `</div>`;
+
+    // Full merit table per stream
+    pwStreamsData.forEach(({ str, scored: strScored }, idx) => {
+      const cls = classes.find(c=>c.id===str.classId);
+      // Re-use full scored (with incomplete) for display
+      const fullScored = buildMeritData(examId, str.id, str.classId||null, pathwayId);
+      const { headerRow, bodyRows } = buildMeritTableHTML(fullScored, examId, false);
+      const strGender = buildGenderAnalysisMeritHTML(fullScored, examId);
+      html += `<div style="${idx>0?'margin-top:2rem;padding-top:1.5rem;border-top:2px dashed var(--border)':''}">
+        <h4 style="font-family:var(--font);font-weight:700;color:${pw?.color||'var(--primary)'};margin-bottom:.4rem;font-size:.95rem">
+          <i class="fa-solid fa-ranking-star"></i> ${cls?cls.name+' › ':''}${str.name} — ${pw?.label||pathwayId} Merit List
+          <span style="font-size:.72rem;font-weight:400;color:var(--muted);margin-left:.4rem">${fullScored.filter(s=>!s.incomplete).length} ranked · ${fullScored.filter(s=>s.incomplete).length} incomplete</span>
+        </h4>
+        ${buildMeritStatsBar(fullScored)}
+        <div class="tbl-wrap"><table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table></div>
+        ${strGender}
+      </div>`;
+    });
+
+    container.innerHTML = _buildPtsLegend(true) + html;
+    return;
+  }
+
   // ── Determine which classes to render ───────────────────────────────────
-  // If a class is selected, only show that class; otherwise show all classes in exam
   let targetClasses;
   if (classId) {
     const cls = classes.find(c=>c.id===classId);
     targetClasses = cls ? [cls] : [];
   } else {
-    // Find all classes that have scored students in this exam
-    const allScored = buildMeritData(examId, null, null);
+    const allScored = buildMeritData(examId, null, null, null);
     const cids = [...new Set(allScored.map(s=>s.classId).filter(Boolean))];
     targetClasses = cids.map(id=>classes.find(c=>c.id===id)).filter(Boolean);
     targetClasses.sort((a,b)=>a.name.localeCompare(b.name));
@@ -13285,32 +13379,86 @@ function _renderMeritListBody(examId, type, classId, container) {
     return;
   }
 
-  // Points grade scale legend
-  const ptsLegend = `<div style="margin-bottom:1rem;padding:.5rem .85rem;background:#f0f7ff;border:1px solid #dbeafe;border-radius:7px;font-size:.75rem;display:flex;flex-wrap:wrap;gap:.25rem .65rem;align-items:center">
-    <strong style="color:#1a6fb5;margin-right:.3rem">Points Grade Scale ${isSeniorSchool()?'(7 graded subjects, max 56)':'(out of 72)'}:</strong>
-    ${POINTS_GRADE_BANDS.slice().reverse().map(b=>`<span class="badge ${b.cls}" style="font-size:.68rem">${b.grade}: ${b.min}–${b.max} <span style="font-weight:400;opacity:.8">${b.label}</span></span>`).join('')}
-  </div>`;
+  const ptsLegend = _buildPtsLegend(false);
 
-  // ── Render one section per class ────────────────────────────────────────
+  // ── Senior school: render per-pathway within each class ─────────────────
   const classSections = targetClasses.map((cls, ci) => {
-    // Score & rank WITHIN this class only
-    const classScored = buildMeritData(examId, null, cls.id);
-    if (!classScored.length) return '';
+    const pageBreak = ci > 0 ? 'margin-top:2.5rem;padding-top:1.5rem;border-top:2px solid var(--border);' : '';
+    const rankByLabelCls = _rankByLabel();
 
+    if (seniorMode) {
+      // For each pathway that has students in this class, build a merit section
+      const pathwaySections = PATHWAYS.map(pw => {
+        const pwScored = buildMeritData(examId, null, cls.id, pw.id);
+        if (!pwScored.length) return '';
+
+        const { headerRow: pwHdr, bodyRows: pwRows } = buildMeritTableHTML(pwScored, examId, true);
+        const pwGender = buildGenderAnalysisMeritHTML(pwScored, examId);
+
+        let streamSections = '';
+        if (type === 'class_overall_and_stream') {
+          const clsStreamIds = [...new Set(pwScored.map(s=>s.streamId).filter(Boolean))];
+          const clsStreams = clsStreamIds.map(sid=>streams.find(x=>x.id===sid)).filter(Boolean);
+          clsStreams.sort((a,b)=>a.name.localeCompare(b.name));
+
+          streamSections = clsStreams.map(str => {
+            const strScored = buildMeritData(examId, str.id, cls.id, pw.id);
+            if (!strScored.length) return '';
+            const { headerRow, bodyRows } = buildMeritTableHTML(strScored, examId, false);
+            const strGender = buildGenderAnalysisMeritHTML(strScored, examId);
+            const strVsClass = buildStreamVsClassHTML(examId, cls.id, str.id);
+            return `
+              <div style="margin-top:1.25rem">
+                <h5 style="margin-bottom:.35rem;font-family:var(--font);font-weight:700;color:${pw.color};font-size:.88rem">
+                  <i class="fa-solid fa-layer-group"></i> ${str.name} Stream &mdash; ${pw.label}
+                  <span style="font-size:.7rem;font-weight:400;color:var(--muted);margin-left:.4rem">${strScored.filter(s=>!s.incomplete).length} ranked</span>
+                </h5>
+                ${buildMeritStatsBar(strScored)}
+                <div class="tbl-wrap"><table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table></div>
+                ${strGender}
+                ${strVsClass}
+              </div>`;
+          }).join('');
+        }
+
+        return `<div style="margin-top:1.1rem;padding:1rem 1.1rem;border:1.5px solid ${pw.color}35;border-radius:10px;background:${pw.color}05">
+          <h4 style="margin-bottom:.4rem;font-family:var(--font);font-weight:700;color:${pw.color};font-size:.92rem">
+            <i class="fa-solid ${pw.icon}"></i> ${pw.label} Pathway
+            <span style="font-size:.72rem;font-weight:400;color:var(--muted);margin-left:.4rem">${pwScored.filter(s=>!s.incomplete).length} ranked · ${pwScored.filter(s=>s.incomplete).length} incomplete</span>
+            ${rankByLabelCls}
+          </h4>
+          ${buildMeritStatsBar(pwScored)}
+          ${buildGradeDistributionHTML(pwScored)}
+          <div class="tbl-wrap"><table><thead>${pwHdr}</thead><tbody>${pwRows}</tbody></table></div>
+          ${pwGender}
+          ${streamSections}
+        </div>`;
+      }).join('');
+
+      return pathwaySections ? `<div style="${pageBreak}">
+        <h3 data-class-id="${cls.id}" style="margin-bottom:.5rem;font-family:var(--font);font-weight:700;color:var(--primary)">
+          <i class="fa-solid fa-trophy"></i> ${cls.name} &mdash; Class Merit List
+          <span style="font-size:.78rem;font-weight:400;color:var(--muted);margin-left:.5rem">${exam?.name||''}</span>
+        </h3>
+        ${pathwaySections}
+      </div>` : '';
+    }
+
+    // ── Standard (non-senior) class rendering ───────────────────────────
+    const classScored = buildMeritData(examId, null, cls.id, null);
+    if (!classScored.length) return '';
     const { headerRow: clsHdr, bodyRows: clsRows } = buildMeritTableHTML(classScored, examId, true);
     const clsSubAnalysis = buildSubjectAnalysisHTML(examId, classScored.map(s=>s.id));
     const clsGenderAnalysis = buildGenderAnalysisMeritHTML(classScored, examId);
 
     let streamSections = '';
     if (type === 'class_overall_and_stream') {
-      // All streams belonging to this class that have scored students
       const clsStreamIds = [...new Set(classScored.map(s=>s.streamId).filter(Boolean))];
       const clsStreams = clsStreamIds.map(sid=>streams.find(x=>x.id===sid)).filter(Boolean);
       clsStreams.sort((a,b)=>a.name.localeCompare(b.name));
 
       streamSections = clsStreams.map(str => {
-        // Score & rank within this stream only (pass classId so ranking is scoped)
-        const strScored = buildMeritData(examId, str.id, cls.id);
+        const strScored = buildMeritData(examId, str.id, cls.id, null);
         if (!strScored.length) return '';
         const { headerRow, bodyRows } = buildMeritTableHTML(strScored, examId, false);
         const strSubAnalysis = buildSubjectAnalysisHTML(examId, strScored.map(s=>s.id));
@@ -13333,10 +13481,6 @@ function _renderMeritListBody(examId, type, classId, container) {
       }).join('');
     }
 
-    const rankByLabelCls = (document.getElementById('mlRankBy')?.value||'points')==='points'
-      ? '<span style="font-size:.68rem;font-weight:600;background:#eef4ff;color:var(--primary);border:1px solid #c7d7f0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-chart-line" style="font-size:.6rem"></i> Ranked by Mean</span>'
-      : '<span style="font-size:.68rem;font-weight:600;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-sigma" style="font-size:.6rem"></i> Ranked by Total Marks</span>';
-    const pageBreak = ci > 0 ? 'margin-top:2.5rem;padding-top:1.5rem;border-top:2px solid var(--border);' : '';
     return `
       <div style="${pageBreak}">
         <h3 data-class-id="${cls.id}" style="margin-bottom:.5rem;font-family:var(--font);font-weight:700;color:var(--primary)">
@@ -13355,12 +13499,32 @@ function _renderMeritListBody(examId, type, classId, container) {
       </div>`;
   }).join('');
 
-  const seniorNotice = isSeniorSchool() ? `<div style="margin-bottom:.85rem;padding:.55rem .9rem;background:linear-gradient(90deg,#eff6ff,#f0fdf4);border:1.5px solid #bfdbfe;border-radius:8px;font-size:.78rem;color:#1e40af">
+  const seniorNotice = seniorMode ? `<div style="margin-bottom:.85rem;padding:.55rem .9rem;background:linear-gradient(90deg,#eff6ff,#f0fdf4);border:1.5px solid #bfdbfe;border-radius:8px;font-size:.78rem;color:#1e40af">
     <i class="fa-solid fa-graduation-cap" style="margin-right:.4rem"></i>
-    <strong>Senior School CBC Grading:</strong> Points computed from best <strong>7 subjects</strong> (4 core + 3 best electives per student). Max score per subject: 8 pts. Total max: 56 pts.
-    ${isSubjectCombinationConfigured() ? '<span style="margin-left:.5rem;color:#15803d"><i class="fa-solid fa-circle-check"></i> Subject combination configured</span>' : '<span style="margin-left:.5rem;color:#b45309"><i class="fa-solid fa-triangle-exclamation"></i> Configure subject combinations in Settings</span>'}
+    <strong>Senior School CBC:</strong> Merit lists are <strong>pathway-specific</strong>. Each student ranked on their pathway subjects only (min <strong>7</strong>: core + 3 best electives). Max 56 pts.
+    ${isSubjectCombinationConfigured() ? '<span style="margin-left:.5rem;color:#15803d"><i class="fa-solid fa-circle-check"></i> Subject combinations configured</span>' : '<span style="margin-left:.5rem;color:#b45309"><i class="fa-solid fa-triangle-exclamation"></i> Configure subject combinations in Settings for accurate filtering</span>'}
   </div>` : '';
   container.innerHTML = seniorNotice + ptsLegend + (classSections || '<p style="color:var(--muted);padding:1rem">No data found.</p>');
+}
+
+// ── Merit list helper functions ──────────────────────────────────────────────
+function _buildPtsLegend(compact) {
+  const senior = isSeniorSchool();
+  return `<div style="margin-bottom:${compact?'.75rem':'1rem'};padding:${compact?'.4rem .85rem':'.5rem .85rem'};background:#f0f7ff;border:1px solid #dbeafe;border-radius:7px;font-size:${compact?'.72rem':'.75rem'};display:flex;flex-wrap:wrap;gap:.25rem .65rem;align-items:center">
+    <strong style="color:#1a6fb5;margin-right:.3rem">Points Grade Scale ${senior?'(7 graded subjects, max 56)':'(out of 72)'}:</strong>
+    ${POINTS_GRADE_BANDS.slice().reverse().map(b=>`<span class="badge ${b.cls}" style="font-size:.68rem">${b.grade}: ${b.min}–${b.max}${compact?'':' <span style="font-weight:400;opacity:.8">'+b.label+'</span>'}</span>`).join('')}
+  </div>`;
+}
+function _rankByLabel() {
+  return (document.getElementById('mlRankBy')?.value||'points')==='points'
+    ? '<span style="font-size:.68rem;font-weight:600;background:#eef4ff;color:var(--primary);border:1px solid #c7d7f0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-chart-line" style="font-size:.6rem"></i> Ranked by Mean Points</span>'
+    : '<span style="font-size:.68rem;font-weight:600;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-sigma" style="font-size:.6rem"></i> Ranked by Total Marks</span>';
+}
+function _pathwayBadge(pwId) {
+  const pw = getPathway(pwId); if (!pw) return '';
+  return `<span style="font-size:.72rem;font-weight:600;background:${pw.color}18;color:${pw.color};border:1px solid ${pw.color}40;border-radius:5px;padding:1px 7px;margin-left:.4rem;vertical-align:middle">
+    <i class="fa-solid ${pw.icon}" style="font-size:.6rem"></i> ${pw.label}
+  </span>`;
 }
 
 // ═══════════════ DOWNLOAD ALL REPORT FORMS AS PDF ═══════════════
