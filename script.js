@@ -6602,7 +6602,10 @@ function buildMeritData(examId, filterStreamId, filterClassId) {
   const isConsolidated = exam.category === 'consolidated';
   const sourceExamObjs = isConsolidated ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
   const examMarks = isConsolidated ? [] : marks.filter(m => m.examId === examId);
-  const totalSubs = exam.subjectIds.length || 1;
+
+  // ── CBC Senior School: use best-7 scoring (4 core + 3 best electives) ──
+  const seniorMode = isSeniorSchool();
+  const totalSubs = seniorMode ? 7 : (exam.subjectIds.length || 1);
 
   // ── Read ranking preference from UI (fallback: 'points') ─────────────
   const rankBy = document.getElementById('mlRankBy')?.value || 'points';
@@ -6641,14 +6644,49 @@ function buildMeritData(examId, filterStreamId, filterClassId) {
     } else {
       const stuMarks = examMarks.filter(m => m.studentId === stu.id);
       if (!stuMarks.length) return null; // no marks at all
-      // Check if any subject is missing
-      const missingSub = exam.subjectIds.some(sid => !stuMarks.find(m => m.subjectId === sid));
-      if (missingSub) incomplete = true;
-      total = stuMarks.reduce((a,m) => a+m.score, 0);
-      pts   = stuMarks.reduce((a,m) => a + getGrade(m.score, subjects.find(s=>s.id===m.subjectId)?.max||100).points, 0);
+
+      if (seniorMode) {
+        // ── CBC Senior: best-7 = all core subjects + best 3 electives ──────
+        const stuSubIds = exam.subjectIds.filter(sid => stuMarks.find(m=>m.subjectId===sid));
+        // Classify each subject as core or elective for this student's pathway
+        const stuPathway = stu.pathway || '';
+        const { core: coreDefs } = getCBCSubjectsForPathway(stuPathway);
+        const coreCodes = coreDefs.map(c=>c.code);
+
+        const coreMarks = stuMarks.filter(m => {
+          const sub = subjects.find(s=>s.id===m.subjectId);
+          return sub && coreCodes.includes(sub.code);
+        });
+        const electiveMarks = stuMarks.filter(m => {
+          const sub = subjects.find(s=>s.id===m.subjectId);
+          return sub && !coreCodes.includes(sub.code);
+        });
+
+        // Sort electives by points descending, take best 3
+        const sortedElec = electiveMarks.slice().sort((a,b) => {
+          const subA = subjects.find(s=>s.id===a.subjectId);
+          const subB = subjects.find(s=>s.id===b.subjectId);
+          return getGrade(b.score, subB?.max||100).points - getGrade(a.score, subA?.max||100).points;
+        });
+        const best3Elec = sortedElec.slice(0, 3);
+        const gradedMarks = [...coreMarks, ...best3Elec];
+
+        if (!gradedMarks.length) return null;
+        // Incomplete if fewer than 7 graded subjects (core < expected or elec < 3)
+        if (coreMarks.length < coreDefs.length || best3Elec.length < 3) incomplete = true;
+
+        total = parseFloat(gradedMarks.reduce((a,m)=>a+m.score,0).toFixed(1));
+        pts   = gradedMarks.reduce((a,m) => a + getGrade(m.score, subjects.find(s=>s.id===m.subjectId)?.max||100).points, 0);
+      } else {
+        // ── Standard mode ───────────────────────────────────────────────────
+        const missingSub = exam.subjectIds.some(sid => !stuMarks.find(m => m.subjectId === sid));
+        if (missingSub) incomplete = true;
+        total = stuMarks.reduce((a,m) => a+m.score, 0);
+        pts   = stuMarks.reduce((a,m) => a + getGrade(m.score, subjects.find(s=>s.id===m.subjectId)?.max||100).points, 0);
+      }
     }
     const mean   = total / totalSubs;
-    const maxAvg = (exam.subjectIds.map(sid=>subjects.find(s=>s.id===sid)?.max||100).reduce((a,b)=>a+b,0)/totalSubs) || 100;
+    const maxAvg = seniorMode ? 100 : ((exam.subjectIds.map(sid=>subjects.find(s=>s.id===sid)?.max||100).reduce((a,b)=>a+b,0)/(exam.subjectIds.length||1)) || 100);
     const g      = getMeanGrade(mean / maxAvg * 8);
     return { ...stu, total, mean, grade:g, points:pts, incomplete };
   }).filter(Boolean);
@@ -7507,7 +7545,22 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
   const sourceExamObjs = isConsolidated ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
   const examMarks  = isConsolidated ? [] : marks.filter(m => m.examId === examId);
   const examSubIds = exam.subjectIds;
-  const examSubs   = examSubIds.map(sid => subjects.find(s=>s.id===sid)).filter(Boolean);
+  let examSubs   = examSubIds.map(sid => subjects.find(s=>s.id===sid)).filter(Boolean);
+
+  // ── Senior school: limit columns to school's configured subject combination ──
+  if (isSeniorSchool() && isSubjectCombinationConfigured()) {
+    // Collect all chosen codes across pathways (core always included)
+    const allChosenCodes = new Set();
+    // Universal core always shown
+    CBC_SUBJECTS.universal_core.forEach(s => allChosenCodes.add(s.code));
+    PATHWAYS.forEach(pw => {
+      const { core } = getCBCSubjectsForPathway(pw.id);
+      core.forEach(s => allChosenCodes.add(s.code));
+      const chosen = getSchoolElectiveCodes(pw.id);
+      chosen.forEach(c => allChosenCodes.add(c));
+    });
+    examSubs = examSubs.filter(s => allChosenCodes.has(s.code));
+  }
 
   const subHeaders = examSubs.map(s=>`<th style="text-align:center;font-size:.72rem" title="${s.name}">${s.code}</th>`).join('');
   const colCount   = 6 + (showStreamCol?2:0) + examSubs.length + 5;
@@ -11611,6 +11664,7 @@ function loadSettings() {
   if (rts) rts.checked = !!s.restrictTeacherSettings;
   renderAdminList();
   renderOverallGradingCard();
+  try { renderSubjectCombinationUI(); } catch(e) {}
 }
 
 function saveSettings() {
@@ -11626,10 +11680,12 @@ function saveSettings() {
     restrictTeacherFees:      settings.restrictTeacherFees      || false,
     restrictTeacherList:      settings.restrictTeacherList      || false,
     restrictTeacherSettings:  settings.restrictTeacherSettings  || false,
+    subjectCombinations:      settings.subjectCombinations      || {},
   };
   save(K.settings,[settings]);
   document.getElementById('sbSchoolName').textContent=settings.schoolName||'School';
   applySchoolLevelUI();
+  try { renderSubjectCombinationUI(); } catch(e) {}
   showToast('Settings saved <i class="fa-solid fa-check"></i>','success');
 }
 
@@ -11640,6 +11696,107 @@ const PATHWAYS = [
   { id:'arts',   label:'Arts & Sports Science',  color:'#f59e0b', icon:'fa-palette' },
 ];
 function isSeniorSchool() { return (settings.schoolLevel || 'junior') === 'senior'; }
+
+// ── Subject Combination Helpers ───────────────────────────────────────────
+// settings.subjectCombinations = { stem: ['BIO','CHE','PHY'], ss: ['HIS','GEO','CRE'], arts: ['VSA','PFA','BLG'] }
+// Each pathway stores the elective codes the school has chosen to offer.
+// A school must choose exactly 3 elective subjects per pathway.
+// Core subjects (universal + pathway core) are ALWAYS included and not configurable.
+
+function getSchoolElectiveCodes(pathwayId) {
+  return (settings.subjectCombinations && settings.subjectCombinations[pathwayId]) || [];
+}
+
+function getSchoolSubjectsForPathway(pathwayId) {
+  // Returns { core: [...], elective: [...] } filtered to school's chosen combination
+  const { core, elective } = getCBCSubjectsForPathway(pathwayId);
+  const chosenCodes = getSchoolElectiveCodes(pathwayId);
+  const filteredElective = chosenCodes.length > 0
+    ? elective.filter(e => chosenCodes.includes(e.code))
+    : elective; // if not configured, show all (backward compat)
+  return { core, elective: filteredElective };
+}
+
+function isSubjectCombinationConfigured() {
+  if (!isSeniorSchool()) return false;
+  const sc = settings.subjectCombinations || {};
+  return PATHWAYS.some(pw => (sc[pw.id] || []).length > 0);
+}
+
+// Save subject combination for a pathway (called from settings UI)
+function saveSubjectCombination(pathwayId) {
+  const checkboxes = document.querySelectorAll(`.scomb-check[data-pathway="${pathwayId}"]`);
+  const chosen = [];
+  checkboxes.forEach(cb => { if (cb.checked) chosen.push(cb.value); });
+
+  // Validation: electives limit (3 max for grading; school may offer up to ~8 total but 3 are graded)
+  // We allow flexible selection — the school decides which subjects they offer
+  if (!settings.subjectCombinations) settings.subjectCombinations = {};
+  settings.subjectCombinations[pathwayId] = chosen;
+  save(K.settings, [settings]);
+  showToast(`Subject combination saved for ${PATHWAYS.find(p=>p.id===pathwayId)?.label || pathwayId} <i class="fa-solid fa-check"></i>`, 'success');
+  renderSubjectCombinationUI(); // refresh counts
+}
+
+function renderSubjectCombinationUI() {
+  const wrap = document.getElementById('subjectCombinationWrap');
+  if (!wrap) return;
+  if (!isSeniorSchool()) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+
+  const sc = settings.subjectCombinations || {};
+
+  wrap.innerHTML = `
+    <h3 style="margin-bottom:.4rem"><i class="fa-solid fa-table-list"></i> Subject Combinations (Senior School)</h3>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:1.1rem">
+      Select the elective subjects your school offers for each pathway. Core subjects are fixed and auto-included.
+      Each student takes <strong>7 graded subjects</strong> — 4 core + 3 electives from their pathway track.
+      The merit list will only show your school's chosen subjects.
+    </p>
+    ${PATHWAYS.map(pw => {
+      const { core, elective } = getCBCSubjectsForPathway(pw.id);
+      const chosen = sc[pw.id] || [];
+      // Group electives by track
+      const byTrack = {};
+      elective.forEach(e => {
+        if (!byTrack[e.track]) byTrack[e.track] = [];
+        byTrack[e.track].push(e);
+      });
+      return `
+      <div style="border:1.5px solid ${pw.color}40;border-radius:10px;padding:1rem 1.1rem;margin-bottom:1rem;background:${pw.color}06">
+        <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.7rem">
+          <span style="width:30px;height:30px;border-radius:50%;background:${pw.color}20;display:flex;align-items:center;justify-content:center">
+            <i class="fa-solid ${pw.icon}" style="color:${pw.color};font-size:.82rem"></i>
+          </span>
+          <strong style="font-size:.92rem">${pw.label}</strong>
+          <span style="margin-left:auto;font-size:.73rem;color:${chosen.length>0?'#16a34a':'var(--muted)'};font-weight:600">
+            ${chosen.length > 0 ? `<i class="fa-solid fa-circle-check" style="color:#16a34a"></i> ${chosen.length} elective(s) selected` : 'Not configured'}
+          </span>
+        </div>
+        <div style="font-size:.75rem;color:var(--muted);margin-bottom:.6rem">
+          <strong>Core (auto-included):</strong>
+          ${core.map(s=>`<span style="background:${pw.color}15;border-radius:4px;padding:.05rem .35rem;margin:.1rem;display:inline-block;font-size:.7rem">${s.name}</span>`).join('')}
+        </div>
+        <div style="font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:.4rem">Choose electives your school offers:</div>
+        ${Object.entries(byTrack).map(([track, subs]) => `
+          <div style="margin-bottom:.5rem">
+            <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:${pw.color};margin-bottom:.25rem;letter-spacing:.04em">${track}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:.3rem">
+              ${subs.map(s=>`
+                <label style="display:flex;align-items:center;gap:.3rem;padding:.25rem .6rem;border-radius:6px;border:1.5px solid ${chosen.includes(s.code)?pw.color:'var(--border)'};background:${chosen.includes(s.code)?pw.color+'18':'transparent'};cursor:pointer;font-size:.75rem;font-weight:${chosen.includes(s.code)?'600':'400'}">
+                  <input type="checkbox" class="scomb-check" data-pathway="${pw.id}" value="${s.code}" ${chosen.includes(s.code)?'checked':''} style="accent-color:${pw.color}">
+                  <span style="font-family:var(--mono);font-size:.68rem;opacity:.75;margin-right:.15rem">${s.code}</span>${s.name}
+                </label>`).join('')}
+            </div>
+          </div>`).join('')}
+        <button class="btn btn-sm" style="margin-top:.6rem;background:${pw.color};color:#fff;border:none;font-size:.78rem"
+          onclick="saveSubjectCombination('${pw.id}')">
+          <i class="fa-solid fa-floppy-disk"></i> Save ${pw.label} Combination
+        </button>
+      </div>`;
+    }).join('')}
+  `;
+}
 
 // ── CBC Grade 10 Senior School Subject Catalogue ──────────────────
 // Source: Ministry of Education Kenya (2025)
@@ -12800,7 +12957,7 @@ function _renderMeritListBody(examId, type, classId, container) {
     const { headerRow, bodyRows } = buildMeritTableHTML(streamScored, examId, false);
     const subAnalysis = buildSubjectAnalysisHTML(examId, streamScored.map(s=>s.id));
     const ptsLegendStream = `<div style="margin-bottom:.75rem;padding:.4rem .85rem;background:#f0f7ff;border:1px solid #dbeafe;border-radius:7px;font-size:.72rem;display:flex;flex-wrap:wrap;gap:.2rem .5rem;align-items:center">
-      <strong style="color:#1a6fb5;margin-right:.3rem">Points Grade Scale (out of 72):</strong>
+      <strong style="color:#1a6fb5;margin-right:.3rem">Points Grade Scale ${isSeniorSchool()?'(7 graded subjects, max 56)':'(out of 72)'}:</strong>
       ${POINTS_GRADE_BANDS.slice().reverse().map(b=>`<span class="badge ${b.cls}" style="font-size:.65rem">${b.grade}: ${b.min}–${b.max}</span>`).join('')}
     </div>`;
     const streamGenderAnalysis = buildGenderAnalysisMeritHTML(streamScored, examId);
@@ -12846,7 +13003,7 @@ function _renderMeritListBody(examId, type, classId, container) {
 
   // Points grade scale legend
   const ptsLegend = `<div style="margin-bottom:1rem;padding:.5rem .85rem;background:#f0f7ff;border:1px solid #dbeafe;border-radius:7px;font-size:.75rem;display:flex;flex-wrap:wrap;gap:.25rem .65rem;align-items:center">
-    <strong style="color:#1a6fb5;margin-right:.3rem">Points Grade Scale (out of 72):</strong>
+    <strong style="color:#1a6fb5;margin-right:.3rem">Points Grade Scale ${isSeniorSchool()?'(7 graded subjects, max 56)':'(out of 72)'}:</strong>
     ${POINTS_GRADE_BANDS.slice().reverse().map(b=>`<span class="badge ${b.cls}" style="font-size:.68rem">${b.grade}: ${b.min}–${b.max} <span style="font-weight:400;opacity:.8">${b.label}</span></span>`).join('')}
   </div>`;
 
@@ -12914,7 +13071,12 @@ function _renderMeritListBody(examId, type, classId, container) {
       </div>`;
   }).join('');
 
-  container.innerHTML = ptsLegend + (classSections || '<p style="color:var(--muted);padding:1rem">No data found.</p>');
+  const seniorNotice = isSeniorSchool() ? `<div style="margin-bottom:.85rem;padding:.55rem .9rem;background:linear-gradient(90deg,#eff6ff,#f0fdf4);border:1.5px solid #bfdbfe;border-radius:8px;font-size:.78rem;color:#1e40af">
+    <i class="fa-solid fa-graduation-cap" style="margin-right:.4rem"></i>
+    <strong>Senior School CBC Grading:</strong> Points computed from best <strong>7 subjects</strong> (4 core + 3 best electives per student). Max score per subject: 8 pts. Total max: 56 pts.
+    ${isSubjectCombinationConfigured() ? '<span style="margin-left:.5rem;color:#15803d"><i class="fa-solid fa-circle-check"></i> Subject combination configured</span>' : '<span style="margin-left:.5rem;color:#b45309"><i class="fa-solid fa-triangle-exclamation"></i> Configure subject combinations in Settings</span>'}
+  </div>` : '';
+  container.innerHTML = seniorNotice + ptsLegend + (classSections || '<p style="color:var(--muted);padding:1rem">No data found.</p>');
 }
 
 // ═══════════════ DOWNLOAD ALL REPORT FORMS AS PDF ═══════════════
