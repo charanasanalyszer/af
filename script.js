@@ -9461,7 +9461,19 @@ function applyStudentFilters() {
   const streamId = document.getElementById('stuStreamFilter')?.value || '';
   const pathway  = document.getElementById('stuPathwayFilter')?.value || '';
   const track    = document.getElementById('stuTrackFilter')?.value  || '';
+  // Show "Clear Filters" button if any filter is active
+  const anyActive = text || gender || classId || streamId || pathway || track;
+  const clearBtn = document.getElementById('stuClearFiltersBtn');
+  if (clearBtn) clearBtn.style.display = anyActive ? '' : 'none';
   renderStudents(text, gender, classId, streamId, pathway, track);
+}
+
+function clearStudentFilters() {
+  const ids = ['stuSearchBox','stuGenderFilter','stuClassFilter','stuStreamFilter','stuPathwayFilter','stuTrackFilter'];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const clearBtn = document.getElementById('stuClearFiltersBtn');
+  if (clearBtn) clearBtn.style.display = 'none';
+  renderStudents();
 }
 
 function onPathwayFilterChange() {
@@ -9580,12 +9592,19 @@ function toggleSelectAllStudents(cb) {
   updateBulkDeleteUI();
 }
 
+function deselectAllStudents() {
+  document.querySelectorAll('.stu-sel-chk').forEach(c=>c.checked=false);
+  const sa = document.getElementById('stuSelectAll');
+  if (sa) { sa.checked = false; sa.indeterminate = false; }
+  updateBulkDeleteUI();
+}
+
 function updateBulkDeleteUI() {
   const chkd = document.querySelectorAll('.stu-sel-chk:checked');
-  const btn  = document.getElementById('stuBulkDelBtn');
+  const bar  = document.getElementById('stuBulkBar');
   const cnt  = document.getElementById('stuSelCount');
-  if (btn)  btn.style.display = chkd.length>0 ? '' : 'none';
-  if (cnt)  cnt.textContent   = chkd.length;
+  if (bar)  bar.style.display  = chkd.length > 0 ? 'flex' : 'none';
+  if (cnt)  cnt.textContent    = chkd.length;
 }
 
 function deleteSelectedStudents() {
