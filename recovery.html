@@ -32,25 +32,28 @@
   .badge-blue   { background: #1e3a5f; color: #60a5fa; }
   .badge-green  { background: #052e16; color: #86efac; }
   .badge-yellow { background: #2d1b00; color: #fbbf24; }
+  .badge-red    { background: #2d1b1b; color: #fca5a5; }
   .school-card  { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px; margin-bottom: 10px; }
   .school-name  { color: #38bdf8; font-weight: 600; font-size: 1rem; }
   .school-id    { color: #64748b; font-family: monospace; font-size: 0.78rem; }
   .school-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+  .school-key   { color: #475569; font-family: monospace; font-size: 0.72rem; margin-top: 6px; }
   textarea { width: 100%; background: #0f172a; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 0.78rem; resize: vertical; }
   label { display: block; margin-bottom: 6px; color: #94a3b8; font-size: 0.85rem; }
-  #log { font-family: monospace; font-size: 0.78rem; color: #94a3b8; background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 10px; max-height: 180px; overflow-y: auto; }
+  #log { font-family: monospace; font-size: 0.78rem; color: #94a3b8; background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 10px; max-height: 220px; overflow-y: auto; }
   .log-line { margin-bottom: 2px; }
   .log-ok   { color: #86efac; } .log-err { color: #fca5a5; } .log-info { color: #93c5fd; }
   .origin-box { background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 10px 14px; font-family: monospace; font-size: 0.85rem; color: #fbbf24; margin-bottom: 12px; word-break: break-all; }
   a.back { display: inline-flex; align-items: center; gap: 6px; color: #60a5fa; font-size: 0.85rem; text-decoration: none; margin-bottom: 20px; }
   a.back:hover { color: #93c5fd; }
+  .warn-box { background: #2d1b00; border: 1px solid #d97706; border-radius: 6px; padding: 10px 14px; color: #fbbf24; font-size: 0.82rem; margin-bottom: 12px; }
 </style>
 </head>
 <body>
 
 <a class="back" href="index.html">← Back to App</a>
 <h1>🔧 AF-Main Data Recovery</h1>
-<p class="subtitle">Reads <code>af_main_db</code> IndexedDB from this origin — same as the app.</p>
+<p class="subtitle">Reads <code>af_main_db</code> IndexedDB — searches ALL key patterns to find every school.</p>
 
 <div class="card">
   <h2>🌐 Current Origin</h2>
@@ -69,6 +72,7 @@
 
 <div class="card" id="schoolsCard" style="display:none">
   <h2>🏫 Schools Found</h2>
+  <div id="schoolsFoundNote" class="warn-box" style="display:none"></div>
   <div id="schoolsList"></div>
 </div>
 
@@ -169,6 +173,65 @@ function typeLabel(v) {
   return '<span class="badge badge-green">'+typeof v+'</span>';
 }
 
+// ── IMPROVED: Find ALL schools across ALL key patterns ──────────────────────
+function findAllSchools(data) {
+  const keys = Object.keys(data);
+  const found = []; // { sourceKey, schools[] }
+
+  // Pattern 1: exact key "ei_platform_schools"
+  if (Array.isArray(data['ei_platform_schools']) && data['ei_platform_schools'].length) {
+    found.push({ sourceKey: 'ei_platform_schools', schools: data['ei_platform_schools'] });
+    log('Pattern 1 (ei_platform_schools): ' + data['ei_platform_schools'].length + ' schools', 'ok');
+  }
+
+  // Pattern 2: any key ending in "_ei_platform_schools" e.g. "user123_ei_platform_schools"
+  keys.filter(k => k !== 'ei_platform_schools' && k.endsWith('_ei_platform_schools')).forEach(k => {
+    if (Array.isArray(data[k]) && data[k].length) {
+      found.push({ sourceKey: k, schools: data[k] });
+      log('Pattern 2 (' + k + '): ' + data[k].length + ' schools', 'ok');
+    }
+  });
+
+  // Pattern 3: any key containing "schools" that holds an array of objects with id/name
+  keys.filter(k => k.includes('school') && !k.endsWith('_ei_platform_schools') && k !== 'ei_platform_schools').forEach(k => {
+    const v = data[k];
+    if (Array.isArray(v) && v.length && v[0] && typeof v[0] === 'object' && (v[0].id || v[0].schoolId || v[0].name)) {
+      found.push({ sourceKey: k, schools: v });
+      log('Pattern 3 (' + k + '): ' + v.length + ' schools', 'ok');
+    }
+  });
+
+  // Pattern 4: deduce schools from keys like "SCHOOLID_ei_students"
+  // collect all unique prefixes before known suffixes
+  const knownSuffixes = ['_ei_students','_ei_exams','_ei_marks','_ei_subjects','_ei_classes','_ei_teachers'];
+  const inferredIds = new Set();
+  keys.forEach(k => {
+    knownSuffixes.forEach(sfx => {
+      if (k.endsWith(sfx)) {
+        const prefix = k.slice(0, k.length - sfx.length);
+        if (prefix) inferredIds.add(prefix);
+      }
+    });
+  });
+
+  // Remove IDs already covered by pattern 1/2/3
+  const coveredIds = new Set(found.flatMap(f => f.schools.map(s => s.id || s.schoolId || '')));
+  const newIds = [...inferredIds].filter(id => id && !coveredIds.has(id));
+
+  if (newIds.length) {
+    log('Pattern 4: inferred ' + newIds.length + ' additional school IDs from data keys: ' + newIds.join(', '), 'info');
+    const inferred = newIds.map(id => ({
+      id,
+      name: '(recovered: ' + id + ')',
+      username: '—',
+      _inferred: true
+    }));
+    found.push({ sourceKey: '(inferred from data keys)', schools: inferred });
+  }
+
+  return found;
+}
+
 async function scanDB() {
   const statusEl = document.getElementById('scanStatus');
   statusEl.className = 'status info';
@@ -177,11 +240,11 @@ async function scanDB() {
   try {
     _allData = await getAllKV();
     const keys = Object.keys(_allData);
-    log('Found ' + keys.length + ' keys.', keys.length ? 'ok' : 'err');
+    log('Found ' + keys.length + ' total keys.', keys.length ? 'ok' : 'err');
 
     if (!keys.length) {
       statusEl.className = 'status err';
-      statusEl.textContent = '⚠️ No data found. Make sure you are accessing this page from the same GitHub Pages URL as your app (not file://).';
+      statusEl.textContent = '⚠️ No data found. Make sure this page is opened from the same GitHub Pages URL as your app (not file://).';
       return;
     }
 
@@ -189,32 +252,53 @@ async function scanDB() {
     statusEl.textContent = '✅ Found ' + keys.length + ' keys in IndexedDB.';
     document.getElementById('exportBtn').disabled = false;
 
-    // Schools
-    const schools = Array.isArray(_allData['ei_platform_schools']) ? _allData['ei_platform_schools'] : [];
-    log('Schools: ' + schools.length, schools.length ? 'ok' : 'err');
+    // ── Find schools using all patterns ──
+    const schoolGroups = findAllSchools(_allData);
+    const totalSchools = schoolGroups.reduce((n, g) => n + g.schools.length, 0);
+    log('Total schools found across all patterns: ' + totalSchools, totalSchools ? 'ok' : 'err');
+
     const schoolsCard = document.getElementById('schoolsCard');
     schoolsCard.style.display = 'block';
     const schoolsList = document.getElementById('schoolsList');
     schoolsList.innerHTML = '';
-    if (!schools.length) {
-      schoolsList.innerHTML = '<div class="status err">No schools found in ei_platform_schools.</div>';
+
+    if (!totalSchools) {
+      schoolsList.innerHTML = '<div class="status err">⚠️ No schools found in any key. Check the All Keys table below — your data may use a different key name.</div>';
     } else {
-      schools.forEach(s => {
-        const id = s.id || s.schoolId || '';
-        const n  = k => Array.isArray(_allData[id+'_'+k]) ? _allData[id+'_'+k].length : '?';
-        log('School "' + (s.name||id) + '": ' + n('ei_students') + ' students, ' + n('ei_exams') + ' exams, ' + n('ei_marks') + ' marks.', 'ok');
-        schoolsList.innerHTML += `
-          <div class="school-card">
-            <div class="school-name">🏫 ${s.name||'(unnamed)'}</div>
-            <div class="school-id">ID: ${id} &nbsp;|&nbsp; User: ${s.username||'—'}</div>
-            <div class="school-stats">
-              <span class="badge badge-blue">👩‍🎓 ${n('ei_students')} students</span>
-              <span class="badge badge-green">📝 ${n('ei_exams')} exams</span>
-              <span class="badge badge-yellow">✏️ ${n('ei_marks')} marks</span>
-              <span class="badge badge-blue">📚 ${n('ei_subjects')} subjects</span>
-              <span class="badge badge-green">🏷️ ${n('ei_classes')} classes</span>
-            </div>
-          </div>`;
+      const noteEl = document.getElementById('schoolsFoundNote');
+      if (schoolGroups.length > 1) {
+        noteEl.style.display = 'block';
+        noteEl.textContent = '⚠️ Schools found in multiple key groups — this is normal if you use multiple accounts. All are shown below and included in the export.';
+      }
+
+      schoolGroups.forEach(group => {
+        if (group.schools.length === 0) return;
+        schoolsList.innerHTML += `<div style="color:#475569;font-size:0.75rem;font-family:monospace;margin:8px 0 4px;">Key: ${group.sourceKey}</div>`;
+        group.schools.forEach(s => {
+          const id = s.id || s.schoolId || '';
+          const n  = k => {
+            // try prefixed and unprefixed variants
+            if (Array.isArray(_allData[id+'_'+k])) return _allData[id+'_'+k].length;
+            if (Array.isArray(_allData[k]))         return _allData[k].length;
+            return '?';
+          };
+          const inferred = s._inferred ? ' <span class="badge badge-red">inferred</span>' : '';
+          log('School "' + (s.name||id) + '" [' + id + ']: ' +
+              n('ei_students') + ' students, ' + n('ei_exams') + ' exams, ' +
+              n('ei_marks') + ' marks.', 'ok');
+          schoolsList.innerHTML += `
+            <div class="school-card">
+              <div class="school-name">🏫 ${s.name||'(unnamed)'}${inferred}</div>
+              <div class="school-id">ID: ${id} &nbsp;|&nbsp; User: ${s.username||'—'}</div>
+              <div class="school-stats">
+                <span class="badge badge-blue">👩‍🎓 ${n('ei_students')} students</span>
+                <span class="badge badge-green">📝 ${n('ei_exams')} exams</span>
+                <span class="badge badge-yellow">✏️ ${n('ei_marks')} marks</span>
+                <span class="badge badge-blue">📚 ${n('ei_subjects')} subjects</span>
+                <span class="badge badge-green">🏷️ ${n('ei_classes')} classes</span>
+              </div>
+            </div>`;
+        });
       });
     }
 
@@ -223,7 +307,8 @@ async function scanDB() {
     document.getElementById('summaryStats').textContent =
       keys.length + ' total keys | ' +
       keys.filter(k=>k.includes('_ei_students')).length + ' student stores | ' +
-      keys.filter(k=>k.includes('_ei_marks')).length + ' mark stores';
+      keys.filter(k=>k.includes('_ei_marks')).length + ' mark stores | ' +
+      keys.filter(k=>k.includes('school')).length + ' school-related keys';
     const tbody = document.getElementById('keyTable');
     tbody.innerHTML = '';
     keys.sort().forEach(k => {
