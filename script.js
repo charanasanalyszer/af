@@ -19090,6 +19090,10 @@ function handleFeeImport(input) {
         let   pdate  = String(row['PaymentDate'] || row['payment_date'] || '').trim();
         if (!pdate) pdate = new Date().toISOString().slice(0,10);
 
+        // PrevTermBalance: if provided in Excel, use it; otherwise auto-calculate from records
+        const prevBalRaw = row['PrevTermBalance'] ?? row['prev_term_balance'] ?? row['Prev Term Balance'];
+        const hasPrevBal = prevBalRaw !== undefined && prevBalRaw !== '' && !isNaN(parseFloat(prevBalRaw));
+
         if (!admNo || !term || !year || !total) { skipped++; return; }
         const stu = students.find(s => s.adm === admNo);
         if (!stu) { skipped++; return; }
@@ -19105,9 +19109,10 @@ function handleFeeImport(input) {
         }
 
         if (amount > 0) {
-          const prevBal = getPreviousBalance(rec.studentId, rec.term, rec.year);
-          const balBefore = prevBal + getRecordBalance(rec);
-          const balAfter  = Math.max(0, balBefore - amount);
+          // Use Excel-supplied previous balance if present, else auto-calculate
+          const prevBal   = hasPrevBal ? parseFloat(prevBalRaw) : getPreviousBalance(rec.studentId, rec.term, rec.year);
+          const balBefore = prevBal + getRecordBalance(rec);  // prev balance + this term's remaining
+          const balAfter  = balBefore - amount;               // cumulative balance after this payment
           rec.payments.push({ id: uid(), receiptNo: rno, date: pdate, amount, mode, notes, balanceBefore: balBefore, balanceAfter: balAfter });
         }
       });
@@ -19121,14 +19126,48 @@ function handleFeeImport(input) {
 }
 
 function downloadFeeImportTemplate() {
-  const data = [{
-    AdmNo: 'ADM001', Term: 'Term 1', Year: '2025', TotalFee: 12000,
-    AmountPaid: 6000, PaymentDate: '2025-01-15', PaymentMode: 'Mpesa',
-    ReceiptNo: 'RCP001', Notes: 'First instalment'
-  }];
-  const ws = XLSX.utils.json_to_sheet(data);
+  // Column headers
+  const headers = [
+    'AdmNo', 'Term', 'Year', 'TotalFee', 'PrevTermBalance',
+    'AmountPaid', 'CumulativeBalance', 'PaymentDate', 'PaymentMode', 'ReceiptNo', 'Notes'
+  ];
+  // Example data rows — CumulativeBalance column left null; formula added below
+  const row1 = ['ADM001', 'Term 1', '2025', 12000, 500,  6000, null, '2025-01-15', 'Mpesa', 'RCP001', 'First instalment'];
+  const row2 = ['ADM002', 'Term 1', '2025', 12000, 0,   12000, null, '2025-01-15', 'Cash',  'RCP002', 'Full payment'];
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, row1, row2]);
+
+  // CumulativeBalance = PrevTermBalance(E) + TotalFee(D) - AmountPaid(F)
+  ws['G2'] = { t: 'n', f: '=E2+D2-F2' };
+  ws['G3'] = { t: 'n', f: '=E3+D3-F3' };
+
+  ws['!cols'] = [
+    { wch: 10 }, { wch: 10 }, { wch: 8  }, { wch: 12 }, { wch: 18 },
+    { wch: 12 }, { wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 22 }
+  ];
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'FeePayments');
+
+  // Instructions sheet
+  const notesAoa = [
+    ['Column',           'Description',                                                                                 'Required'],
+    ['AdmNo',            'Student admission number — must match exactly',                                               'Yes'     ],
+    ['Term',             'Term name: Term 1 / Term 2 / Term 3',                                                        'Yes'     ],
+    ['Year',             '4-digit year e.g. 2025',                                                                     'Yes'     ],
+    ['TotalFee',         "This term's total fee amount (KES)",                                                         'Yes'     ],
+    ['PrevTermBalance',  'Outstanding balance carried forward from previous term (KES). Enter 0 if none. If blank, the system auto-calculates from existing records.', 'No'],
+    ['AmountPaid',       'Amount being paid this import (KES). Leave 0 to register fee without recording a payment.', 'No'      ],
+    ['CumulativeBalance','AUTO-CALCULATED: PrevTermBalance + TotalFee − AmountPaid. For reference only — do not edit.','Auto'    ],
+    ['PaymentDate',      'Date of payment (YYYY-MM-DD). Defaults to today if blank.',                                  'No'      ],
+    ['PaymentMode',      'Cash / Mpesa / Bank / Cheque',                                                               'No'      ],
+    ['ReceiptNo',        'Receipt number. Auto-generated if blank.',                                                    'No'      ],
+    ['Notes',            'Any notes about the payment.',                                                                'No'      ],
+  ];
+  const wsNotes = XLSX.utils.aoa_to_sheet(notesAoa);
+  wsNotes['!cols'] = [{ wch: 20 }, { wch: 72 }, { wch: 10 }];
+  XLSX.utils.book_append_sheet(wb, wsNotes, 'Instructions');
+
   XLSX.writeFile(wb, 'fee_payments_template.xlsx');
 }
 
