@@ -219,29 +219,6 @@ async function idbDelete(key) {
   } catch(e) { /* silent */ }
 }
 
-/** Load ALL keys from IDB into a Map (returns Map<string, any>) */
-async function idbLoadAll() {
-  try {
-    const db = await openIDB();
-    return new Promise((resolve, reject) => {
-      const map = new Map();
-      const tx  = db.transaction(IDB_KV, 'readonly');
-      const store = tx.objectStore(IDB_KV);
-      const reqK = store.getAllKeys();
-      reqK.onsuccess = () => {
-        const keys = reqK.result;
-        if (!keys.length) { resolve(map); return; }
-        const reqV = store.getAll();
-        reqV.onsuccess = () => {
-          keys.forEach((k, i) => map.set(k, reqV.result[i]));
-          resolve(map);
-        };
-        reqV.onerror = () => reject(reqV.error);
-      };
-      reqK.onerror = () => reject(reqK.error);
-    });
-  } catch(e) { return new Map(); }
-}
 
 // ── In-memory cache (populated by initStorage) ───────────────────────────
 const _store = new Map();   // key → raw JS value (already parsed)
@@ -294,13 +271,16 @@ const localStorage = new Proxy(_lsShim, {
 // Also expose on window so `window.localStorage` resolves to our shim
 Object.defineProperty(window, 'localStorage', { get: () => localStorage, configurable: true });
 
+// Keys needed before the login screen renders — load only these eagerly.
+const STORAGE_EAGER_KEYS = [
+  'ei_session_user', 'ei_session_school_id',
+  'ei_platform_creds', 'ei_platform_schools',
+  'ei_dark', 'ei_lang', 'ei_saved_login',
+];
+
 // ── Storage initialisation (called once before initApp) ───────────────────
 async function initStorage() {
-  // 1. Load all existing IDB data into memory cache
-  const existing = await idbLoadAll();
-  existing.forEach((v, k) => _store.set(k, v));
-
-  // 2. One-time migration: copy any residual native localStorage keys to IDB
+  // 1. One-time migration: move any residual native localStorage keys → IDB
   try {
     const nativeLS = Object.getOwnPropertyDescriptor(window.__proto__, 'localStorage')
       || Object.getOwnPropertyDescriptor(Object.getPrototypeOf(window), 'localStorage');
@@ -311,12 +291,11 @@ async function initStorage() {
       if (migrateKeys.length) {
         console.info(`[Storage] Migrating ${migrateKeys.length} localStorage key(s) to IndexedDB…`);
         for (const k of migrateKeys) {
-          if (!_store.has(k)) {          // don't overwrite IDB data with older LS data
-            const raw = native.getItem(k);
-            let val; try { val = JSON.parse(raw); } catch { val = raw; }
-            _store.set(k, val);
-            await idbPut(k, val);
-          }
+          const raw = native.getItem(k);
+          let val; try { val = JSON.parse(raw); } catch { val = raw; }
+          const existing = await idbGet(k);
+          if (existing === null) { _store.set(k, val); await idbPut(k, val); }
+          else { _store.set(k, existing); }
         }
         native.clear();
         console.info('[Storage] Migration complete — localStorage cleared.');
@@ -326,7 +305,38 @@ async function initStorage() {
     console.warn('[Storage] localStorage migration skipped:', e.message);
   }
 
+  // 2. Eagerly load only auth/session keys — everything else fetched on first getItem()
+  await Promise.all(STORAGE_EAGER_KEYS.map(async k => {
+    if (_store.has(k)) return;
+    const v = await idbGet(k);
+    if (v !== null) _store.set(k, v);
+  }));
+
   _storageReady = true;
+}
+
+/** Load ALL remaining IDB keys into _store — call after login, before school data is needed. */
+async function warmStorage() {
+  try {
+    const db = await openIDB();
+    await new Promise((resolve, reject) => {
+      const tx    = db.transaction(IDB_KV, 'readonly');
+      const store = tx.objectStore(IDB_KV);
+      const reqK  = store.getAllKeys();
+      reqK.onsuccess = () => {
+        const allKeys = reqK.result;
+        const missing = allKeys.filter(k => !_store.has(k));
+        if (!missing.length) { resolve(); return; }
+        const reqV = store.getAll();
+        reqV.onsuccess = () => {
+          allKeys.forEach((k, i) => { if (!_store.has(k)) _store.set(k, reqV.result[i]); });
+          resolve();
+        };
+        reqV.onerror = () => reject(reqV.error);
+      };
+      reqK.onerror = () => reject(reqK.error);
+    });
+  } catch(e) { console.warn('[Storage] warmStorage failed:', e.message); }
 }
 
 // ── Legacy async helpers (still used for marks/students large arrays) ─────
@@ -2368,6 +2378,7 @@ function platRemoveUnlockById(schoolId) {
 }
 
 function enterPlatformDashboard() {
+  warmStorage(); // background warm — platform admin needs all keys for school management
   document.body.classList.remove('login-active');
   currentUser = { username: getPlatformCreds().username, role:'platform_admin', name:'Platform Admin', canAnalyse:true, canReport:true, canMerit:true };
   currentSchoolId = null;
@@ -4119,6 +4130,8 @@ function loadSchoolContextSync(school) {
 
 async function loadSchoolContext(school) {
   currentSchoolId = school.id;
+  // Warm the full IDB cache now (deferred from startup to keep login fast)
+  await warmStorage();
   // Small arrays — fast sync localStorage
   subjects  = load(K.subjects);
   teachers  = load(K.teachers); classes  = load(K.classes);
