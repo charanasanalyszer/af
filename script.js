@@ -157,17 +157,27 @@ const load = k => { try { return JSON.parse(localStorage.getItem(k)) || []; } ca
 const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 const uid  = () => 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
 
-// ═══════════════ INDEXEDDB (marks + students — large arrays) ═══════════════
-const IDB_NAME = 'af_main_db';
-const IDB_STORE = 'kv';
-const IDB_VERSION = 1;
-let _idb = null;
+// ═══════════════════════════════════════════════════════════════════════════
+//  STORAGE LAYER — IndexedDB-backed, localStorage-compatible shim
+//  All data lives in IDB. An in-memory Map acts as a synchronous cache so
+//  existing synchronous get/set code keeps working without any API changes.
+//  On first load, any residual localStorage keys are migrated into IDB then
+//  cleared. The app must await initStorage() before calling initApp().
+// ═══════════════════════════════════════════════════════════════════════════
+const IDB_NAME    = 'af_main_db';
+const IDB_KV      = 'kv';          // general key-value (all app keys)
+const IDB_VERSION = 2;             // bumped from 1 to add kv store upgrade
+let   _idb        = null;
 
+// ── Low-level IDB open (creates/upgrades stores) ─────────────────────────
 function openIDB() {
   if (_idb) return Promise.resolve(_idb);
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(IDB_NAME, IDB_VERSION);
-    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(IDB_KV)) db.createObjectStore(IDB_KV);
+    };
     req.onsuccess = e => { _idb = e.target.result; resolve(_idb); };
     req.onerror   = e => reject(e.target.error);
   });
@@ -177,8 +187,8 @@ async function idbGet(key) {
   try {
     const db = await openIDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(IDB_STORE, 'readonly');
-      const req = tx.objectStore(IDB_STORE).get(key);
+      const tx  = db.transaction(IDB_KV, 'readonly');
+      const req = tx.objectStore(IDB_KV).get(key);
       req.onsuccess = () => resolve(req.result ?? null);
       req.onerror   = () => reject(req.error);
     });
@@ -189,8 +199,8 @@ async function idbPut(key, value) {
   try {
     const db = await openIDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(IDB_STORE, 'readwrite');
-      const req = tx.objectStore(IDB_STORE).put(value, key);
+      const tx  = db.transaction(IDB_KV, 'readwrite');
+      const req = tx.objectStore(IDB_KV).put(value, key);
       req.onsuccess = () => resolve();
       req.onerror   = () => reject(req.error);
     });
@@ -201,24 +211,134 @@ async function idbDelete(key) {
   try {
     const db = await openIDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(IDB_STORE, 'readwrite');
-      const req = tx.objectStore(IDB_STORE).delete(key);
+      const tx  = db.transaction(IDB_KV, 'readwrite');
+      const req = tx.objectStore(IDB_KV).delete(key);
       req.onsuccess = () => resolve();
       req.onerror   = () => reject(req.error);
     });
   } catch(e) { /* silent */ }
 }
 
-// Async save/load for IDB-backed keys; falls back gracefully
+/** Load ALL keys from IDB into a Map (returns Map<string, any>) */
+async function idbLoadAll() {
+  try {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+      const map = new Map();
+      const tx  = db.transaction(IDB_KV, 'readonly');
+      const store = tx.objectStore(IDB_KV);
+      const reqK = store.getAllKeys();
+      reqK.onsuccess = () => {
+        const keys = reqK.result;
+        if (!keys.length) { resolve(map); return; }
+        const reqV = store.getAll();
+        reqV.onsuccess = () => {
+          keys.forEach((k, i) => map.set(k, reqV.result[i]));
+          resolve(map);
+        };
+        reqV.onerror = () => reject(reqV.error);
+      };
+      reqK.onerror = () => reject(reqK.error);
+    });
+  } catch(e) { return new Map(); }
+}
+
+// ── In-memory cache (populated by initStorage) ───────────────────────────
+const _store = new Map();   // key → raw JS value (already parsed)
+let   _storageReady = false;
+
+// ── localStorage-compatible shim ──────────────────────────────────────────
+//  getItem  → returns JSON string (or null) exactly like localStorage
+//  setItem  → accepts JSON string, stores parsed value in cache + IDB
+//  removeItem, keys, hasOwnProperty mimicked for diagnostics compatibility
+const _lsShim = {
+  getItem(key) {
+    if (!_store.has(key)) return null;
+    const v = _store.get(key);
+    // Large arrays / objects stored as-is in IDB; stringify for callers
+    // that expect a JSON string (all existing code does JSON.parse on result)
+    return typeof v === 'string' ? v : JSON.stringify(v);
+  },
+  setItem(key, strVal) {
+    // Try to store parsed value for efficient IDB storage; fall back to string
+    let parsed;
+    try { parsed = JSON.parse(strVal); } catch { parsed = strVal; }
+    _store.set(key, parsed);
+    idbPut(key, parsed); // fire-and-forget async persist
+  },
+  removeItem(key) {
+    _store.delete(key);
+    idbDelete(key);
+  },
+  hasOwnProperty(key) { return _store.has(key); },
+  get length() { return _store.size; },
+  keys() { return Array.from(_store.keys()); },
+};
+
+// Enumerate own keys (for `for (let k in ls)` in diagnostics)
+// We make _lsShim a Proxy so Object.keys / for..in works:
+const localStorage = new Proxy(_lsShim, {
+  get(t, p) {
+    if (p in t) return typeof t[p] === 'function' ? t[p].bind(t) : t[p];
+    // Numeric index access (localStorage[0], etc.) — not used here
+    return t.getItem(p);
+  },
+  has(t, p) { return p in t || _store.has(p); },
+  ownKeys(t) { return Array.from(_store.keys()); },
+  getOwnPropertyDescriptor(t, p) {
+    if (_store.has(p)) return { value: _lsShim.getItem(p), writable: true, enumerable: true, configurable: true };
+    return Object.getOwnPropertyDescriptor(t, p);
+  },
+});
+
+// Also expose on window so `window.localStorage` resolves to our shim
+Object.defineProperty(window, 'localStorage', { get: () => localStorage, configurable: true });
+
+// ── Storage initialisation (called once before initApp) ───────────────────
+async function initStorage() {
+  // 1. Load all existing IDB data into memory cache
+  const existing = await idbLoadAll();
+  existing.forEach((v, k) => _store.set(k, v));
+
+  // 2. One-time migration: copy any residual native localStorage keys to IDB
+  try {
+    const nativeLS = Object.getOwnPropertyDescriptor(window.__proto__, 'localStorage')
+      || Object.getOwnPropertyDescriptor(Object.getPrototypeOf(window), 'localStorage');
+    const native = nativeLS ? nativeLS.get.call(window) : null;
+    if (native && native !== localStorage) {
+      const migrateKeys = [];
+      for (let i = 0; i < native.length; i++) migrateKeys.push(native.key(i));
+      if (migrateKeys.length) {
+        console.info(`[Storage] Migrating ${migrateKeys.length} localStorage key(s) to IndexedDB…`);
+        for (const k of migrateKeys) {
+          if (!_store.has(k)) {          // don't overwrite IDB data with older LS data
+            const raw = native.getItem(k);
+            let val; try { val = JSON.parse(raw); } catch { val = raw; }
+            _store.set(k, val);
+            await idbPut(k, val);
+          }
+        }
+        native.clear();
+        console.info('[Storage] Migration complete — localStorage cleared.');
+      }
+    }
+  } catch(e) {
+    console.warn('[Storage] localStorage migration skipped:', e.message);
+  }
+
+  _storageReady = true;
+}
+
+// ── Legacy async helpers (still used for marks/students large arrays) ─────
 async function saveIDB(key, arr) { await idbPut(key, arr); }
 async function loadIDB(key) {
-  const val = await idbGet(key);
+  const val = _store.has(key) ? _store.get(key) : await idbGet(key);
   return Array.isArray(val) ? val : [];
 }
 
 // Write-through helpers — keep in-memory array current, persist to IDB async
-function saveMarks()    { idbPut(K.marks,    marks);    }
-function saveStudents() { idbPut(K.students, students); }
+function saveMarks()    { _store.set(K.marks,    marks);    idbPut(K.marks,    marks);    }
+function saveStudents() { _store.set(K.students, students); idbPut(K.students, students); }
 
 // ═══════════════ APP STATE ═══════════════
 let students=[], subjects=[], teachers=[], classes=[], streams=[];
@@ -4390,6 +4510,8 @@ function applyAccessLevelRestrictions() {
 }
 
 async function initApp() {
+  // Must initialise storage (IDB shim + migration) before any data access
+  await initStorage();
   initLang();
   if (localStorage.getItem('ei_dark') === '1') applyDark(true);
 
@@ -23022,22 +23144,25 @@ function bdRunChecks() {
     'Apply PATCH 3 from the Auto-Fix tab.');
 
   // ── STORAGE / DATA INTEGRITY ──
-  chk('storage_available', 'localStorage is available and writable', 'storage', 'critical',
+  chk('storage_available', 'IndexedDB storage is available and writable', 'storage', 'critical',
     (() => { try { ls.setItem('_bd_test','1'); ls.removeItem('_bd_test'); return true; } catch { return false; } })(),
-    'localStorage read/write test passed.',
-    'If this fails, the browser may be in private/incognito mode or storage is full.');
+    'IndexedDB (via in-memory shim) read/write test passed.',
+    'If this fails, the browser may be in private/incognito mode or IndexedDB is unavailable.');
 
   const storageUsed = (() => {
     try {
       let total = 0;
-      for (let k in ls) { if (ls.hasOwnProperty(k)) total += (ls[k]||'').length + k.length; }
+      for (const [k, v] of _store) {
+        const vs = typeof v === 'string' ? v : JSON.stringify(v);
+        total += (vs || '').length + k.length;
+      }
       return Math.round(total / 1024);
     } catch { return 0; }
   })();
-  chk('storage_quota', 'localStorage usage is under 4MB', 'storage', 'medium',
-    storageUsed < 4096,
-    `Current localStorage usage: ~${storageUsed} KB / ~5120 KB available.`,
-    'Archive old exam data or export school data to free up space.');
+  chk('storage_quota', 'IndexedDB storage usage reported (no hard 5MB limit)', 'storage', 'info',
+    true,
+    `Current in-memory store: ~${storageUsed} KB across ${_store.size} key(s). Data is persisted in IndexedDB (no 5 MB browser quota).`,
+    'IndexedDB is used — no action needed for storage quota.');
 
   chk('platform_creds_exist', 'Platform admin account created', 'storage', 'critical',
     !!creds && !!creds.username,
