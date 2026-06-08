@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AF-Main Data Recovery</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; padding: 20px; }
+  h1 { color: #38bdf8; font-size: 1.4rem; margin-bottom: 4px; }
+  .subtitle { color: #94a3b8; font-size: 0.85rem; margin-bottom: 24px; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+  .card h2 { font-size: 1rem; color: #7dd3fc; margin-bottom: 12px; }
+  .status { padding: 10px 14px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 12px; }
+  .status.ok   { background: #052e16; border: 1px solid #16a34a; color: #86efac; }
+  .status.err  { background: #2d1b1b; border: 1px solid #dc2626; color: #fca5a5; }
+  .status.info { background: #0c1a2e; border: 1px solid #2563eb; color: #93c5fd; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 6px; border: none; cursor: pointer; font-size: 0.875rem; font-weight: 500; transition: all 0.15s; }
+  .btn-primary { background: #2563eb; color: #fff; } .btn-primary:hover { background: #1d4ed8; }
+  .btn-success { background: #16a34a; color: #fff; } .btn-success:hover { background: #15803d; }
+  .btn-warn    { background: #d97706; color: #fff; } .btn-warn:hover    { background: #b45309; }
+  .btn-danger  { background: #dc2626; color: #fff; } .btn-danger:hover  { background: #b91c1c; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { background: #0f172a; color: #94a3b8; text-align: left; padding: 8px 10px; border-bottom: 1px solid #334155; }
+  td { padding: 7px 10px; border-bottom: 1px solid #1e293b; vertical-align: top; word-break: break-all; }
+  tr:hover td { background: #1a2944; }
+  .key-cell { color: #fbbf24; font-family: monospace; font-size: 0.78rem; max-width: 220px; }
+  .val-cell { color: #cbd5e1; font-family: monospace; font-size: 0.75rem; max-width: 350px; max-height: 80px; overflow: auto; white-space: pre-wrap; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 0.7rem; font-weight: 600; }
+  .badge-blue   { background: #1e3a5f; color: #60a5fa; }
+  .badge-green  { background: #052e16; color: #86efac; }
+  .badge-yellow { background: #2d1b00; color: #fbbf24; }
+  .school-card  { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px; margin-bottom: 10px; }
+  .school-name  { color: #38bdf8; font-weight: 600; font-size: 1rem; }
+  .school-id    { color: #64748b; font-family: monospace; font-size: 0.78rem; }
+  .school-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+  textarea { width: 100%; background: #0f172a; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 0.78rem; resize: vertical; }
+  label { display: block; margin-bottom: 6px; color: #94a3b8; font-size: 0.85rem; }
+  #log { font-family: monospace; font-size: 0.78rem; color: #94a3b8; background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 10px; max-height: 180px; overflow-y: auto; }
+  .log-line { margin-bottom: 2px; }
+  .log-ok   { color: #86efac; } .log-err { color: #fca5a5; } .log-info { color: #93c5fd; }
+  .origin-box { background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 10px 14px; font-family: monospace; font-size: 0.85rem; color: #fbbf24; margin-bottom: 12px; word-break: break-all; }
+  a.back { display: inline-flex; align-items: center; gap: 6px; color: #60a5fa; font-size: 0.85rem; text-decoration: none; margin-bottom: 20px; }
+  a.back:hover { color: #93c5fd; }
+</style>
+</head>
+<body>
+
+<a class="back" href="index.html">← Back to App</a>
+<h1>🔧 AF-Main Data Recovery</h1>
+<p class="subtitle">Reads <code>af_main_db</code> IndexedDB from this origin — same as the app.</p>
+
+<div class="card">
+  <h2>🌐 Current Origin</h2>
+  <div class="origin-box" id="originBox">detecting…</div>
+  <div id="originNote" class="status info">This page must be served from the same origin as the school app for recovery to work.</div>
+</div>
+
+<div class="card">
+  <h2>📊 Step 1: Read IndexedDB</h2>
+  <div id="scanStatus" class="status info">Click "Scan Database" to read all stored data.</div>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="scanDB()">🔍 Scan Database</button>
+    <button class="btn btn-success" id="exportBtn" onclick="exportAll()" disabled>⬇️ Export All as JSON</button>
+  </div>
+</div>
+
+<div class="card" id="schoolsCard" style="display:none">
+  <h2>🏫 Schools Found</h2>
+  <div id="schoolsList"></div>
+</div>
+
+<div class="card" id="summaryCard" style="display:none">
+  <h2>📋 All Keys in Database</h2>
+  <div id="summaryStats" class="status info" style="margin-bottom:12px;"></div>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Key</th><th>Type</th><th>Size</th><th>Preview</th></tr></thead>
+      <tbody id="keyTable"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <h2>⬆️ Step 2: Restore / Import Data</h2>
+  <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:12px;">
+    Paste a previously exported JSON below and click Restore. This only adds/updates keys — it does not delete anything.
+  </p>
+  <label>Paste exported JSON here:</label>
+  <textarea id="importBox" rows="7" placeholder='{"ei_platform_schools": [...], ...}'></textarea>
+  <div class="btn-row" style="margin-top:10px">
+    <button class="btn btn-warn" onclick="restoreData()">⬆️ Restore to IndexedDB</button>
+    <button class="btn btn-danger" onclick="document.getElementById('importBox').value=''">✕ Clear</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>🗒️ Log</h2>
+  <div id="log"><div class="log-line log-info">Waiting…</div></div>
+</div>
+
+<script>
+const IDB_NAME = 'af_main_db';
+const IDB_KV   = 'kv';
+let _db = null, _allData = {};
+
+document.getElementById('originBox').textContent = window.location.origin + window.location.pathname;
+
+function log(msg, cls='info') {
+  const el = document.getElementById('log');
+  const d  = document.createElement('div');
+  d.className = 'log-line log-' + cls;
+  d.textContent = new Date().toLocaleTimeString() + '  ' + msg;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+}
+
+function openDB() {
+  return new Promise((res, rej) => {
+    if (_db) { res(_db); return; }
+    const req = indexedDB.open(IDB_NAME, 2);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(IDB_KV)) db.createObjectStore(IDB_KV);
+    };
+    req.onsuccess = e => { _db = e.target.result; res(_db); };
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+async function getAllKV() {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx    = db.transaction(IDB_KV, 'readonly');
+    const store = tx.objectStore(IDB_KV);
+    const keys  = store.getAllKeys();
+    keys.onsuccess = () => {
+      const allKeys = keys.result;
+      if (!allKeys.length) { res({}); return; }
+      const vals = store.getAll();
+      vals.onsuccess = () => {
+        const out = {};
+        allKeys.forEach((k, i) => out[k] = vals.result[i]);
+        res(out);
+      };
+      vals.onerror = () => rej(vals.error);
+    };
+    keys.onerror = () => rej(keys.error);
+  });
+}
+
+async function putKV(key, value) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx  = db.transaction(IDB_KV, 'readwrite');
+    const req = tx.objectStore(IDB_KV).put(value, key);
+    req.onsuccess = () => res();
+    req.onerror   = () => rej(req.error);
+  });
+}
+
+function preview(val) { const s = JSON.stringify(val); return s.length > 120 ? s.slice(0,120)+'…' : s; }
+function sizeOf(val)  { const s = JSON.stringify(val); return s.length>1e6?(s.length/1e6).toFixed(1)+' MB':s.length>1000?(s.length/1000).toFixed(1)+' KB':s.length+' B'; }
+function typeLabel(v) {
+  if (Array.isArray(v))          return '<span class="badge badge-blue">array['+v.length+']</span>';
+  if (v && typeof v==='object')  return '<span class="badge badge-yellow">object</span>';
+  return '<span class="badge badge-green">'+typeof v+'</span>';
+}
+
+async function scanDB() {
+  const statusEl = document.getElementById('scanStatus');
+  statusEl.className = 'status info';
+  statusEl.textContent = 'Scanning IndexedDB…';
+  log('Opening af_main_db at origin: ' + window.location.origin);
+  try {
+    _allData = await getAllKV();
+    const keys = Object.keys(_allData);
+    log('Found ' + keys.length + ' keys.', keys.length ? 'ok' : 'err');
+
+    if (!keys.length) {
+      statusEl.className = 'status err';
+      statusEl.textContent = '⚠️ No data found. Make sure you are accessing this page from the same GitHub Pages URL as your app (not file://).';
+      return;
+    }
+
+    statusEl.className = 'status ok';
+    statusEl.textContent = '✅ Found ' + keys.length + ' keys in IndexedDB.';
+    document.getElementById('exportBtn').disabled = false;
+
+    // Schools
+    const schools = Array.isArray(_allData['ei_platform_schools']) ? _allData['ei_platform_schools'] : [];
+    log('Schools: ' + schools.length, schools.length ? 'ok' : 'err');
+    const schoolsCard = document.getElementById('schoolsCard');
+    schoolsCard.style.display = 'block';
+    const schoolsList = document.getElementById('schoolsList');
+    schoolsList.innerHTML = '';
+    if (!schools.length) {
+      schoolsList.innerHTML = '<div class="status err">No schools found in ei_platform_schools.</div>';
+    } else {
+      schools.forEach(s => {
+        const id = s.id || s.schoolId || '';
+        const n  = k => Array.isArray(_allData[id+'_'+k]) ? _allData[id+'_'+k].length : '?';
+        log('School "' + (s.name||id) + '": ' + n('ei_students') + ' students, ' + n('ei_exams') + ' exams, ' + n('ei_marks') + ' marks.', 'ok');
+        schoolsList.innerHTML += `
+          <div class="school-card">
+            <div class="school-name">🏫 ${s.name||'(unnamed)'}</div>
+            <div class="school-id">ID: ${id} &nbsp;|&nbsp; User: ${s.username||'—'}</div>
+            <div class="school-stats">
+              <span class="badge badge-blue">👩‍🎓 ${n('ei_students')} students</span>
+              <span class="badge badge-green">📝 ${n('ei_exams')} exams</span>
+              <span class="badge badge-yellow">✏️ ${n('ei_marks')} marks</span>
+              <span class="badge badge-blue">📚 ${n('ei_subjects')} subjects</span>
+              <span class="badge badge-green">🏷️ ${n('ei_classes')} classes</span>
+            </div>
+          </div>`;
+      });
+    }
+
+    // Keys table
+    document.getElementById('summaryCard').style.display = 'block';
+    document.getElementById('summaryStats').textContent =
+      keys.length + ' total keys | ' +
+      keys.filter(k=>k.includes('_ei_students')).length + ' student stores | ' +
+      keys.filter(k=>k.includes('_ei_marks')).length + ' mark stores';
+    const tbody = document.getElementById('keyTable');
+    tbody.innerHTML = '';
+    keys.sort().forEach(k => {
+      const v = _allData[k];
+      const row = document.createElement('tr');
+      row.innerHTML = `<td class="key-cell">${k}</td><td>${typeLabel(v)}</td><td style="color:#94a3b8;white-space:nowrap">${sizeOf(v)}</td><td class="val-cell">${preview(v)}</td>`;
+      tbody.appendChild(row);
+    });
+  } catch(err) {
+    statusEl.className = 'status err';
+    statusEl.textContent = '❌ Error: ' + err.message;
+    log('Error: ' + err.message, 'err');
+  }
+}
+
+function exportAll() {
+  if (!Object.keys(_allData).length) { alert('Scan first.'); return; }
+  const blob = new Blob([JSON.stringify(_allData, null, 2)], {type:'application/json'});
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = 'af_main_backup_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  log('Exported ' + Object.keys(_allData).length + ' keys.', 'ok');
+}
+
+async function restoreData() {
+  const raw = document.getElementById('importBox').value.trim();
+  if (!raw) { alert('Paste JSON first.'); return; }
+  let data;
+  try { data = JSON.parse(raw); } catch(e) { alert('Invalid JSON: '+e.message); return; }
+  const keys = Object.keys(data);
+  if (!keys.length) { alert('JSON is empty.'); return; }
+  if (!confirm('Write ' + keys.length + ' keys to IndexedDB?\n\nThis will overwrite existing keys but not delete others.')) return;
+  log('Restoring ' + keys.length + ' keys…');
+  let ok=0, fail=0;
+  for (const k of keys) {
+    try { await putKV(k, data[k]); ok++; }
+    catch(e) { log('Failed: '+k+' — '+e.message,'err'); fail++; }
+  }
+  log('Done: ' + ok + ' written, ' + fail + ' failed.', fail?'err':'ok');
+  alert('✅ Restored ' + ok + ' keys.\n\nNow go back to the app and refresh — your schools should appear.');
+}
+</script>
+</body>
+</html>
