@@ -9963,8 +9963,8 @@ function renderStudentSubjectCheckboxes() {
 // ── Track-based subject combination (Senior School) ──────────────────────────
 const PATHWAY_TRACKS = {
   stem:  ['Pure Sciences', 'Applied Sciences', 'Technical Studies'],
-  ss:    ['Humanities', 'Business Studies', 'Languages'],
-  arts:  ['Arts', 'Sports'],
+  ss:    ['Humanities & Business Studies', 'Languages & Literature'],
+  arts:  ['Arts', 'Sports & Recreation'],
 };
 
 function updateStuTrackDropdown() {
@@ -9993,45 +9993,95 @@ function updateStuSubjectCombination() {
   if (!pw || !track) { if (combWrap) combWrap.style.display = 'none'; return; }
   if (combWrap) combWrap.style.display = '';
 
-  const { core, elective } = getCBCSubjectsForPathway(pw);
-  const trackElectives = elective.filter(e => e.track === track);
+  const { core } = getCBCSubjectsForPathway(pw);
+  const pwObj = PATHWAYS.find(p=>p.id===pw);
 
-  // Label
-  const labelEl = document.getElementById('stuSubjectTrackLabel');
-  if (labelEl) labelEl.textContent = `${PATHWAYS.find(p=>p.id===pw)?.label || pw} → ${track}`;
-
-  // Core subjects (universal + pathway core) — shown as tags, auto-assigned
+  // Core subjects display
   const coreEl = document.getElementById('stuCoreSubjectsList');
   if (coreEl) {
-    coreEl.innerHTML = `<div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:.35rem">
-      Core (auto-assigned)</div>
+    coreEl.innerHTML = `<div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:.35rem">Core (auto-assigned)</div>
       <div style="display:flex;flex-wrap:wrap;gap:.3rem">
         ${core.map(s=>`<span class="badge b-teal" style="font-size:.7rem;opacity:.85">${s.code} <span style="font-weight:400;opacity:.8">${s.name}</span></span>`).join('')}
       </div>`;
   }
 
-  // Elective subjects for the selected track — shown as checkboxes
+  // Build combination options from CBC_COMBINATIONS for this pw + track
+  const trackCombos = CBC_COMBINATIONS.filter(c => c.pw === pw && c.track === track);
+
   const electEl = document.getElementById('stuElectiveSubjectsList');
-  if (electEl) {
-    if (!trackElectives.length) {
-      electEl.innerHTML = '<div style="font-size:.78rem;color:var(--muted);margin-top:.35rem">No electives defined for this track.</div>';
-    } else {
-      electEl.innerHTML = `<div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;margin:.5rem 0 .35rem">
-        Electives (${track})</div>
-        <div style="display:flex;flex-wrap:wrap;gap:.4rem">
-          ${trackElectives.map(s => {
-            const sub = subjects.find(x => x.code === s.code);
-            const subId = sub ? sub.id : '';
-            return `<label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.2rem .5rem;cursor:pointer">
-              <input type="checkbox" class="stu-elective-chk" data-code="${s.code}" value="${subId}" ${!subId?'disabled title="Subject not seeded yet"':''} />
-              <span class="badge b-purple" style="font-size:.65rem">${s.code}</span>
-              <span>${s.name}</span>
-            </label>`;
-          }).join('')}
-        </div>
-        <div style="font-size:.7rem;color:var(--muted);margin-top:.4rem"><i class="fa-solid fa-circle-info"></i> Select the electives for this student. Core subjects are added automatically.</div>`;
-    }
+  if (!electEl) return;
+
+  if (!trackCombos.length) {
+    electEl.innerHTML = '<div style="font-size:.78rem;color:var(--muted);margin-top:.35rem">No combinations defined for this track.</div>';
+    return;
   }
+
+  // Build a name map for display
+  const allSubDefs = [...(CBC_SUBJECTS[pw]?.elective || [])];
+  const nameMap = {};
+  allSubDefs.forEach(s => { nameMap[s.code] = s.name; });
+  // Also add universal core names
+  CBC_SUBJECTS.universal_core.forEach(s => { nameMap[s.code] = s.name; });
+
+  const comboLabel = c => c.subs.map(code => nameMap[code] || code).join(' · ');
+
+  // Check if a combo is already selected
+  const currentVal = document.getElementById('stuSubjectComb')?.value || '';
+
+  electEl.innerHTML = `
+    <div style="margin-top:.5rem">
+      <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:.4rem">
+        Select Subject Combination <span style="font-weight:400;color:var(--muted);font-size:.7rem">(${trackCombos.length} available)</span>
+      </div>
+      <div style="position:relative;margin-bottom:.35rem">
+        <input type="text" id="stuCombSearch" placeholder="Search combinations…" oninput="filterStudentCombinations()"
+          style="width:100%;padding:.38rem .75rem;border:1.5px solid var(--border);border-radius:7px;font-size:.8rem;background:var(--surface);color:var(--text)">
+        <i class="fa-solid fa-magnifying-glass" style="position:absolute;right:.6rem;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.75rem;pointer-events:none"></i>
+      </div>
+      <div id="stuCombList" style="max-height:220px;overflow-y:auto;border:1.5px solid var(--border);border-radius:8px;background:var(--surface)">
+        ${trackCombos.map(c => {
+          const label = comboLabel(c);
+          const codeStr = c.subs.join(',');
+          const selected = currentVal === codeStr;
+          return `<label id="combopt-${c.sno}" data-search="${label.toLowerCase()} ${codeStr.toLowerCase()}"
+            style="display:flex;align-items:center;gap:.55rem;padding:.45rem .75rem;cursor:pointer;border-bottom:1px solid var(--border);transition:background .12s;${selected?'background:'+pwObj?.color+'18':''}">
+            <input type="radio" name="stuSubjectComb" id="stuSubjectComb" value="${codeStr}" ${selected?'checked':''}
+              onchange="onStudentCombinationPicked()" style="accent-color:${pwObj?.color||'var(--primary)'}">
+            <span style="min-width:1.8rem;font-size:.68rem;font-family:var(--mono);color:var(--muted);flex-shrink:0">#${c.sno}</span>
+            <span style="font-size:.78rem;font-weight:${selected?'600':'400'}">${label}</span>
+            <span style="margin-left:auto;font-size:.67rem;color:${pwObj?.color||'var(--primary)'};opacity:.75;white-space:nowrap;flex-shrink:0">${codeStr}</span>
+          </label>`;
+        }).join('')}
+      </div>
+      <div id="stuCombSelected" style="margin-top:.45rem;font-size:.75rem;color:#16a34a;min-height:1.2em"></div>
+      <div style="font-size:.7rem;color:var(--muted);margin-top:.2rem"><i class="fa-solid fa-circle-info"></i> Pick the official MoE combination for this student. Core subjects auto-added.</div>
+    </div>`;
+}
+
+function filterStudentCombinations() {
+  const q = (document.getElementById('stuCombSearch')?.value || '').toLowerCase();
+  document.querySelectorAll('#stuCombList label').forEach(lbl => {
+    lbl.style.display = (!q || lbl.dataset.search?.includes(q)) ? '' : 'none';
+  });
+}
+
+function onStudentCombinationPicked() {
+  const chosen = document.querySelector('input[name="stuSubjectComb"]:checked');
+  const el = document.getElementById('stuCombSelected');
+  if (!chosen || !el) return;
+  const codes = chosen.value.split(',');
+  const allSubDefs = [];
+  Object.values(CBC_SUBJECTS).forEach(v => { if (Array.isArray(v?.elective)) allSubDefs.push(...v.elective); });
+  CBC_SUBJECTS.universal_core.forEach(s => allSubDefs.push(s));
+  const nameMap = {};
+  allSubDefs.forEach(s => { nameMap[s.code] = s.name; });
+  el.innerHTML = `<i class="fa-solid fa-circle-check"></i> Selected: <strong>${codes.map(c=>nameMap[c]||c).join(', ')}</strong>`;
+  // Highlight selected row
+  document.querySelectorAll('#stuCombList label').forEach(lbl => {
+    const inp = lbl.querySelector('input[type=radio]');
+    lbl.style.fontWeight = (inp?.checked) ? '600' : '400';
+    lbl.style.background = inp?.checked ? (document.getElementById('stuPathway')?.value === 'stem' ? '#eff6ff' : '#f0fdf4') : '';
+  });
 }
 function toggleSelectAllSubjects(cb) {
   document.querySelectorAll('#stuSubjectsCheckboxes input[type=checkbox]').forEach(c=>c.checked=cb.checked);
@@ -10073,17 +10123,26 @@ function saveStudent() {
   const notes   = document.getElementById('stuNotes').value;
   const pathway = isSeniorSchool() ? (document.getElementById('stuPathway')?.value || '') : '';
   const track   = isSeniorSchool() ? (document.getElementById('stuTrack')?.value   || '') : '';
+  const combVal = isSeniorSchool() ? (document.querySelector('input[name="stuSubjectComb"]:checked')?.value || '') : '';
   if (!adm||!name||!classId||!streamId) { showToast('Adm No, Name, Class and Stream are required','error'); return; }
   if (isSeniorSchool() && !pathway) { showToast('Please select a pathway for senior school','error'); return; }
   if (isSeniorSchool() && pathway && !track) { showToast('Please select a track for this pathway','error'); return; }
+  if (isSeniorSchool() && pathway && track && !combVal) { showToast('Please select a subject combination','error'); return; }
 
-  // Build subjectIds: core (auto) + selected electives
+  // Build subjectIds: core (auto) + combination electives
   let subIds;
-  if (isSeniorSchool() && pathway) {
+  if (isSeniorSchool() && pathway && combVal) {
     const { core } = getCBCSubjectsForPathway(pathway);
     subIds = [];
     core.forEach(c => { const sub = subjects.find(x=>x.code===c.code); if(sub && !subIds.includes(sub.id)) subIds.push(sub.id); });
-    document.querySelectorAll('.stu-elective-chk:checked').forEach(cb => { if(cb.value && !subIds.includes(cb.value)) subIds.push(cb.value); });
+    combVal.split(',').forEach(code => {
+      const sub = subjects.find(x => x.code === code);
+      if (sub && !subIds.includes(sub.id)) subIds.push(sub.id);
+    });
+  } else if (isSeniorSchool() && pathway) {
+    const { core } = getCBCSubjectsForPathway(pathway);
+    subIds = [];
+    core.forEach(c => { const sub = subjects.find(x=>x.code===c.code); if(sub && !subIds.includes(sub.id)) subIds.push(sub.id); });
   } else {
     subIds = subjects.map(s => s.id);
   }
@@ -10091,11 +10150,11 @@ function saveStudent() {
   const editId = document.getElementById('editStuId').value;
   if (editId) {
     const i=students.findIndex(s=>s.id===editId);
-    if(i>-1) students[i]={...students[i],adm,name,gender,classId,streamId,parent,contact,dob,notes,pathway,track,subjectIds:subIds};
+    if(i>-1) students[i]={...students[i],adm,name,gender,classId,streamId,parent,contact,dob,notes,pathway,track,combination:combVal||'',subjectIds:subIds};
     showToast('Student updated <i class="fa-solid fa-check"></i>','success');
   } else {
     if(students.find(s=>s.adm===adm)){showToast('Admission number exists','error');return;}
-    const stu={id:uid(),adm,name,gender,classId,streamId,parent,contact,dob,notes,pathway,track,subjectIds:subIds};
+    const stu={id:uid(),adm,name,gender,classId,streamId,parent,contact,dob,notes,pathway,track,combination:combVal||'',subjectIds:subIds};
     students.push(stu);
     subIds.forEach(sid=>{const sub=subjects.find(x=>x.id===sid);if(sub&&!sub.studentIds.includes(stu.id))sub.studentIds.push(stu.id);});
     save(K.subjects,subjects);
@@ -10130,10 +10189,13 @@ function editStudent(id) {
       const trackSel = document.getElementById('stuTrack');
       if (trackSel) trackSel.value = s.track;
       updateStuSubjectCombination();
+      // After DOM renders, select the stored combination radio
       setTimeout(() => {
-        const enrolledIds = new Set(s.subjectIds || []);
-        document.querySelectorAll('.stu-elective-chk').forEach(cb => { cb.checked = enrolledIds.has(cb.value); });
-      }, 50);
+        if (s.combination) {
+          const radio = document.querySelector(`input[name="stuSubjectComb"][value="${s.combination}"]`);
+          if (radio) { radio.checked = true; onStudentCombinationPicked(); }
+        }
+      }, 60);
     }
   }
   document.querySelectorAll('#stuSubjectsCheckboxes input[type=checkbox]').forEach(cb=>{cb.checked=(s.subjectIds||[]).includes(cb.value);});
@@ -10221,19 +10283,41 @@ function handleStudentUpload(input) {
           const contact=String(row['ParentContact']||row['parent_contact']||'').trim();
           const parent =String(row['ParentName']||row['parent_name']||'').trim();
           const pwRaw=String(row['Pathway']||row['pathway']||'').trim().toLowerCase();
-          const pathway=(()=>{ if(pwRaw==='stem')return 'stem'; if(['ss','social sciences','social science','humanities'].includes(pwRaw))return 'ss'; if(['arts','arts & sports science','arts and sports science','arts & sports','arts and sports','arts/sports'].includes(pwRaw))return 'arts'; return ''; })();
+          const pathway=(()=>{ if(pwRaw==='stem')return 'stem'; if(['ss','social sciences','social science','humanities & business studies','languages & literature'].includes(pwRaw))return 'ss'; if(['arts','arts & sports science','arts and sports science','arts & sports','arts and sports','arts/sports'].includes(pwRaw))return 'arts'; return ''; })();
           const trackRaw=String(row['Track']||row['track']||'').trim();
           const validTracks=pathway?(PATHWAY_TRACKS[pathway]||[]):[];
           const track=validTracks.find(t=>t.toLowerCase()===trackRaw.toLowerCase())||trackRaw||'';
-          const cls=clsMap.get(clsName);
-          const str=(cls?strMap.get(strName+'|'+cls.id):null)||strMap.get(strName)||null;
+
+          // Combination column takes priority — e.g. "BIO,CHE,PHY" or combination number "#308"
+          const combRaw=String(row['Combination']||row['combination']||row['SubjectCombination']||row['subject_combination']||'').trim();
+          let combination='';
           let subIds=[];
           if(senior&&pathway){
             if(!pwSubCache[pathway]){const{core}=getCBCSubjectsForPathway(pathway);pwSubCache[pathway]=core.map(c=>subByCode.get(c.code)?.id).filter(Boolean);}
             subIds=[...pwSubCache[pathway]];
-            String(row['Electives']||row['electives']||'').split(',').map(s=>s.trim().toUpperCase()).filter(Boolean).forEach(code=>{const sub=subByCode.get(code);if(sub&&!subIds.includes(sub.id))subIds.push(sub.id);});
+            if(combRaw){
+              let combCodes=[];
+              if(combRaw.startsWith('#')){
+                // Combination number lookup e.g. "#308"
+                const sno=parseInt(combRaw.slice(1));
+                const found=CBC_COMBINATIONS.find(c=>c.sno===sno&&c.pw===pathway);
+                if(found) combCodes=found.subs;
+              } else {
+                // Comma-separated codes
+                combCodes=combRaw.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);
+              }
+              if(combCodes.length){
+                combination=combCodes.join(',');
+                combCodes.forEach(code=>{const sub=subByCode.get(code);if(sub&&!subIds.includes(sub.id))subIds.push(sub.id);});
+              }
+            } else {
+              // Fallback: old Electives column
+              String(row['Electives']||row['electives']||'').split(',').map(s=>s.trim().toUpperCase()).filter(Boolean).forEach(code=>{const sub=subByCode.get(code);if(sub&&!subIds.includes(sub.id))subIds.push(sub.id);});
+            }
           } else { subIds=[...allSubIds]; }
-          newStudents.push({id:uid(),adm,name,gender,classId:cls?.id||'',streamId:str?.id||'',pathway:pathway||'',track:track||'',parent,contact,dob:'',notes:'',subjectIds:subIds});
+          const cls=clsMap.get(clsName);
+          const str=(cls?strMap.get(strName+'|'+cls.id):null)||strMap.get(strName)||null;
+          newStudents.push({id:uid(),adm,name,gender,classId:cls?.id||'',streamId:str?.id||'',pathway:pathway||'',track:track||'',combination,parent,contact,dob:'',notes:'',subjectIds:subIds});
           existing.add(key); added++;
         });
         setMsg('Processing\u2026 '+Math.min(i+CHUNK,data.length)+' / '+data.length);
@@ -10275,9 +10359,9 @@ function downloadStudentTemplate() {
   let studentData;
   if (senior) {
     studentData = [
-      { AdmNo:'001', Name:'John Kamau',   Gender:'M', Class:'Grade 10', Stream:'East',  ParentName:'Peter Kamau',  ParentContact:'0712345678', Pathway:'stem',  Track:'Pure Sciences',     Electives:'BIO,CHE,PHY' },
-      { AdmNo:'002', Name:'Mary Wanjiku', Gender:'F', Class:'Grade 10', Stream:'West',  ParentName:'Alice Wanjiku',ParentContact:'0723456789', Pathway:'ss',    Track:'Humanities',        Electives:'HIS,GEO,BST' },
-      { AdmNo:'003', Name:'James Ochieng',Gender:'M', Class:'Grade 10', Stream:'North', ParentName:'Tom Ochieng', ParentContact:'0734567890', Pathway:'arts',  Track:'Arts',              Electives:'VSA,PFA,FNA' },
+      { AdmNo:'001', Name:'John Kamau',   Gender:'M', Class:'Grade 10', Stream:'East',  ParentName:'Peter Kamau',  ParentContact:'0712345678', Pathway:'stem',  Track:'Pure Sciences',            Combination:'BIO,CHE,PHY' },
+      { AdmNo:'002', Name:'Mary Wanjiku', Gender:'F', Class:'Grade 10', Stream:'West',  ParentName:'Alice Wanjiku',ParentContact:'0723456789', Pathway:'ss',    Track:'Humanities & Business Studies', Combination:'HIS,GEO,BST' },
+      { AdmNo:'003', Name:'James Ochieng',Gender:'M', Class:'Grade 10', Stream:'North', ParentName:'Tom Ochieng', ParentContact:'0734567890', Pathway:'arts',  Track:'Arts',                     Combination:'FNA,THF,LIT' },
     ];
   } else {
     studentData = [
@@ -10289,62 +10373,39 @@ function downloadStudentTemplate() {
 
   // Column widths
   const colWidths = senior
-    ? [{ wch:8},{wch:24},{wch:8},{wch:12},{wch:12},{wch:22},{wch:16},{wch:10},{wch:24}]
+    ? [{ wch:8},{wch:24},{wch:8},{wch:12},{wch:12},{wch:22},{wch:16},{wch:10},{wch:30},{wch:24}]
     : [{ wch:8},{wch:24},{wch:8},{wch:12},{wch:12},{wch:22},{wch:16}];
   wsStudents['!cols'] = colWidths;
   XLSX.utils.book_append_sheet(wb, wsStudents, 'Students');
 
   if (senior) {
-    // ── Sheet 2: Pathway Reference ──────────────────────────────────────
-    // Build rows: pathway header → core subjects → elective subjects, repeat
-    const refRows = [];
-
-    // Universal core first
-    refRows.push({ Pathway:'ALL PATHWAYS', Category:'Universal Core', Track:'(all)',  SubjectName:'English',                  Code:'ENG',  Note:'Auto-added for every student' });
-    refRows.push({ Pathway:'',             Category:'Universal Core', Track:'(all)',  SubjectName:'Kiswahili',                Code:'KSW',  Note:'Auto-added for every student' });
-    refRows.push({ Pathway:'',             Category:'Universal Core', Track:'(all)',  SubjectName:'Community Service Learning',Code:'CSL',  Note:'Auto-added for every student' });
-    refRows.push({ Pathway:'',             Category:'Universal Core', Track:'(all)',  SubjectName:'Physical Education',       Code:'PE',   Note:'Auto-added for every student' });
-    refRows.push({ Pathway:'', Category:'', Track:'', SubjectName:'', Code:'', Note:'' }); // blank spacer
-
-    const pathwayDefs = [
-      { id:'stem',  label:'STEM',                 pathwayValue:'stem' },
-      { id:'ss',    label:'Social Sciences',       pathwayValue:'ss'   },
-      { id:'arts',  label:'Arts & Sports Science', pathwayValue:'arts' },
-    ];
-
-    pathwayDefs.forEach(pw => {
-      const { core, elective } = getCBCSubjectsForPathway(pw.id);
-      // Pathway-specific core (exclude universal which are already shown)
-      const universalCodes = CBC_SUBJECTS.universal_core.map(u=>u.code);
-      const pwCore = core.filter(c=>!universalCodes.includes(c.code));
-
-      refRows.push({ Pathway:`=== ${pw.label.toUpperCase()} ===`, Category:'', Track:'', SubjectName:'Use "'+pw.pathwayValue+'" in the Pathway column, then pick a Track', Code:'', Note:'' });
-
-      if (pwCore.length) {
-        pwCore.forEach((s,i) => {
-          refRows.push({ Pathway: i===0 ? pw.label : '', Category:'Pathway Core', Track:'(all tracks)', SubjectName:s.name, Code:s.code, Note:'Auto-added (do not need to list in Electives)' });
-        });
-      } else {
-        refRows.push({ Pathway: pw.label, Category:'Pathway Core', Track:'(all tracks)', SubjectName:'(none beyond universal)', Code:'', Note:'' });
-      }
-
-      // Group electives by track
-      const tracks = [...new Set(elective.map(e=>e.track||'General'))];
-      tracks.forEach(track => {
-        const trackSubs = elective.filter(e=>(e.track||'General')===track);
-        trackSubs.forEach((s,i) => {
-          refRows.push({ Pathway:'', Category:'Elective', Track:track, SubjectName:s.name, Code:s.code, Note:'Add code to Electives column (comma-separated)' });
-        });
-      });
-
-      refRows.push({ Pathway:'', Category:'', Track:'', SubjectName:'', Code:'', Note:'' }); // blank spacer
+    // ── Sheet 2: Combinations Reference ──────────────────────────────────
+    // Build a flat table of all 571 combinations for easy lookup
+    const nameMap2 = {};
+    Object.values(CBC_SUBJECTS).forEach(v => {
+      if (Array.isArray(v)) v.forEach(s => { nameMap2[s.code] = s.name; });
+      else if (v?.elective) v.elective.forEach(s => { nameMap2[s.code] = s.name; });
     });
+    CBC_SUBJECTS.universal_core.forEach(s => { nameMap2[s.code] = s.name; });
 
-    const wsRef = XLSX.utils.json_to_sheet(refRows);
-    wsRef['!cols'] = [{wch:28},{wch:18},{wch:22},{wch:32},{wch:8},{wch:42}];
-    XLSX.utils.book_append_sheet(wb, wsRef, 'Pathway & Subject Reference');
+    const pwLabels = {stem:'STEM', ss:'Social Sciences', arts:'Arts & Sports Science'};
+    const combRows = CBC_COMBINATIONS.map(c => ({
+      'S/No':      c.sno,
+      'Pathway':   pwLabels[c.pw] || c.pw,
+      'Track':     c.track,
+      'Subject 1': nameMap2[c.subs[0]] || c.subs[0],
+      'Code 1':    c.subs[0],
+      'Subject 2': nameMap2[c.subs[1]] || c.subs[1],
+      'Code 2':    c.subs[1],
+      'Subject 3': nameMap2[c.subs[2]] || c.subs[2],
+      'Code 3':    c.subs[2],
+      'Combination Column Value': c.subs.join(','),
+    }));
+    const wsRef = XLSX.utils.json_to_sheet(combRows);
+    wsRef['!cols'] = [{wch:6},{wch:22},{wch:30},{wch:28},{wch:8},{wch:28},{wch:8},{wch:28},{wch:8},{wch:22}];
+    XLSX.utils.book_append_sheet(wb, wsRef, 'All Combinations (571)');
 
-    // ── Sheet 3: Quick Guide ────────────────────────────────────────────
+    // ── Sheet 3: How To Use ──────────────────────────────────────────────
     const guideRows = [
       { '#':'HOW TO USE THIS TEMPLATE', Instructions:'' },
       { '#':'', Instructions:'' },
@@ -10352,33 +10413,24 @@ function downloadStudentTemplate() {
       { '#':'2', Instructions:'Gender: M or F (or Male/Female).' },
       { '#':'3', Instructions:'Class & Stream: must match names already set up in the system.' },
       { '#':'4', Instructions:'Pathway (Senior School): use stem | ss | arts' },
-      { '#':'', Instructions:'  • stem  → STEM pathway' },
-      { '#':'', Instructions:'  • ss    → Social Sciences pathway' },
-      { '#':'', Instructions:'  • arts  → Arts & Sports Science pathway' },
-      { '#':'5', Instructions:'Track: the subject track within the pathway. Required for senior school.' },
-      { '#':'', Instructions:'  • STEM tracks: Pure Sciences | Applied Sciences | Technical Studies' },
-      { '#':'', Instructions:'  • Social Sciences tracks: Humanities | Business Studies | Languages' },
-      { '#':'', Instructions:'  • Arts & Sports Science tracks: Arts | Sports' },
-      { '#':'6', Instructions:'Electives: comma-separated subject CODES (e.g. BIO,CHE,PHY).' },
-      { '#':'', Instructions:'  Core subjects for your pathway are added automatically.' },
-      { '#':'', Instructions:'  See the "Pathway & Subject Reference" sheet for all codes.' },
-      { '#':'7', Instructions:'Leave Pathway blank for Junior School students (Grades 7–9).' },
-      { '#':'', Instructions:'' },
-      { '#':'PATHWAY + TRACK SUMMARY', Instructions:'' },
-      { '#':'stem',  Instructions:'Core auto: ENG, KSW, CSL, PE, ICT, MTH' },
-      { '#':'',      Instructions:'  Tracks: Pure Sciences (BIO,CHE,PHY) | Applied Sciences (AGR,CPS,GSC,HSC) | Technical Studies (DRD,BLD,ELT,MET,PWM,WDT,MDT,AVT,MFT)' },
-      { '#':'ss',    Instructions:'Core auto: ENG, KSW, CSL, PE' },
-      { '#':'',      Instructions:'  Tracks: Humanities (HIS,GEO,CRE,IRE,HRE) | Business Studies (BST,MTH) | Languages (LIT,LKS,FKS,FRN,GER,ARB,MAN)' },
-      { '#':'arts',  Instructions:'Core auto: ENG, KSW, CSL, PE, LEA, CMS' },
-      { '#':'',      Instructions:'  Tracks: Arts (VSA,PFA,FNA,APA,CRF,TBM) | Sports (BLG,ATH,ING,GYM,WTS,MAR,APE)' },
+      { '#':'',  Instructions:'  stem = STEM  |  ss = Social Sciences  |  arts = Arts & Sports Science' },
+      { '#':'5', Instructions:'Track: the subject track within the pathway.' },
+      { '#':'',  Instructions:'  STEM: Pure Sciences | Applied Sciences | Technical Studies' },
+      { '#':'',  Instructions:'  Social Sciences: Humanities & Business Studies | Languages & Literature' },
+      { '#':'',  Instructions:'  Arts & Sports Science: Arts | Sports & Recreation' },
+      { '#':'6', Instructions:'Combination: 3 subject codes, comma-separated. e.g. BIO,CHE,PHY' },
+      { '#':'',  Instructions:'  OR use #sno to reference the official combination number e.g. #308' },
+      { '#':'',  Instructions:'  See the "All Combinations (571)" sheet for every valid combination.' },
+      { '#':'',  Instructions:'  Universal core (ENG,KSW,CSL,PE) is always auto-added — do not include.' },
+      { '#':'7', Instructions:'Leave Pathway/Track/Combination blank for Junior School students (Gr 7-9).' },
     ];
     const wsGuide = XLSX.utils.json_to_sheet(guideRows);
-    wsGuide['!cols'] = [{wch:16},{wch:70}];
+    wsGuide['!cols'] = [{wch:16},{wch:72}];
     XLSX.utils.book_append_sheet(wb, wsGuide, 'How To Use');
   }
 
   XLSX.writeFile(wb, 'students_template.xlsx');
-  showToast(`Template downloaded — ${senior ? '3 sheets: Students, Pathway Reference, How To Use' : '1 sheet: Students'} <i class="fa-solid fa-check"></i>`, 'success');
+  showToast(`Template downloaded — ${senior ? '3 sheets: Students, All Combinations, How To Use' : '1 sheet: Students'} <i class="fa-solid fa-check"></i>`, 'success');
 }
 
 function exportStudentsExcel() { exportFilteredStudentsExcel(); }
@@ -12002,12 +12054,30 @@ function getSchoolElectiveCodes(pathwayId) {
 }
 
 function getSchoolSubjectsForPathway(pathwayId) {
-  // Returns { core: [...], elective: [...] } filtered to school's chosen combination
+  // Returns { core: [...], elective: [...] } — electives are the unique subjects
+  // that appear in ANY of the school's enabled combinations for this pathway.
   const { core, elective } = getCBCSubjectsForPathway(pathwayId);
-  const chosenCodes = getSchoolElectiveCodes(pathwayId);
-  const filteredElective = chosenCodes.length > 0
-    ? elective.filter(e => chosenCodes.includes(e.code))
-    : elective; // if not configured, show all (backward compat)
+  const enabledCombinations = (settings.subjectCombinations || {})[pathwayId] || [];
+
+  if (!enabledCombinations.length) {
+    // Not configured — return all electives (backward compat)
+    return { core, elective };
+  }
+
+  // Union of all subject codes across all enabled combinations
+  const enabledCodes = new Set();
+  enabledCombinations.forEach(combStr => {
+    combStr.split(',').forEach(code => enabledCodes.add(code));
+  });
+
+  // De-duplicate electives (CBC_SUBJECTS may list same code in multiple tracks)
+  const seen = new Set();
+  const filteredElective = elective.filter(e => {
+    if (!enabledCodes.has(e.code)) return false;
+    if (seen.has(e.code)) return false;
+    seen.add(e.code);
+    return true;
+  });
   return { core, elective: filteredElective };
 }
 
@@ -12019,17 +12089,18 @@ function isSubjectCombinationConfigured() {
 
 // Save subject combination for a pathway (called from settings UI)
 function saveSubjectCombination(pathwayId) {
-  const checkboxes = document.querySelectorAll(`.scomb-check[data-pathway="${pathwayId}"]`);
+  const checkboxes = document.querySelectorAll(`.sc-combo-check[data-pw="${pathwayId}"]`);
   const chosen = [];
   checkboxes.forEach(cb => { if (cb.checked) chosen.push(cb.value); });
 
-  // Validation: electives limit (3 max for grading; school may offer up to ~8 total but 3 are graded)
-  // We allow flexible selection — the school decides which subjects they offer
   if (!settings.subjectCombinations) settings.subjectCombinations = {};
   settings.subjectCombinations[pathwayId] = chosen;
   save(K.settings, [settings]);
-  showToast(`Subject combination saved for ${PATHWAYS.find(p=>p.id===pathwayId)?.label || pathwayId} <i class="fa-solid fa-check"></i>`, 'success');
-  renderSubjectCombinationUI(); // refresh counts
+
+  const pw = PATHWAYS.find(p=>p.id===pathwayId);
+  const statusEl = document.getElementById(`scSaveStatus_${pathwayId}`);
+  if (statusEl) { statusEl.style.display = ''; setTimeout(() => { statusEl.style.display = 'none'; }, 2500); }
+  showToast(`${chosen.length} combination(s) saved for ${pw?.label || pathwayId} <i class="fa-solid fa-check"></i>`, 'success');
 }
 
 function renderSubjectCombinationUI() {
@@ -12040,147 +12111,855 @@ function renderSubjectCombinationUI() {
 
   const sc = settings.subjectCombinations || {};
 
+  // Build subject name lookup from CBC_SUBJECTS
+  const nameMap = {};
+  Object.values(CBC_SUBJECTS).forEach(v => {
+    if (Array.isArray(v)) v.forEach(s => { nameMap[s.code] = s.name; });
+    else if (v?.elective) { v.elective.forEach(s => { nameMap[s.code] = s.name; }); }
+  });
+  CBC_SUBJECTS.universal_core.forEach(s => { nameMap[s.code] = s.name; });
+
+  const comboLabel = c => c.subs.map(code => nameMap[code] || code).join(' · ');
+  const totalSelected = PATHWAYS.reduce((a, pw) => a + (sc[pw.id]?.length||0), 0);
+
   wrap.innerHTML = `
     <h3 style="margin-bottom:.4rem"><i class="fa-solid fa-table-list"></i> Subject Combinations (Senior School)</h3>
-    <p style="font-size:.82rem;color:var(--muted);margin-bottom:1.1rem">
-      Select the elective subjects your school offers for each pathway. Core subjects are fixed and auto-included.
-      Each student takes <strong>7 graded subjects</strong> — 4 core + 3 electives from their pathway track.
-      The merit list will only show your school's chosen subjects.
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:.75rem">
+      Select the official MoE subject combinations your school offers for each pathway.
+      Students will choose from only the combinations you enable here.
+      <strong>${totalSelected}</strong> combination(s) currently enabled across all pathways.
     </p>
+
+    <div style="margin-bottom:1rem;padding:.5rem .85rem;background:#f0f7ff;border:1px solid #dbeafe;border-radius:7px;font-size:.78rem;color:#1e40af">
+      <i class="fa-solid fa-graduation-cap" style="margin-right:.3rem"></i>
+      <strong>Universal core (auto-added to every student):</strong>
+      ${CBC_SUBJECTS.universal_core.map(s=>`<span style="background:#dbeafe;border-radius:4px;padding:.05rem .35rem;margin:.1rem;display:inline-block;font-size:.7rem">${s.code} — ${s.name}</span>`).join('')}
+    </div>
+
     ${PATHWAYS.map(pw => {
-      const { core, elective } = getCBCSubjectsForPathway(pw.id);
+      const pwCombos = CBC_COMBINATIONS.filter(c => c.pw === pw.id);
       const chosen = sc[pw.id] || [];
-      // Group electives by track
-      const byTrack = {};
-      elective.forEach(e => {
-        if (!byTrack[e.track]) byTrack[e.track] = [];
-        byTrack[e.track].push(e);
-      });
+      const tracks = [...new Set(pwCombos.map(c => c.track))];
+      const { core: coreList } = getCBCSubjectsForPathway(pw.id);
+      const universalCodes = CBC_SUBJECTS.universal_core.map(u=>u.code);
+      const pwCore = coreList.filter(c=>!universalCodes.includes(c.code));
+
       return `
-      <div style="border:1.5px solid ${pw.color}40;border-radius:10px;padding:1rem 1.1rem;margin-bottom:1rem;background:${pw.color}06">
-        <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.7rem">
-          <span style="width:30px;height:30px;border-radius:50%;background:${pw.color}20;display:flex;align-items:center;justify-content:center">
+      <div style="border:1.5px solid ${pw.color}40;border-radius:11px;padding:1rem 1.1rem;margin-bottom:1.1rem;background:${pw.color}04">
+        <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem;flex-wrap:wrap">
+          <span style="width:30px;height:30px;border-radius:50%;background:${pw.color}20;display:flex;align-items:center;justify-content:center;flex-shrink:0">
             <i class="fa-solid ${pw.icon}" style="color:${pw.color};font-size:.82rem"></i>
           </span>
           <strong style="font-size:.92rem">${pw.label}</strong>
-          <span style="margin-left:auto;font-size:.73rem;color:${chosen.length>0?'#16a34a':'var(--muted)'};font-weight:600">
-            ${chosen.length > 0 ? `<i class="fa-solid fa-circle-check" style="color:#16a34a"></i> ${chosen.length} elective(s) selected` : 'Not configured'}
+          <span style="font-size:.73rem;color:${chosen.length>0?'#16a34a':'var(--muted)'};font-weight:600">
+            ${chosen.length > 0
+              ? `<i class="fa-solid fa-circle-check" style="color:#16a34a"></i> ${chosen.length} of ${pwCombos.length} combination(s) enabled`
+              : `<i class="fa-solid fa-circle-xmark" style="color:#ef4444"></i> None enabled — students cannot be assigned`}
           </span>
+          <div style="margin-left:auto;display:flex;gap:.4rem;flex-wrap:wrap">
+            <button class="btn btn-sm" style="font-size:.72rem;padding:.25rem .65rem;background:${pw.color}18;color:${pw.color};border:1px solid ${pw.color}40"
+              onclick="selectAllCombinations('${pw.id}')">Select All</button>
+            <button class="btn btn-sm" style="font-size:.72rem;padding:.25rem .65rem;background:var(--surface);color:var(--muted);border:1px solid var(--border)"
+              onclick="clearAllCombinations('${pw.id}')">Clear All</button>
+          </div>
         </div>
-        <div style="font-size:.75rem;color:var(--muted);margin-bottom:.6rem">
-          <strong>Core (auto-included):</strong>
-          ${core.map(s=>`<span style="background:${pw.color}15;border-radius:4px;padding:.05rem .35rem;margin:.1rem;display:inline-block;font-size:.7rem">${s.name}</span>`).join('')}
-        </div>
-        <div style="font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:.4rem">Choose electives your school offers:</div>
-        ${Object.entries(byTrack).map(([track, subs]) => `
-          <div style="margin-bottom:.5rem">
-            <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:${pw.color};margin-bottom:.25rem;letter-spacing:.04em">${track}</div>
-            <div style="display:flex;flex-wrap:wrap;gap:.3rem">
-              ${subs.map(s=>`
-                <label style="display:flex;align-items:center;gap:.3rem;padding:.25rem .6rem;border-radius:6px;border:1.5px solid ${chosen.includes(s.code)?pw.color:'var(--border)'};background:${chosen.includes(s.code)?pw.color+'18':'transparent'};cursor:pointer;font-size:.75rem;font-weight:${chosen.includes(s.code)?'600':'400'}">
-                  <input type="checkbox" class="scomb-check" data-pathway="${pw.id}" value="${s.code}" ${chosen.includes(s.code)?'checked':''} style="accent-color:${pw.color}">
-                  <span style="font-family:var(--mono);font-size:.68rem;opacity:.75;margin-right:.15rem">${s.code}</span>${s.name}
-                </label>`).join('')}
+        ${pwCore.length ? `<div style="font-size:.74rem;color:var(--muted);margin-bottom:.55rem"><strong>Pathway core (auto-added):</strong>
+          ${pwCore.map(s=>`<span style="background:${pw.color}15;border-radius:4px;padding:.05rem .35rem;margin:.1rem;display:inline-block;font-size:.7rem">${s.code} — ${s.name}</span>`).join('')}
+        </div>` : ''}
+        <input type="text" placeholder="Search combinations by subject name or code…"
+          oninput="filterCombinations('${pw.id}', this.value)"
+          style="width:100%;padding:.35rem .7rem;border:1.5px solid var(--border);border-radius:7px;font-size:.78rem;background:var(--surface);color:var(--text);margin-bottom:.55rem;box-sizing:border-box">
+
+        ${tracks.map(track => {
+          const trackCombos = pwCombos.filter(c => c.track === track);
+          return `
+          <div class="sc-track-group" data-pw="${pw.id}" data-track="${track}" style="margin-bottom:.7rem">
+            <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:${pw.color};margin-bottom:.3rem;letter-spacing:.05em">
+              <i class="fa-solid fa-chevron-right" style="font-size:.6rem;margin-right:.2rem"></i>${track}
+              <span style="font-weight:400;color:var(--muted);text-transform:none;margin-left:.3rem">(${trackCombos.length} combinations)</span>
             </div>
-          </div>`).join('')}
-        <button class="btn btn-sm" style="margin-top:.6rem;background:${pw.color};color:#fff;border:none;font-size:.78rem"
-          onclick="saveSubjectCombination('${pw.id}')">
-          <i class="fa-solid fa-floppy-disk"></i> Save ${pw.label} Combination
-        </button>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.3rem">
+              ${trackCombos.map(c => {
+                const label = comboLabel(c);
+                const codeStr = c.subs.join(',');
+                const isChosen = chosen.includes(codeStr);
+                return `<label class="sc-combo-item" data-pw="${pw.id}" data-search="${label.toLowerCase()} ${codeStr.toLowerCase()}"
+                  style="display:flex;align-items:center;gap:.4rem;padding:.3rem .6rem;border-radius:7px;border:1.5px solid ${isChosen?pw.color:'var(--border)'};background:${isChosen?pw.color+'15':'transparent'};cursor:pointer;font-size:.75rem;transition:all .12s">
+                  <input type="checkbox" class="sc-combo-check" data-pw="${pw.id}" value="${codeStr}" ${isChosen?'checked':''}
+                    onchange="onScComboChange('${pw.id}')" style="accent-color:${pw.color};flex-shrink:0">
+                  <span style="min-width:2rem;font-size:.66rem;font-family:var(--mono);color:var(--muted);flex-shrink:0">#${c.sno}</span>
+                  <span style="flex:1;line-height:1.3">${label}</span>
+                  <span style="font-size:.65rem;color:${pw.color};opacity:.7;white-space:nowrap;flex-shrink:0">${codeStr}</span>
+                </label>`;
+              }).join('')}
+            </div>
+          </div>`;
+        }).join('')}
+
+        <div style="display:flex;align-items:center;gap:.6rem;margin-top:.5rem;flex-wrap:wrap">
+          <button class="btn btn-sm" style="background:${pw.color};color:#fff;border:none;font-size:.78rem"
+            onclick="saveSubjectCombination('${pw.id}')">
+            <i class="fa-solid fa-floppy-disk"></i> Save ${pw.label} Selections
+          </button>
+          <span id="scSaveStatus_${pw.id}" style="font-size:.74rem;color:#16a34a;display:none"><i class="fa-solid fa-check"></i> Saved</span>
+        </div>
       </div>`;
     }).join('')}
   `;
 }
 
+function filterCombinations(pwId, query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll(`.sc-combo-item[data-pw="${pwId}"]`).forEach(el => {
+    el.style.display = (!q || el.dataset.search?.includes(q)) ? '' : 'none';
+  });
+  // Hide empty track groups
+  document.querySelectorAll(`.sc-track-group[data-pw="${pwId}"]`).forEach(grp => {
+    const visible = grp.querySelectorAll('.sc-combo-item:not([style*="display: none"]):not([style*="display:none"])').length;
+    grp.style.display = visible ? '' : 'none';
+  });
+}
+
+function onScComboChange(pwId) {
+  // Live highlight selected items
+  document.querySelectorAll(`.sc-combo-item[data-pw="${pwId}"]`).forEach(lbl => {
+    const cb = lbl.querySelector('input[type=checkbox]');
+    const pw = PATHWAYS.find(p=>p.id===pwId);
+    if (cb?.checked) {
+      lbl.style.borderColor = pw?.color || 'var(--primary)';
+      lbl.style.background  = (pw?.color||'#3b82f6') + '15';
+    } else {
+      lbl.style.borderColor = 'var(--border)';
+      lbl.style.background  = 'transparent';
+    }
+  });
+  // Update count badge
+  const chosen = [...document.querySelectorAll(`.sc-combo-check[data-pw="${pwId}"]:checked`)].map(c=>c.value);
+  const total  = document.querySelectorAll(`.sc-combo-check[data-pw="${pwId}"]`).length;
+}
+
+function selectAllCombinations(pwId) {
+  document.querySelectorAll(`.sc-combo-check[data-pw="${pwId}"]`).forEach(cb => { cb.checked = true; });
+  onScComboChange(pwId);
+}
+
+function clearAllCombinations(pwId) {
+  document.querySelectorAll(`.sc-combo-check[data-pw="${pwId}"]`).forEach(cb => { cb.checked = false; });
+  onScComboChange(pwId);
+}
+
 // ── CBC Grade 10 Senior School Subject Catalogue ──────────────────
-// Source: Ministry of Education Kenya (2025)
+// Source: Ministry of Education Kenya — Official Subject Combinations
 const CBC_SUBJECTS = {
-  // Universal core — ALL pathways
+  // Universal core — ALL pathways (4 subjects, auto-included)
   universal_core: [
-    { name:'English',                   code:'ENG',  cat:'Core' },
-    { name:'Kiswahili',                 code:'KSW',  cat:'Core' },
-    { name:'Community Service Learning',code:'CSL',  cat:'Core' },
-    { name:'Physical Education',        code:'PE',   cat:'Core' },
+    { name:'English',                    code:'ENG',  cat:'Core' },
+    { name:'Kiswahili',                  code:'KSW',  cat:'Core' },
+    { name:'Community Service Learning', code:'CSL',  cat:'Core' },
+    { name:'Physical Education',         code:'PE',   cat:'Core' },
   ],
+
   stem: {
     label:'STEM',
     core: [
-      { name:'ICT',         code:'ICT',  cat:'Core' },
-      { name:'Mathematics', code:'MTH',  cat:'Core' },
+      // No extra pathway-level core beyond universal for STEM
+      // (subjects are all elective, chosen per track)
     ],
     elective: [
-      // Pure Sciences
-      { name:'Biology',                  code:'BIO',  cat:'Elective', track:'Pure Sciences' },
-      { name:'Chemistry',                code:'CHE',  cat:'Elective', track:'Pure Sciences' },
-      { name:'Physics',                  code:'PHY',  cat:'Elective', track:'Pure Sciences' },
-      // Applied Sciences
-      { name:'Agriculture',              code:'AGR',  cat:'Elective', track:'Applied Sciences' },
-      { name:'Computer Studies',         code:'CPS',  cat:'Elective', track:'Applied Sciences' },
-      { name:'General Science',          code:'GSC',  cat:'Elective', track:'Applied Sciences' },
-      { name:'Home Science',             code:'HSC',  cat:'Elective', track:'Applied Sciences' },
-      // Technical Studies
-      { name:'Drawing and Design',       code:'DRD',  cat:'Technical', track:'Technical Studies' },
-      { name:'Aviation Technology',      code:'AVT',  cat:'Technical', track:'Technical Studies' },
-      { name:'Building and Construction',code:'BLD',  cat:'Technical', track:'Technical Studies' },
-      { name:'Electrical Technology',    code:'ELT',  cat:'Technical', track:'Technical Studies' },
-      { name:'Metal Technology',         code:'MET',  cat:'Technical', track:'Technical Studies' },
-      { name:'Power Mechanics',          code:'PWM',  cat:'Technical', track:'Technical Studies' },
-      { name:'Wood Technology',          code:'WDT',  cat:'Technical', track:'Technical Studies' },
-      { name:'Media Technology',         code:'MDT',  cat:'Technical', track:'Technical Studies' },
-      { name:'Marine & Fisheries Tech',  code:'MFT',  cat:'Technical', track:'Technical Studies' },
+      // ── Pure Sciences ──
+      { name:'Advanced Mathematics', code:'AMATH', cat:'Elective', track:'Pure Sciences' },
+      { name:'Biology',              code:'BIO',   cat:'Elective', track:'Pure Sciences' },
+      { name:'Chemistry',            code:'CHE',   cat:'Elective', track:'Pure Sciences' },
+      { name:'Physics',              code:'PHY',   cat:'Elective', track:'Pure Sciences' },
+      { name:'General Science',      code:'GSC',   cat:'Elective', track:'Pure Sciences' },
+      // ── Applied Sciences ──
+      { name:'Agriculture',          code:'AGR',   cat:'Elective', track:'Applied Sciences' },
+      { name:'Computer Studies',     code:'CPS',   cat:'Elective', track:'Applied Sciences' },
+      { name:'Home Science',         code:'HSC',   cat:'Elective', track:'Applied Sciences' },
+      { name:'Business Studies',     code:'BST',   cat:'Elective', track:'Applied Sciences' },
+      { name:'Geography',            code:'GEO',   cat:'Elective', track:'Applied Sciences' },
+      // ── Technical Studies ──
+      { name:'Aviation',             code:'AVN',   cat:'Elective', track:'Technical Studies' },
+      { name:'Building Construction',code:'BLD',   cat:'Elective', track:'Technical Studies' },
+      { name:'Electricity',          code:'ELC',   cat:'Elective', track:'Technical Studies' },
+      { name:'Marine & Fisheries',   code:'MRF',   cat:'Elective', track:'Technical Studies' },
+      { name:'Media Technology',     code:'MDT',   cat:'Elective', track:'Technical Studies' },
+      { name:'Metal Work',           code:'MWK',   cat:'Elective', track:'Technical Studies' },
+      { name:'Power Mechanics',      code:'PWM',   cat:'Elective', track:'Technical Studies' },
+      { name:'Wood Work',            code:'WWK',   cat:'Elective', track:'Technical Studies' },
     ]
   },
+
   ss: {
     label:'Social Sciences',
     core: [],
     elective: [
-      // Humanities
-      { name:'History and Citizenship',  code:'HIS',  cat:'Elective', track:'Humanities' },
-      { name:'Geography',                code:'GEO',  cat:'Elective', track:'Humanities' },
-      { name:'Christian Religious Edu',  code:'CRE',  cat:'Elective', track:'Humanities' },
-      { name:'Islamic Religious Edu',    code:'IRE',  cat:'Elective', track:'Humanities' },
-      { name:'Hindu Religious Edu',      code:'HRE',  cat:'Elective', track:'Humanities' },
-      // Business
-      { name:'Business Studies',         code:'BST',  cat:'Elective', track:'Business Studies' },
-      { name:'Mathematics',              code:'MTH',  cat:'Elective', track:'Business Studies' },
-      // Languages
-      { name:'Literature in English',    code:'LIT',  cat:'Languages', track:'Languages' },
-      { name:'Lugha ya Kiswahili',       code:'LKS',  cat:'Languages', track:'Languages' },
-      { name:'Fasihi ya Kiswahili',      code:'FKS',  cat:'Languages', track:'Languages' },
-      { name:'French',                   code:'FRN',  cat:'Languages', track:'Languages' },
-      { name:'German',                   code:'GER',  cat:'Languages', track:'Languages' },
-      { name:'Arabic',                   code:'ARB',  cat:'Languages', track:'Languages' },
-      { name:'Mandarin',                 code:'MAN',  cat:'Languages', track:'Languages' },
+      // ── Humanities & Business Studies ──
+      { name:'History & Citizenship', code:'HIS',  cat:'Elective', track:'Humanities & Business Studies' },
+      { name:'Geography',             code:'GEO',  cat:'Elective', track:'Humanities & Business Studies' },
+      { name:'Business Studies',      code:'BST',  cat:'Elective', track:'Humanities & Business Studies' },
+      { name:'CRE/IRE/HRE',           code:'CRE',  cat:'Elective', track:'Humanities & Business Studies' },
+      { name:'General Science',       code:'GSC',  cat:'Elective', track:'Humanities & Business Studies' },
+      { name:'Computer Studies',      code:'CPS',  cat:'Elective', track:'Humanities & Business Studies' },
+      { name:'Advanced Mathematics',  code:'AMATH',cat:'Elective', track:'Humanities & Business Studies' },
+      { name:'Literature in English', code:'LIT',  cat:'Elective', track:'Humanities & Business Studies' },
+      { name:'Fasihi ya Kiswahili',   code:'FKS',  cat:'Elective', track:'Humanities & Business Studies' },
+      { name:'French',                code:'FRN',  cat:'Elective', track:'Humanities & Business Studies' },
+      { name:'German',                code:'GER',  cat:'Elective', track:'Humanities & Business Studies' },
+      { name:'Arabic',                code:'ARB',  cat:'Elective', track:'Humanities & Business Studies' },
+      { name:'Mandarin',              code:'MAN',  cat:'Elective', track:'Humanities & Business Studies' },
+      { name:'Indigenous Language',   code:'IND',  cat:'Elective', track:'Humanities & Business Studies' },
+      { name:'Sign Language',         code:'SLG',  cat:'Elective', track:'Humanities & Business Studies' },
+      // ── Languages & Literature ──
+      { name:'Arabic',                code:'ARB',  cat:'Elective', track:'Languages & Literature' },
+      { name:'French',                code:'FRN',  cat:'Elective', track:'Languages & Literature' },
+      { name:'German',                code:'GER',  cat:'Elective', track:'Languages & Literature' },
+      { name:'Mandarin',              code:'MAN',  cat:'Elective', track:'Languages & Literature' },
+      { name:'Fasihi ya Kiswahili',   code:'FKS',  cat:'Elective', track:'Languages & Literature' },
+      { name:'Literature in English', code:'LIT',  cat:'Elective', track:'Languages & Literature' },
+      { name:'Sign Language',         code:'SLG',  cat:'Elective', track:'Languages & Literature' },
+      { name:'Indigenous Language',   code:'IND',  cat:'Elective', track:'Languages & Literature' },
+      { name:'Chinese',               code:'CHN',  cat:'Elective', track:'Languages & Literature' },
+      { name:'Business Studies',      code:'BST',  cat:'Elective', track:'Languages & Literature' },
+      { name:'Computer Studies',      code:'CPS',  cat:'Elective', track:'Languages & Literature' },
+      { name:'CRE/IRE/HRE',           code:'CRE',  cat:'Elective', track:'Languages & Literature' },
+      { name:'General Science',       code:'GSC',  cat:'Elective', track:'Languages & Literature' },
+      { name:'Geography',             code:'GEO',  cat:'Elective', track:'Languages & Literature' },
+      { name:'History & Citizenship', code:'HIS',  cat:'Elective', track:'Languages & Literature' },
+      { name:'Advanced Mathematics',  code:'AMATH',cat:'Elective', track:'Languages & Literature' },
+      { name:'Mathematics',           code:'MTH',  cat:'Elective', track:'Languages & Literature' },
     ]
   },
+
   arts: {
     label:'Arts & Sports Science',
-    core: [
-      { name:'Legal & Ethical Issues in Arts', code:'LEA', cat:'Core' },
-      { name:'Communication Skills',            code:'CMS', cat:'Core' },
-    ],
+    core: [],
     elective: [
-      // Arts Track
-      { name:'Visual Arts',              code:'VSA',  cat:'Elective', track:'Arts' },
-      { name:'Performing Arts',          code:'PFA',  cat:'Elective', track:'Arts' },
-      { name:'Fine Art',                 code:'FNA',  cat:'Elective', track:'Arts' },
-      { name:'Applied Art',              code:'APA',  cat:'Elective', track:'Arts' },
-      { name:'Crafts',                   code:'CRF',  cat:'Elective', track:'Arts' },
-      { name:'Time-Based Media',         code:'TBM',  cat:'Elective', track:'Arts' },
-      // Sports Track
-      { name:'Ball Games',               code:'BLG',  cat:'Elective', track:'Sports' },
-      { name:'Athletics',                code:'ATH',  cat:'Elective', track:'Sports' },
-      { name:'Indoor Games',             code:'ING',  cat:'Elective', track:'Sports' },
-      { name:'Gymnastics',               code:'GYM',  cat:'Elective', track:'Sports' },
-      { name:'Water Sports',             code:'WTS',  cat:'Elective', track:'Sports' },
-      { name:'Martial Arts',             code:'MAR',  cat:'Elective', track:'Sports' },
-      { name:'Advanced Physical Edu',    code:'APE',  cat:'Elective', track:'Sports' },
-      // Other
-      { name:'Home Science',             code:'HSC',  cat:'Elective', track:'Other' },
-      { name:'Computer Science',         code:'CSC',  cat:'Elective', track:'Other' },
+      // ── Arts Track ──
+      { name:'Fine Arts',             code:'FNA',  cat:'Elective', track:'Arts' },
+      { name:'Theatre & Film',        code:'THF',  cat:'Elective', track:'Arts' },
+      { name:'Music & Dance',         code:'MSD',  cat:'Elective', track:'Arts' },
+      // Arts track companion subjects
+      { name:'Arabic',                code:'ARB',  cat:'Elective', track:'Arts' },
+      { name:'Biology',               code:'BIO',  cat:'Elective', track:'Arts' },
+      { name:'Business Studies',      code:'BST',  cat:'Elective', track:'Arts' },
+      { name:'Computer Studies',      code:'CPS',  cat:'Elective', track:'Arts' },
+      { name:'CRE/IRE/HRE',           code:'CRE',  cat:'Elective', track:'Arts' },
+      { name:'Fasihi ya Kiswahili',   code:'FKS',  cat:'Elective', track:'Arts' },
+      { name:'French',                code:'FRN',  cat:'Elective', track:'Arts' },
+      { name:'General Science',       code:'GSC',  cat:'Elective', track:'Arts' },
+      { name:'Geography',             code:'GEO',  cat:'Elective', track:'Arts' },
+      { name:'German',                code:'GER',  cat:'Elective', track:'Arts' },
+      { name:'History & Citizenship', code:'HIS',  cat:'Elective', track:'Arts' },
+      { name:'Literature in English', code:'LIT',  cat:'Elective', track:'Arts' },
+      { name:'Mandarin',              code:'MAN',  cat:'Elective', track:'Arts' },
+      { name:'Advanced Mathematics',  code:'AMATH',cat:'Elective', track:'Arts' },
+      { name:'Sports & Recreation',   code:'SPR',  cat:'Elective', track:'Arts' },
+      // ── Sports & Recreation Track ──
+      { name:'Sports & Recreation',   code:'SPR',  cat:'Elective', track:'Sports & Recreation' },
+      { name:'Biology',               code:'BIO',  cat:'Elective', track:'Sports & Recreation' },
+      { name:'General Science',       code:'GSC',  cat:'Elective', track:'Sports & Recreation' },
+      { name:'Arabic',                code:'ARB',  cat:'Elective', track:'Sports & Recreation' },
+      { name:'Business Studies',      code:'BST',  cat:'Elective', track:'Sports & Recreation' },
+      { name:'Computer Studies',      code:'CPS',  cat:'Elective', track:'Sports & Recreation' },
+      { name:'CRE/IRE/HRE',           code:'CRE',  cat:'Elective', track:'Sports & Recreation' },
+      { name:'Fasihi ya Kiswahili',   code:'FKS',  cat:'Elective', track:'Sports & Recreation' },
+      { name:'French',                code:'FRN',  cat:'Elective', track:'Sports & Recreation' },
+      { name:'Geography',             code:'GEO',  cat:'Elective', track:'Sports & Recreation' },
+      { name:'German',                code:'GER',  cat:'Elective', track:'Sports & Recreation' },
+      { name:'History & Citizenship', code:'HIS',  cat:'Elective', track:'Sports & Recreation' },
+      { name:'Literature in English', code:'LIT',  cat:'Elective', track:'Sports & Recreation' },
+      { name:'Mandarin',              code:'MAN',  cat:'Elective', track:'Sports & Recreation' },
+      { name:'Advanced Mathematics',  code:'AMATH',cat:'Elective', track:'Sports & Recreation' },
+      { name:'Media Technology',      code:'MDT',  cat:'Elective', track:'Sports & Recreation' },
     ]
   }
 };
+
+// ── Official CBC subject combinations from MoE Kenya ─────────────────────────
+// Each combination: { pathway, track, sno, subjects: ['CODE','CODE','CODE'] }
+// 3 elective subjects per combination; core subjects are always auto-added.
+// Subject codes map to CBC_SUBJECTS above.
+const CBC_COMBINATIONS = [
+  // ══ ARTS & SPORTS — ARTS TRACK ══
+  {pw:'arts',track:'Arts',sno:1,  subs:['FNA','THF','ARB']},
+  {pw:'arts',track:'Arts',sno:2,  subs:['FNA','THF','BIO']},
+  {pw:'arts',track:'Arts',sno:3,  subs:['FNA','THF','BST']},
+  {pw:'arts',track:'Arts',sno:4,  subs:['FNA','THF','CPS']},
+  {pw:'arts',track:'Arts',sno:5,  subs:['FNA','THF','CRE']},
+  {pw:'arts',track:'Arts',sno:6,  subs:['FNA','THF','FKS']},
+  {pw:'arts',track:'Arts',sno:7,  subs:['FNA','THF','FRN']},
+  {pw:'arts',track:'Arts',sno:8,  subs:['FNA','THF','GSC']},
+  {pw:'arts',track:'Arts',sno:9,  subs:['FNA','THF','GEO']},
+  {pw:'arts',track:'Arts',sno:10, subs:['FNA','THF','GER']},
+  {pw:'arts',track:'Arts',sno:11, subs:['FNA','THF','HIS']},
+  {pw:'arts',track:'Arts',sno:12, subs:['FNA','THF','LIT']},
+  {pw:'arts',track:'Arts',sno:13, subs:['FNA','THF','MAN']},
+  {pw:'arts',track:'Arts',sno:14, subs:['FNA','THF','AMATH']},
+  {pw:'arts',track:'Arts',sno:15, subs:['FNA','THF','SPR']},
+  {pw:'arts',track:'Arts',sno:16, subs:['MSD','FNA','ARB']},
+  {pw:'arts',track:'Arts',sno:17, subs:['MSD','FNA','BIO']},
+  {pw:'arts',track:'Arts',sno:18, subs:['MSD','FNA','BST']},
+  {pw:'arts',track:'Arts',sno:19, subs:['MSD','FNA','CPS']},
+  {pw:'arts',track:'Arts',sno:20, subs:['MSD','FNA','CRE']},
+  {pw:'arts',track:'Arts',sno:21, subs:['MSD','FNA','FKS']},
+  {pw:'arts',track:'Arts',sno:22, subs:['MSD','FNA','FRN']},
+  {pw:'arts',track:'Arts',sno:23, subs:['MSD','FNA','GSC']},
+  {pw:'arts',track:'Arts',sno:24, subs:['MSD','FNA','GEO']},
+  {pw:'arts',track:'Arts',sno:25, subs:['MSD','FNA','GER']},
+  {pw:'arts',track:'Arts',sno:26, subs:['MSD','FNA','HIS']},
+  {pw:'arts',track:'Arts',sno:27, subs:['MSD','FNA','LIT']},
+  {pw:'arts',track:'Arts',sno:28, subs:['MSD','FNA','MAN']},
+  {pw:'arts',track:'Arts',sno:29, subs:['MSD','FNA','AMATH']},
+  {pw:'arts',track:'Arts',sno:30, subs:['MSD','FNA','SPR']},
+  {pw:'arts',track:'Arts',sno:31, subs:['MSD','FNA','THF']},
+  {pw:'arts',track:'Arts',sno:32, subs:['THF','MSD','ARB']},
+  {pw:'arts',track:'Arts',sno:33, subs:['THF','MSD','BIO']},
+  {pw:'arts',track:'Arts',sno:34, subs:['THF','MSD','BST']},
+  {pw:'arts',track:'Arts',sno:35, subs:['THF','MSD','CPS']},
+  {pw:'arts',track:'Arts',sno:36, subs:['THF','MSD','CRE']},
+  {pw:'arts',track:'Arts',sno:37, subs:['THF','MSD','FKS']},
+  {pw:'arts',track:'Arts',sno:38, subs:['THF','MSD','FRN']},
+  {pw:'arts',track:'Arts',sno:39, subs:['THF','MSD','GSC']},
+  {pw:'arts',track:'Arts',sno:40, subs:['THF','MSD','GEO']},
+  {pw:'arts',track:'Arts',sno:41, subs:['THF','MSD','GER']},
+  {pw:'arts',track:'Arts',sno:42, subs:['THF','MSD','HIS']},
+  {pw:'arts',track:'Arts',sno:43, subs:['THF','MSD','LIT']},
+  {pw:'arts',track:'Arts',sno:44, subs:['THF','MSD','MAN']},
+  {pw:'arts',track:'Arts',sno:45, subs:['THF','MSD','AMATH']},
+  {pw:'arts',track:'Arts',sno:46, subs:['THF','MSD','SPR']},
+  // ══ ARTS & SPORTS — SPORTS & RECREATION TRACK ══
+  {pw:'arts',track:'Sports & Recreation',sno:47,  subs:['SPR','BIO','ARB']},
+  {pw:'arts',track:'Sports & Recreation',sno:48,  subs:['SPR','BIO','BST']},
+  {pw:'arts',track:'Sports & Recreation',sno:49,  subs:['SPR','BIO','CPS']},
+  {pw:'arts',track:'Sports & Recreation',sno:50,  subs:['SPR','BIO','CRE']},
+  {pw:'arts',track:'Sports & Recreation',sno:51,  subs:['SPR','BIO','FKS']},
+  {pw:'arts',track:'Sports & Recreation',sno:52,  subs:['SPR','BIO','FRN']},
+  {pw:'arts',track:'Sports & Recreation',sno:53,  subs:['SPR','BIO','GEO']},
+  {pw:'arts',track:'Sports & Recreation',sno:54,  subs:['SPR','BIO','GER']},
+  {pw:'arts',track:'Sports & Recreation',sno:55,  subs:['SPR','BIO','HIS']},
+  {pw:'arts',track:'Sports & Recreation',sno:56,  subs:['SPR','BIO','LIT']},
+  {pw:'arts',track:'Sports & Recreation',sno:57,  subs:['SPR','BIO','MAN']},
+  {pw:'arts',track:'Sports & Recreation',sno:58,  subs:['SPR','BIO','AMATH']},
+  {pw:'arts',track:'Sports & Recreation',sno:59,  subs:['SPR','BIO','MDT']},
+  {pw:'arts',track:'Sports & Recreation',sno:60,  subs:['SPR','GSC','ARB']},
+  {pw:'arts',track:'Sports & Recreation',sno:61,  subs:['SPR','GSC','BST']},
+  {pw:'arts',track:'Sports & Recreation',sno:62,  subs:['SPR','GSC','CPS']},
+  {pw:'arts',track:'Sports & Recreation',sno:63,  subs:['SPR','GSC','CRE']},
+  {pw:'arts',track:'Sports & Recreation',sno:64,  subs:['SPR','GSC','FKS']},
+  {pw:'arts',track:'Sports & Recreation',sno:65,  subs:['SPR','GSC','FRN']},
+  {pw:'arts',track:'Sports & Recreation',sno:66,  subs:['SPR','GSC','GEO']},
+  {pw:'arts',track:'Sports & Recreation',sno:67,  subs:['SPR','GSC','GER']},
+  {pw:'arts',track:'Sports & Recreation',sno:68,  subs:['SPR','GSC','HIS']},
+  {pw:'arts',track:'Sports & Recreation',sno:69,  subs:['SPR','GSC','LIT']},
+  {pw:'arts',track:'Sports & Recreation',sno:70,  subs:['SPR','GSC','MAN']},
+  {pw:'arts',track:'Sports & Recreation',sno:71,  subs:['SPR','GSC','AMATH']},
+  {pw:'arts',track:'Sports & Recreation',sno:72,  subs:['SPR','GSC','MDT']},
+  // ══ SOCIAL SCIENCES — HUMANITIES & BUSINESS STUDIES ══
+  {pw:'ss',track:'Humanities & Business Studies',sno:73,  subs:['BST','HIS','ARB']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:74,  subs:['BST','HIS','CPS']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:75,  subs:['BST','HIS','CRE']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:76,  subs:['BST','HIS','FKS']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:77,  subs:['BST','HIS','FRN']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:78,  subs:['BST','HIS','GSC']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:79,  subs:['BST','HIS','GEO']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:80,  subs:['BST','HIS','GER']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:81,  subs:['BST','HIS','LIT']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:82,  subs:['BST','HIS','MAN']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:83,  subs:['BST','HIS','AMATH']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:84,  subs:['CRE','BST','ARB']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:85,  subs:['CRE','BST','CPS']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:86,  subs:['CRE','BST','FKS']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:87,  subs:['CRE','BST','FRN']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:88,  subs:['CRE','BST','GSC']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:89,  subs:['CRE','BST','GEO']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:90,  subs:['CRE','BST','GER']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:91,  subs:['CRE','BST','HIS']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:92,  subs:['CRE','BST','LIT']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:93,  subs:['CRE','BST','MAN']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:94,  subs:['CRE','BST','AMATH']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:95,  subs:['CRE','GEO','ARB']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:96,  subs:['CRE','GEO','CPS']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:97,  subs:['CRE','GEO','FKS']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:98,  subs:['CRE','GEO','FRN']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:99,  subs:['CRE','GEO','GSC']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:100, subs:['CRE','GEO','GER']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:101, subs:['CRE','GEO','LIT']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:102, subs:['CRE','GEO','MAN']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:103, subs:['CRE','GEO','AMATH']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:104, subs:['CRE','HIS','ARB']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:105, subs:['CRE','HIS','CPS']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:106, subs:['CRE','HIS','FKS']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:107, subs:['CRE','HIS','FRN']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:108, subs:['CRE','HIS','GSC']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:109, subs:['CRE','HIS','GEO']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:110, subs:['CRE','HIS','GER']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:111, subs:['CRE','HIS','LIT']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:112, subs:['CRE','HIS','MAN']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:113, subs:['CRE','HIS','AMATH']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:114, subs:['GEO','BST','ARB']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:115, subs:['GEO','BST','CPS']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:116, subs:['GEO','BST','FKS']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:117, subs:['GEO','BST','FRN']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:118, subs:['GEO','BST','GSC']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:119, subs:['GEO','BST','GER']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:120, subs:['GEO','BST','IND']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:121, subs:['GEO','BST','LIT']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:122, subs:['GEO','BST','MAN']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:123, subs:['GEO','BST','AMATH']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:124, subs:['GEO','BST','SLG']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:125, subs:['HIS','GEO','ARB']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:126, subs:['HIS','GEO','BST']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:127, subs:['HIS','GEO','CPS']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:128, subs:['HIS','GEO','CRE']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:129, subs:['HIS','GEO','FKS']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:130, subs:['HIS','GEO','FRN']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:131, subs:['HIS','GEO','GSC']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:132, subs:['HIS','GEO','GER']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:133, subs:['HIS','GEO','LIT']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:134, subs:['HIS','GEO','MAN']},
+  {pw:'ss',track:'Humanities & Business Studies',sno:135, subs:['HIS','GEO','AMATH']},
+  // ══ SOCIAL SCIENCES — LANGUAGES & LITERATURE ══
+  {pw:'ss',track:'Languages & Literature',sno:136, subs:['ARB','FRN','BST']},
+  {pw:'ss',track:'Languages & Literature',sno:137, subs:['ARB','FRN','CPS']},
+  {pw:'ss',track:'Languages & Literature',sno:138, subs:['ARB','FRN','CRE']},
+  {pw:'ss',track:'Languages & Literature',sno:139, subs:['ARB','FRN','GSC']},
+  {pw:'ss',track:'Languages & Literature',sno:140, subs:['ARB','FRN','GEO']},
+  {pw:'ss',track:'Languages & Literature',sno:141, subs:['ARB','FRN','HIS']},
+  {pw:'ss',track:'Languages & Literature',sno:142, subs:['ARB','FRN','MAN']},
+  {pw:'ss',track:'Languages & Literature',sno:143, subs:['ARB','FRN','AMATH']},
+  {pw:'ss',track:'Languages & Literature',sno:144, subs:['FKS','SLG','ARB']},
+  {pw:'ss',track:'Languages & Literature',sno:145, subs:['FKS','SLG','BST']},
+  {pw:'ss',track:'Languages & Literature',sno:146, subs:['FKS','SLG','CHN']},
+  {pw:'ss',track:'Languages & Literature',sno:147, subs:['FKS','SLG','CPS']},
+  {pw:'ss',track:'Languages & Literature',sno:148, subs:['FKS','SLG','CRE']},
+  {pw:'ss',track:'Languages & Literature',sno:149, subs:['FKS','SLG','FRN']},
+  {pw:'ss',track:'Languages & Literature',sno:150, subs:['FKS','SLG','GSC']},
+  {pw:'ss',track:'Languages & Literature',sno:151, subs:['FKS','SLG','GEO']},
+  {pw:'ss',track:'Languages & Literature',sno:152, subs:['FKS','SLG','HIS']},
+  {pw:'ss',track:'Languages & Literature',sno:153, subs:['FKS','SLG','AMATH']},
+  {pw:'ss',track:'Languages & Literature',sno:154, subs:['FRN','GER','BST']},
+  {pw:'ss',track:'Languages & Literature',sno:155, subs:['FRN','GER','CPS']},
+  {pw:'ss',track:'Languages & Literature',sno:156, subs:['FRN','GER','CRE']},
+  {pw:'ss',track:'Languages & Literature',sno:157, subs:['FRN','GER','GSC']},
+  {pw:'ss',track:'Languages & Literature',sno:158, subs:['FRN','GER','GEO']},
+  {pw:'ss',track:'Languages & Literature',sno:159, subs:['FRN','GER','HIS']},
+  {pw:'ss',track:'Languages & Literature',sno:160, subs:['FRN','GER','AMATH']},
+  {pw:'ss',track:'Languages & Literature',sno:161, subs:['IND','FKS','ARB']},
+  {pw:'ss',track:'Languages & Literature',sno:162, subs:['IND','FKS','BST']},
+  {pw:'ss',track:'Languages & Literature',sno:163, subs:['IND','FKS','CPS']},
+  {pw:'ss',track:'Languages & Literature',sno:164, subs:['IND','FKS','CRE']},
+  {pw:'ss',track:'Languages & Literature',sno:165, subs:['IND','FKS','FRN']},
+  {pw:'ss',track:'Languages & Literature',sno:166, subs:['IND','FKS','GSC']},
+  {pw:'ss',track:'Languages & Literature',sno:167, subs:['IND','FKS','GEO']},
+  {pw:'ss',track:'Languages & Literature',sno:168, subs:['IND','FKS','GER']},
+  {pw:'ss',track:'Languages & Literature',sno:169, subs:['IND','FKS','HIS']},
+  {pw:'ss',track:'Languages & Literature',sno:170, subs:['IND','FKS','MAN']},
+  {pw:'ss',track:'Languages & Literature',sno:171, subs:['IND','FKS','AMATH']},
+  {pw:'ss',track:'Languages & Literature',sno:172, subs:['IND','FKS','SLG']},
+  {pw:'ss',track:'Languages & Literature',sno:173, subs:['IND','LIT','ARB']},
+  {pw:'ss',track:'Languages & Literature',sno:174, subs:['IND','LIT','BST']},
+  {pw:'ss',track:'Languages & Literature',sno:175, subs:['IND','LIT','CPS']},
+  {pw:'ss',track:'Languages & Literature',sno:176, subs:['IND','LIT','CRE']},
+  {pw:'ss',track:'Languages & Literature',sno:177, subs:['IND','LIT','FKS']},
+  {pw:'ss',track:'Languages & Literature',sno:178, subs:['IND','LIT','FRN']},
+  {pw:'ss',track:'Languages & Literature',sno:179, subs:['IND','LIT','GSC']},
+  {pw:'ss',track:'Languages & Literature',sno:180, subs:['IND','LIT','GEO']},
+  {pw:'ss',track:'Languages & Literature',sno:181, subs:['IND','LIT','GER']},
+  {pw:'ss',track:'Languages & Literature',sno:182, subs:['IND','LIT','HIS']},
+  {pw:'ss',track:'Languages & Literature',sno:183, subs:['IND','LIT','MAN']},
+  {pw:'ss',track:'Languages & Literature',sno:184, subs:['IND','LIT','AMATH']},
+  {pw:'ss',track:'Languages & Literature',sno:185, subs:['IND','LIT','SLG']},
+  {pw:'ss',track:'Languages & Literature',sno:186, subs:['LIT','FKS','ARB']},
+  {pw:'ss',track:'Languages & Literature',sno:187, subs:['LIT','FKS','BST']},
+  {pw:'ss',track:'Languages & Literature',sno:188, subs:['LIT','FKS','CPS']},
+  {pw:'ss',track:'Languages & Literature',sno:189, subs:['LIT','FKS','FRN']},
+  {pw:'ss',track:'Languages & Literature',sno:190, subs:['LIT','FKS','GEO']},
+  {pw:'ss',track:'Languages & Literature',sno:191, subs:['LIT','FKS','HIS']},
+  {pw:'ss',track:'Languages & Literature',sno:192, subs:['LIT','FKS','MAN']},
+  {pw:'ss',track:'Languages & Literature',sno:193, subs:['LIT','FKS','SLG']},
+  {pw:'ss',track:'Languages & Literature',sno:194, subs:['MAN','FRN','BST']},
+  {pw:'ss',track:'Languages & Literature',sno:195, subs:['MAN','FRN','CPS']},
+  {pw:'ss',track:'Languages & Literature',sno:196, subs:['MAN','FRN','CRE']},
+  {pw:'ss',track:'Languages & Literature',sno:197, subs:['MAN','FRN','GSC']},
+  {pw:'ss',track:'Languages & Literature',sno:198, subs:['MAN','FRN','GEO']},
+  {pw:'ss',track:'Languages & Literature',sno:199, subs:['MAN','FRN','HIS']},
+  {pw:'ss',track:'Languages & Literature',sno:200, subs:['MAN','FRN','MTH']},
+  {pw:'ss',track:'Languages & Literature',sno:201, subs:['SLG','ARB','BST']},
+  {pw:'ss',track:'Languages & Literature',sno:202, subs:['SLG','ARB','CPS']},
+  {pw:'ss',track:'Languages & Literature',sno:203, subs:['SLG','ARB','CRE']},
+  {pw:'ss',track:'Languages & Literature',sno:204, subs:['SLG','ARB','FRN']},
+  {pw:'ss',track:'Languages & Literature',sno:205, subs:['SLG','ARB','GSC']},
+  {pw:'ss',track:'Languages & Literature',sno:206, subs:['SLG','ARB','GEO']},
+  {pw:'ss',track:'Languages & Literature',sno:207, subs:['SLG','ARB','HIS']},
+  {pw:'ss',track:'Languages & Literature',sno:208, subs:['SLG','ARB','MAN']},
+  {pw:'ss',track:'Languages & Literature',sno:209, subs:['SLG','ARB','AMATH']},
+  // ══ STEM — APPLIED SCIENCES ══
+  {pw:'stem',track:'Applied Sciences',sno:210, subs:['AGR','BST','AVN']},
+  {pw:'stem',track:'Applied Sciences',sno:211, subs:['AGR','BST','BIO']},
+  {pw:'stem',track:'Applied Sciences',sno:212, subs:['AGR','BST','BLD']},
+  {pw:'stem',track:'Applied Sciences',sno:213, subs:['AGR','BST','CHE']},
+  {pw:'stem',track:'Applied Sciences',sno:214, subs:['AGR','BST','CPS']},
+  {pw:'stem',track:'Applied Sciences',sno:215, subs:['AGR','BST','ELC']},
+  {pw:'stem',track:'Applied Sciences',sno:216, subs:['AGR','BST','GSC']},
+  {pw:'stem',track:'Applied Sciences',sno:217, subs:['AGR','BST','GEO']},
+  {pw:'stem',track:'Applied Sciences',sno:218, subs:['AGR','BST','MRF']},
+  {pw:'stem',track:'Applied Sciences',sno:219, subs:['AGR','BST','AMATH']},
+  {pw:'stem',track:'Applied Sciences',sno:220, subs:['AGR','BST','MWK']},
+  {pw:'stem',track:'Applied Sciences',sno:221, subs:['AGR','BST','PHY']},
+  {pw:'stem',track:'Applied Sciences',sno:222, subs:['AGR','BST','PWM']},
+  {pw:'stem',track:'Applied Sciences',sno:223, subs:['AGR','BST','WWK']},
+  {pw:'stem',track:'Applied Sciences',sno:224, subs:['AGR','CPS','AVN']},
+  {pw:'stem',track:'Applied Sciences',sno:225, subs:['AGR','CPS','BIO']},
+  {pw:'stem',track:'Applied Sciences',sno:226, subs:['AGR','CPS','BLD']},
+  {pw:'stem',track:'Applied Sciences',sno:227, subs:['AGR','CPS','BST']},
+  {pw:'stem',track:'Applied Sciences',sno:228, subs:['AGR','CPS','CHE']},
+  {pw:'stem',track:'Applied Sciences',sno:229, subs:['AGR','CPS','ELC']},
+  {pw:'stem',track:'Applied Sciences',sno:230, subs:['AGR','CPS','GSC']},
+  {pw:'stem',track:'Applied Sciences',sno:231, subs:['AGR','CPS','GEO']},
+  {pw:'stem',track:'Applied Sciences',sno:232, subs:['AGR','CPS','HSC']},
+  {pw:'stem',track:'Applied Sciences',sno:233, subs:['AGR','CPS','MRF']},
+  {pw:'stem',track:'Applied Sciences',sno:234, subs:['AGR','CPS','AMATH']},
+  {pw:'stem',track:'Applied Sciences',sno:235, subs:['AGR','CPS','MWK']},
+  {pw:'stem',track:'Applied Sciences',sno:236, subs:['AGR','CPS','PHY']},
+  {pw:'stem',track:'Applied Sciences',sno:237, subs:['AGR','CPS','PWM']},
+  {pw:'stem',track:'Applied Sciences',sno:238, subs:['AGR','CPS','WWK']},
+  {pw:'stem',track:'Applied Sciences',sno:239, subs:['AGR','GEO','AVN']},
+  {pw:'stem',track:'Applied Sciences',sno:240, subs:['AGR','GEO','BIO']},
+  {pw:'stem',track:'Applied Sciences',sno:241, subs:['AGR','GEO','BLD']},
+  {pw:'stem',track:'Applied Sciences',sno:242, subs:['AGR','GEO','CPS']},
+  {pw:'stem',track:'Applied Sciences',sno:243, subs:['AGR','GEO','ELC']},
+  {pw:'stem',track:'Applied Sciences',sno:244, subs:['AGR','GEO','GSC']},
+  {pw:'stem',track:'Applied Sciences',sno:245, subs:['AGR','GEO','MRF']},
+  {pw:'stem',track:'Applied Sciences',sno:246, subs:['AGR','GEO','AMATH']},
+  {pw:'stem',track:'Applied Sciences',sno:247, subs:['AGR','GEO','MWK']},
+  {pw:'stem',track:'Applied Sciences',sno:248, subs:['AGR','GEO','PHY']},
+  {pw:'stem',track:'Applied Sciences',sno:249, subs:['AGR','GEO','PWM']},
+  {pw:'stem',track:'Applied Sciences',sno:250, subs:['AGR','GEO','WWK']},
+  {pw:'stem',track:'Applied Sciences',sno:251, subs:['AGR','HSC','AVN']},
+  {pw:'stem',track:'Applied Sciences',sno:252, subs:['AGR','HSC','BIO']},
+  {pw:'stem',track:'Applied Sciences',sno:253, subs:['AGR','HSC','BLD']},
+  {pw:'stem',track:'Applied Sciences',sno:254, subs:['AGR','HSC','BST']},
+  {pw:'stem',track:'Applied Sciences',sno:255, subs:['AGR','HSC','CHE']},
+  {pw:'stem',track:'Applied Sciences',sno:256, subs:['AGR','HSC','ELC']},
+  {pw:'stem',track:'Applied Sciences',sno:257, subs:['AGR','HSC','GSC']},
+  {pw:'stem',track:'Applied Sciences',sno:258, subs:['AGR','HSC','GEO']},
+  {pw:'stem',track:'Applied Sciences',sno:259, subs:['AGR','HSC','MRF']},
+  {pw:'stem',track:'Applied Sciences',sno:260, subs:['AGR','HSC','AMATH']},
+  {pw:'stem',track:'Applied Sciences',sno:261, subs:['AGR','HSC','MWK']},
+  {pw:'stem',track:'Applied Sciences',sno:262, subs:['AGR','HSC','PHY']},
+  {pw:'stem',track:'Applied Sciences',sno:263, subs:['AGR','HSC','PWM']},
+  {pw:'stem',track:'Applied Sciences',sno:264, subs:['AGR','HSC','WWK']},
+  {pw:'stem',track:'Applied Sciences',sno:265, subs:['CPS','GEO','AVN']},
+  {pw:'stem',track:'Applied Sciences',sno:266, subs:['CPS','GEO','BIO']},
+  {pw:'stem',track:'Applied Sciences',sno:267, subs:['CPS','GEO','BLD']},
+  {pw:'stem',track:'Applied Sciences',sno:268, subs:['CPS','GEO','CHE']},
+  {pw:'stem',track:'Applied Sciences',sno:269, subs:['CPS','GEO','ELC']},
+  {pw:'stem',track:'Applied Sciences',sno:270, subs:['CPS','GEO','GSC']},
+  {pw:'stem',track:'Applied Sciences',sno:271, subs:['CPS','GEO','MRF']},
+  {pw:'stem',track:'Applied Sciences',sno:272, subs:['CPS','GEO','AMATH']},
+  {pw:'stem',track:'Applied Sciences',sno:273, subs:['CPS','GEO','MWK']},
+  {pw:'stem',track:'Applied Sciences',sno:274, subs:['CPS','GEO','PHY']},
+  {pw:'stem',track:'Applied Sciences',sno:275, subs:['CPS','GEO','PWM']},
+  {pw:'stem',track:'Applied Sciences',sno:276, subs:['CPS','GEO','WWK']},
+  {pw:'stem',track:'Applied Sciences',sno:277, subs:['CPS','BST','AVN']},
+  {pw:'stem',track:'Applied Sciences',sno:278, subs:['CPS','BST','GSC']},
+  {pw:'stem',track:'Applied Sciences',sno:279, subs:['CPS','BST','MRF']},
+  {pw:'stem',track:'Applied Sciences',sno:280, subs:['CPS','BST','PHY']},
+  {pw:'stem',track:'Applied Sciences',sno:281, subs:['CPS','BST','BIO']},
+  {pw:'stem',track:'Applied Sciences',sno:282, subs:['CPS','BST','BLD']},
+  {pw:'stem',track:'Applied Sciences',sno:283, subs:['CPS','BST','CHE']},
+  {pw:'stem',track:'Applied Sciences',sno:284, subs:['CPS','BST','ELC']},
+  {pw:'stem',track:'Applied Sciences',sno:285, subs:['CPS','BST','GEO']},
+  {pw:'stem',track:'Applied Sciences',sno:286, subs:['CPS','BST','AMATH']},
+  {pw:'stem',track:'Applied Sciences',sno:287, subs:['CPS','BST','MWK']},
+  {pw:'stem',track:'Applied Sciences',sno:288, subs:['CPS','BST','PWM']},
+  {pw:'stem',track:'Applied Sciences',sno:289, subs:['CPS','BST','WWK']},
+  {pw:'stem',track:'Applied Sciences',sno:290, subs:['CPS','HSC','AVN']},
+  {pw:'stem',track:'Applied Sciences',sno:291, subs:['CPS','HSC','BIO']},
+  {pw:'stem',track:'Applied Sciences',sno:292, subs:['CPS','HSC','BLD']},
+  {pw:'stem',track:'Applied Sciences',sno:293, subs:['CPS','HSC','BST']},
+  {pw:'stem',track:'Applied Sciences',sno:294, subs:['CPS','HSC','CHE']},
+  {pw:'stem',track:'Applied Sciences',sno:295, subs:['CPS','HSC','ELC']},
+  {pw:'stem',track:'Applied Sciences',sno:296, subs:['CPS','HSC','GSC']},
+  {pw:'stem',track:'Applied Sciences',sno:297, subs:['CPS','HSC','GEO']},
+  {pw:'stem',track:'Applied Sciences',sno:298, subs:['CPS','HSC','MRF']},
+  {pw:'stem',track:'Applied Sciences',sno:299, subs:['CPS','HSC','AMATH']},
+  {pw:'stem',track:'Applied Sciences',sno:300, subs:['CPS','HSC','MWK']},
+  {pw:'stem',track:'Applied Sciences',sno:301, subs:['CPS','HSC','PHY']},
+  {pw:'stem',track:'Applied Sciences',sno:302, subs:['CPS','HSC','PWM']},
+  {pw:'stem',track:'Applied Sciences',sno:303, subs:['CPS','HSC','WWK']},
+  // ══ STEM — PURE SCIENCES ══
+  {pw:'stem',track:'Pure Sciences',sno:304, subs:['AMATH','BIO','AGR']},
+  {pw:'stem',track:'Pure Sciences',sno:305, subs:['AMATH','BIO','AVN']},
+  {pw:'stem',track:'Pure Sciences',sno:306, subs:['AMATH','BIO','BLD']},
+  {pw:'stem',track:'Pure Sciences',sno:307, subs:['AMATH','BIO','BST']},
+  {pw:'stem',track:'Pure Sciences',sno:308, subs:['AMATH','BIO','CHE']},
+  {pw:'stem',track:'Pure Sciences',sno:309, subs:['AMATH','BIO','CPS']},
+  {pw:'stem',track:'Pure Sciences',sno:310, subs:['AMATH','BIO','ELC']},
+  {pw:'stem',track:'Pure Sciences',sno:311, subs:['AMATH','BIO','GEO']},
+  {pw:'stem',track:'Pure Sciences',sno:312, subs:['AMATH','BIO','HSC']},
+  {pw:'stem',track:'Pure Sciences',sno:313, subs:['AMATH','BIO','MRF']},
+  {pw:'stem',track:'Pure Sciences',sno:314, subs:['AMATH','BIO','MWK']},
+  {pw:'stem',track:'Pure Sciences',sno:315, subs:['AMATH','BIO','PHY']},
+  {pw:'stem',track:'Pure Sciences',sno:316, subs:['AMATH','BIO','PWM']},
+  {pw:'stem',track:'Pure Sciences',sno:317, subs:['AMATH','BIO','WWK']},
+  {pw:'stem',track:'Pure Sciences',sno:318, subs:['AMATH','CHE','AGR']},
+  {pw:'stem',track:'Pure Sciences',sno:319, subs:['AMATH','CHE','AVN']},
+  {pw:'stem',track:'Pure Sciences',sno:320, subs:['AMATH','CHE','BLD']},
+  {pw:'stem',track:'Pure Sciences',sno:321, subs:['AMATH','CHE','BST']},
+  {pw:'stem',track:'Pure Sciences',sno:322, subs:['AMATH','CHE','CPS']},
+  {pw:'stem',track:'Pure Sciences',sno:323, subs:['AMATH','CHE','ELC']},
+  {pw:'stem',track:'Pure Sciences',sno:324, subs:['AMATH','CHE','GEO']},
+  {pw:'stem',track:'Pure Sciences',sno:325, subs:['AMATH','CHE','HSC']},
+  {pw:'stem',track:'Pure Sciences',sno:326, subs:['AMATH','CHE','MRF']},
+  {pw:'stem',track:'Pure Sciences',sno:327, subs:['AMATH','CHE','MWK']},
+  {pw:'stem',track:'Pure Sciences',sno:328, subs:['AMATH','CHE','PHY']},
+  {pw:'stem',track:'Pure Sciences',sno:329, subs:['AMATH','CHE','PWM']},
+  {pw:'stem',track:'Pure Sciences',sno:330, subs:['AMATH','CHE','WWK']},
+  {pw:'stem',track:'Pure Sciences',sno:331, subs:['AMATH','GSC','AGR']},
+  {pw:'stem',track:'Pure Sciences',sno:332, subs:['AMATH','GSC','AVN']},
+  {pw:'stem',track:'Pure Sciences',sno:333, subs:['AMATH','GSC','BLD']},
+  {pw:'stem',track:'Pure Sciences',sno:334, subs:['AMATH','GSC','BST']},
+  {pw:'stem',track:'Pure Sciences',sno:335, subs:['AMATH','GSC','CPS']},
+  {pw:'stem',track:'Pure Sciences',sno:336, subs:['AMATH','GSC','ELC']},
+  {pw:'stem',track:'Pure Sciences',sno:337, subs:['AMATH','GSC','GEO']},
+  {pw:'stem',track:'Pure Sciences',sno:338, subs:['AMATH','GSC','HSC']},
+  {pw:'stem',track:'Pure Sciences',sno:339, subs:['AMATH','GSC','MWK']},
+  {pw:'stem',track:'Pure Sciences',sno:340, subs:['AMATH','GSC','PWM']},
+  {pw:'stem',track:'Pure Sciences',sno:341, subs:['AMATH','GSC','WWK']},
+  {pw:'stem',track:'Pure Sciences',sno:342, subs:['AMATH','PHY','AGR']},
+  {pw:'stem',track:'Pure Sciences',sno:343, subs:['AMATH','PHY','AVN']},
+  {pw:'stem',track:'Pure Sciences',sno:344, subs:['AMATH','PHY','BLD']},
+  {pw:'stem',track:'Pure Sciences',sno:345, subs:['AMATH','PHY','BST']},
+  {pw:'stem',track:'Pure Sciences',sno:346, subs:['AMATH','PHY','CPS']},
+  {pw:'stem',track:'Pure Sciences',sno:347, subs:['AMATH','PHY','ELC']},
+  {pw:'stem',track:'Pure Sciences',sno:348, subs:['AMATH','PHY','GEO']},
+  {pw:'stem',track:'Pure Sciences',sno:349, subs:['AMATH','PHY','HSC']},
+  {pw:'stem',track:'Pure Sciences',sno:350, subs:['AMATH','PHY','MRF']},
+  {pw:'stem',track:'Pure Sciences',sno:351, subs:['AMATH','PHY','MWK']},
+  {pw:'stem',track:'Pure Sciences',sno:352, subs:['AMATH','PHY','PWM']},
+  {pw:'stem',track:'Pure Sciences',sno:353, subs:['AMATH','PHY','WWK']},
+  {pw:'stem',track:'Pure Sciences',sno:354, subs:['BIO','CHE','AGR']},
+  {pw:'stem',track:'Pure Sciences',sno:355, subs:['BIO','CHE','AVN']},
+  {pw:'stem',track:'Pure Sciences',sno:356, subs:['BIO','CHE','BLD']},
+  {pw:'stem',track:'Pure Sciences',sno:357, subs:['BIO','CHE','BST']},
+  {pw:'stem',track:'Pure Sciences',sno:358, subs:['BIO','CHE','CPS']},
+  {pw:'stem',track:'Pure Sciences',sno:359, subs:['BIO','CHE','ELC']},
+  {pw:'stem',track:'Pure Sciences',sno:360, subs:['BIO','CHE','GEO']},
+  {pw:'stem',track:'Pure Sciences',sno:361, subs:['BIO','CHE','HSC']},
+  {pw:'stem',track:'Pure Sciences',sno:362, subs:['BIO','CHE','MWK']},
+  {pw:'stem',track:'Pure Sciences',sno:363, subs:['BIO','CHE','PWM']},
+  {pw:'stem',track:'Pure Sciences',sno:364, subs:['BIO','CHE','WWK']},
+  {pw:'stem',track:'Pure Sciences',sno:365, subs:['BIO','PHY','AGR']},
+  {pw:'stem',track:'Pure Sciences',sno:366, subs:['BIO','PHY','AVN']},
+  {pw:'stem',track:'Pure Sciences',sno:367, subs:['BIO','PHY','BLD']},
+  {pw:'stem',track:'Pure Sciences',sno:368, subs:['BIO','PHY','BST']},
+  {pw:'stem',track:'Pure Sciences',sno:369, subs:['BIO','PHY','CPS']},
+  {pw:'stem',track:'Pure Sciences',sno:370, subs:['BIO','PHY','ELC']},
+  {pw:'stem',track:'Pure Sciences',sno:371, subs:['BIO','PHY','GEO']},
+  {pw:'stem',track:'Pure Sciences',sno:372, subs:['BIO','PHY','HSC']},
+  {pw:'stem',track:'Pure Sciences',sno:373, subs:['BIO','PHY','MWK']},
+  {pw:'stem',track:'Pure Sciences',sno:374, subs:['BIO','PHY','PWM']},
+  {pw:'stem',track:'Pure Sciences',sno:375, subs:['BIO','PHY','WWK']},
+  {pw:'stem',track:'Pure Sciences',sno:376, subs:['CHE','PHY','AGR']},
+  {pw:'stem',track:'Pure Sciences',sno:377, subs:['CHE','PHY','AVN']},
+  {pw:'stem',track:'Pure Sciences',sno:378, subs:['CHE','PHY','BLD']},
+  {pw:'stem',track:'Pure Sciences',sno:379, subs:['CHE','PHY','BST']},
+  {pw:'stem',track:'Pure Sciences',sno:380, subs:['CHE','PHY','CPS']},
+  {pw:'stem',track:'Pure Sciences',sno:381, subs:['CHE','PHY','ELC']},
+  {pw:'stem',track:'Pure Sciences',sno:382, subs:['CHE','PHY','GEO']},
+  {pw:'stem',track:'Pure Sciences',sno:383, subs:['CHE','PHY','HSC']},
+  {pw:'stem',track:'Pure Sciences',sno:384, subs:['CHE','PHY','MWK']},
+  {pw:'stem',track:'Pure Sciences',sno:385, subs:['CHE','PHY','PWM']},
+  {pw:'stem',track:'Pure Sciences',sno:386, subs:['CHE','PHY','WWK']},
+  // ══ STEM — TECHNICAL STUDIES ══
+  {pw:'stem',track:'Technical Studies',sno:387, subs:['AVN','BST','BIO']},
+  {pw:'stem',track:'Technical Studies',sno:388, subs:['AVN','BST','CHE']},
+  {pw:'stem',track:'Technical Studies',sno:389, subs:['AVN','BST','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:390, subs:['AVN','BST','GSC']},
+  {pw:'stem',track:'Technical Studies',sno:391, subs:['AVN','BST','GEO']},
+  {pw:'stem',track:'Technical Studies',sno:392, subs:['AVN','BST','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:393, subs:['AVN','BST','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:394, subs:['AVN','BST','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:395, subs:['AVN','BST','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:396, subs:['AVN','BST','PHY']},
+  {pw:'stem',track:'Technical Studies',sno:397, subs:['AVN','GSC','AGR']},
+  {pw:'stem',track:'Technical Studies',sno:398, subs:['AVN','GSC','BST']},
+  {pw:'stem',track:'Technical Studies',sno:399, subs:['AVN','GSC','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:400, subs:['AVN','GSC','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:401, subs:['AVN','GSC','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:402, subs:['AVN','GSC','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:403, subs:['AVN','GSC','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:404, subs:['AVN','GSC','PWM']},
+  {pw:'stem',track:'Technical Studies',sno:405, subs:['AVN','GEO','BIO']},
+  {pw:'stem',track:'Technical Studies',sno:406, subs:['AVN','GEO','BST']},
+  {pw:'stem',track:'Technical Studies',sno:407, subs:['AVN','GEO','CHE']},
+  {pw:'stem',track:'Technical Studies',sno:408, subs:['AVN','GEO','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:409, subs:['AVN','GEO','GSC']},
+  {pw:'stem',track:'Technical Studies',sno:410, subs:['AVN','GEO','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:411, subs:['AVN','GEO','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:412, subs:['AVN','GEO','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:413, subs:['AVN','GEO','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:414, subs:['AVN','GEO','PHY']},
+  {pw:'stem',track:'Technical Studies',sno:415, subs:['BLD','BST','BIO']},
+  {pw:'stem',track:'Technical Studies',sno:416, subs:['BLD','BST','CHE']},
+  {pw:'stem',track:'Technical Studies',sno:417, subs:['BLD','BST','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:418, subs:['BLD','BST','GSC']},
+  {pw:'stem',track:'Technical Studies',sno:419, subs:['BLD','BST','GEO']},
+  {pw:'stem',track:'Technical Studies',sno:420, subs:['BLD','BST','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:421, subs:['BLD','BST','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:422, subs:['BLD','BST','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:423, subs:['BLD','BST','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:424, subs:['BLD','BST','PHY']},
+  {pw:'stem',track:'Technical Studies',sno:425, subs:['BLD','GSC','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:426, subs:['BLD','GSC','GEO']},
+  {pw:'stem',track:'Technical Studies',sno:427, subs:['BLD','GSC','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:428, subs:['BLD','GSC','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:429, subs:['BLD','GSC','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:430, subs:['BLD','GSC','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:431, subs:['BLD','GEO','BIO']},
+  {pw:'stem',track:'Technical Studies',sno:432, subs:['BLD','GEO','CHE']},
+  {pw:'stem',track:'Technical Studies',sno:433, subs:['BLD','GEO','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:434, subs:['BLD','GEO','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:435, subs:['BLD','GEO','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:436, subs:['BLD','GEO','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:437, subs:['BLD','GEO','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:438, subs:['BLD','GEO','PHY']},
+  {pw:'stem',track:'Technical Studies',sno:439, subs:['ELC','BST','BIO']},
+  {pw:'stem',track:'Technical Studies',sno:440, subs:['ELC','BST','CHE']},
+  {pw:'stem',track:'Technical Studies',sno:441, subs:['ELC','BST','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:442, subs:['ELC','BST','GEO']},
+  {pw:'stem',track:'Technical Studies',sno:443, subs:['ELC','BST','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:444, subs:['ELC','BST','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:445, subs:['ELC','BST','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:446, subs:['ELC','BST','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:447, subs:['ELC','BST','PHY']},
+  {pw:'stem',track:'Technical Studies',sno:448, subs:['ELC','GSC','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:449, subs:['ELC','GSC','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:450, subs:['ELC','GSC','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:451, subs:['ELC','GSC','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:452, subs:['ELC','GSC','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:453, subs:['ELC','GEO','BIO']},
+  {pw:'stem',track:'Technical Studies',sno:454, subs:['ELC','GEO','CHE']},
+  {pw:'stem',track:'Technical Studies',sno:455, subs:['ELC','GEO','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:456, subs:['ELC','GEO','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:457, subs:['ELC','GEO','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:458, subs:['ELC','GEO','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:459, subs:['ELC','GEO','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:460, subs:['ELC','GEO','PHY']},
+  {pw:'stem',track:'Technical Studies',sno:461, subs:['MRF','BST','BIO']},
+  {pw:'stem',track:'Technical Studies',sno:462, subs:['MRF','BST','CHE']},
+  {pw:'stem',track:'Technical Studies',sno:463, subs:['MRF','BST','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:464, subs:['MRF','BST','GSC']},
+  {pw:'stem',track:'Technical Studies',sno:465, subs:['MRF','BST','GEO']},
+  {pw:'stem',track:'Technical Studies',sno:466, subs:['MRF','BST','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:467, subs:['MRF','BST','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:468, subs:['MRF','BST','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:469, subs:['MRF','BST','PHY']},
+  {pw:'stem',track:'Technical Studies',sno:470, subs:['MRF','GSC','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:471, subs:['MRF','GSC','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:472, subs:['MRF','GSC','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:473, subs:['MRF','GSC','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:474, subs:['MRF','GEO','BIO']},
+  {pw:'stem',track:'Technical Studies',sno:475, subs:['MRF','GEO','CHE']},
+  {pw:'stem',track:'Technical Studies',sno:476, subs:['MRF','GEO','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:477, subs:['MRF','GEO','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:478, subs:['MRF','GEO','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:479, subs:['MRF','GEO','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:480, subs:['MRF','GEO','PHY']},
+  {pw:'stem',track:'Technical Studies',sno:481, subs:['MDT','BST','BIO']},
+  {pw:'stem',track:'Technical Studies',sno:482, subs:['MDT','BST','CHE']},
+  {pw:'stem',track:'Technical Studies',sno:483, subs:['MDT','BST','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:484, subs:['MDT','BST','GEO']},
+  {pw:'stem',track:'Technical Studies',sno:485, subs:['MDT','BST','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:486, subs:['MDT','BST','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:487, subs:['MDT','BST','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:488, subs:['MDT','BST','PHY']},
+  {pw:'stem',track:'Technical Studies',sno:489, subs:['MDT','GSC','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:490, subs:['MDT','GSC','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:491, subs:['MDT','GSC','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:492, subs:['MDT','GSC','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:493, subs:['MDT','GEO','BIO']},
+  {pw:'stem',track:'Technical Studies',sno:494, subs:['MDT','GEO','CHE']},
+  {pw:'stem',track:'Technical Studies',sno:495, subs:['MDT','GEO','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:496, subs:['MDT','GEO','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:497, subs:['MDT','GEO','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:498, subs:['MDT','GEO','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:499, subs:['MDT','GEO','PHY']},
+  {pw:'stem',track:'Technical Studies',sno:500, subs:['MWK','BST','AVN']},
+  {pw:'stem',track:'Technical Studies',sno:501, subs:['MWK','BST','BIO']},
+  {pw:'stem',track:'Technical Studies',sno:502, subs:['MWK','BST','CHE']},
+  {pw:'stem',track:'Technical Studies',sno:503, subs:['MWK','BST','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:504, subs:['MWK','BST','GSC']},
+  {pw:'stem',track:'Technical Studies',sno:505, subs:['MWK','BST','GEO']},
+  {pw:'stem',track:'Technical Studies',sno:506, subs:['MWK','BST','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:507, subs:['MWK','BST','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:508, subs:['MWK','BST','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:509, subs:['MWK','BST','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:510, subs:['MWK','BST','PHY']},
+  {pw:'stem',track:'Technical Studies',sno:511, subs:['MWK','GSC','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:512, subs:['MWK','GSC','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:513, subs:['MWK','GSC','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:514, subs:['MWK','GSC','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:515, subs:['MWK','GSC','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:516, subs:['MWK','GEO','BIO']},
+  {pw:'stem',track:'Technical Studies',sno:517, subs:['MWK','GEO','CHE']},
+  {pw:'stem',track:'Technical Studies',sno:518, subs:['MWK','GEO','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:519, subs:['MWK','GEO','GSC']},
+  {pw:'stem',track:'Technical Studies',sno:520, subs:['MWK','GEO','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:521, subs:['MWK','GEO','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:522, subs:['MWK','GEO','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:523, subs:['MWK','GEO','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:524, subs:['MWK','GEO','PHY']},
+  {pw:'stem',track:'Technical Studies',sno:525, subs:['PWM','BST','BIO']},
+  {pw:'stem',track:'Technical Studies',sno:526, subs:['PWM','BST','CHE']},
+  {pw:'stem',track:'Technical Studies',sno:527, subs:['PWM','BST','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:528, subs:['PWM','BST','GSC']},
+  {pw:'stem',track:'Technical Studies',sno:529, subs:['PWM','BST','GEO']},
+  {pw:'stem',track:'Technical Studies',sno:530, subs:['PWM','BST','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:531, subs:['PWM','BST','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:532, subs:['PWM','BST','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:533, subs:['PWM','BST','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:534, subs:['PWM','BST','PHY']},
+  {pw:'stem',track:'Technical Studies',sno:535, subs:['PWM','GSC','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:536, subs:['PWM','GSC','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:537, subs:['PWM','GSC','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:538, subs:['PWM','GSC','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:539, subs:['PWM','GSC','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:540, subs:['PWM','GEO','BIO']},
+  {pw:'stem',track:'Technical Studies',sno:541, subs:['PWM','GEO','CHE']},
+  {pw:'stem',track:'Technical Studies',sno:542, subs:['PWM','GEO','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:543, subs:['PWM','GEO','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:544, subs:['PWM','GEO','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:545, subs:['PWM','GEO','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:546, subs:['PWM','GEO','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:547, subs:['PWM','GEO','PHY']},
+  {pw:'stem',track:'Technical Studies',sno:548, subs:['WWK','BST','BIO']},
+  {pw:'stem',track:'Technical Studies',sno:549, subs:['WWK','BST','CHE']},
+  {pw:'stem',track:'Technical Studies',sno:550, subs:['WWK','BST','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:551, subs:['WWK','BST','GSC']},
+  {pw:'stem',track:'Technical Studies',sno:552, subs:['WWK','BST','GEO']},
+  {pw:'stem',track:'Technical Studies',sno:553, subs:['WWK','BST','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:554, subs:['WWK','BST','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:555, subs:['WWK','BST','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:556, subs:['WWK','BST','PHY']},
+  {pw:'stem',track:'Technical Studies',sno:557, subs:['WWK','GSC','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:558, subs:['WWK','GSC','GEO']},
+  {pw:'stem',track:'Technical Studies',sno:559, subs:['WWK','GSC','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:560, subs:['WWK','GSC','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:561, subs:['WWK','GSC','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:562, subs:['WWK','GSC','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:563, subs:['WWK','GEO','BIO']},
+  {pw:'stem',track:'Technical Studies',sno:564, subs:['WWK','GEO','CHE']},
+  {pw:'stem',track:'Technical Studies',sno:565, subs:['WWK','GEO','CPS']},
+  {pw:'stem',track:'Technical Studies',sno:566, subs:['WWK','GEO','GSC']},
+  {pw:'stem',track:'Technical Studies',sno:567, subs:['WWK','GEO','HSC']},
+  {pw:'stem',track:'Technical Studies',sno:568, subs:['WWK','GEO','MRF']},
+  {pw:'stem',track:'Technical Studies',sno:569, subs:['WWK','GEO','AMATH']},
+  {pw:'stem',track:'Technical Studies',sno:570, subs:['WWK','GEO','MDT']},
+  {pw:'stem',track:'Technical Studies',sno:571, subs:['WWK','GEO','PHY']},
+];
 
 // Returns { core:[], elective:[] } for a given pathway id
 function getCBCSubjectsForPathway(pwId) {
