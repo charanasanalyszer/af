@@ -6506,19 +6506,6 @@ function printMarksSheet() {
     alternateRowStyles: { fillColor: altRow },
     columnStyles,
     margin: { left: margin, right: margin },
-    // Draw thick outer border after table is rendered
-    didDrawPage: (data) => {
-      // Thick border around the entire table
-      const t = data.table;
-      doc.setDrawColor(...blue);
-      doc.setLineWidth(1.0);
-      doc.rect(
-        t.settings.margin.left,
-        t.startPageNumber === data.pageNumber ? y : 10,
-        W - margin * 2,
-        doc.lastAutoTable ? doc.lastAutoTable.finalY - y : t.finalY - y
-      );
-    },
   });
 
   // Thick border drawn explicitly after table
