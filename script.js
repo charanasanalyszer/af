@@ -6376,61 +6376,86 @@ function printMarksSheet() {
   const W   = 210;
   const margin = 12;
 
-  const blue    = [26, 111, 181];
-  const darkBg  = [15, 23, 42];
-  const white   = [255, 255, 255];
-  const light   = [241, 245, 249];
-  const muted   = [100, 116, 139];
-  const dark    = [15, 23, 42];
+  const blue       = [10, 60, 120];
+  const blueLight  = [26, 111, 181];
+  const darkBg     = [15, 23, 42];
+  const white      = [255, 255, 255];
+  const light      = [232, 240, 252];
+  const muted      = [80, 100, 130];
+  const dark       = [15, 23, 42];
+  const borderGray = [100, 120, 150];
+  const altRow     = [245, 248, 255];
+
+  // ── Outer border for entire page ──
+  doc.setDrawColor(...borderGray);
+  doc.setLineWidth(1.2);
+  doc.rect(7, 7, W - 14, doc.internal.pageSize.getHeight() - 14);
+  doc.setLineWidth(0.4);
+  doc.rect(9, 9, W - 18, doc.internal.pageSize.getHeight() - 18);
 
   // ── Letterhead ──
   doc.setFillColor(...blue);
-  doc.rect(0, 0, W, 28, 'F');
+  doc.rect(0, 0, W, 32, 'F');
 
-  // School name
+  // Thin gold accent line under header
+  doc.setFillColor(180, 145, 40);
+  doc.rect(0, 32, W, 1.2, 'F');
+
+  // School name — large and bold
   doc.setTextColor(...white);
-  doc.setFontSize(14);
+  doc.setFontSize(16);
   doc.setFont(undefined, 'bold');
-  doc.text(schoolName.toUpperCase(), margin, 10);
+  doc.text(schoolName.toUpperCase(), W / 2, 12, { align: 'center' });
 
-  // Address & email on left
+  // Address & email centred below
   doc.setFontSize(7.5);
   doc.setFont(undefined, 'normal');
   doc.setTextColor(200, 220, 255);
   const contactParts = [];
   if (address) contactParts.push('P.O. Box ' + address);
   if (email)   contactParts.push(email);
-  if (contactParts.length) doc.text(contactParts.join('  |  '), margin, 16.5);
+  if (contactParts.length) doc.text(contactParts.join('  |  '), W / 2, 19, { align: 'center' });
 
-  // Exam title on right
-  doc.setTextColor(...white);
+  // Document title centred
   doc.setFontSize(9);
   doc.setFont(undefined, 'bold');
-  doc.text('MARKS ENTRY SHEET', W - margin, 10, { align: 'right' });
-  doc.setFontSize(7.5);
-  doc.setFont(undefined, 'normal');
-  doc.setTextColor(200, 220, 255);
-  const examLabel = [exam?.name, term, year].filter(Boolean).join(' · ');
-  doc.text(examLabel, W - margin, 16.5, { align: 'right' });
+  doc.setTextColor(255, 230, 120);
+  doc.text('MARKS ENTRY SHEET', W / 2, 26.5, { align: 'center' });
 
   // ── Info bar below header ──
-  let y = 32;
+  const examLabel = [exam?.name, term, year].filter(Boolean).join(' · ');
+  let y = 36;
   doc.setFillColor(...light);
-  doc.rect(margin, y, W - margin * 2, 10, 'F');
-  doc.setFontSize(8);
+  doc.rect(margin, y, W - margin * 2, 14, 'F');
+  doc.setDrawColor(...borderGray);
+  doc.setLineWidth(0.6);
+  doc.rect(margin, y, W - margin * 2, 14);
+
+  // Bold labels
+  doc.setFontSize(8.5);
   doc.setFont(undefined, 'bold');
   doc.setTextColor(...dark);
   const classLabel = [cls?.name, stream?.name].filter(Boolean).join(' — ');
-  doc.text('Class: ' + classLabel, margin + 3, y + 6.5);
-  doc.text('Students: ' + stuList.length, W - margin - 3, y + 6.5, { align: 'right' });
+  doc.text('CLASS:', margin + 3, y + 5.5);
+  doc.text('EXAM:', W / 2 - 10, y + 5.5);
+  doc.text('TOTAL STUDENTS:', W - margin - 3, y + 5.5, { align: 'right' });
 
-  y += 15;
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(8);
+  doc.text(classLabel, margin + 18, y + 5.5);
+  doc.text(examLabel, W / 2 + 2, y + 5.5);
+  doc.text(String(stuList.length), W - margin - 3, y + 12, { align: 'right' });
+
+  // Second info row
+  doc.setFont(undefined, 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(...muted);
+  const dateStr = new Date().toLocaleDateString('en-KE', { day: '2-digit', month: 'long', year: 'numeric' });
+  doc.text('Date Printed: ' + dateStr, margin + 3, y + 12);
+
+  y += 19;
 
   // ── Build table ──
-  // Fixed columns: #, Adm No, Student Name
-  // Then one column per subject (blank for writing marks)
-  // Then Total & Avg at the end
-
   const fixedHead = ['#', 'Adm No', 'Student Name'];
   const subHeaders = examSubjects.map(s => s.code || s.name.slice(0, 6));
   const head = [...fixedHead, ...subHeaders];
@@ -6439,54 +6464,123 @@ function printMarksSheet() {
     idx + 1,
     stu.adm,
     stu.name,
-    ...examSubjects.map(() => ''),   // blank subject columns
+    ...examSubjects.map(() => ''),
   ]);
 
-  // Column widths: fixed cols wider, subject cols equal share
-  const fixedWidths  = [8, 18, 40];
+  // Column widths
+  const fixedWidths  = [8, 18, 42];
   const usedFixed    = fixedWidths.reduce((a, b) => a + b, 0);
   const subColW      = Math.max(
     10,
     Math.floor((W - margin * 2 - usedFixed) / Math.max(examSubjects.length, 1))
   );
   const columnStyles = {};
-  fixedWidths.forEach((w, i)          => { columnStyles[i]                        = { cellWidth: w }; });
-  subHeaders.forEach((_, i)           => { columnStyles[fixedHead.length + i]     = { cellWidth: subColW, halign: 'center' }; });
+  fixedWidths.forEach((w, i)      => { columnStyles[i]                    = { cellWidth: w, fontStyle: 'bold' }; });
+  subHeaders.forEach((_, i)       => { columnStyles[fixedHead.length + i] = { cellWidth: subColW, halign: 'center' }; });
+  // Make student name column normal weight
+  columnStyles[2] = { cellWidth: fixedWidths[2], fontStyle: 'normal' };
 
   doc.autoTable({
     startY: y,
     head: [head],
     body,
     theme: 'grid',
-    styles: { fontSize: 7, cellPadding: 2.2, textColor: dark, lineColor: [200, 210, 220], lineWidth: 0.25 },
-    headStyles: { fillColor: blue, textColor: white, fontStyle: 'bold', fontSize: 7, halign: 'center', cellPadding: 2.5 },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    styles: {
+      fontSize: 7.5,
+      cellPadding: 2.8,
+      textColor: dark,
+      lineColor: borderGray,
+      lineWidth: 0.5,
+      font: 'helvetica',
+    },
+    headStyles: {
+      fillColor: blue,
+      textColor: white,
+      fontStyle: 'bold',
+      fontSize: 8,
+      halign: 'center',
+      cellPadding: 3,
+      lineColor: [255, 255, 255],
+      lineWidth: 0.5,
+    },
+    alternateRowStyles: { fillColor: altRow },
     columnStyles,
     margin: { left: margin, right: margin },
+    // Draw thick outer border after table is rendered
+    didDrawPage: (data) => {
+      // Thick border around the entire table
+      const t = data.table;
+      doc.setDrawColor(...blue);
+      doc.setLineWidth(1.0);
+      doc.rect(
+        t.settings.margin.left,
+        t.startPageNumber === data.pageNumber ? y : 10,
+        W - margin * 2,
+        doc.lastAutoTable ? doc.lastAutoTable.finalY - y : t.finalY - y
+      );
+    },
   });
 
-  // ── Max marks row reference ──
-  const finalY = doc.lastAutoTable.finalY + 4;
-  doc.setFontSize(6.5);
-  doc.setFont(undefined, 'italic');
+  // Thick border drawn explicitly after table
+  const tableEndY = doc.lastAutoTable.finalY;
+  doc.setDrawColor(...blue);
+  doc.setLineWidth(1.0);
+  doc.rect(margin, y - 0.5, W - margin * 2, tableEndY - y + 0.5);
+
+  // ── Max marks reference ──
+  const finalY = tableEndY + 5;
+  doc.setFillColor(240, 244, 255);
+  doc.rect(margin, finalY - 3, W - margin * 2, 8, 'F');
+  doc.setDrawColor(...borderGray);
+  doc.setLineWidth(0.4);
+  doc.rect(margin, finalY - 3, W - margin * 2, 8);
+  doc.setFontSize(7);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(...dark);
+  doc.text('MAX MARKS:', margin + 3, finalY + 2);
+  doc.setFont(undefined, 'normal');
+  const maxRef = examSubjects.map(s => `${s.code||s.name.slice(0,5)}: ${s.max}`).join('  ·  ');
+  doc.text(maxRef, margin + 26, finalY + 2);
+
+  // ── Signature block ──
+  const sigY = finalY + 14;
+  doc.setFontSize(8);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(...dark);
+  doc.text("Prepared by:", margin + 3, sigY);
+  doc.text("Class Teacher:", W / 2 - 20, sigY);
+  doc.text("Head Teacher:", W - margin - 55, sigY);
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(7.5);
   doc.setTextColor(...muted);
-  const maxRef = examSubjects.map(s => `${s.code||s.name.slice(0,5)}: ${s.max}`).join('  ');
-  doc.text('Max marks — ' + maxRef, margin, finalY);
+  doc.text("Name: _______________________", margin + 3, sigY + 7);
+  doc.text("Sign: _______________________", margin + 3, sigY + 13);
+  doc.text("Name: _______________________", W / 2 - 20, sigY + 7);
+  doc.text("Sign: _______________________", W / 2 - 20, sigY + 13);
+  doc.text("Name: _______________________", W - margin - 55, sigY + 7);
+  doc.text("Sign: _______________________", W - margin - 55, sigY + 13);
 
   // ── Footer ──
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
+    const pgH = doc.internal.pageSize.getHeight();
+
+    // Footer bar
+    doc.setFillColor(...blue);
+    doc.rect(0, pgH - 12, W, 12, 'F');
+
     doc.setFontSize(6.5);
     doc.setFont(undefined, 'normal');
-    doc.setTextColor(...muted);
+    doc.setTextColor(200, 220, 255);
     doc.text(
-      `${schoolName}  ·  ${examLabel}  ·  Page ${i} of ${pageCount}`,
-      W / 2, doc.internal.pageSize.getHeight() - 5,
+      `${schoolName.toUpperCase()}  ·  ${examLabel}  ·  CONFIDENTIAL`,
+      W / 2, pgH - 5.5,
       { align: 'center' }
     );
-    // Teacher signature line
-    doc.text("Teacher's Signature: _______________________", W - margin, doc.internal.pageSize.getHeight() - 5, { align: 'right' });
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(255, 230, 120);
+    doc.text(`Page ${i} of ${pageCount}`, W - margin, pgH - 5.5, { align: 'right' });
   }
 
   const safeName = [cls?.name, stream?.name, exam?.name].filter(Boolean).join('_').replace(/\s+/g, '_');
