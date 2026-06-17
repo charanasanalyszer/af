@@ -6389,11 +6389,12 @@ function printMarksSheet() {
   // (Page borders drawn in footer loop below for all pages)
 
   // ── Letterhead ──
-  doc.setFillColor(...blue);
+  const headerColor = [14, 94, 120];   // deep teal — blends with blue table theme
+  doc.setFillColor(...headerColor);
   doc.rect(0, 0, W, 32, 'F');
 
-  // Thin gold accent line under header
-  doc.setFillColor(180, 145, 40);
+  // Thin teal-gold accent line under header
+  doc.setFillColor(20, 160, 180);
   doc.rect(0, 32, W, 1.2, 'F');
 
   // School name — large and bold
@@ -6556,13 +6557,15 @@ function printMarksSheet() {
     doc.setPage(i);
     const pgH = doc.internal.pageSize.getHeight();
 
-    // Outer border frame — page 1 full frame; page 2+ skip the top border
+    // Outer border frame — page 1 starts below header; page 2+ skip top line
     doc.setDrawColor(...borderGray);
     if (i === 1) {
-      doc.setLineWidth(1.2);
-      doc.rect(7, 7, W - 14, pgH - 14);
-      doc.setLineWidth(0.4);
-      doc.rect(9, 9, W - 18, pgH - 18);
+      const pgH1 = pgH;
+      doc.setLineWidth(1.0);
+      // Left, right, bottom only — header fills the top
+      doc.line(7, 33, 7, pgH1 - 7);           // left
+      doc.line(W - 7, 33, W - 7, pgH1 - 7);   // right
+      doc.line(7, pgH1 - 7, W - 7, pgH1 - 7); // bottom
     } else {
       // Only draw left, right and bottom sides — no top line crossing header
       doc.setLineWidth(1.0);
