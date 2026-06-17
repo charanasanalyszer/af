@@ -6500,7 +6500,18 @@ function printMarksSheet() {
     },
     alternateRowStyles: { fillColor: altRow },
     columnStyles,
-    margin: { left: margin, right: margin },
+    margin: { left: margin, right: margin, top: 16, bottom: 16 },
+    didDrawPage: function(data) {
+      if (data.pageNumber > 1) {
+        // Mini header on continuation pages
+        doc.setFillColor(...blue);
+        doc.rect(0, 0, W, 13, 'F');
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...white);
+        doc.text(schoolName.toUpperCase() + '  —  ' + examLabel + '  (continued)', W / 2, 9, { align: 'center' });
+      }
+    },
   });
 
   // (table border handled by autoTable grid theme)
@@ -6545,12 +6556,21 @@ function printMarksSheet() {
     doc.setPage(i);
     const pgH = doc.internal.pageSize.getHeight();
 
-    // Outer border frame for every page
+    // Outer border frame — page 1 full frame; page 2+ skip the top border
     doc.setDrawColor(...borderGray);
-    doc.setLineWidth(1.2);
-    doc.rect(7, 7, W - 14, pgH - 14);
-    doc.setLineWidth(0.4);
-    doc.rect(9, 9, W - 18, pgH - 18);
+    if (i === 1) {
+      doc.setLineWidth(1.2);
+      doc.rect(7, 7, W - 14, pgH - 14);
+      doc.setLineWidth(0.4);
+      doc.rect(9, 9, W - 18, pgH - 18);
+    } else {
+      // Only draw left, right and bottom sides — no top line crossing header
+      doc.setLineWidth(1.0);
+      const fx = 7, fy = 14, fw = W - 14, fh = pgH - 14 - 7;
+      doc.line(fx, fy, fx, fy + fh);           // left
+      doc.line(fx + fw, fy, fx + fw, fy + fh); // right
+      doc.line(fx, fy + fh, fx + fw, fy + fh); // bottom
+    }
 
     // Footer bar
     doc.setFillColor(...blue);
