@@ -6386,12 +6386,7 @@ function printMarksSheet() {
   const borderGray = [100, 120, 150];
   const altRow     = [245, 248, 255];
 
-  // ── Outer border for entire page ──
-  doc.setDrawColor(...borderGray);
-  doc.setLineWidth(1.2);
-  doc.rect(7, 7, W - 14, doc.internal.pageSize.getHeight() - 14);
-  doc.setLineWidth(0.4);
-  doc.rect(9, 9, W - 18, doc.internal.pageSize.getHeight() - 18);
+  // (Page borders drawn in footer loop below for all pages)
 
   // ── Letterhead ──
   doc.setFillColor(...blue);
@@ -6508,11 +6503,8 @@ function printMarksSheet() {
     margin: { left: margin, right: margin },
   });
 
-  // Thick border drawn explicitly after table
+  // (table border handled by autoTable grid theme)
   const tableEndY = doc.lastAutoTable.finalY;
-  doc.setDrawColor(...blue);
-  doc.setLineWidth(1.0);
-  doc.rect(margin, y - 0.5, W - margin * 2, tableEndY - y + 0.5);
 
   // ── Max marks reference ──
   const finalY = tableEndY + 5;
@@ -6552,6 +6544,13 @@ function printMarksSheet() {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     const pgH = doc.internal.pageSize.getHeight();
+
+    // Outer border frame for every page
+    doc.setDrawColor(...borderGray);
+    doc.setLineWidth(1.2);
+    doc.rect(7, 7, W - 14, pgH - 14);
+    doc.setLineWidth(0.4);
+    doc.rect(9, 9, W - 18, pgH - 18);
 
     // Footer bar
     doc.setFillColor(...blue);
