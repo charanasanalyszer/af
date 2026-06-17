@@ -11535,11 +11535,13 @@ function getStudentReport(stuId, examId) {
   return { stu, exam, cls, stream, subjectRows, total, mean, mGrade, totalPoints, overallRank, streamRank, history, isConsolidated, sourceExamObjs };
 }
 
-function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClosed, feeBalance, feeNextTerm, feeStatus) {
+function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClosed, feeBalance, feeNextTerm, feeStatus, termOverride, yearOverride) {
   data.schoolClosed = schoolClosed;
   data.feeBalance = feeBalance;
   data.feeNextTerm = feeNextTerm;
   data.feeStatus = feeStatus;
+  const displayTerm = termOverride || data.exam.term || '';
+  const displayYear = yearOverride || (data.exam.year ? String(data.exam.year) : '');
   const s = settings;
   // Build table rows — for consolidated exams include one column per source exam + average
   const srcExams = data.sourceExamObjs || [];
@@ -11578,7 +11580,7 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
       <div class="rf-school-info">
         <h2>${(s.schoolName||'School Name').toUpperCase()}</h2>
         <p>${s.address||''} ${s.phone?'| Tel: '+s.phone:''} ${s.email?'| '+s.email:''}</p>
-        <p style="font-weight:800;color:#ffffff;font-size:9.5pt;letter-spacing:.04em">STUDENT PROGRESS REPORT &mdash; ${data.exam.term} ${data.exam.year}</p>
+        <p style="font-weight:800;color:#000000;font-size:9.5pt;letter-spacing:.04em">STUDENT PROGRESS REPORT &mdash; ${displayTerm} ${displayYear}</p>
       </div>
     </div>
 
@@ -11829,7 +11831,7 @@ function _generateReportBody(stuList, examId, ctR, prR, nextOpen, schoolClosed, 
       const struct  = feeStructures.find(f => f.classId===stu.classId && f.term===nxtTerm && String(f.year)===nxtYear);
       if (struct) autoFeeNextTerm = struct.totalFee;
     }
-    return buildReportHTML(d, finalCT, finalPR, nextOpen, schoolClosed, autoFeeBalance, autoFeeNextTerm, autoFeeStatus);
+    return buildReportHTML(d, finalCT, finalPR, nextOpen, schoolClosed, autoFeeBalance, autoFeeNextTerm, autoFeeStatus, rpTermOverride, rpYearOverride);
   }).join('');
 
   showToast(`${stuList.length} report(s) generated <i class="fa-solid fa-check"></i>`,'success');

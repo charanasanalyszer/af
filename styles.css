@@ -548,11 +548,11 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
   box-shadow:0 2px 16px rgba(0,0,0,.1);
   page-break-after:always;
 }
-.rf-header { display:flex;flex-direction:column;align-items:center;text-align:center;border-bottom:3px solid #7c3aed;padding-bottom:10px;margin-bottom:12px;background:linear-gradient(135deg,#1a6fb5,#1e3a8a);border-radius:6px 6px 0 0;padding:12px 14px 10px; }
+.rf-header { display:flex;flex-direction:column;align-items:center;text-align:center;border-bottom:3px solid #b8860b;padding-bottom:10px;margin-bottom:12px;background:#FFD700;border-radius:6px 6px 0 0;padding:12px 14px 10px; }
 .rf-logo { display:none; }
 .rf-school-info { width:100%; }
-.rf-school-info h2 { font-size:16pt;font-weight:900;color:#ffffff;line-height:1.2;text-transform:uppercase;letter-spacing:.06em;margin:0 0 4px; }
-.rf-school-info p  { font-size:8.5pt;color:#ffffff;opacity:.95;margin:2px 0; }
+.rf-school-info h2 { font-size:13pt;font-weight:900;color:#000000;line-height:1.2;text-transform:uppercase;letter-spacing:.06em;margin:0 0 4px; }
+.rf-school-info p  { font-size:8pt;color:#000000;opacity:.95;margin:2px 0; }
 
 .rf-section { margin-bottom:8px; }
 .rf-section-title {
@@ -562,21 +562,21 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
   border-radius:3px 3px 0 0;
   text-transform:uppercase;letter-spacing:.04em;
 }
-.rf-section-body { border:1.5px solid #1a6fb5;border-top:none;border-radius:0 0 3px 3px;padding:8px 10px; }
+.rf-section-body { border:1.5px solid #000;border-top:none;border-radius:0 0 3px 3px;padding:8px 10px; }
 
 .rf-info-grid { display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px; }
 .rf-info-item { display:flex;flex-direction:column; }
-.rf-info-label { font-size:7.5pt;color:#666;font-weight:700;text-transform:uppercase;letter-spacing:.04em; }
-.rf-info-value { font-size:9.5pt;font-weight:600;color:#000;border-bottom:1px solid #999;padding-bottom:1px; }
+.rf-info-label { font-size:6.5pt;color:#444;font-weight:700;text-transform:uppercase;letter-spacing:.04em; }
+.rf-info-value { font-size:8.5pt;font-weight:600;color:#000;border-bottom:1px solid #000;padding-bottom:1px; }
 
 .rf-marks-table { width:100%;border-collapse:collapse;margin:0; }
-.rf-marks-table th { background:#f0f7ff;border:1.5px solid #a0bdd8;padding:4px 7px;font-size:8.5pt;font-weight:700;text-align:left;color:#1a6fb5; }
-.rf-marks-table td { border:1.5px solid #c0d5e8;padding:4px 7px;font-size:9pt; }
+.rf-marks-table th { background:#FFD700;border:1.5px solid #000;padding:4px 7px;font-size:8pt;font-weight:700;text-align:left;color:#000; }
+.rf-marks-table td { border:1.5px solid #000;padding:3px 6px;font-size:8.5pt; }
 .rf-marks-table tr:nth-child(even) td { background:#f8fbff; }
 .rf-marks-table .total-row td { background:#dbeafe;font-weight:700;border-top:2px solid #1a6fb5; }
 
 .rf-bottom { display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px; }
-.rf-remarks-box { border:1.5px solid #a0bdd8;border-radius:4px;padding:7px 10px;min-height:55px; }
+.rf-remarks-box { border:1.5px solid #000;border-radius:4px;padding:7px 10px;min-height:55px; }
 .rf-remarks-label { font-size:8pt;font-weight:700;color:#1a6fb5;margin-bottom:4px; }
 .rf-remarks-text { font-size:9pt; }
 .rf-sig-line { border-top:1px solid #666;margin-top:18px;padding-top:3px;font-size:8pt;color:#555; }
@@ -805,14 +805,15 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
     box-sizing: border-box !important;
     display: block !important;
   }
-  .rf-marks-table th  { background: #f0f7ff !important; color: #1a6fb5 !important; }
+  .rf-marks-table th  { background: #FFD700 !important; color: #000 !important; border-color: #000 !important; }
+  .rf-marks-table td  { border-color: #000 !important; }
   .rf-marks-table tr:nth-child(even) td { background: #f8fbff !important; }
-  .rf-marks-table .total-row td { background: #dbeafe !important; border-top: 2px solid #1a6fb5 !important; }
+  .rf-marks-table .total-row td { background: #dbeafe !important; border-top: 2px solid #000 !important; }
   .rf-section-title { background: #7c3aed !important; color: #fff !important; }
-  .rf-section-body  { border-color: #1a6fb5 !important; }
-  .rf-header        { background:linear-gradient(135deg,#1a6fb5,#1e3a8a) !important; border-bottom-color: #7c3aed !important; }
-  .rf-school-info h2 { color:#ffffff !important; }
-  .rf-school-info p  { color:#ffffff !important; }
+  .rf-section-body  { border-color: #000 !important; }
+  .rf-header        { background: #FFD700 !important; border-bottom-color: #b8860b !important; }
+  .rf-school-info h2 { color:#000000 !important; }
+  .rf-school-info p  { color:#000000 !important; }
   .rf-footer        { border-top-color:   #16a34a !important; }
 
   /* Timetable print */
