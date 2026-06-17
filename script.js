@@ -6367,8 +6367,8 @@ function printMarksSheet() {
   const schoolName = settings.schoolName || 'School';
   const address    = settings.address    || '';
   const email      = settings.email      || '';
-  const term       = settings.term       || '';
-  const year       = settings.year       || '';
+  const term       = exam?.term  || settings.term  || '';
+  const year       = exam?.year  ? String(exam.year)  : (settings.year || '');
 
   // Page setup — always portrait
   const orientation = 'portrait';
@@ -6468,7 +6468,7 @@ function printMarksSheet() {
   ]);
 
   // Column widths
-  const fixedWidths  = [8, 18, 42];
+  const fixedWidths  = [7, 16, 34];
   const usedFixed    = fixedWidths.reduce((a, b) => a + b, 0);
   const subColW      = Math.max(
     10,
@@ -6486,8 +6486,8 @@ function printMarksSheet() {
     body,
     theme: 'grid',
     styles: {
-      fontSize: 7.5,
-      cellPadding: 2.8,
+      fontSize: 7,
+      cellPadding: 1.6,
       textColor: dark,
       lineColor: borderGray,
       lineWidth: 0.5,
@@ -6497,9 +6497,9 @@ function printMarksSheet() {
       fillColor: blue,
       textColor: white,
       fontStyle: 'bold',
-      fontSize: 8,
+      fontSize: 7.5,
       halign: 'center',
-      cellPadding: 3,
+      cellPadding: 2,
       lineColor: [255, 255, 255],
       lineWidth: 0.5,
     },
