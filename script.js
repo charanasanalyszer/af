@@ -16865,11 +16865,16 @@ function go(sec, el) {
   // page.  Deferring to the next task (setTimeout 0) guarantees this fires
   // after every synchronous init call AND after any scrollIntoView the browser
   // queues during layout.
-  const mainEl = document.querySelector('.main');
-  if (mainEl) {
-    mainEl.scrollTop = 0;              // immediate reset (catches most cases)
-    setTimeout(() => { mainEl.scrollTop = 0; }, 0); // deferred reset (catches post-render scroll)
-  }
+  const resetPageScroll = () => {
+    const mainEl = document.querySelector('.main');
+    if (mainEl) mainEl.scrollTop = 0;
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  };
+  resetPageScroll();
+  setTimeout(resetPageScroll, 0);
+  setTimeout(resetPageScroll, 80);
 }
 
 // ═══════════════════════════════════════════════

@@ -3859,9 +3859,9 @@ body.plat-admin-mode .sb-plat-item {
   body.plat-admin-mode #mobileBottomNav.mbn-collapsed {
     transform: translateY(-62px) !important;
   }
-  /* Push main content below topbar + top nav */
+  /* Push main content below the platform tab strip. .main already sits below the topbar. */
   body.plat-admin-mode .main {
-    padding-top: calc(var(--tb-h, 52px) + 62px) !important;
+    padding-top: calc(62px + .75rem) !important;
     padding-bottom: 1.5rem !important;
   }
   /* Restore tab moves to top in plat-admin */
@@ -4321,3 +4321,47 @@ body:not(.dark) .toast.success {
     margin-bottom: .75rem !important;
   }
 }
+
+/* Layout safety: keep opened sections clear of fixed chrome and avoid stale page scroll. */
+html, body {
+  scroll-padding-top: var(--tb-h, 52px);
+}
+
+.sec.active {
+  min-height: calc(100vh - var(--tb-h, 52px));
+  padding-bottom: 1.25rem !important;
+}
+
+#s-messaging.active,
+#s-fees.active,
+#s-settings.active,
+#s-people.active,
+#s-teachers.active,
+#s-platform.active {
+  padding-top: 0 !important;
+  scroll-margin-top: var(--tb-h, 52px);
+}
+
+#s-messaging .sec-stack,
+#s-settings .sec-stack,
+#s-fees .finance-main-tabbar,
+#s-fees .finance-main-panel,
+#s-people .people-main-tabbar,
+#s-people .people-main-panel,
+#s-platform > *:not(.ph):first-of-type,
+#s-platform .plat-tab-panel {
+  margin-top: 0 !important;
+}
+
+@media (max-width: 960px) {
+  body.plat-admin-mode .main {
+    margin-top: var(--tb-h, 52px) !important;
+    padding-top: calc(62px + .75rem) !important;
+    padding-bottom: 1.5rem !important;
+  }
+
+  body:not(.plat-admin-mode) .main {
+    padding-bottom: calc(62px + 1.5rem) !important;
+  }
+}
+
