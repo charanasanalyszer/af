@@ -184,21 +184,9 @@
     <div id="guestBroadcastText"></div>
   </div>
 
-  <!-- Guest Tab Bar -->
-  <div id="guestTabBar" style="background:var(--surface,#fff);border-bottom:2px solid var(--border,#e2e8f0);display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-shrink:0;z-index:190">
-    <button id="guestTabBtnPapers" onclick="guestShowTab('papers')"
-      style="padding:.6rem 1.2rem;border:none;border-bottom:3px solid var(--primary,#4f7cff);background:transparent;color:var(--primary,#4f7cff);font-weight:700;font-size:.85rem;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s">
-      <i class="fa-solid fa-folder-open"></i> Papers &amp; Resources
-    </button>
-  </div>
 
   <!-- Guest Content Panels -->
   <div style="flex:1;overflow-y:auto;overflow-x:hidden;padding:.75rem .75rem 4rem;-webkit-overflow-scrolling:touch;">
-    <!-- Papers Panel -->
-    <div id="guestPanelPapers" style="display:block">
-      <div id="guestPapersMount"></div>
-    </div>
-
   </div>
 </div>
 
@@ -230,8 +218,6 @@
       <!-- 8. Exams — run & enter marks -->
       <a class="sn" data-s="exams"       onclick="go('exams',this)"><i class="fa-solid fa-file-pen"></i><span>Exams</span></a>
       <!-- 9. Report Forms moved under Exams tab -->
-      <!-- 10. Papers & Resources -->
-      <a class="sn" data-s="papers"      onclick="go('papers',this)" id="papersNavLink"><i class="fa-solid fa-folder-open"></i><span>Papers &amp; Resources</span></a>
 
       <div class="sb-section-lbl">Administration</div>
       <!-- 11. Finance -->
@@ -7091,226 +7077,7 @@ document.addEventListener('tt_sectionVisible', function() {
       </div>
     </section>
 
-    <!-- ═══════════════════════════════════════════════════════════ -->
-    <!--  PAPERS & RESOURCES SECTION                                 -->
-    <!-- ═══════════════════════════════════════════════════════════ -->
-    <section id="s-papers" class="sec">
-      <div class="ph" style="display:none"></div>
 
-      <div class="tab-bar" id="papersTabBar">
-        <button class="tb active" onclick="openPapersTab('tabTermlyExams',this)" id="tbTermlyExams"><i class="fa-solid fa-file-pen"></i> Termly Exams</button>
-        <button class="tb" onclick="openPapersTab('tabRevision',this);initRevisionTab();" id="tbRevision"><i class="fa-solid fa-book-open"></i> Revision</button>
-      </div>
-
-      <!-- ── TERMLY EXAMS TAB ── -->
-      <div id="tabTermlyExams" class="tab-panel active">
-
-        <!-- Upload Card (Admin Only) -->
-        <div class="card" id="termlyUploadCard" style="margin-bottom:1.25rem">
-          <h3><i class="fa-solid fa-arrow-up"></i> Upload Exam Paper</h3>
-          <div class="frow c3" style="gap:1rem;margin-bottom:1rem">
-            <div class="fg">
-              <label>Subject *</label>
-              <select id="tpSubject">
-                <option value="">— Select Subject —</option>
-              </select>
-            </div>
-            <div class="fg">
-              <label>Term *</label>
-              <select id="tpTerm">
-                <option>Term 1</option>
-                <option>Term 2</option>
-                <option>Term 3</option>
-              </select>
-            </div>
-            <div class="fg">
-              <label>Year *</label>
-              <input type="number" id="tpYear" placeholder="2025" value="2025"/>
-            </div>
-          </div>
-          <div class="frow c3" style="gap:1rem;margin-bottom:1rem">
-            <div class="fg">
-              <label>Paper Title *</label>
-              <input type="text" id="tpTitle" placeholder="e.g. Mid-Term Paper 1"/>
-            </div>
-            <div class="fg">
-              <label>Class / Level</label>
-              <input type="text" id="tpClass" placeholder="e.g. Form 3, All Classes"/>
-            </div>
-            <div class="fg">
-              <label>Price (KES) *</label>
-              <input type="number" id="tpPrice" placeholder="e.g. 50" min="0" step="1"/>
-            </div>
-          </div>
-          <div class="frow c2">
-            <div class="fg">
-              <label>Description / Notes</label>
-              <textarea id="tpDesc" rows="2" placeholder="Optional description of the paper..."></textarea>
-            </div>
-            <div class="fg">
-              <label>Upload File (PDF / Word / Image)</label>
-              <input type="file" id="tpFile" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="border:1.5px dashed var(--border-lt);padding:.6rem;border-radius:8px;width:100%;box-sizing:border-box"/>
-            </div>
-          </div>
-          <button class="btn btn-primary" onclick="uploadTermlyPaper()"><i class="fa-solid fa-arrow-up"></i> Upload Paper</button>
-        </div>
-
-        <!-- Filter Bar -->
-        <div class="card" style="padding:1rem;margin-bottom:1.25rem">
-          <div class="frow c4" style="gap:.75rem;align-items:flex-end">
-            <div class="fg">
-              <label>Filter by Subject</label>
-              <select id="tpFilterSubject" onchange="renderTermlyPapers()">
-                <option value="">All Subjects</option>
-              </select>
-            </div>
-            <div class="fg">
-              <label>Filter by Term</label>
-              <select id="tpFilterTerm" onchange="renderTermlyPapers()">
-                <option value="">All Terms</option>
-                <option>Term 1</option><option>Term 2</option><option>Term 3</option>
-              </select>
-            </div>
-            <div class="fg">
-              <label>Filter by Year</label>
-              <select id="tpFilterYear" onchange="renderTermlyPapers()">
-                <option value="">All Years</option>
-              </select>
-            </div>
-            <div class="fg">
-              <div class="search-box" style="margin:0"><span><i class="fa-solid fa-magnifying-glass"></i></span><input type="text" id="tpSearch" placeholder="Search papers..." oninput="renderTermlyPapers()"/></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Papers Grid (grouped by subject) -->
-        <div id="termlyPapersGrid" style="display:block"></div>
-        <div id="termlyPapersEmpty" style="display:none;text-align:center;padding:1.5rem;color:var(--muted)">
-          <div style="font-size:2.5rem;margin-bottom:.75rem"><i class="fa-solid fa-folder-open"></i></div>
-          <p style="font-weight:600">No papers uploaded yet.</p>
-          <p style="font-size:.85rem">Upload your first exam paper using the form above.</p>
-        </div>
-
-      </div><!-- end tabTermlyExams -->
-
-      <!-- ── REVISION TAB ── Platform Papers Portal ── -->
-      <div id="tabRevision" class="tab-panel">
-
-        <!-- Platform Admin Upload Card -->
-        <div class="card" id="platformPapersUploadCard" style="margin-bottom:1.25rem;display:none">
-          <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem">
-            <div style="background:linear-gradient(135deg,#7c3aed,#1a6fb5);border-radius:10px;width:2.2rem;height:2.2rem;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0"><i class="fa-solid fa-upload"></i></div>
-            <div>
-              <h3 style="margin:0;font-size:1rem;font-weight:700">Upload Revision Paper</h3>
-              <p style="margin:0;font-size:.78rem;color:var(--muted)">Papers uploaded here appear for ALL schools in the Student Portal</p>
-            </div>
-          </div>
-          <div class="frow c3" style="gap:1rem;margin-bottom:1rem">
-            <div class="fg">
-              <label>Subject / Topic *</label>
-              <input type="text" id="ppSubject" placeholder="e.g. Mathematics, English"/>
-            </div>
-            <div class="fg">
-              <label>Class / Level *</label>
-              <input type="text" id="ppClass" placeholder="e.g. Grade 7, Form 3"/>
-            </div>
-            <div class="fg">
-              <label>Exam Type</label>
-              <select id="ppExamType">
-                <option value="">— Select —</option>
-                <option>Opener</option>
-                <option>Mid-Term</option>
-                <option>End-Term</option>
-                <option>Revision</option>
-                <option>Past Paper</option>
-                <option>Topic Notes</option>
-                <option>Study Guide</option>
-              </select>
-            </div>
-          </div>
-          <div class="frow c3" style="gap:1rem;margin-bottom:1rem">
-            <div class="fg">
-              <label>Paper Title *</label>
-              <input type="text" id="ppTitle" placeholder="e.g. Mathematics Term 1 Mid-Term 2025"/>
-            </div>
-            <div class="fg">
-              <label>Term</label>
-              <select id="ppTerm">
-                <option value="">— Any —</option>
-                <option>Term 1</option>
-                <option>Term 2</option>
-                <option>Term 3</option>
-              </select>
-            </div>
-            <div class="fg">
-              <label>Year</label>
-              <input type="number" id="ppYear" placeholder="2025" value="2025"/>
-            </div>
-          </div>
-          <div class="frow c2" style="gap:1rem;margin-bottom:1rem">
-            <div class="fg">
-              <label>Price (KES) — enter 0 for Free</label>
-              <input type="number" id="ppPrice" placeholder="0" min="0" step="10" value="0"/>
-            </div>
-            <div class="fg">
-              <label>Description / Notes</label>
-              <textarea id="ppDesc" rows="2" placeholder="Optional description..."></textarea>
-            </div>
-          </div>
-          <div class="fg" style="margin-bottom:1rem">
-            <label>Upload File (PDF / Word / Image) *</label>
-            <input type="file" id="ppFile" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-              style="border:1.5px dashed var(--border-lt);padding:.75rem 1rem;border-radius:8px;width:100%;box-sizing:border-box;background:var(--bg);cursor:pointer"/>
-            <div id="ppFilePreview" style="margin-top:.5rem;font-size:.78rem;color:var(--accent-g);display:none"></div>
-          </div>
-          <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center">
-            <button class="btn btn-primary btn-sm" onclick="uploadPlatformPaper()"><i class="fa-solid fa-upload"></i> Upload to Platform</button>
-            <button class="btn btn-outline btn-sm" onclick="clearPlatformPaperForm()"><i class="fa-solid fa-xmark"></i> Clear</button>
-            <span id="ppUploadStatus" style="font-size:.8rem;color:var(--accent-g)"></span>
-          </div>
-        </div>
-
-        <!-- Filter & Search -->
-        <div class="card" style="padding:1rem;margin-bottom:1.25rem">
-          <div class="frow c4" style="gap:.75rem;align-items:flex-end">
-            <div class="fg">
-              <label>Filter by Subject</label>
-              <select id="ppFilterSubject" onchange="renderPlatformPapers()">
-                <option value="">All Subjects</option>
-              </select>
-            </div>
-            <div class="fg">
-              <label>Filter by Term</label>
-              <select id="ppFilterTerm" onchange="renderPlatformPapers()">
-                <option value="">All Terms</option>
-                <option>Term 1</option><option>Term 2</option><option>Term 3</option>
-              </select>
-            </div>
-            <div class="fg">
-              <label>Filter by Year</label>
-              <select id="ppFilterYear" onchange="renderPlatformPapers()">
-                <option value="">All Years</option>
-              </select>
-            </div>
-            <div class="fg">
-              <div class="search-box" style="margin:0"><span><i class="fa-solid fa-magnifying-glass"></i></span>
-                <input type="text" id="ppSearch" placeholder="Search papers..." oninput="renderPlatformPapers()"/>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Papers Grid -->
-        <div id="platformPapersGrid"></div>
-        <div id="platformPapersEmpty" style="display:none;text-align:center;padding:3rem;color:var(--muted)">
-          <div style="font-size:2.5rem;margin-bottom:.75rem"><i class="fa-solid fa-folder-open"></i></div>
-          <p id="ppEmptyText" style="font-weight:600">No revision papers available yet.</p>
-          <p style="font-size:.85rem" id="ppEmptySubText">Papers uploaded here appear for all schools in the Student Portal.</p>
-        </div>
-
-      </div><!-- end tabRevision -->
-
-    </section><!-- end s-papers -->
 
   </main>
 </div>
@@ -8220,7 +7987,6 @@ document.addEventListener('DOMContentLoaded', function() {
   <a class="mbn-item"        data-s="timetable"   onclick="go('timetable',this);mbnActivate(this)"><i><i class="fa-solid fa-clock"></i></i><span>Timetable</span></a>
   <a class="mbn-item"        data-s="exams"       onclick="go('exams',this);mbnActivate(this)"><i class="fa-solid fa-file-pen"></i><span>Exams</span></a>
   <a class="mbn-item"        data-s="reports"     onclick="go('reports',this);mbnActivate(this)"><i class="fa-solid fa-file-lines"></i><span>Reports</span></a>
-  <a class="mbn-item"        data-s="papers"      onclick="go('papers',this);mbnActivate(this)"><i class="fa-solid fa-folder-open"></i><span>Papers</span></a>
   <a class="mbn-item"        data-s="fees"        onclick="go('fees',this);mbnActivate(this)"><i class="fa-solid fa-coins"></i><span>Fees</span></a>
   <a class="mbn-item"        data-s="messaging"   onclick="go('messaging',this);mbnActivate(this)"><i class="fa-solid fa-comments"></i><span>Messaging</span></a>
   <a class="mbn-item mbn-yellow" data-s="settings" onclick="go('settings',this);mbnActivate(this)"><i class="fa-solid fa-sliders"></i><span>Settings</span></a>

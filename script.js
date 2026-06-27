@@ -2150,26 +2150,6 @@ function applyGuestRoleUI() {
   const termlyUpload = document.getElementById('termlyUploadCard');
   if (termlyUpload) termlyUpload.style.display = 'none';
 
-  // ── Move s-papers into guest Papers mount ──
-  const papSection   = document.getElementById('s-papers');
-  const papersMount  = document.getElementById('guestPapersMount');
-  if (papSection && papersMount && !papersMount.contains(papSection)) {
-    papSection.classList.add('active');
-    papSection.style.display = '';
-    papersMount.appendChild(papSection);
-  }
-
-  // ── Show Papers panel and activate its tab button ──
-  const panelPapers = document.getElementById('guestPanelPapers');
-  if (panelPapers) panelPapers.style.display = 'block';
-  const btnPapers = document.getElementById('guestTabBtnPapers');
-  if (btnPapers) {
-    btnPapers.style.borderBottom = '3px solid var(--primary,#4f7cff)';
-    btnPapers.style.color = 'var(--primary,#4f7cff)';
-    btnPapers.style.fontWeight = '700';
-  }
-  try { if (typeof initPapersSection === 'function') initPapersSection(); } catch(e) {}
-
   // ── Load broadcast banner into guest banner ──
   try {
     const raw = localStorage.getItem('ei_broadcast_msg') || '';
@@ -2187,13 +2167,6 @@ function applyGuestRoleUI() {
   try { updateExamDlFeeNotice(); } catch(e) {}
 }
 
-// ── Guest tab switcher ──────────────────────────────────
-function guestShowTab(which) {
-  // Only Papers remains after Exam Builder removal — always show it
-  const panelPapers = document.getElementById('guestPanelPapers');
-  if (panelPapers) panelPapers.style.display = 'block';
-  try { if (typeof initPapersSection === 'function') initPapersSection(); } catch(e) {}
-}
 
 // ══════════════════════════════════════════════
 //   PLATFORM ADMIN — EXAM DOWNLOAD FEE CONTROLS
@@ -2395,7 +2368,7 @@ function enterPlatformDashboard() {
   const mbnRestore = document.getElementById('mbnRestoreTab');
   if (mbnRestore) mbnRestore.style.display = 'none';
   // Platform portal: hide school-specific nav, only show Platform Admin link
-  ['subjects','classes','teachers','staffdetails','students','timetable','exams','reports','papers','fees','messaging','settings'].forEach(s=>{
+  ['subjects','classes','teachers','staffdetails','students','timetable','exams','reports','fees','messaging','settings'].forEach(s=>{
     const el=document.querySelector('[data-s="'+s+'"]'); if(el) el.style.display='none';
   });
   // Hide school-only exam tabs for platform admin
@@ -3339,7 +3312,6 @@ const LITE_MODE_DEFAULTS = {
   fees:         true,
   people:       true,
   staffdetails: true,
-  papers:       false,
   messaging:    false,
   settings:     true,
 };
@@ -3507,10 +3479,6 @@ const NAV_CONFIG_SCHEMA = [
     { id:'tabSummaryAnalytics', label:'<i class="fa-solid fa-chart-bar"></i> Summary Analytics' },
   ]},
   { section:'reports',     label:'<i class="fa-solid fa-file-lines"></i> Report Forms',       tabs:[] },
-  { section:'papers',      label:'<i class="fa-solid fa-folder-open"></i> Papers & Resources', tabs:[
-    { id:'tabTermlyExams', label:'<i class="fa-solid fa-file-pen"></i> Termly Exams' },
-    { id:'tabRevision',    label:'<i class="fa-solid fa-book-open"></i> Revision' },
-  ]},
   { section:'fees',        label:'<i class="fa-solid fa-coins"></i> Fees', tabs:[
     { id:'tabFeeOverview',   label:'<i class="fa-solid fa-chart-bar"></i> Overview' },
     { id:'tabFeeStructure',  label:'<i class="fa-solid fa-building-columns"></i> Fee Structure' },
@@ -4371,15 +4339,6 @@ function doLogout() {
   // Hide guest portal if open
   const gp = document.getElementById('guestPortal');
   if (gp) gp.style.display = 'none';
-  // Return s-papers to mainContent if it was moved to guest portal
-  const mainContent = document.getElementById('mainContent');
-  ['s-papers'].forEach(id => {
-    const sec = document.getElementById(id);
-    if (sec && mainContent && !mainContent.contains(sec)) {
-      sec.classList.remove('active');
-      mainContent.appendChild(sec);
-    }
-  });
   // Hide app and all fixed-position elements
   document.getElementById('app').style.display = 'none';
   const sb = document.getElementById('sidebar'); if (sb) sb.style.display = 'none';
@@ -4390,13 +4349,11 @@ function doLogout() {
   if (mbnRestore) { mbnRestore.classList.remove('visible'); mbnRestore.style.display = 'none'; }
   document.body.classList.remove('mbn-hidden');
   // Restore ALL nav links in both sidebar AND mobile bottom nav for next login
-  ['dashboard','subjects','classes','teachers','staffdetails','students','timetable','exams','reports','papers','fees','messaging','settings'].forEach(s=>{
+  ['dashboard','subjects','classes','teachers','staffdetails','students','timetable','exams','reports','fees','messaging','settings'].forEach(s=>{
     document.querySelectorAll('[data-s="'+s+'"]').forEach(el => el.style.display='');
   });
   // Also restore topbar user display
   const tbU = document.getElementById('tbUser'); if (tbU) tbU.innerHTML = '<i class="fa-solid fa-user"></i> ';
-  // Also restore papers upload card visibility
-  const termlyUpload = document.getElementById('termlyUploadCard'); if (termlyUpload) termlyUpload.style.display='';
   const platLink=document.getElementById('platNavLink'); if(platLink) platLink.style.display='none';
   // Clean up platform admin mode
   document.body.classList.remove('plat-admin-mode');
@@ -6415,7 +6372,7 @@ function printMarksSheet() {
   // Document title centred
   doc.setFontSize(9);
   doc.setFont(undefined, 'bold');
-  doc.setTextColor(255, 230, 120);
+  doc.setTextColor(...white);
   doc.text('MARKS ENTRY SHEET', W / 2, 26.5, { align: 'center' });
 
   // ── Info bar below header ──
@@ -6588,7 +6545,7 @@ function printMarksSheet() {
       { align: 'center' }
     );
     doc.setFont(undefined, 'bold');
-    doc.setTextColor(255, 230, 120);
+    doc.setTextColor(...white);
     doc.text(`Page ${i} of ${pageCount}`, W - margin, pgH - 5.5, { align: 'right' });
   }
 
@@ -9081,21 +9038,21 @@ function exportMeritPDF() {
         const sc=getScore(s.id,sub.id); const g=sc!==null?getGrade(sc,sub.max||100):null;
         // Show X for missing subjects on incomplete students
         if (sc === null && s.incomplete) {
-          return `<td style="text-align:center;background:#fee2e2;padding:2px 4px;border:1px solid #d1dfe8"><strong style="color:#dc2626;font-size:10px">X</strong></td>`;
+          return `<td style="text-align:center;background:#fee2e2;padding:2px 4px;border:2px solid #b0bec5;font-weight:700"><strong style="color:#dc2626;font-size:10px">X</strong></td>`;
         }
         const bg=!g?'':g.cls==='b-green'?'#dcfce7':g.cls==='b-teal'?'#ccfbf1':g.cls==='b-red'?'#fee2e2':g.cls==='b-dkred'?'#fecaca':'';
-        return `<td style="text-align:center;background:${bg};padding:2px 4px;border:1px solid #d1dfe8">`
-          +(sc!==null?`<strong>${sc}</strong><br><span style="font-size:8px;color:#64748b">${g?.grade||''}</span>`:'—')+'</td>';
+        return `<td style="text-align:center;background:${bg};padding:2px 4px;border:2px solid #b0bec5;font-weight:700">`
+          +(sc!==null?`<strong>${sc}</strong><br><span style="font-size:8px;color:#64748b;font-weight:700">${g?.grade||''}</span>`:'—')+'</td>';
       }).join('');
       if (s.incomplete) {
-        const xCell = `<td style="font-weight:800;text-align:center;color:#dc2626;padding:2px 4px;border:1px solid #d1dfe8">X</td>`;
+        const xCell = `<td style="font-weight:800;text-align:center;color:#dc2626;padding:2px 4px;border:2px solid #b0bec5">X</td>`;
         const rowBg = i%2===0?'#fff8f8':'#fff0f0';
         return `<tr style="background:${rowBg}">
-          <td style="text-align:center;background:#fee2e2;color:#dc2626;font-weight:800;padding:2px 4px;border:1px solid #d1dfe8">DQ</td>
-          <td style="font-family:monospace;font-size:8px;padding:2px 4px;border:1px solid #d1dfe8">${s.adm}</td>
-          <td style="font-weight:700;padding:2px 4px;border:1px solid #d1dfe8">${s.name}</td>
-          <td style="text-align:center;padding:2px 4px;border:1px solid #d1dfe8">${s.gender==='M'?'<span style="color:#1d4ed8;font-weight:700">M</span>':'<span style="color:#be185d;font-weight:700">F</span>'}</td>
-          ${showStream?`<td style="padding:2px 4px;border:1px solid #d1dfe8">${str?.name||'—'}</td><td style="text-align:center;padding:2px 4px;border:1px solid #d1dfe8">—</td>`:''}
+          <td style="text-align:center;background:#fee2e2;color:#dc2626;font-weight:800;padding:2px 4px;border:2px solid #b0bec5">DQ</td>
+          <td style="font-family:monospace;font-size:8px;padding:2px 4px;border:2px solid #b0bec5;font-weight:700">${s.adm}</td>
+          <td style="font-weight:800;padding:2px 4px;border:2px solid #b0bec5">${s.name}</td>
+          <td style="text-align:center;padding:2px 4px;border:2px solid #b0bec5">${s.gender==='M'?'<span style="color:#1d4ed8;font-weight:800">M</span>':'<span style="color:#be185d;font-weight:800">F</span>'}</td>
+          ${showStream?`<td style="padding:2px 4px;border:2px solid #b0bec5;font-weight:700">${str?.name||'—'}</td><td style="text-align:center;padding:2px 4px;border:2px solid #b0bec5;font-weight:700">—</td>`:''}
           ${subCells}
           ${xCell}${xCell}${xCell}${xCell}${xCell}
         </tr>`;
@@ -9104,33 +9061,33 @@ function exportMeritPDF() {
       const rnkC=s.overallRank===1?'#b45309':s.overallRank<=3?'#1d4ed8':'#1e293b';
       const ptG=getPointsGrade(s.points);
       return `<tr style="background:${i%2===0?'#f8fbff':'#fff'}">
-        <td style="text-align:center;background:${rnkBg};color:${rnkC};font-weight:800;padding:2px 4px;border:1px solid #d1dfe8">${s.overallRank===1?'★':s.overallRank}</td>
-        <td style="font-family:monospace;font-size:8px;padding:2px 4px;border:1px solid #d1dfe8">${s.adm}</td>
-        <td style="font-weight:700;padding:2px 4px;border:1px solid #d1dfe8">${s.name}</td>
-        <td style="text-align:center;padding:2px 4px;border:1px solid #d1dfe8">${s.gender==='M'?'<span style="color:#1d4ed8;font-weight:700">M</span>':'<span style="color:#be185d;font-weight:700">F</span>'}</td>
-        ${showStream?`<td style="padding:2px 4px;border:1px solid #d1dfe8">${str?.name||'—'}</td><td style="text-align:center;padding:2px 4px;border:1px solid #d1dfe8">#${s.streamRank}</td>`:''}
+        <td style="text-align:center;background:${rnkBg};color:${rnkC};font-weight:800;padding:2px 4px;border:2px solid #b0bec5">${s.overallRank===1?'★':s.overallRank}</td>
+        <td style="font-family:monospace;font-size:8px;padding:2px 4px;border:2px solid #b0bec5;font-weight:700">${s.adm}</td>
+        <td style="font-weight:800;padding:2px 4px;border:2px solid #b0bec5">${s.name}</td>
+        <td style="text-align:center;padding:2px 4px;border:2px solid #b0bec5">${s.gender==='M'?'<span style="color:#1d4ed8;font-weight:800">M</span>':'<span style="color:#be185d;font-weight:800">F</span>'}</td>
+        ${showStream?`<td style="padding:2px 4px;border:2px solid #b0bec5;font-weight:700">${str?.name||'—'}</td><td style="text-align:center;padding:2px 4px;border:2px solid #b0bec5;font-weight:800">#${s.streamRank}</td>`:''}
         ${subCells}
-        <td style="font-weight:800;text-align:center;padding:2px 4px;border:1px solid #d1dfe8">${s.total}</td>
-        <td style="text-align:center;font-weight:700;color:#7c3aed;padding:2px 4px;border:1px solid #d1dfe8">${s.mean.toFixed(2)}</td>
-        <td style="text-align:center;padding:2px 4px;border:1px solid #d1dfe8">${gradeB(s.grade)}</td>
-        <td style="text-align:center;font-weight:700;padding:2px 4px;border:1px solid #d1dfe8">${s.points}</td>
-        <td style="text-align:center;padding:2px 4px;border:1px solid #d1dfe8">${gradeB(ptG)}</td>
+        <td style="font-weight:800;text-align:center;padding:2px 4px;border:2px solid #b0bec5">${s.total}</td>
+        <td style="text-align:center;font-weight:800;color:#7c3aed;padding:2px 4px;border:2px solid #b0bec5">${s.mean.toFixed(2)}</td>
+        <td style="text-align:center;padding:2px 4px;border:2px solid #b0bec5;font-weight:700">${gradeB(s.grade)}</td>
+        <td style="text-align:center;font-weight:800;padding:2px 4px;border:2px solid #b0bec5">${s.points}</td>
+        <td style="text-align:center;padding:2px 4px;border:2px solid #b0bec5;font-weight:700">${gradeB(ptG)}</td>
       </tr>`;
     }).join('');
-    const subHdr=examSubs.map(s=>`<th style="text-align:center;font-size:8px;background:#1a6fb5;color:#fff;padding:3px 4px;border:1px solid #1a6fb5" title="${s.name}">${s.code}<br><span style="font-weight:400;font-size:7px">/${s.max||100}</span></th>`).join('');
-    return `<table style="width:100%;border-collapse:collapse;font-size:8px;margin-bottom:10px">
+    const subHdr=examSubs.map(s=>`<th style="text-align:center;font-size:8px;font-weight:800;background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5" title="${s.name}">${s.code}<br><span style="font-weight:700;font-size:7px">/${s.max||100}</span></th>`).join('');
+    return `<table style="width:100%;border-collapse:collapse;font-size:8px;font-weight:700;margin-bottom:10px">
       <thead><tr>
-        <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:1px solid #1a6fb5;font-size:8px">Rank</th>
-        <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:1px solid #1a6fb5;font-size:8px">Adm</th>
-        <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:1px solid #1a6fb5;font-size:8px">Name</th>
-        <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:1px solid #1a6fb5;font-size:8px">G</th>
-        ${showStream?'<th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:1px solid #1a6fb5;font-size:8px">Stream</th><th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:1px solid #1a6fb5;font-size:8px">Str#</th>':''}
+        <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5;font-size:8px;font-weight:800">Rank</th>
+        <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5;font-size:8px;font-weight:800">Adm</th>
+        <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5;font-size:8px;font-weight:800">Name</th>
+        <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5;font-size:8px;font-weight:800">G</th>
+        ${showStream?'<th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5;font-size:8px;font-weight:800">Stream</th><th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5;font-size:8px;font-weight:800">Str#</th>':''}
         ${subHdr}
-        <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:1px solid #1a6fb5;font-size:8px">Total</th>
-        <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:1px solid #1a6fb5;font-size:8px">Mean</th>
-        <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:1px solid #1a6fb5;font-size:8px">Grade</th>
-        <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:1px solid #1a6fb5;font-size:8px">Pts</th>
-        <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:1px solid #1a6fb5;font-size:8px">Pts G</th>
+        <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5;font-size:8px;font-weight:800">Total</th>
+        <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5;font-size:8px;font-weight:800">Mean</th>
+        <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5;font-size:8px;font-weight:800">Grade</th>
+        <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5;font-size:8px;font-weight:800">Pts</th>
+        <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5;font-size:8px;font-weight:800">Pts G</th>
       </tr></thead><tbody>${rows}</tbody></table>`;
   };
 
@@ -9433,8 +9390,8 @@ function exportMeritPDF() {
       ${sectionHdr(`${cls?cls.name+' &rsaquo; ':''}${str?.name||''} — Stream Merit List`, '#1a6fb5', '&#127942;')}
       ${ptsLegend()}
       ${statsBar(sc)}
-      ${gradeDistribution(sc)}
       ${meritTable(sc, false)}
+      ${gradeDistribution(sc)}
       ${genderSection(sc)}
       ${streamVsClass(str?.classId||classFilter||null, filterStr)}
       ${subjectAnalysis(sc)}`;
@@ -9462,8 +9419,8 @@ function exportMeritPDF() {
           return `<div style="margin-top:18px;padding-top:14px;border-top:2px dashed #cbd5e1">
             ${sectionHdr(`${str.name} Stream`, '#16a34a', '&#9654;')}
             ${statsBar(sc)}
-            ${gradeDistribution(sc)}
             ${meritTable(sc, false)}
+            ${gradeDistribution(sc)}
             ${genderSection(sc)}
             ${streamVsClass(cid, str.id)}
             ${subjectAnalysis(sc)}
@@ -9475,8 +9432,8 @@ function exportMeritPDF() {
         ${sectionHdr(`${cls?cls.name:'Class'} — Class Merit List`, '#7c3aed', '&#127942;')}
         ${ptsLegend()}
         ${statsBar(clsSc)}
-        ${gradeDistribution(clsSc)}
         ${meritTable(clsSc, clsStrs.length>0)}
+        ${gradeDistribution(clsSc)}
         ${genderSection(clsSc)}
         ${subjectAnalysis(clsSc)}
         ${strBlocks}
@@ -16849,7 +16806,6 @@ function go(sec, el) {
   if (sec === 'reports')    { populateReportDropdowns(); }
   if (sec === 'messaging')  { loadMsgRecipients(); }
   if (sec === 'fees')       { initFeesSection(); }
-  if (sec === 'papers')     { initPapersSection(); }
   if (sec === 'settings')   { renderTeacherPreferences(); }
   if (sec === 'people')     { initPeopleSection(); }
   if (sec === 'staffdetails') { initStaffDetailsSection(); }
@@ -19474,7 +19430,7 @@ function applyRoleBasedUI() {
     // ── 1. Sidebar / mobile nav ──────────────────
     // Hide every section first, then reveal what this teacher can access.
     const ALL_SECTIONS = ['students','subjects','classes','teachers','staffdetails',
-      'timetable','reports','papers','fees','messaging','settings','people','platform','livechat'];
+      'timetable','reports','fees','messaging','settings','people','platform','livechat'];
     ALL_SECTIONS.forEach(sec => {
       document.querySelectorAll(`[data-s="${sec}"]`).forEach(el => el.style.display = 'none');
     });
@@ -19560,7 +19516,7 @@ function applyRoleBasedUI() {
   // ══════════════════════════════════════════════
   if (isBursar) {
     const ALL_SECTIONS = ['students','subjects','classes','teachers','staffdetails',
-      'timetable','exams','reports','papers','messaging','settings','people','platform','livechat'];
+      'timetable','exams','reports','messaging','settings','people','platform','livechat'];
     ALL_SECTIONS.forEach(sec => {
       document.querySelectorAll(`[data-s="${sec}"]`).forEach(el => el.style.display = 'none');
     });
@@ -19577,7 +19533,7 @@ function applyRoleBasedUI() {
 
   // Restore all sidebar sections
   ['students','subjects','classes','teachers','staffdetails','timetable',
-   'reports','papers','messaging','people'].forEach(sec => {
+   'reports','messaging','people'].forEach(sec => {
     document.querySelectorAll(`[data-s="${sec}"]`).forEach(el => el.style.display = '');
   });
 
@@ -22986,7 +22942,7 @@ function applyRbacTeacher() {
   const cfg = rbacEffective('teacher', currentSchoolId);
 
   // Sections — hide/show nav links
-  const teacherSections = ['dashboard','exams','papers','fees','staffdetails','messaging','settings'];
+  const teacherSections = ['dashboard','exams','fees','staffdetails','messaging','settings'];
   teacherSections.forEach(sec => {
     const allowed = cfg[sec] !== false;
     document.querySelectorAll(`[data-s="${sec}"]`).forEach(el => {
