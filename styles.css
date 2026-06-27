@@ -4365,3 +4365,67 @@ html, body {
   }
 }
 
+/* Definitive scroll-pane fix: the app content scrolls, not the document. */
+html, body {
+  overscroll-behavior: none;
+  overflow-anchor: none;
+}
+
+#app {
+  height: 100vh !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
+}
+
+.main {
+  position: fixed !important;
+  top: var(--tb-h, 52px) !important;
+  bottom: 0 !important;
+  margin-top: 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scroll-behavior: auto !important;
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+}
+
+.main .sec,
+.main .sec.active {
+  overflow-anchor: none;
+}
+
+@media (min-width: 961px) {
+  #app:not(.sidebar-collapsed) .main {
+    left: var(--sb-w, 256px) !important;
+    right: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    padding: .4rem 1.1rem 4rem !important;
+  }
+
+  #app.sidebar-collapsed .main {
+    left: 0 !important;
+    right: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    padding: .4rem 1.1rem 4rem !important;
+  }
+}
+
+@media (max-width: 960px) {
+  .main {
+    left: 0 !important;
+    right: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    padding: .3rem .9rem calc(62px + 1.5rem) !important;
+  }
+
+  body.plat-admin-mode .main {
+    padding-top: calc(62px + .75rem) !important;
+    padding-bottom: 1.5rem !important;
+  }
+}
+
