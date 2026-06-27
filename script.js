@@ -2260,8 +2260,7 @@ function openPlatTab(tabId, btn) {
   }
   // Init collapse buttons for newly visible tab
   setTimeout(initPlatformCollapse, 80);
-
-  if (typeof resetAppScroll === 'function') resetAppScroll('openPlatTab');}
+}
 
 function platRenderExamDlFeeUI() {
   const inp = document.getElementById('platExamDlFeeInput');
@@ -16825,27 +16824,6 @@ function es_loadSampleData() {
 
 
 
-// ── App scroll reset ─────────────────────────────
-function resetAppScroll(reason) {
-  const run = () => {
-    const mainEl = document.getElementById('mainContent') || document.querySelector('.main');
-    const activeSec = document.querySelector('.sec.active');
-    if (mainEl) mainEl.scrollTop = 0;
-    if (activeSec) activeSec.scrollTop = 0;
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
-    if (typeof window !== 'undefined' && window.scrollTo) {
-      try { window.scrollTo(0, 0); } catch (_) {}
-    }
-  };
-  run();
-  requestAnimationFrame(run);
-  setTimeout(run, 0);
-  setTimeout(run, 120);
-  setTimeout(run, 350);
-}
-if (typeof window !== 'undefined') window.resetAppScroll = resetAppScroll;
-
 // ── Patch go() to handle timetable section ───────────────
 
 function go(sec, el) {
@@ -16881,8 +16859,17 @@ function go(sec, el) {
     // Fire auto-sync event so the timetable pulls latest school data
     document.dispatchEvent(new CustomEvent('tt_sectionVisible'));
   }
-  // Reset every scroll container that can hold an old page position.
-  resetAppScroll('section:' + sec);
+  // Reset scroll AFTER all section-init calls have run.  Some init functions
+  // (e.g. openPlatTab, initFeesSection) previously called scrollIntoView()
+  // which moved the .main scrollbar before the user could see the top of the
+  // page.  Deferring to the next task (setTimeout 0) guarantees this fires
+  // after every synchronous init call AND after any scrollIntoView the browser
+  // queues during layout.
+  const mainEl = document.querySelector('.main');
+  if (mainEl) {
+    mainEl.scrollTop = 0;              // immediate reset (catches most cases)
+    setTimeout(() => { mainEl.scrollTop = 0; }, 0); // deferred reset (catches post-render scroll)
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -17253,8 +17240,7 @@ function openFinanceMainTab(panelId, btn) {
     const firstBtn = document.querySelector('#salariesTabBar .tb');
     openSalariesTab('tabStaffSalary', firstBtn);
   }
-
-  if (typeof resetAppScroll === 'function') resetAppScroll('openFinanceMainTab');}
+}
 
 // ── Switch Salaries sub-tabs (Staff Salary | Payroll | Payslips) ──
 function openSalariesTab(tabId, btn) {
@@ -17270,8 +17256,7 @@ function openSalariesTab(tabId, btn) {
   if (tabId === 'tabAddStaff') {
     sdpClearForm();
   }
-
-  if (typeof resetAppScroll === 'function') resetAppScroll('openSalariesTab');}
+}
 
 function openFeesTab(tabId, btn) {
   document.querySelectorAll('#financeFees .tab-panel').forEach(p => p.classList.remove('active'));
@@ -17292,8 +17277,7 @@ function openFeesTab(tabId, btn) {
     openSalarySubTab('tabSalaryStaff', document.getElementById('tbSalaryStaff'));
   }
   // tabFeeImport is static HTML — no render call needed
-
-  if (typeof resetAppScroll === 'function') resetAppScroll('openFeesTab');}
+}
 
 // ── Open Salary Sub-Tab (Staff / BOM Members) ──
 function openSalarySubTab(tabId, btn) {
@@ -23923,8 +23907,7 @@ function openPeopleTab(panelId, btn) {
   if (btn) btn.classList.add('active');
   if (panelId === 'peopleBOMPanel') peopleRenderBOMTable();
   if (panelId === 'peopleStaffPanel') { pstPopulateDeptFilter(); pstRenderList(); }
-
-  if (typeof resetAppScroll === 'function') resetAppScroll('openPeopleTab');}
+}
 
 function openPeopleStaffTab(tabId, btn) {
   document.querySelectorAll('#peopleStaffPanel .tab-panel').forEach(function(panel) {
@@ -23937,8 +23920,7 @@ function openPeopleStaffTab(tabId, btn) {
   if (btn) btn.classList.add('active');
   if (tabId === 'pplStList')  pstRenderList();
   if (tabId === 'pplStRoles') pstRenderRoles();
-
-  if (typeof resetAppScroll === 'function') resetAppScroll('openPeopleStaffTab');}
+}
 
 // ── Staff List ──
 
