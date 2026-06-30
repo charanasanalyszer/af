@@ -705,19 +705,17 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
   }
   #meritListWrap thead { display: table-header-group !important; }
   #meritListWrap tr    { page-break-inside: avoid !important; }
+  /* Keep the same header/cell colors used on screen — only adjust spacing/size for the page */
   #meritListWrap th {
-    background: #1a6fb5 !important; color: #fff !important;
     padding: 3px 4px !important; font-size: 6.5pt !important;
-    border: 1px solid #a0bdd8 !important; font-weight: 700 !important;
+    border-bottom: 1px solid var(--border) !important; font-weight: 700 !important;
   }
   #meritListWrap td {
     padding: 2px 4px !important;
-    border: 1px solid #d1dfe8 !important;
+    border-bottom: 1px solid var(--border-lt) !important;
     font-size: 7pt !important;
     vertical-align: middle !important;
   }
-  #meritListWrap tr:nth-child(even) td { background: #f8fbff !important; }
-  #meritListWrap tr:first-child td     { background: #dbeafe !important; }
 
   /* ── Cards & sections ── */
   #meritListWrap .card {
@@ -735,7 +733,7 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
     border: none !important;
   }
 
-  /* ── Badges ── */
+  /* ── Badges — keep the same colors used on screen, just tighten size for print ── */
   #meritListWrap .badge {
     padding: 1px 4px !important;
     font-size: 6.5pt !important;
@@ -743,16 +741,6 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
     font-weight: 700 !important;
     -webkit-print-color-adjust: exact !important;
   }
-  .b-green  { background: #dcfce7 !important; color: #16a34a !important; }
-  .b-teal   { background: #ccfbf1 !important; color: #0d9488 !important; }
-  .b-blue   { background: #ede9fe !important; color: #7c3aed !important; }
-  .b-lblue  { background: #cffafe !important; color: #0891b2 !important; }
-  .b-amber  { background: #fef3c7 !important; color: #d97706 !important; }
-  .b-orange { background: #ffedd5 !important; color: #ea580c !important; }
-  .b-red    { background: #fee2e2 !important; color: #dc2626 !important; }
-  .b-dkred  { background: #7f1d1d !important; color: #fca5a5 !important; }
-  .b-m      { background: #ede9fe !important; color: #5b21b6 !important; }
-  .b-f      { background: #fce7f3 !important; color: #9d174d !important; }
 
   /* ── Stats bar pills ── */
   #meritListWrap [style*="border-radius:7px"],
