@@ -8502,26 +8502,32 @@ function printMeritList() {
     });
   }
 
-  // ── Grade Distribution table ──────────────────────────────────────────────
+  // ── Grade Distribution table — transposed to match the on-screen layout ───
+  // (Grade as columns, Female/Male/Total/% as rows — same shape as buildGradeDistributionHTML)
   function renderGradeDistribution(scored, titlePrefix) {
     const complete = scored.filter(s => !s.incomplete);
     if (!complete.length) return;
 
     const bands = rankBy === 'points' ? POINTS_GRADE_BANDS : getActiveGradingSystem().bands;
-    const rows = [];
+    const dist = [];
     bands.forEach(b => {
-      const count = complete.filter(s =>
+      const inBand = complete.filter(s =>
         rankBy === 'points'
           ? getPointsGrade(s.points).grade === b.grade
           : (s.grade && (s.grade.grade || s.grade) === b.grade)
-      ).length;
-      if (count > 0) {
-        const pct = ((count / complete.length) * 100).toFixed(1);
-        rows.push([b.grade, b.label, count, `${pct}%`]);
+      );
+      if (inBand.length) {
+        const female = inBand.filter(s => s.gender === 'F').length;
+        const male   = inBand.filter(s => s.gender === 'M').length;
+        const other  = inBand.length - female - male;
+        dist.push({ ...b, count: inBand.length, female, male, other });
       }
     });
+    if (!dist.length) return;
 
-    if (!rows.length) return;
+    const totalFemale = dist.reduce((a,d)=>a+d.female,0);
+    const totalMale   = dist.reduce((a,d)=>a+d.male,0);
+    const totalOther  = dist.reduce((a,d)=>a+d.other,0);
 
     // Always add a fresh page so the table is never buried or hidden
     doc.addPage();
@@ -8529,36 +8535,44 @@ function printMeritList() {
     let y = 23;
     y = addSectionTitle(`${titlePrefix} — Grade Distribution (${rankBy === 'points' ? 'Mean Points' : 'Avg Mark'})`, y);
 
-    // Grade colour map
     const gradeColorMap = {
       'EE1':[22,163,74], 'EE2':[13,148,136], 'ME1':[37,99,235],
       'ME2':[14,165,233], 'AE1':[217,119,6], 'AE2':[234,88,12],
       'BE1':[220,38,38], 'BE2':[153,27,27]
     };
 
+    const head  = [['', ...dist.map(d => d.grade), 'Overall']];
+    const body  = [
+      ['Female', ...dist.map(d => d.female), totalFemale],
+      ['Male',   ...dist.map(d => d.male),   totalMale],
+    ];
+    if (totalOther > 0) body.push(['Other', ...dist.map(d => d.other), totalOther]);
+    body.push(['Total', ...dist.map(d => d.count), complete.length]);
+    body.push(['%', ...dist.map(d => Math.round((d.count/complete.length)*100)+'%'), '100%']);
+
+    const rowColors = { 0:[190,24,93], 1:[29,78,216], 2:[107,114,128] };
+
     doc.autoTable({
       startY: y,
-      head: [['Grade', 'Label', 'No. of Learners', '% of Total']],
-      body: rows,
-      theme: 'striped',
-      styles: { fontSize: 9, cellPadding: 2.5, textColor: dark },
-      headStyles: { fillColor: [26,111,181], textColor: white, fontStyle: 'bold', fontSize: 9, halign: 'center' },
-      columnStyles: {
-        0: { cellWidth: 28, halign: 'center', fontStyle: 'bold' },
-        1: { cellWidth: 70 },
-        2: { cellWidth: 50, halign: 'center', fontStyle: 'bold' },
-        3: { cellWidth: 36, halign: 'center' },
-      },
+      head, body,
+      theme: 'grid',
+      styles: { fontSize: 7.5, cellPadding: 2, textColor: dark, halign: 'center' },
+      headStyles: { fillColor: [26,111,181], textColor: white, fontStyle: 'bold', fontSize: 7.5, halign: 'center' },
+      columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 24 } },
       margin: { left: M, right: M },
       didParseCell(data) {
-        if (data.section === 'body' && data.column.index === 0) {
-          const grade = String(data.cell.raw);
-          const col = gradeColorMap[grade];
-          if (col) { data.cell.styles.textColor = col; }
+        if (data.column.index === 0 && data.section === 'head') return;
+        if (data.column.index > 0 && data.section === 'head') {
+          const grade = dist[data.column.index - 1]?.grade;
+          const col = grade && gradeColorMap[grade];
+          if (col) { data.cell.styles.fillColor = col; }
         }
-        if (data.section === 'body' && data.column.index === 2) {
-          const col = gradeColorMap[rows[data.row.index]?.[0]];
-          if (col) { data.cell.styles.textColor = col; }
+        if (data.section === 'body' && data.column.index === 0) {
+          const label = data.cell.raw;
+          if (label === 'Female') data.cell.styles.textColor = [190,24,93];
+          if (label === 'Male')   data.cell.styles.textColor = [29,78,216];
+          if (label === 'Other')  data.cell.styles.textColor = [107,114,128];
+          if (label === 'Total' || label === '%') data.cell.styles.fontStyle = 'bold';
         }
       },
     });

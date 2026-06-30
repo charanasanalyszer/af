@@ -718,6 +718,10 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
   }
 
   /* ── Cards & sections ── */
+  #meritListWrap .merit-grade-dist-block {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
   #meritListWrap .card {
     padding: .55rem .7rem !important;
     margin-bottom: .5rem !important;
