@@ -20351,6 +20351,7 @@ function runAnalysis() {
 
   const studentTotals = studentsWithData.map(stu => {
     let total = 0, pts = 0;
+    const scoredMaxes = []; // max score for each subject the student actually has a mark for
     exam.subjectIds.forEach(sid => {
       let score;
       if (isConsolidated) {
@@ -20364,13 +20365,16 @@ function runAnalysis() {
         const sub = subjects.find(s=>s.id===sid);
         const subMax = exam.maxScore || sub?.max || 100;
         pts += getGrade(score, subMax).points;
+        scoredMaxes.push(subMax);
       }
     });
-    const mean = parseFloat((total / totalSubjects).toFixed(2));
-    const examMax = exam.maxScore || null;
-    const maxAvg = examMax || (exam.subjectIds.map(sid=>subjects.find(s=>s.id===sid)?.max||100).reduce((a,b)=>a+b,0)/totalSubjects)||100;
+    // Mean is based only on subjects the student actually has a score for,
+    // matching the per-subject and report-card calculations (no zero-padding for absences).
+    const subjectsScored = scoredMaxes.length || 1;
+    const mean = parseFloat((total / subjectsScored).toFixed(2));
+    const maxAvg = scoredMaxes.length ? scoredMaxes.reduce((a,b)=>a+b,0)/scoredMaxes.length : 100;
     const grade = getMeanGrade(mean / maxAvg * 8);
-    return { ...stu, total: parseFloat(total.toFixed(1)), mean, grade, points:pts };
+    return { ...stu, total: parseFloat(total.toFixed(1)), mean, grade, points:pts, subjectsScored };
   });
 
   if (!studentTotals.length) {
