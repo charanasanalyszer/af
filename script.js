@@ -7519,7 +7519,7 @@ function buildStreamVsClassHTML(examId, classId, activeStreamId) {
   </div>`;
 }
 
-function buildMeritStatsBar(scored) {
+function buildMeritStatsBar(scored, examId) {
   if (!scored || !scored.length) return '';
   const rankBy  = document.getElementById('mlRankBy')?.value || 'points';
   const total   = scored.length;
@@ -7546,6 +7546,24 @@ function buildMeritStatsBar(scored) {
     girlsM    = girls ? (girlsArr.reduce((a,s)=>a+s.mean,0)/girls).toFixed(1) : null;
     meanLabel = 'Mean';
   }
+
+  // Mean total marks out of the full possible class total (e.g. 900 for 9 subjects of 100 marks each)
+  const exam = examId ? exams.find(e => e.id === examId) : null;
+  let totalMarksHTML = '';
+  if (exam) {
+    const maxPossible = exam.subjectIds && exam.subjectIds.length
+      ? exam.subjectIds.reduce((a,sid) => a + (subjects.find(s=>s.id===sid)?.max || 100), 0)
+      : null;
+    const meanTotal = complete.length ? complete.reduce((a,s)=>a + (s.total||0), 0) / complete.length : 0;
+    if (maxPossible) {
+      totalMarksHTML = `
+      <div style="display:flex;align-items:center;gap:.35rem;background:#f0fdf4;border:1px solid #86efac;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#15803d">
+        <i class="fa-solid fa-calculator" style="font-size:.78rem"></i>
+        <span>Mean Marks: ${meanTotal.toFixed(1)}/${maxPossible}</span>
+      </div>`;
+    }
+  }
+
   return `
     <div style="display:flex;gap:.55rem;flex-wrap:wrap;align-items:center;margin-bottom:.75rem">
       <div style="display:flex;align-items:center;gap:.35rem;background:#f0f9ff;border:1px solid #bae6fd;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#0369a1">
@@ -7557,6 +7575,7 @@ function buildMeritStatsBar(scored) {
         <span>${meanLabel}: ${meanVal.toFixed(2)}</span>
         ${meanGrd ? `<span class="badge ${meanGrd.cls}" style="font-size:.65rem;margin-left:.2rem">${meanGrd.grade}</span>` : ''}
       </div>
+      ${totalMarksHTML}
       <div style="display:flex;align-items:center;gap:.35rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#1d4ed8">
         <i class="fa-solid fa-mars" style="font-size:.78rem"></i>
         <span>Boys: ${boys}${boysM ? ` &bull; ${meanLabel}: ${boysM}` : ''}</span>
@@ -7621,7 +7640,7 @@ function buildGradeDistributionHTML(scored) {
   }).join('');
 
   return `
-    <div style="margin-bottom:.85rem;padding:.75rem 1rem;background:var(--surface,#fff);border:1.5px solid var(--border);border-radius:10px">
+    <div class="merit-grade-dist-block" style="margin-bottom:.85rem;padding:.75rem 1rem;background:var(--surface,#fff);border:1.5px solid var(--border);border-radius:10px">
       <div style="font-size:.78rem;font-weight:700;color:var(--primary);margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem">
         <i class="fa-solid fa-chart-bar"></i> Grade Distribution
         <span style="font-size:.68rem;font-weight:400;color:var(--muted)">(${complete.length} learner${complete.length!==1?'s':''}${usePoints?' · by mean points':' · by avg mark'})</span>
@@ -14249,7 +14268,7 @@ function _renderMeritListBody(examId, type, classId, container) {
         <span style="font-size:.78rem;font-weight:400;color:var(--muted);margin-left:.5rem">${exam?.name||''}</span>
         ${rankByLabel}
       </h3>
-      ${buildMeritStatsBar(streamScored)}
+      ${buildMeritStatsBar(streamScored, examId)}
       ${buildGradeDistributionHTML(streamScored)}
       <div class="tbl-wrap">
         <table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
@@ -14328,7 +14347,7 @@ function _renderMeritListBody(examId, type, classId, container) {
           <i class="fa-solid fa-ranking-star"></i> ${cls?cls.name+' › ':''}${str.name} — ${pw?.label||pathwayId} Merit List
           <span style="font-size:.72rem;font-weight:400;color:var(--muted);margin-left:.4rem">${fullScored.filter(s=>!s.incomplete).length} ranked · ${fullScored.filter(s=>s.incomplete).length} incomplete</span>
         </h4>
-        ${buildMeritStatsBar(fullScored)}
+        ${buildMeritStatsBar(fullScored, examId)}
         <div class="tbl-wrap"><table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table></div>
         ${strGender}
       </div>`;
@@ -14389,7 +14408,7 @@ function _renderMeritListBody(examId, type, classId, container) {
                   <i class="fa-solid fa-layer-group"></i> ${str.name} Stream &mdash; ${pw.label}
                   <span style="font-size:.7rem;font-weight:400;color:var(--muted);margin-left:.4rem">${strScored.filter(s=>!s.incomplete).length} ranked</span>
                 </h5>
-                ${buildMeritStatsBar(strScored)}
+                ${buildMeritStatsBar(strScored, examId)}
                 <div class="tbl-wrap"><table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table></div>
                 ${strGender}
                 ${strVsClass}
@@ -14403,7 +14422,7 @@ function _renderMeritListBody(examId, type, classId, container) {
             <span style="font-size:.72rem;font-weight:400;color:var(--muted);margin-left:.4rem">${pwScored.filter(s=>!s.incomplete).length} ranked · ${pwScored.filter(s=>s.incomplete).length} incomplete</span>
             ${rankByLabelCls}
           </h4>
-          ${buildMeritStatsBar(pwScored)}
+          ${buildMeritStatsBar(pwScored, examId)}
           ${buildGradeDistributionHTML(pwScored)}
           <div class="tbl-wrap"><table><thead>${pwHdr}</thead><tbody>${pwRows}</tbody></table></div>
           ${pwGender}
@@ -14445,7 +14464,7 @@ function _renderMeritListBody(examId, type, classId, container) {
             <h4 data-stream-id="${str.id}" style="margin-bottom:.4rem;font-family:var(--font);font-weight:700;color:var(--secondary);font-size:.95rem">
                ${str.name} Stream
             </h4>
-            ${buildMeritStatsBar(strScored)}
+            ${buildMeritStatsBar(strScored, examId)}
             ${buildGradeDistributionHTML(strScored)}
             <div class="tbl-wrap">
               <table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
@@ -14464,7 +14483,7 @@ function _renderMeritListBody(examId, type, classId, container) {
           <span style="font-size:.78rem;font-weight:400;color:var(--muted);margin-left:.5rem">${exam?.name||''}</span>
           ${rankByLabelCls}
         </h3>
-        ${buildMeritStatsBar(classScored)}
+        ${buildMeritStatsBar(classScored, examId)}
         ${buildGradeDistributionHTML(classScored)}
         <div class="tbl-wrap">
           <table><thead>${clsHdr}</thead><tbody>${clsRows}</tbody></table>
