@@ -7623,19 +7623,14 @@ function buildGradeDistributionHTML(scored) {
   const totalMale   = dist.reduce((a,d)=>a+d.male,0);
   const totalOther  = dist.reduce((a,d)=>a+d.other,0);
 
-  const rows = dist.map(d => {
-    const pctOfTotal = Math.round((d.count / complete.length) * 100);
-    return `
-      <tr>
-        <td><span class="badge ${d.cls}" style="font-size:.68rem">${d.grade}</span></td>
-        <td style="font-size:.72rem;color:var(--muted)">${d.label}</td>
-        <td style="text-align:center;font-weight:600;color:#be185d">${d.female}</td>
-        <td style="text-align:center;font-weight:600;color:#1d4ed8">${d.male}</td>
-        ${totalOther > 0 ? `<td style="text-align:center;font-weight:600;color:#6b7280">${d.other}</td>` : ''}
-        <td style="text-align:center;font-weight:700">${d.count}</td>
-        <td style="text-align:center;font-size:.7rem;color:var(--muted)">${pctOfTotal}%</td>
-      </tr>`;
-  }).join('');
+  const gradeHeaderCells = dist.map(d =>
+    `<th style="text-align:center;padding:.3rem .5rem"><span class="badge ${d.cls}" style="font-size:.66rem">${d.grade}</span></th>`
+  ).join('');
+  const femaleCells = dist.map(d => `<td style="text-align:center;font-weight:600;color:#be185d">${d.female}</td>`).join('');
+  const maleCells   = dist.map(d => `<td style="text-align:center;font-weight:600;color:#1d4ed8">${d.male}</td>`).join('');
+  const otherCells  = totalOther > 0 ? dist.map(d => `<td style="text-align:center;font-weight:600;color:#6b7280">${d.other}</td>`).join('') : '';
+  const totalCells  = dist.map(d => `<td style="text-align:center;font-weight:700">${d.count}</td>`).join('');
+  const pctCells    = dist.map(d => `<td style="text-align:center;font-size:.7rem;color:var(--muted)">${Math.round((d.count/complete.length)*100)}%</td>`).join('');
 
   return `
     <div class="merit-grade-dist-block" style="margin-bottom:.85rem">
@@ -7647,23 +7642,36 @@ function buildGradeDistributionHTML(scored) {
         <table style="font-size:.78rem">
           <thead>
             <tr>
-              <th>Grade</th><th>Label</th>
-              <th style="text-align:center;color:#be185d">Female</th>
-              <th style="text-align:center;color:#1d4ed8">Male</th>
-              ${totalOther > 0 ? '<th style="text-align:center">Other</th>' : ''}
-              <th style="text-align:center">Total</th>
-              <th style="text-align:center">%</th>
+              <th></th>
+              ${gradeHeaderCells}
+              <th style="text-align:center;border-left:2px solid var(--border)">Overall</th>
             </tr>
           </thead>
           <tbody>
-            ${rows}
-            <tr style="font-weight:700;border-top:2px solid var(--border)">
-              <td colspan="2">Overall</td>
-              <td style="text-align:center;color:#be185d">${totalFemale}</td>
-              <td style="text-align:center;color:#1d4ed8">${totalMale}</td>
-              ${totalOther > 0 ? `<td style="text-align:center;color:#6b7280">${totalOther}</td>` : ''}
-              <td style="text-align:center">${complete.length}</td>
-              <td style="text-align:center">100%</td>
+            <tr>
+              <td style="font-weight:600;color:#be185d">Female</td>
+              ${femaleCells}
+              <td style="text-align:center;font-weight:700;color:#be185d;border-left:2px solid var(--border)">${totalFemale}</td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;color:#1d4ed8">Male</td>
+              ${maleCells}
+              <td style="text-align:center;font-weight:700;color:#1d4ed8;border-left:2px solid var(--border)">${totalMale}</td>
+            </tr>
+            ${totalOther > 0 ? `<tr>
+              <td style="font-weight:600;color:#6b7280">Other</td>
+              ${otherCells}
+              <td style="text-align:center;font-weight:700;color:#6b7280;border-left:2px solid var(--border)">${totalOther}</td>
+            </tr>` : ''}
+            <tr style="border-top:2px solid var(--border)">
+              <td style="font-weight:700">Total</td>
+              ${totalCells}
+              <td style="text-align:center;font-weight:800;border-left:2px solid var(--border)">${complete.length}</td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;color:var(--muted)">%</td>
+              ${pctCells}
+              <td style="text-align:center;font-weight:700;color:var(--muted);border-left:2px solid var(--border)">100%</td>
             </tr>
           </tbody>
         </table>
