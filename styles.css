@@ -650,8 +650,7 @@ tbody tr:hover { background:rgba(26,111,181,.03); }
   body.printing-merit #tabSummaryAnalytics,
   body.printing-merit #tabReportForms,
   body.printing-merit #ptsLegendWrap .chart-box,
-  body.printing-merit .chart-box,
-  body.printing-merit .merit-grade-dist-block { display: none !important; }
+  body.printing-merit .chart-box { display: none !important; }
 
   /* Show the print header */
   body.printing-merit #ml-print-header { display: block !important; }

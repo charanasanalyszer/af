@@ -7590,7 +7590,7 @@ function buildMeritStatsBar(scored, examId) {
 }
 
 // ── Grade Distribution panel for Merit List ─────────────────────────────────
-// Shows number of learners in each avg grade (EE1, EE2 … BE2) with bar chart
+// Shows number of learners in each avg grade (EE1, EE2 … BE2) as a compact table — Grade | Female | Male | Total
 function buildGradeDistributionHTML(scored) {
   if (!scored || !scored.length) return '';
   const rankBy  = document.getElementById('mlRankBy')?.value || 'points';
@@ -7598,54 +7598,76 @@ function buildGradeDistributionHTML(scored) {
   const complete = scored.filter(s => !s.incomplete);
   if (!complete.length) return '';
 
-  // Build distribution
+  // Build distribution split by gender
   const bands = usePoints ? POINTS_GRADE_BANDS : getActiveGradingSystem().bands;
   const dist = [];
   bands.forEach(b => {
-    const count = complete.filter(s => {
+    const inBand = complete.filter(s => {
       if (usePoints) {
         return getPointsGrade(s.points).grade === b.grade;
       } else {
         return (s.grade && (s.grade.grade || s.grade) === b.grade);
       }
-    }).length;
-    if (count > 0) dist.push({ ...b, count });
+    });
+    if (inBand.length) {
+      const female = inBand.filter(s => s.gender === 'F').length;
+      const male   = inBand.filter(s => s.gender === 'M').length;
+      const other  = inBand.length - female - male;
+      dist.push({ ...b, count: inBand.length, female, male, other });
+    }
   });
 
   if (!dist.length) return '';
 
-  const maxCount = Math.max(...dist.map(d => d.count));
-
-  // Color map for badge classes → hex
-  const clsColorMap = {
-    'b-green': '#16a34a', 'b-teal': '#0d9488', 'b-blue': '#2563eb',
-    'b-lblue': '#0ea5e9', 'b-amber': '#d97706', 'b-orange': '#ea580c',
-    'b-red': '#dc2626', 'b-dkred': '#991b1b'
-  };
+  const totalFemale = dist.reduce((a,d)=>a+d.female,0);
+  const totalMale   = dist.reduce((a,d)=>a+d.male,0);
+  const totalOther  = dist.reduce((a,d)=>a+d.other,0);
 
   const rows = dist.map(d => {
-    const pct = maxCount ? Math.round((d.count / maxCount) * 100) : 0;
     const pctOfTotal = Math.round((d.count / complete.length) * 100);
-    const color = clsColorMap[d.cls] || '#6b7280';
     return `
-      <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem">
-        <span class="badge ${d.cls}" style="font-size:.68rem;min-width:36px;text-align:center">${d.grade}</span>
-        <span style="font-size:.7rem;color:var(--muted);min-width:90px">${d.label}</span>
-        <div style="flex:1;background:var(--border,#e5e7eb);border-radius:4px;height:14px;overflow:hidden">
-          <div style="width:${pct}%;height:100%;background:${color};border-radius:4px;transition:width .4s"></div>
-        </div>
-        <span style="font-size:.75rem;font-weight:700;color:${color};min-width:22px;text-align:right">${d.count}</span>
-        <span style="font-size:.68rem;color:var(--muted);min-width:36px">(${pctOfTotal}%)</span>
-      </div>`;
+      <tr>
+        <td><span class="badge ${d.cls}" style="font-size:.68rem">${d.grade}</span></td>
+        <td style="font-size:.72rem;color:var(--muted)">${d.label}</td>
+        <td style="text-align:center;font-weight:600;color:#be185d">${d.female}</td>
+        <td style="text-align:center;font-weight:600;color:#1d4ed8">${d.male}</td>
+        ${totalOther > 0 ? `<td style="text-align:center;font-weight:600;color:#6b7280">${d.other}</td>` : ''}
+        <td style="text-align:center;font-weight:700">${d.count}</td>
+        <td style="text-align:center;font-size:.7rem;color:var(--muted)">${pctOfTotal}%</td>
+      </tr>`;
   }).join('');
 
   return `
-    <div class="merit-grade-dist-block" style="margin-bottom:.85rem;padding:.75rem 1rem;background:var(--surface,#fff);border:1.5px solid var(--border);border-radius:10px">
-      <div style="font-size:.78rem;font-weight:700;color:var(--primary);margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem">
+    <div class="merit-grade-dist-block" style="margin-bottom:.85rem">
+      <div style="font-size:.78rem;font-weight:700;color:var(--primary);margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem">
         <i class="fa-solid fa-chart-bar"></i> Grade Distribution
         <span style="font-size:.68rem;font-weight:400;color:var(--muted)">(${complete.length} learner${complete.length!==1?'s':''}${usePoints?' · by mean points':' · by avg mark'})</span>
       </div>
-      ${rows}
+      <div class="tbl-wrap">
+        <table style="font-size:.78rem">
+          <thead>
+            <tr>
+              <th>Grade</th><th>Label</th>
+              <th style="text-align:center;color:#be185d">Female</th>
+              <th style="text-align:center;color:#1d4ed8">Male</th>
+              ${totalOther > 0 ? '<th style="text-align:center">Other</th>' : ''}
+              <th style="text-align:center">Total</th>
+              <th style="text-align:center">%</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+            <tr style="font-weight:700;border-top:2px solid var(--border)">
+              <td colspan="2">Overall</td>
+              <td style="text-align:center;color:#be185d">${totalFemale}</td>
+              <td style="text-align:center;color:#1d4ed8">${totalMale}</td>
+              ${totalOther > 0 ? `<td style="text-align:center;color:#6b7280">${totalOther}</td>` : ''}
+              <td style="text-align:center">${complete.length}</td>
+              <td style="text-align:center">100%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>`;
 }
 
@@ -14269,10 +14291,10 @@ function _renderMeritListBody(examId, type, classId, container) {
         ${rankByLabel}
       </h3>
       ${buildMeritStatsBar(streamScored, examId)}
-      ${buildGradeDistributionHTML(streamScored)}
       <div class="tbl-wrap">
         <table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
       </div>
+      ${buildGradeDistributionHTML(streamScored)}
       ${streamGenderAnalysis}
       ${streamVsClass}
       ${subAnalysis}`;
@@ -14423,8 +14445,8 @@ function _renderMeritListBody(examId, type, classId, container) {
             ${rankByLabelCls}
           </h4>
           ${buildMeritStatsBar(pwScored, examId)}
-          ${buildGradeDistributionHTML(pwScored)}
           <div class="tbl-wrap"><table><thead>${pwHdr}</thead><tbody>${pwRows}</tbody></table></div>
+          ${buildGradeDistributionHTML(pwScored)}
           ${pwGender}
           ${streamSections}
         </div>`;
@@ -14465,10 +14487,10 @@ function _renderMeritListBody(examId, type, classId, container) {
                ${str.name} Stream
             </h4>
             ${buildMeritStatsBar(strScored, examId)}
-            ${buildGradeDistributionHTML(strScored)}
             <div class="tbl-wrap">
               <table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
             </div>
+            ${buildGradeDistributionHTML(strScored)}
             ${strGenderAnalysis}
             ${strVsClass}
             ${strSubAnalysis}
@@ -14484,10 +14506,10 @@ function _renderMeritListBody(examId, type, classId, container) {
           ${rankByLabelCls}
         </h3>
         ${buildMeritStatsBar(classScored, examId)}
-        ${buildGradeDistributionHTML(classScored)}
         <div class="tbl-wrap">
           <table><thead>${clsHdr}</thead><tbody>${clsRows}</tbody></table>
         </div>
+        ${buildGradeDistributionHTML(classScored)}
         ${clsGenderAnalysis}
         ${clsSubAnalysis}
         ${streamSections}
