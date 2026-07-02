@@ -4313,3 +4313,194 @@ body:not(.dark) .toast.success {
     margin-bottom: .75rem !important;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   UI REFRESH v2 — polish layer (buttons, cards, loading, motion, a11y)
+   Appended last on purpose: it sits on top of the theme layers above
+   and refines shape / motion / feedback without fighting their colors.
+   ══════════════════════════════════════════════════════════════════ */
+
+:root {
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+  --ease: cubic-bezier(.22,.9,.35,1);
+  --dur: .18s;
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  :root { --focus-ring: 0 0 0 3px rgba(124,58,237,.28); }
+}
+
+* { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+/* ── Focus visibility (a11y) — keyboard users get a clear ring, mouse users don't ── */
+button:focus-visible, a:focus-visible, .sn:focus-visible, .tb:focus-visible,
+input:focus-visible, select:focus-visible, textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* ── Buttons: consistent motion + states, layered on top of theme colors ── */
+.btn {
+  border-radius: var(--r-sm);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
+              filter var(--dur) var(--ease), opacity var(--dur) var(--ease), background var(--dur) var(--ease);
+  position: relative;
+  letter-spacing: .01em;
+}
+.btn:hover { transform: translateY(-1.5px); filter: brightness(1.05); }
+.btn:active { transform: translateY(0); filter: brightness(.97); }
+.btn:disabled, .btn.is-disabled {
+  opacity: .55; cursor: not-allowed; transform: none !important; filter: none !important; pointer-events: none;
+}
+.btn-primary, .btn-success, .btn-danger {
+  box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 4px 14px -4px rgba(0,0,0,.18);
+}
+.btn-outline { transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), transform var(--dur) var(--ease); }
+
+/* Button loading state — add class "is-loading" via JS instead of hand-rolled spinner HTML */
+.btn.is-loading { color: transparent !important; pointer-events: none; }
+.btn.is-loading > * { visibility: hidden; }
+.btn.is-loading::after {
+  content: '';
+  position: absolute; left: 50%; top: 50%;
+  width: 15px; height: 15px; margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.5);
+  border-top-color: #fff;
+  animation: uiSpin .65s linear infinite;
+}
+.btn-outline.is-loading::after { border-color: var(--border); border-top-color: var(--primary); }
+
+/* Icon buttons — slightly larger tap target, smoother hover */
+.icb { border-radius: var(--r-sm); transition: all var(--dur) var(--ease); }
+.icb:hover { transform: translateY(-1px); }
+
+/* ── Cards: gentle lift + smoother easing on top of existing glass/solid styles ── */
+.card, .chart-box, .stat-card, .qcard {
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.card:hover { box-shadow: var(--shadow-lg); }
+.stat-card::before { border-radius: var(--r-md) var(--r-md) 0 0; }
+
+/* ── Sidebar nav — clearer active indicator + smoother transitions ── */
+.sn {
+  border-radius: var(--r-sm);
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease), padding-left var(--dur) var(--ease);
+  position: relative;
+}
+.sn.active {
+  box-shadow: inset 3px 0 0 currentColor;
+}
+.sn:hover:not(.active) { padding-left: .95rem; }
+
+/* ── Tabs: smoother underline motion ── */
+.tb, .tab-btn {
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+/* ── Inputs: consistent focus ring using the live primary color ── */
+input:focus, select:focus, textarea:focus {
+  box-shadow: var(--focus-ring);
+}
+
+/* ── Badges: consistent shape/weight ── */
+.badge { border-radius: 999px; letter-spacing: .02em; }
+
+/* ── Modals: nicer entrance ── */
+.modal-overlay.open .modal { animation: uiModalIn .22s var(--ease); }
+@keyframes uiModalIn {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   LOADING SYSTEM — spinner, skeletons, page boot loader
+   ══════════════════════════════════════════════════════════════════ */
+
+@keyframes uiSpin { to { transform: rotate(360deg); } }
+@keyframes uiShimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+@keyframes uiPulse { 0%,100% { opacity:1; } 50% { opacity:.55; } }
+
+/* Standalone ring spinner: <div class="ui-spinner"></div> or ui-spinner-lg */
+.ui-spinner {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 3px solid var(--border-lt);
+  border-top-color: var(--primary);
+  animation: uiSpin .7s linear infinite;
+  display: inline-block; flex-shrink: 0;
+}
+.ui-spinner-lg { width: 38px; height: 38px; border-width: 4px; }
+.ui-spinner-sm { width: 14px; height: 14px; border-width: 2px; }
+
+/* Centered loading block for panels/areas being generated */
+.ui-loading-block {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .85rem; padding: 3rem 1rem; color: var(--muted); font-size: .92rem; text-align: center;
+}
+.ui-loading-block .ui-loading-label { font-weight: 600; color: var(--text-2); }
+.ui-loading-block .ui-loading-sub { font-size: .8rem; color: var(--muted); }
+
+/* Skeleton shimmer blocks — for list/card/table placeholders while data loads */
+.skel {
+  position: relative; overflow: hidden;
+  background: var(--border-lt);
+  border-radius: var(--r-sm);
+  background-image: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
+  background-size: 400px 100%;
+  background-repeat: no-repeat;
+  animation: uiShimmer 1.3s ease-in-out infinite;
+}
+body.dark .skel { background: #1e3a5f; background-image: linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent); background-size: 400px 100%; background-repeat: no-repeat; }
+.skel-text { height: .85em; margin: .3em 0; border-radius: 4px; }
+.skel-text.w-40 { width: 40%; } .skel-text.w-60 { width: 60%; } .skel-text.w-80 { width: 80%; } .skel-text.w-100 { width: 100%; }
+.skel-card { height: 90px; border-radius: var(--r-md); }
+.skel-avatar { width: 38px; height: 38px; border-radius: 50%; }
+.skel-row { display: flex; align-items: center; gap: .75rem; padding: .6rem 0; }
+.skel-stat-row { display: grid; grid-template-columns: repeat(auto-fill,minmax(160px,1fr)); gap: .85rem; margin-bottom: 1.5rem; }
+
+/* ── App boot loader — shown while the app initializes (IndexedDB, sync, etc.) ── */
+#uiBootLoader {
+  position: fixed; inset: 0; z-index: 99999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.1rem;
+  background: linear-gradient(160deg,#1e1033 0%,#2a1550 55%,#1a0f2e 100%);
+  transition: opacity .4s ease, visibility .4s ease;
+}
+#uiBootLoader.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+#uiBootLoader .ui-boot-logo {
+  width: 56px; height: 56px; border-radius: 16px;
+  background: linear-gradient(135deg,#7c3aed,#1a6fb5);
+  color: #fff; font-weight: 800; font-size: 1.3rem;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 30px rgba(124,58,237,.45);
+  animation: uiPulse 1.8s ease-in-out infinite;
+}
+#uiBootLoader .ui-boot-title {
+  color: #f1f5f9; font-weight: 700; font-size: 1rem; letter-spacing: .02em; font-family: var(--font);
+}
+#uiBootLoader .ui-boot-bar {
+  width: 160px; height: 4px; border-radius: 999px; background: rgba(255,255,255,.12); overflow: hidden;
+}
+#uiBootLoader .ui-boot-bar::after {
+  content: ''; display: block; width: 40%; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg,#7c3aed,#60a5fa);
+  animation: uiBootBar 1.1s ease-in-out infinite;
+}
+@keyframes uiBootBar {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+/* Progress bar for long operations (uploads, PDF builds) — <div class="ui-progress"><div class="ui-progress-fill" style="width:40%"></div></div> */
+.ui-progress { width: 100%; height: 7px; border-radius: 999px; background: var(--border-lt); overflow: hidden; }
+.ui-progress-fill {
+  height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+  transition: width .3s var(--ease);
+}
