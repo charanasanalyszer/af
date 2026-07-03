@@ -19150,6 +19150,13 @@ function downloadFeeStatementPDF() {
 
   rows.sort((a,b) => a[1].localeCompare(b[1]));
 
+  // Cleared vs Not Cleared counts (status is the last column of each row)
+  let clearedCount = 0, notClearedCount = 0;
+  rows.forEach(r => {
+    if (r[r.length - 1] === 'Cleared') clearedCount++;
+    else notClearedCount++;
+  });
+
   const startY = filterText.length ? 38 : 32;
 
   doc.autoTable({
@@ -19174,17 +19181,21 @@ function downloadFeeStatementPDF() {
   // Summary footer
   const finalY = doc.lastAutoTable.finalY + 6;
   doc.setFillColor(245, 247, 250);
-  doc.rect(14, finalY, 269, 18, 'F');
+  doc.rect(14, finalY, 269, 25, 'F');
   doc.setFontSize(8.5);
   doc.setFont(undefined, 'bold');
   doc.setTextColor(30, 30, 30);
   doc.text(`Total Students: ${rows.length}`, 18, finalY + 5.5);
-  doc.setTextColor(37, 99, 235);
-  doc.text(`Expected: KES ${totalExpected.toLocaleString()}`, 18, finalY + 12);
   doc.setTextColor(22, 163, 74);
-  doc.text(`Collected: KES ${totalPaid.toLocaleString()}`, 75, finalY + 12);
+  doc.text(`Cleared: ${clearedCount}`, 90, finalY + 5.5);
   doc.setTextColor(220, 38, 38);
-  doc.text(`Cumulative: KES ${totalBal.toLocaleString()}`, 135, finalY + 12);
+  doc.text(`Not Cleared: ${notClearedCount}`, 150, finalY + 5.5);
+  doc.setTextColor(37, 99, 235);
+  doc.text(`Expected: KES ${totalExpected.toLocaleString()}`, 18, finalY + 12.5);
+  doc.setTextColor(22, 163, 74);
+  doc.text(`Collected: KES ${totalPaid.toLocaleString()}`, 90, finalY + 12.5);
+  doc.setTextColor(220, 38, 38);
+  doc.text(`Cumulative: KES ${totalBal.toLocaleString()}`, 150, finalY + 12.5);
 
   const label = [filterClass&&classes.find(c=>c.id===filterClass)?.name, filterTerm, filterYear].filter(Boolean).join('_') || 'all';
   doc.save(`fee_statement_${label}.pdf`);
