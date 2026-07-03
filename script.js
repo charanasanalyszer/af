@@ -18436,6 +18436,36 @@ function renderStudentBalances() {
 
   rows.sort((a,b) => a.stu.name.localeCompare(b.stu.name));
 
+  // ── Summary: Cleared vs Not Cleared counts ──
+  const summaryEl = document.getElementById('fsbSummary');
+  if (summaryEl) {
+    const clearedCount    = rows.filter(r => r.statusKey === 'cleared').length;
+    const partialCount    = rows.filter(r => r.statusKey === 'partial').length;
+    const unpaidCount     = rows.filter(r => r.statusKey === 'unpaid').length;
+    const notClearedCount = partialCount + unpaidCount;
+    summaryEl.innerHTML = `
+      <div class="card" style="padding:.6rem 1rem;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.3);border-radius:8px">
+        <div style="font-size:.72rem;color:var(--muted)">Cleared</div>
+        <div style="font-weight:800;font-size:1.15rem;color:#16a34a"><i class="fa-solid fa-circle-check"></i> ${clearedCount}</div>
+      </div>
+      <div class="card" style="padding:.6rem 1rem;background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.3);border-radius:8px">
+        <div style="font-size:.72rem;color:var(--muted)">Not Cleared</div>
+        <div style="font-weight:800;font-size:1.15rem;color:#dc2626"><i class="fa-solid fa-circle-xmark"></i> ${notClearedCount}</div>
+      </div>
+      <div class="card" style="padding:.6rem 1rem;background:rgba(202,138,4,.08);border:1px solid rgba(202,138,4,.3);border-radius:8px">
+        <div style="font-size:.72rem;color:var(--muted)">— Partial</div>
+        <div style="font-weight:700;font-size:.95rem;color:#ca8a04">${partialCount}</div>
+      </div>
+      <div class="card" style="padding:.6rem 1rem;background:rgba(220,38,38,.05);border:1px solid rgba(220,38,38,.2);border-radius:8px">
+        <div style="font-size:.72rem;color:var(--muted)">— Unpaid</div>
+        <div style="font-weight:700;font-size:.95rem;color:#dc2626">${unpaidCount}</div>
+      </div>
+      <div class="card" style="padding:.6rem 1rem;border-radius:8px">
+        <div style="font-size:.72rem;color:var(--muted)">Total</div>
+        <div style="font-weight:800;font-size:1.15rem">${rows.length}</div>
+      </div>`;
+  }
+
   tbody.innerHTML = rows.length ? rows.map((r, i) => {
     const statusBadge = r.statusKey === 'cleared'
       ? '<span class="badge b-green"><i class="fa-solid fa-circle-check"></i> Cleared</span>'
