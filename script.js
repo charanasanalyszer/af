@@ -12557,9 +12557,16 @@ function renderSubjectCombinationUI() {
         ${pwCore.length ? `<div style="font-size:.74rem;color:var(--muted);margin-bottom:.55rem"><strong>Pathway core (auto-added):</strong>
           ${pwCore.map(s=>`<span style="background:${pw.color}15;border-radius:4px;padding:.05rem .35rem;margin:.1rem;display:inline-block;font-size:.7rem">${s.code} — ${s.name}</span>`).join('')}
         </div>` : ''}
-        <input type="text" placeholder="Search combinations by subject name or code…"
-          oninput="filterCombinations('${pw.id}', this.value)"
-          style="width:100%;padding:.35rem .7rem;border:1.5px solid var(--border);border-radius:7px;font-size:.78rem;background:var(--surface);color:var(--text);margin-bottom:.55rem;box-sizing:border-box">
+        <div style="position:relative;margin-bottom:.55rem">
+          <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:.65rem;top:50%;transform:translateY(-50%);font-size:.72rem;color:var(--muted);pointer-events:none"></i>
+          <input type="text" id="scSearch_${pw.id}" placeholder="Search ${pw.label} combinations by subject name or code…"
+            oninput="filterCombinations('${pw.id}', this.value)"
+            style="width:100%;padding:.4rem .7rem .4rem 1.85rem;border:1.5px solid var(--border);border-radius:7px;font-size:.75rem;background:var(--surface);color:var(--text);box-sizing:border-box">
+          <button type="button" onclick="const i=document.getElementById('scSearch_${pw.id}'); i.value=''; filterCombinations('${pw.id}',''); i.focus();"
+            title="Clear search" style="position:absolute;right:.4rem;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:.72rem;padding:.2rem .35rem;line-height:1">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
 
         ${tracks.map(track => {
           const trackCombos = pwCombos.filter(c => c.track === track);
@@ -12569,20 +12576,24 @@ function renderSubjectCombinationUI() {
               <i class="fa-solid fa-chevron-right" style="font-size:.6rem;margin-right:.2rem"></i>${track}
               <span style="font-weight:400;color:var(--muted);text-transform:none;margin-left:.3rem">(${trackCombos.length} combinations)</span>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.3rem">
+            <div class="sc-combo-grid" data-pw="${pw.id}" data-track="${track}" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:.35rem">
               ${trackCombos.map(c => {
                 const label = comboLabel(c);
                 const codeStr = c.subs.join(',');
                 const isChosen = chosen.includes(codeStr);
-                return `<label class="sc-combo-item" data-pw="${pw.id}" data-search="${label.toLowerCase()} ${codeStr.toLowerCase()}"
-                  style="display:flex;align-items:center;gap:.4rem;padding:.3rem .6rem;border-radius:7px;border:1.5px solid ${isChosen?pw.color:'var(--border)'};background:${isChosen?pw.color+'15':'transparent'};cursor:pointer;font-size:.75rem;transition:all .12s">
+                return `<label class="sc-combo-item" data-pw="${pw.id}" data-search="${label.toLowerCase()} ${codeStr.toLowerCase()}" title="${label} (${codeStr})"
+                  style="display:flex;align-items:flex-start;gap:.4rem;padding:.35rem .5rem;border-radius:7px;border:1.5px solid ${isChosen?pw.color:'var(--border)'};background:${isChosen?pw.color+'15':'transparent'};cursor:pointer;font-size:.68rem;line-height:1.25;transition:border-color .12s,background .12s;box-sizing:border-box">
                   <input type="checkbox" class="sc-combo-check" data-pw="${pw.id}" value="${codeStr}" ${isChosen?'checked':''}
-                    onchange="onScComboChange('${pw.id}')" style="accent-color:${pw.color};flex-shrink:0">
-                  <span style="min-width:2rem;font-size:.66rem;font-family:var(--mono);color:var(--muted);flex-shrink:0">#${c.sno}</span>
-                  <span style="flex:1;line-height:1.3">${label}</span>
-                  <span style="font-size:.65rem;color:${pw.color};opacity:.7;white-space:nowrap;flex-shrink:0">${codeStr}</span>
+                    onchange="onScComboChange('${pw.id}')"
+                    style="width:13px;height:13px;min-width:13px;padding:0;margin:.15rem 0 0 0;accent-color:${pw.color};flex-shrink:0;box-sizing:border-box">
+                  <span style="min-width:1.7rem;font-size:.6rem;font-family:var(--mono);color:var(--muted);flex-shrink:0;padding-top:.05rem">#${c.sno}</span>
+                  <span style="flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${label}</span>
+                  <span style="font-size:.58rem;color:${pw.color};opacity:.8;white-space:nowrap;flex-shrink:0;padding-top:.05rem">${codeStr}</span>
                 </label>`;
               }).join('')}
+            </div>
+            <div class="sc-combo-empty" data-pw="${pw.id}" data-track="${track}" style="display:none;font-size:.72rem;color:var(--muted);padding:.3rem .1rem">
+              <i class="fa-solid fa-magnifying-glass"></i> No combinations match your search.
             </div>
           </div>`;
         }).join('')}
@@ -12600,14 +12611,20 @@ function renderSubjectCombinationUI() {
 }
 
 function filterCombinations(pwId, query) {
-  const q = query.toLowerCase();
+  const q = query.trim().toLowerCase();
+  const terms = q.split(/\s+/).filter(Boolean);
   document.querySelectorAll(`.sc-combo-item[data-pw="${pwId}"]`).forEach(el => {
-    el.style.display = (!q || el.dataset.search?.includes(q)) ? '' : 'none';
+    const hay = el.dataset.search || '';
+    const match = !terms.length || terms.every(t => hay.includes(t));
+    el.style.display = match ? '' : 'none';
   });
-  // Hide empty track groups
+  // Show a "no matches" note per track when a search hides every item in it; otherwise keep the group visible
   document.querySelectorAll(`.sc-track-group[data-pw="${pwId}"]`).forEach(grp => {
+    const track = grp.dataset.track;
     const visible = grp.querySelectorAll('.sc-combo-item:not([style*="display: none"]):not([style*="display:none"])').length;
-    grp.style.display = visible ? '' : 'none';
+    const emptyMsg = document.querySelector(`.sc-combo-empty[data-pw="${pwId}"][data-track="${CSS.escape(track)}"]`);
+    if (emptyMsg) emptyMsg.style.display = (q && !visible) ? '' : 'none';
+    grp.style.display = '';
   });
 }
 
