@@ -6754,9 +6754,18 @@ function renderExamSubjectCheckboxes(selectedIds) {
 
   // Determine which class is selected in the exam form
   const clsId = document.getElementById('examClass')?.value || '';
+  const selCls = clsId ? classes.find(c => c.id === clsId) : null;
 
-  // Base pool: junior school excludes senior-only (pathway) subjects
-  let pool = isSeniorSchool() ? [...subjects] : subjects.filter(s => !s.pathway);
+  // A class counts as "senior" (CBC Grade 10-12) either if the school-wide
+  // setting is Senior, OR if the specific class picked here is graded 10+.
+  // This lets a school running both Junior (7-9) and Senior (10-12) classes
+  // see pathway/elective subjects only for the classes that actually offer them.
+  const clsLevelNum    = selCls ? parseFloat(selCls.level) : NaN;
+  const clsIsSenior    = !isNaN(clsLevelNum) && clsLevelNum >= 10;
+  const effectiveSenior = isSeniorSchool() || clsIsSenior;
+
+  // Base pool: junior classes exclude senior-only (pathway) subjects
+  let pool = effectiveSenior ? [...subjects] : subjects.filter(s => !s.pathway);
 
   // If a class is chosen, keep only subjects that have at least one student in that class enrolled
   if (clsId) {
@@ -6765,9 +6774,9 @@ function renderExamSubjectCheckboxes(selectedIds) {
   }
 
   if (!pool.length) {
-    const cls = classes.find(c => c.id === clsId);
+    const cls = selCls;
     const hint = clsId
-      ? `No subjects are enrolled for <strong>${cls?.name || 'this class'}</strong>. Enroll students in subjects first.`
+      ? `No subjects are enrolled for <strong>${cls?.name || 'this class'}</strong>. Enroll students in subjects first.${clsIsSenior ? ' Seed CBC senior school subjects under <strong>Subjects</strong> if you haven\'t yet.' : ''}`
       : (isSeniorSchool()
           ? 'No subjects found. Seed or add senior school subjects under <strong>Subjects</strong> first.'
           : 'No subjects found. Add subjects under the <strong>Subjects</strong> tab.');
