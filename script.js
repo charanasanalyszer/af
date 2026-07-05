@@ -12514,11 +12514,18 @@ function renderSubjectCombinationUI() {
   const totalSelected = offeredPathways.reduce((a, pw) => a + (sc[pw.id]?.length||0), 0);
 
   wrap.innerHTML = `
-    <h3 style="margin-bottom:.4rem"><i class="fa-solid fa-table-list"></i> Subject Combinations (Senior School)</h3>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:.4rem">
+      <h3 style="margin:0"><i class="fa-solid fa-table-list"></i> Subject Combinations (Senior School)</h3>
+      <button class="btn btn-sm" style="background:#16a34a;color:#fff;border:none;font-size:.78rem;white-space:nowrap"
+        onclick="printCombinationSelectionSheet()" title="Print a form listing the saved combinations for students to pick from">
+        <i class="fa-solid fa-print"></i> Print Selection Sheet
+      </button>
+    </div>
     <p style="font-size:.82rem;color:var(--muted);margin-bottom:.75rem">
       Select the official MoE subject combinations your school offers for each pathway.
       Students will choose from only the combinations you enable here.
       <strong>${totalSelected}</strong> combination(s) currently enabled across all pathways.
+      Once saved, use <strong>Print Selection Sheet</strong> to hand students a form listing their options.
     </p>
 
     <div style="margin-bottom:1rem;padding:.5rem .85rem;background:#f0f7ff;border:1px solid #dbeafe;border-radius:7px;font-size:.78rem;color:#1e40af">
@@ -12552,6 +12559,10 @@ function renderSubjectCombinationUI() {
               onclick="selectAllCombinations('${pw.id}')">Select All</button>
             <button class="btn btn-sm" style="font-size:.72rem;padding:.25rem .65rem;background:var(--surface);color:var(--muted);border:1px solid var(--border)"
               onclick="clearAllCombinations('${pw.id}')">Clear All</button>
+            ${chosen.length > 0 ? `<button class="btn btn-sm" style="font-size:.72rem;padding:.25rem .65rem;background:#16a34a18;color:#16a34a;border:1px solid #16a34a40"
+              onclick="printCombinationSelectionSheet('${pw.id}')" title="Print saved ${pw.label} combinations for students">
+              <i class="fa-solid fa-print"></i> Print
+            </button>` : ''}
           </div>
         </div>
         ${pwCore.length ? `<div style="font-size:.74rem;color:var(--muted);margin-bottom:.55rem"><strong>Pathway core (auto-added):</strong>
@@ -12654,6 +12665,156 @@ function selectAllCombinations(pwId) {
 function clearAllCombinations(pwId) {
   document.querySelectorAll(`.sc-combo-check[data-pw="${pwId}"]`).forEach(cb => { cb.checked = false; });
   onScComboChange(pwId);
+}
+
+// ── Print a Student Subject-Combination Selection Sheet ───────────────────
+// Builds a clean, printable A4 form listing the SAVED combinations (from
+// settings.subjectCombinations) so students can tick their chosen combination
+// by hand. Pass a pathway id to print just that pathway, or call with no
+// argument to print every offered pathway that has saved combinations.
+function printCombinationSelectionSheet(pwId) {
+  if (!isSeniorSchool()) { showToast('Subject combinations apply to Senior School only', 'error'); return; }
+
+  const sc = settings.subjectCombinations || {};
+  const offeredPathways = getOfferedPathways();
+  const candidates = pwId ? offeredPathways.filter(p => p.id === pwId) : offeredPathways;
+  const printable = candidates.filter(pw => (sc[pw.id] || []).length > 0);
+
+  if (!printable.length) {
+    showToast('No saved combinations to print — select combinations and click Save first', 'error');
+    return;
+  }
+
+  // Subject code → name lookup
+  const nameMap = {};
+  Object.values(CBC_SUBJECTS).forEach(v => {
+    if (Array.isArray(v)) v.forEach(s => { nameMap[s.code] = s.name; });
+    else if (v?.elective) { v.elective.forEach(s => { nameMap[s.code] = s.name; }); }
+  });
+  CBC_SUBJECTS.universal_core.forEach(s => { nameMap[s.code] = s.name; });
+
+  const schoolName = settings.schoolName || 'School';
+  const address     = settings.address    || '';
+  const phone       = settings.phone      || '';
+  const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+  const universalCoreStr = CBC_SUBJECTS.universal_core.map(s => `${s.code} — ${s.name}`).join('  •  ');
+
+  const pathwaysHTML = printable.map(pw => {
+    const codes = sc[pw.id] || [];
+    const combos = CBC_COMBINATIONS.filter(c => codes.includes(c.subs.join(',')));
+    const tracks = [...new Set(combos.map(c => c.track))];
+    const { core: coreList } = getCBCSubjectsForPathway(pw.id);
+    const universalCodes = CBC_SUBJECTS.universal_core.map(u => u.code);
+    const pwCore = coreList.filter(c => !universalCodes.includes(c.code));
+
+    return `
+    <div class="ss-pathway">
+      <div class="ss-pathway-head" style="border-left:4px solid ${pw.color}">
+        <span class="ss-pw-icon" style="background:${pw.color}20;color:${pw.color}"><i class="fa-solid ${pw.icon}"></i></span>
+        <h2>${pw.label} Pathway</h2>
+        <span class="ss-pw-count">${combos.length} combination(s)</span>
+      </div>
+      ${pwCore.length ? `<div class="ss-core-note"><strong>Pathway core (all students in this pathway):</strong> ${pwCore.map(s => `${s.code} — ${s.name}`).join('  •  ')}</div>` : ''}
+      ${tracks.map(track => {
+        const trackCombos = combos.filter(c => c.track === track);
+        return `
+        <div class="ss-track">
+          <div class="ss-track-title">${track}</div>
+          <table class="ss-table">
+            <thead><tr><th class="ss-tick-h"></th><th>#</th><th>Combination</th><th>Subject Codes</th></tr></thead>
+            <tbody>
+              ${trackCombos.map(c => `<tr>
+                <td class="ss-tick">&#9744;</td>
+                <td class="ss-sno">${c.sno}</td>
+                <td class="ss-name">${c.subs.map(code => nameMap[code] || code).join(' · ')}</td>
+                <td class="ss-code">${c.subs.join(', ')}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+
+  const win = window.open('', '_blank', 'width=960,height=800');
+  if (!win) { showToast('Allow pop-ups to print the selection sheet', 'error'); return; }
+
+  const docTitle = pwId
+    ? `${schoolName} - ${printable[0].label} Subject Combination Selection`
+    : `${schoolName} - Subject Combination Selection Form`;
+
+  win.document.write(`<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<title>${docTitle}</title>
+<style>
+  @page { size: A4 portrait; margin: 14mm 12mm; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  body { font-family: Arial, Helvetica, sans-serif; color:#111; margin:0; padding:0; font-size:12px; }
+  .ss-header { text-align:center; border-bottom:2.5px solid #111; padding-bottom:10px; margin-bottom:14px; }
+  .ss-header h1 { margin:0 0 2px; font-size:18px; letter-spacing:.02em; }
+  .ss-header .ss-sub { font-size:11px; color:#444; margin:1px 0; }
+  .ss-header .ss-title { margin-top:8px; font-size:14px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+  .ss-fields { display:flex; flex-wrap:wrap; gap:10px 22px; margin-bottom:14px; }
+  .ss-field { flex:1 1 200px; border-bottom:1px solid #999; padding-bottom:3px; min-height:24px; }
+  .ss-field label { display:block; font-size:9.5px; text-transform:uppercase; letter-spacing:.04em; color:#666; margin-bottom:10px; }
+  .ss-field .ss-prefill { font-size:11.5px; }
+  .ss-instructions { background:#f4f6f8; border:1px solid #d8dee3; border-radius:6px; padding:8px 12px; font-size:11.5px; margin-bottom:16px; line-height:1.5; }
+  .ss-pathway { margin-bottom:22px; page-break-inside: avoid; }
+  .ss-pathway-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; padding-left:8px; }
+  .ss-pw-icon { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; flex-shrink:0; }
+  .ss-pathway-head h2 { font-size:14px; margin:0; }
+  .ss-pw-count { margin-left:auto; font-size:10px; color:#777; }
+  .ss-core-note { font-size:10.5px; color:#555; margin-bottom:8px; padding-left:8px; }
+  .ss-track { margin-bottom:10px; }
+  .ss-track-title { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#555; margin-bottom:3px; }
+  .ss-table { width:100%; border-collapse:collapse; font-size:11px; }
+  .ss-table th, .ss-table td { border:1px solid #ccc; padding:3px 6px; text-align:left; }
+  .ss-table thead th { background:#f0f2f4; font-size:9.5px; text-transform:uppercase; letter-spacing:.03em; color:#555; }
+  .ss-tick, .ss-tick-h { text-align:center; width:22px; font-size:14px; }
+  .ss-sno { width:32px; color:#888; font-family:monospace; font-size:10px; }
+  .ss-code { width:130px; color:#666; font-size:10px; white-space:nowrap; }
+  .ss-footer { margin-top:26px; display:flex; gap:30px; flex-wrap:wrap; }
+  .ss-sign { flex:1 1 200px; border-top:1px solid #333; padding-top:4px; margin-top:26px; font-size:11px; }
+  @media print { .no-print { display:none !important; } }
+</style>
+</head><body>
+
+  <button class="no-print" onclick="window.print()" style="position:fixed;top:10px;right:12px;padding:6px 16px;background:#16a34a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;z-index:999"><i class="fa-solid fa-print"></i> Print / Save PDF</button>
+
+  <div class="ss-header">
+    <h1>${schoolName}</h1>
+    ${address ? `<div class="ss-sub">${address}</div>` : ''}
+    ${phone ? `<div class="ss-sub">Tel: ${phone}</div>` : ''}
+    <div class="ss-title">Senior School Subject Combination Selection Form</div>
+  </div>
+
+  <div class="ss-fields">
+    <div class="ss-field"><label>Student Name</label></div>
+    <div class="ss-field"><label>Admission No.</label></div>
+    <div class="ss-field"><label>Current Class</label></div>
+    <div class="ss-field"><label>Date</label><span class="ss-prefill">${today}</span></div>
+  </div>
+
+  <div class="ss-instructions">
+    <strong>Instructions:</strong> Tick <strong>ONE</strong> combination in your chosen pathway below.
+    Universal core subjects — ${universalCoreStr} — are compulsory for every student and are not listed in the table.
+  </div>
+
+  ${pathwaysHTML}
+
+  <div class="ss-footer">
+    <div class="ss-sign">Student Signature</div>
+    <div class="ss-sign">Parent / Guardian Signature</div>
+    <div class="ss-sign">Class Teacher / Approved By</div>
+  </div>
+
+<script>
+  window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 400); });
+<\/script>
+</body></html>`);
+  win.document.close();
+
+  showToast('<i class="fa-solid fa-check"></i> Selection sheet ready — choose <strong>Save as PDF</strong> in the print dialog', 'success');
 }
 
 // ── CBC Grade 10 Senior School Subject Catalogue ──────────────────
