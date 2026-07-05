@@ -8067,7 +8067,7 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
     const allChosenCodes = new Set();
     // Universal core always shown
     CBC_SUBJECTS.universal_core.forEach(s => allChosenCodes.add(s.code));
-    PATHWAYS.forEach(pw => {
+    getOfferedPathways().forEach(pw => {
       const { core } = getCBCSubjectsForPathway(pw.id);
       core.forEach(s => allChosenCodes.add(s.code));
       const chosen = getSchoolElectiveCodes(pw.id);
@@ -9875,7 +9875,7 @@ function renderSummaryAnalytics() {
     // ── Pathway breakdown (senior school only) ──
     let pathwayHTML = '';
     if (isSeniorSchool()) {
-      const pathwayCards = PATHWAYS.map(pw => {
+      const pathwayCards = getOfferedPathways().map(pw => {
         const pwStudents = clsStudentData.filter(d => d.stu.pathway === pw.id);
         if (!pwStudents.length) return '';
         const pwMean  = parseFloat((pwStudents.reduce((a,d)=>a+d.mean,0)/pwStudents.length).toFixed(1));
@@ -9933,7 +9933,7 @@ function renderSummaryAnalytics() {
       }).filter(Boolean).join('');
 
       // Pathway distribution bar
-      const pwCounts = PATHWAYS.map(pw=>({ pw, n: clsStudentData.filter(d=>d.stu.pathway===pw.id).length }));
+      const pwCounts = getOfferedPathways().map(pw=>({ pw, n: clsStudentData.filter(d=>d.stu.pathway===pw.id).length }));
       const pwBarSegs = pwCounts.map(({pw,n}) => {
         const pct = clsStudentData.length ? Math.round(n/clsStudentData.length*100) : 0;
         return pct ? `<div title="${pw.label}: ${n} (${pct}%)" style="width:${pct}%;background:${pw.color};height:100%;display:flex;align-items:center;justify-content:center">
@@ -9948,7 +9948,7 @@ function renderSummaryAnalytics() {
           <div style="font-size:.68rem;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:.3rem">Pathway Distribution</div>
           <div style="display:flex;border-radius:8px;overflow:hidden;height:26px;width:100%">${pwBarSegs}</div>
           <div style="display:flex;gap:1rem;margin-top:.4rem;flex-wrap:wrap">
-            ${PATHWAYS.map(pw=>{
+            ${getOfferedPathways().map(pw=>{
               const n = clsStudentData.filter(d=>d.stu.pathway===pw.id).length;
               return n ? `<span style="font-size:.72rem;color:var(--muted)"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${pw.color};margin-right:.25rem"></span>${pw.label}: ${n}</span>` : '';
             }).filter(Boolean).join('')}
@@ -12336,6 +12336,7 @@ function saveSettings() {
     restrictTeacherList:      settings.restrictTeacherList      || false,
     restrictTeacherSettings:  settings.restrictTeacherSettings  || false,
     subjectCombinations:      settings.subjectCombinations      || {},
+    offeredPathways:          settings.offeredPathways          || undefined,
   };
   save(K.settings,[settings]);
   document.getElementById('sbSchoolName').textContent=settings.schoolName||'School';
@@ -12351,6 +12352,86 @@ const PATHWAYS = [
   { id:'arts',   label:'Arts & Sports Science',  color:'#f59e0b', icon:'fa-palette' },
 ];
 function isSeniorSchool() { return (settings.schoolLevel || 'junior') === 'senior'; }
+
+// Which pathways THIS school actually runs (some schools offer all 3 — "Triple Pathway",
+// some offer only 2 — "Double Pathway", some offer just 1). Defaults to all 3 for
+// backward compatibility with schools that never touched this setting.
+function getOfferedPathwayIds() {
+  const o = settings.offeredPathways;
+  return (Array.isArray(o) && o.length) ? o : PATHWAYS.map(p => p.id);
+}
+function getOfferedPathways() {
+  const ids = getOfferedPathwayIds();
+  return PATHWAYS.filter(p => ids.includes(p.id));
+}
+
+// Rebuild the pathway <select> dropdowns across the app to only list pathways
+// this school offers (student form, student filter, subject form, merit list filter).
+function refreshPathwayDropdowns() {
+  const offered = getOfferedPathways();
+  const opts = offered.map(p => `<option value="${p.id}">${p.label}</option>`).join('');
+
+  const fill = (id, blankLabel) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const cur = el.value;
+    el.innerHTML = `<option value="">${blankLabel}</option>${opts}`;
+    if (offered.some(p => p.id === cur)) el.value = cur;
+  };
+  fill('stuPathway', '— Select Pathway —');
+  fill('stuPathwayFilter', 'All Pathways');
+  fill('subPathway', '— All Pathways / Universal —');
+  fill('mlPathway', '— All Pathways —');
+}
+
+// ── Settings UI: which pathways does this school offer? ──
+function renderPathwaysOfferedUI() {
+  const wrap = document.getElementById('pathwaysOfferedWrap');
+  if (!wrap) return;
+  if (!isSeniorSchool()) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+
+  const offeredIds = getOfferedPathwayIds();
+  const n = offeredIds.length;
+  const countLabel = n >= 3 ? 'Triple Pathway School (all 3 offered)'
+                    : n === 2 ? 'Double Pathway School (2 offered)'
+                    : n === 1 ? 'Single Pathway School (1 offered)'
+                    : 'No pathway selected';
+  const countColor = n >= 3 ? '#3b82f6' : n === 2 ? '#10b981' : n === 1 ? '#f59e0b' : '#ef4444';
+
+  wrap.innerHTML = `
+    <label style="display:block;margin-bottom:.4rem">Pathways Offered by This School *</label>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:.6rem">
+      Some schools run all 3 CBC senior pathways, others only offer 2 (Double Pathway) or even 1 (Single Pathway).
+      Choose what your school actually offers — the rest will be hidden throughout the system.
+    </p>
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:.5rem">
+      ${PATHWAYS.map(pw => `
+        <label style="display:flex;align-items:center;gap:.4rem;border:1.5px solid ${pw.color}40;background:${pw.color}08;border-radius:8px;padding:.45rem .75rem;cursor:pointer;font-size:.85rem;font-weight:600">
+          <input type="checkbox" class="pw-offered-chk" value="${pw.id}" ${offeredIds.includes(pw.id)?'checked':''} onchange="savePathwaysOffered()" style="accent-color:${pw.color};width:15px;height:15px"/>
+          <i class="fa-solid ${pw.icon}" style="color:${pw.color}"></i> ${pw.label}
+        </label>`).join('')}
+    </div>
+    <span style="display:inline-block;font-size:.75rem;font-weight:700;color:${countColor};background:${countColor}15;border:1px solid ${countColor}40;border-radius:6px;padding:.2rem .55rem">
+      <i class="fa-solid fa-circle-info"></i> ${countLabel}
+    </span>
+  `;
+}
+
+function savePathwaysOffered() {
+  const checked = [...document.querySelectorAll('.pw-offered-chk')].filter(c => c.checked).map(c => c.value);
+  if (!checked.length) {
+    showToast('At least one pathway must be offered', 'error');
+    renderPathwaysOfferedUI();
+    return;
+  }
+  settings.offeredPathways = checked;
+  save(K.settings, [settings]);
+  renderPathwaysOfferedUI();
+  refreshPathwayDropdowns();
+  try { renderSubjectCombinationUI(); } catch(e) {}
+  showToast('Pathways offered updated <i class="fa-solid fa-check"></i>', 'success');
+}
 
 // ── Subject Combination Helpers ───────────────────────────────────────────
 // settings.subjectCombinations = { stem: ['BIO','CHE','PHY'], ss: ['HIS','GEO','CRE'], arts: ['VSA','PFA','BLG'] }
@@ -12393,7 +12474,7 @@ function getSchoolSubjectsForPathway(pathwayId) {
 function isSubjectCombinationConfigured() {
   if (!isSeniorSchool()) return false;
   const sc = settings.subjectCombinations || {};
-  return PATHWAYS.some(pw => (sc[pw.id] || []).length > 0);
+  return getOfferedPathways().some(pw => (sc[pw.id] || []).length > 0);
 }
 
 // Save subject combination for a pathway (called from settings UI)
@@ -12429,7 +12510,8 @@ function renderSubjectCombinationUI() {
   CBC_SUBJECTS.universal_core.forEach(s => { nameMap[s.code] = s.name; });
 
   const comboLabel = c => c.subs.map(code => nameMap[code] || code).join(' · ');
-  const totalSelected = PATHWAYS.reduce((a, pw) => a + (sc[pw.id]?.length||0), 0);
+  const offeredPathways = getOfferedPathways();
+  const totalSelected = offeredPathways.reduce((a, pw) => a + (sc[pw.id]?.length||0), 0);
 
   wrap.innerHTML = `
     <h3 style="margin-bottom:.4rem"><i class="fa-solid fa-table-list"></i> Subject Combinations (Senior School)</h3>
@@ -12445,7 +12527,7 @@ function renderSubjectCombinationUI() {
       ${CBC_SUBJECTS.universal_core.map(s=>`<span style="background:#dbeafe;border-radius:4px;padding:.05rem .35rem;margin:.1rem;display:inline-block;font-size:.7rem">${s.code} — ${s.name}</span>`).join('')}
     </div>
 
-    ${PATHWAYS.map(pw => {
+    ${offeredPathways.map(pw => {
       const pwCombos = CBC_COMBINATIONS.filter(c => c.pw === pw.id);
       const chosen = sc[pw.id] || [];
       const tracks = [...new Set(pwCombos.map(c => c.track))];
@@ -13322,7 +13404,7 @@ function autoEnrolCoreSubjects(stu) {
 // Show the senior subject seeding panel
 function showSeniorSubjectPanel() {
   const existing = subjects.map(s => s.code);
-  const pwCards = PATHWAYS.map(pw => {
+  const pwCards = getOfferedPathways().map(pw => {
     const { core, elective } = getCBCSubjectsForPathway(pw.id);
     const newCore = core.filter(s => !existing.includes(s.code));
     const newElec = elective.filter(s => !existing.includes(s.code));
@@ -13353,7 +13435,7 @@ function showSeniorSubjectPanel() {
       Automatically add all official CBC Grade 10 subjects for each pathway. Core subjects will be flagged and auto-assigned to students of that pathway.
     </p>
     <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem">${pwCards}</div>
-    <button onclick="PATHWAYS.forEach(pw=>seedCBCSubjectsForPathway(pw.id));closeModal();showToast('All CBC subjects seeded','success')"
+    <button onclick="getOfferedPathways().forEach(pw=>seedCBCSubjectsForPathway(pw.id));closeModal();showToast('All CBC subjects seeded','success')"
       class="btn btn-primary btn-sm" style="width:100%"><i class="fa-solid fa-layer-group"></i> Seed ALL Pathways at Once</button>`,
     [{ label:'Close', cls:'btn-outline', action:'closeModal()' }]
   );
@@ -13382,6 +13464,9 @@ function applySchoolLevelUI() {
   // Show/hide seed button
   const ssb = document.getElementById('seniorSubjectSeedBtn');
   if (ssb) ssb.style.display = senior ? '' : 'none';
+  // Which pathways this school offers (Single / Double / Triple Pathway)
+  try { renderPathwaysOfferedUI(); } catch(e) {}
+  refreshPathwayDropdowns();
 }
 
 function saveGlobalTeacherRestrictions() {
@@ -14476,7 +14561,7 @@ function _renderMeritListBody(examId, type, classId, container) {
 
     if (seniorMode) {
       // For each pathway that has students in this class, build a merit section
-      const pathwaySections = PATHWAYS.map(pw => {
+      const pathwaySections = getOfferedPathways().map(pw => {
         const pwScored = buildMeritData(examId, null, cls.id, pw.id);
         if (!pwScored.length) return '';
 
