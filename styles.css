@@ -448,6 +448,7 @@ select option { background:var(--surface);color:var(--text); }
 textarea { resize:vertical; }
 kbd { background:var(--border);border-radius:4px;padding:.1rem .4rem;font-size:.75rem;font-family:var(--mono);color:var(--text-2); }
 .check-label { display:flex;align-items:center;gap:.5rem;font-size:.875rem;color:var(--text);font-weight:500;cursor:pointer; }
+#stuTbl input[type="checkbox"] { width:16px;height:16px;padding:0;border-radius:3px;accent-color:var(--primary);cursor:pointer;flex:none; }
 .check-label input[type=checkbox] { width:auto;height:auto;accent-color:var(--primary); }
 
 /* Tabs */
