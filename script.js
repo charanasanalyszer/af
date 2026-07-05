@@ -6216,11 +6216,17 @@ function handleMarksUpload(input) {
 
         // Map column headers → subject
         const colSubMap = {};
+        const unmatchedCols = [];
         colKeys.forEach(col => {
           const colU = col.trim().toUpperCase();
-          const matched = subjects.find(s => examSubIds.includes(s.id) && (s.code.toUpperCase() === colU || s.name.toUpperCase() === colU));
+          const matched = subjects.find(s => examSubIds.includes(s.id) && ((s.code||'').trim().toUpperCase() === colU || (s.name||'').trim().toUpperCase() === colU));
           if (matched) colSubMap[col] = { subjectId: matched.id, max: matched.max };
+          else if (col !== 'AdmNo' && col.toLowerCase() !== 'admno' && col.toLowerCase() !== 'adm no' && col.toLowerCase() !== 'name') unmatchedCols.push(col);
         });
+
+        if (unmatchedCols.length) {
+          console.warn('[handleMarksUpload] Columns not matched to any subject in this exam:', unmatchedCols);
+        }
 
         if (!Object.keys(colSubMap).length) {
           progEl.remove();
@@ -6276,7 +6282,9 @@ function handleMarksUpload(input) {
           throw qe;
         }
         progEl.remove();
-        showToast('All-subjects upload: ' + count + ' students processed' + (skipped ? ' (' + skipped + ' not found)' : '') + ' <i class="fa-solid fa-check"></i>', 'success');
+        const unmatchedNote = unmatchedCols.length ? (' \u26a0\ufe0f ' + unmatchedCols.length + ' column(s) skipped (no matching subject in this exam): ' + unmatchedCols.join(', ')) : '';
+        showToast('All-subjects upload: ' + count + ' students processed' + (skipped ? ' (' + skipped + ' not found)' : '') + unmatchedNote, unmatchedCols.length ? 'warning' : 'success');
+        if (unmatchedCols.length) console.warn('[handleMarksUpload] ' + unmatchedCols.length + ' column(s) had no matching subject and were skipped entirely:', unmatchedCols);
         loadUmStudents();
         renderDashboard();
         setTimeout(renderUmSubjectStatusPanel, 100);
