@@ -8051,6 +8051,16 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
   const examSubIds = exam.subjectIds;
   let examSubs   = examSubIds.map(sid => subjects.find(s=>s.id===sid)).filter(Boolean);
 
+  // ── Senior school: pathway badge helper ──
+  const seniorMode = isSeniorSchool();
+  const PATHWAY_SHORT = { stem:'STEM', ss:'SS', arts:'Sport' };
+  const PATHWAY_COLOR = { stem:'#3b82f6', ss:'#10b981', arts:'#f59e0b' };
+  const pathwayCell = pw => {
+    if (!pw || !PATHWAY_SHORT[pw]) return `<td style="text-align:center;color:var(--muted);font-size:.72rem">—</td>`;
+    const col = PATHWAY_COLOR[pw];
+    return `<td style="text-align:center"><span style="display:inline-block;background:${col}22;color:${col};border:1px solid ${col}55;border-radius:5px;padding:.1rem .5rem;font-size:.68rem;font-weight:700">${PATHWAY_SHORT[pw]}</span></td>`;
+  };
+
   // ── Senior school: limit columns to school's configured subject combination ──
   if (isSeniorSchool() && isSubjectCombinationConfigured()) {
     // Collect all chosen codes across pathways (core always included)
@@ -8067,10 +8077,10 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
   }
 
   const subHeaders = examSubs.map(s=>`<th style="text-align:center;font-size:.72rem" title="${s.name}">${s.code}</th>`).join('');
-  const colCount   = 6 + (showStreamCol?2:0) + examSubs.length + 5;
+  const colCount   = 6 + (showStreamCol?2:0) + examSubs.length + 5 + (seniorMode?1:0);
 
   const headerRow = `<tr>
-    <th>Class Rank</th><th>Adm No</th><th>Name</th><th>G</th>
+    <th>Class Rank</th><th>Adm No</th><th>Name</th>${seniorMode?'<th>Pathway</th>':''}<th>G</th>
     ${showStreamCol ? '<th>Stream</th><th>Str.Pos</th>' : ''}
     ${subHeaders}
     <th>Total</th><th>Avg</th><th>Mean</th><th>Grade</th><th>Points</th><th>Pts Grade</th>
@@ -8119,6 +8129,7 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
       ${rankCell}
       <td style="font-family:var(--mono);font-size:.78rem">${s.adm}</td>
       <td><strong style="font-size:.85rem">${s.name}</strong></td>
+      ${seniorMode?pathwayCell(s.pathway):''}
       <td><span class="badge ${s.gender==='M'?'b-m':'b-f'}" style="font-size:.65rem">${s.gender}</span></td>
       ${showStreamCol ? `<td>${stream?.name||'—'}</td><td>${streamRankDisplay}</td>` : ''}
       ${subCells}
@@ -8985,11 +8996,15 @@ function exportMeritExcel() {
   const examMarks= isConsolidated ? [] : marks.filter(m=>m.examId===examId);
   const wb = XLSX.utils.book_new();
 
+  const seniorMode = isSeniorSchool();
+  const PATHWAY_SHORT = { stem:'STEM', ss:'SS', arts:'Sport' };
   const rows = scored.map(s => {
     const stream = streams.find(x=>x.id===s.streamId);
     const row = {
       Rank:s.overallRank, StreamPos:'#'+s.streamRank,
-      AdmNo:s.adm, Name:s.name, Gender:s.gender,
+      AdmNo:s.adm, Name:s.name,
+      ...(seniorMode ? { Pathway: PATHWAY_SHORT[s.pathway] || '' } : {}),
+      Gender:s.gender,
       Class: classes.find(c=>c.id===s.classId)?.name||'',
       Stream: stream?.name||'',
     };
@@ -9114,6 +9129,15 @@ function exportMeritPDF() {
     </div>`;
   };
 
+  const seniorMode = isSeniorSchool();
+  const PATHWAY_SHORT = { stem:'STEM', ss:'SS', arts:'Sport' };
+  const PATHWAY_COLOR = { stem:'#3b82f6', ss:'#10b981', arts:'#f59e0b' };
+  const pathwayTd = pw => {
+    if (!pw || !PATHWAY_SHORT[pw]) return `<td style="text-align:center;padding:2px 4px;border:2px solid #b0bec5">—</td>`;
+    const col = PATHWAY_COLOR[pw];
+    return `<td style="text-align:center;padding:2px 4px;border:2px solid #b0bec5"><span style="display:inline-block;background:${col}22;color:${col};border:1px solid ${col};border-radius:4px;padding:1px 5px;font-size:8px;font-weight:800">${PATHWAY_SHORT[pw]}</span></td>`;
+  };
+
   // ── Merit table ───────────────────────────────────────────────────────────
   const meritTable = (arr, showStream) => {
     if (!arr.length) return '';
@@ -9136,6 +9160,7 @@ function exportMeritPDF() {
           <td style="text-align:center;background:#fee2e2;color:#dc2626;font-weight:800;padding:2px 4px;border:2px solid #b0bec5">DQ</td>
           <td style="font-family:monospace;font-size:8px;padding:2px 4px;border:2px solid #b0bec5;font-weight:700">${s.adm}</td>
           <td style="font-weight:800;padding:2px 4px;border:2px solid #b0bec5">${s.name}</td>
+          ${seniorMode?pathwayTd(s.pathway):''}
           <td style="text-align:center;padding:2px 4px;border:2px solid #b0bec5">${s.gender==='M'?'<span style="color:#1d4ed8;font-weight:800">M</span>':'<span style="color:#be185d;font-weight:800">F</span>'}</td>
           ${showStream?`<td style="padding:2px 4px;border:2px solid #b0bec5;font-weight:700">${str?.name||'—'}</td><td style="text-align:center;padding:2px 4px;border:2px solid #b0bec5;font-weight:700">—</td>`:''}
           ${subCells}
@@ -9149,6 +9174,7 @@ function exportMeritPDF() {
         <td style="text-align:center;background:${rnkBg};color:${rnkC};font-weight:800;padding:2px 4px;border:2px solid #b0bec5">${s.overallRank===1?'★':s.overallRank}</td>
         <td style="font-family:monospace;font-size:8px;padding:2px 4px;border:2px solid #b0bec5;font-weight:700">${s.adm}</td>
         <td style="font-weight:800;padding:2px 4px;border:2px solid #b0bec5">${s.name}</td>
+        ${seniorMode?pathwayTd(s.pathway):''}
         <td style="text-align:center;padding:2px 4px;border:2px solid #b0bec5">${s.gender==='M'?'<span style="color:#1d4ed8;font-weight:800">M</span>':'<span style="color:#be185d;font-weight:800">F</span>'}</td>
         ${showStream?`<td style="padding:2px 4px;border:2px solid #b0bec5;font-weight:700">${str?.name||'—'}</td><td style="text-align:center;padding:2px 4px;border:2px solid #b0bec5;font-weight:800">#${s.streamRank}</td>`:''}
         ${subCells}
@@ -9165,6 +9191,7 @@ function exportMeritPDF() {
         <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5;font-size:8px;font-weight:800">Rank</th>
         <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5;font-size:8px;font-weight:800">Adm</th>
         <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5;font-size:8px;font-weight:800">Name</th>
+        ${seniorMode?'<th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5;font-size:8px;font-weight:800">Pathway</th>':''}
         <th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5;font-size:8px;font-weight:800">G</th>
         ${showStream?'<th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5;font-size:8px;font-weight:800">Stream</th><th style="background:#1a6fb5;color:#fff;padding:3px 4px;border:2px solid #1a6fb5;font-size:8px;font-weight:800">Str#</th>':''}
         ${subHdr}
