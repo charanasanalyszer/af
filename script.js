@@ -6767,6 +6767,11 @@ function renderExamSubjectCheckboxes(selectedIds) {
   // Base pool: junior classes exclude senior-only (pathway) subjects
   let pool = effectiveSenior ? [...subjects] : subjects.filter(s => !s.pathway);
 
+  // Only show subjects the school actually offers — i.e. at least one student
+  // somewhere is enrolled in them. Subjects sitting unused in the catalogue
+  // (0 enrolled) are not something the school teaches, so hide them here.
+  pool = pool.filter(s => (s.studentIds || []).length > 0);
+
   // If a class is chosen, keep only subjects that have at least one student in that class enrolled
   if (clsId) {
     const classStudentIds = new Set(students.filter(s => s.classId === clsId).map(s => s.id));
