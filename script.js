@@ -8100,8 +8100,23 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
     <th>Total</th><th>Avg</th><th>Mean</th><th>Grade</th><th>Points</th><th>Pts Grade</th>
   </tr>`;
 
+  // Cache each pathway's applicable subject codes once (core + configured electives)
+  // so per-row cells can tell "not applicable to this pathway" (—) apart from
+  // "applicable but not marked" (X) — instead of the old behaviour where an
+  // incomplete student got X in every empty cell, even ones outside their pathway.
+  const pathwayCodeSets = {};
+  const getPathwayCodes = pw => {
+    if (!pw) return null;
+    if (!pathwayCodeSets[pw]) {
+      const { core, elective } = getSchoolSubjectsForPathway(pw);
+      pathwayCodeSets[pw] = new Set([...core, ...elective].map(x => x.code));
+    }
+    return pathwayCodeSets[pw];
+  };
+
   const bodyRows = scored.length ? scored.map(s => {
     const stream   = streams.find(x=>x.id===s.streamId);
+    const applicableCodes = seniorMode ? getPathwayCodes(s.pathway) : null;
     const subCells = examSubs.map(sub => {
       let score, g;
       if (isConsolidated && sourceExamObjs.length > 0) {
@@ -8116,8 +8131,10 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
         score = mk ? mk.score : null;
         g  = mk ? getGrade(mk.score, sub.max) : null;
       }
-      // If student is incomplete and this subject is missing → show X
-      if (score === null && s.incomplete) {
+      // Only show X when this subject actually applies to the student's pathway
+      // (or in non-senior mode, whenever the student is flagged incomplete).
+      const appliesToStudent = seniorMode ? (applicableCodes ? applicableCodes.has(sub.code) : true) : true;
+      if (score === null && s.incomplete && appliesToStudent) {
         return `<td style="text-align:center;font-size:.78rem;background:#fff0f0"><span style="font-weight:800;color:#dc2626;font-size:.9rem">X</span></td>`;
       }
       return `<td style="text-align:center;font-size:.78rem">${score !== null
