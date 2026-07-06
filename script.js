@@ -8071,7 +8071,9 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
       const { core } = getCBCSubjectsForPathway(pw.id);
       core.forEach(s => allChosenCodes.add(s.code));
       const chosen = getSchoolElectiveCodes(pw.id);
-      chosen.forEach(c => allChosenCodes.add(c));
+      // Each entry in `chosen` is a comma-joined combo string (e.g. "BIO,CHE,PHY"),
+      // not a single subject code — split it before adding individual codes.
+      chosen.forEach(comboStr => comboStr.split(',').forEach(code => allChosenCodes.add(code)));
     });
     examSubs = examSubs.filter(s => allChosenCodes.has(s.code));
   }
