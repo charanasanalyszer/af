@@ -7113,22 +7113,34 @@ function buildMeritData(examId, filterStreamId, filterClassId, filterPathwayId) 
           return sub && electiveCodes.includes(sub.code);
         });
 
-        // Sort electives by points descending, take best 3
+        // Sort electives by points descending
         const sortedElec = electiveMarks.slice().sort((a,b) => {
           const subA = subjects.find(s=>s.id===a.subjectId);
           const subB = subjects.find(s=>s.id===b.subjectId);
           return getGrade(b.score, subB?.max||100).points - getGrade(a.score, subA?.max||100).points;
         });
-        const best3Elec = sortedElec.slice(0, 3);
-        const gradedMarks = [...coreMarks, ...best3Elec];
+
+        // Fill up to 7 total graded subjects: all available core marks first,
+        // then top up with best electives to reach 7 (not a rigid 4-core+3-elective split).
+        // This means a student is graded on whatever 7 subjects they actually have
+        // marks for, rather than being dropped for missing one specific core subject
+        // or having fewer/more than exactly 3 electives.
+        const neededElectives = Math.max(0, 7 - coreMarks.length);
+        let gradedMarks = [...coreMarks, ...sortedElec.slice(0, neededElectives)];
+        // Edge case: more core marks than 7 (unusual) — keep the best 7 by points
+        if (gradedMarks.length > 7) {
+          gradedMarks = gradedMarks.slice().sort((a,b) => {
+            const subA = subjects.find(s=>s.id===a.subjectId);
+            const subB = subjects.find(s=>s.id===b.subjectId);
+            return getGrade(b.score, subB?.max||100).points - getGrade(a.score, subA?.max||100).points;
+          }).slice(0, 7);
+        }
 
         if (!gradedMarks.length) return null;
 
-        // Must have at least 7 graded subjects to receive a rank (min 7 rule)
+        // Only requirement now: at least 7 graded subjects total to receive a rank
         const totalGraded = gradedMarks.length;
         if (totalGraded < 7) incomplete = true;
-        // Also flag incomplete if fewer core than expected or fewer than 3 electives
-        if (coreMarks.length < coreDefs.length || best3Elec.length < 3) incomplete = true;
 
         total = parseFloat(gradedMarks.reduce((a,m)=>a+m.score,0).toFixed(1));
         pts   = gradedMarks.reduce((a,m) => a + getGrade(m.score, subjects.find(s=>s.id===m.subjectId)?.max||100).points, 0);
