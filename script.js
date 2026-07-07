@@ -7598,6 +7598,19 @@ function buildMeritStatsBar(scored, examId) {
     }
   }
 
+  // Class Mean Points — mean % score converted to the 0-8 CBC points scale (works
+  // identically for junior and senior school, since `mean` is already the correct
+  // per-student average out of 100 in both cases).
+  const classMeanPct    = complete.length ? complete.reduce((a,s)=>a+(s.mean||0),0)/complete.length : 0;
+  const classMeanPoints = parseFloat((classMeanPct/100*8).toFixed(2));
+  const classMeanPtsGrd = getMeanGrade(classMeanPoints);
+  const classMeanPointsHTML = complete.length ? `
+      <div style="display:flex;align-items:center;gap:.35rem;background:#fff7ed;border:1px solid #fdba74;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#c2410c">
+        <i class="fa-solid fa-star" style="font-size:.78rem"></i>
+        <span>Class Mean Points: ${classMeanPoints.toFixed(2)}/8</span>
+        <span class="badge ${classMeanPtsGrd.cls}" style="font-size:.65rem;margin-left:.2rem">${classMeanPtsGrd.grade}</span>
+      </div>` : '';
+
   return `
     <div style="display:flex;gap:.55rem;flex-wrap:wrap;align-items:center;margin-bottom:.75rem">
       <div style="display:flex;align-items:center;gap:.35rem;background:#f0f9ff;border:1px solid #bae6fd;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#0369a1">
@@ -7610,6 +7623,7 @@ function buildMeritStatsBar(scored, examId) {
         ${meanGrd ? `<span class="badge ${meanGrd.cls}" style="font-size:.65rem;margin-left:.2rem">${meanGrd.grade}</span>` : ''}
       </div>
       ${totalMarksHTML}
+      ${classMeanPointsHTML}
       <div style="display:flex;align-items:center;gap:.35rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#1d4ed8">
         <i class="fa-solid fa-mars" style="font-size:.78rem"></i>
         <span>Boys: ${boys}${boysM ? ` &bull; ${meanLabel}: ${boysM}` : ''}</span>
@@ -9642,8 +9656,71 @@ function smGetSubjectScore(exam, isConsolidated, sourceExamObjs, studentId, subj
   return mk ? mk.score : null;
 }
 
-// Get a student's total across all subjects of this exam
+// ── CBC Senior School: best-7 total/mean for a student (mirrors buildMeritData's
+// pathway-aware "all core marks + best electives, capped at 7" logic) ─────────
+function smGetSeniorBest7(exam, isConsolidated, sourceExamObjs, studentId) {
+  const stu = students.find(s => s.id === studentId);
+  if (!stu) return null;
+
+  let stuMarks;
+  if (isConsolidated && sourceExamObjs.length > 0) {
+    stuMarks = (exam.subjectIds||[]).map(sid => {
+      const sc = smGetSubjectScore(exam, isConsolidated, sourceExamObjs, studentId, sid);
+      return sc !== null ? { subjectId: sid, score: sc } : null;
+    }).filter(Boolean);
+  } else {
+    stuMarks = marks.filter(m => m.examId === exam.id && m.studentId === studentId);
+  }
+  if (!stuMarks.length) return null;
+
+  const stuPathway = stu.pathway || '';
+  const { core: coreDefs, elective: electiveDefs } = getSchoolSubjectsForPathway(stuPathway);
+  const coreCodes     = coreDefs.map(c => c.code);
+  const electiveCodes = electiveDefs.map(e => e.code);
+  const pathwayCodes  = new Set([...coreCodes, ...electiveCodes]);
+
+  const pathwayMarks = stuMarks.filter(m => {
+    const sub = subjects.find(s => s.id === m.subjectId);
+    return sub && pathwayCodes.has(sub.code);
+  });
+  const coreMarks = pathwayMarks.filter(m => {
+    const sub = subjects.find(s => s.id === m.subjectId);
+    return sub && coreCodes.includes(sub.code);
+  });
+  const electiveMarks = pathwayMarks.filter(m => {
+    const sub = subjects.find(s => s.id === m.subjectId);
+    return sub && electiveCodes.includes(sub.code);
+  });
+
+  const sortedElec = electiveMarks.slice().sort((a,b) => {
+    const subA = subjects.find(s=>s.id===a.subjectId);
+    const subB = subjects.find(s=>s.id===b.subjectId);
+    return getGrade(b.score, subB?.max||100).points - getGrade(a.score, subA?.max||100).points;
+  });
+
+  const neededElectives = Math.max(0, 7 - coreMarks.length);
+  let gradedMarks = [...coreMarks, ...sortedElec.slice(0, neededElectives)];
+  if (gradedMarks.length > 7) {
+    gradedMarks = gradedMarks.slice().sort((a,b) => {
+      const subA = subjects.find(s=>s.id===a.subjectId);
+      const subB = subjects.find(s=>s.id===b.subjectId);
+      return getGrade(b.score, subB?.max||100).points - getGrade(a.score, subA?.max||100).points;
+    }).slice(0, 7);
+  }
+  if (!gradedMarks.length) return null;
+
+  const total = parseFloat(gradedMarks.reduce((a,m)=>a+m.score,0).toFixed(1));
+  const pts   = gradedMarks.reduce((a,m) => a + getGrade(m.score, subjects.find(s=>s.id===m.subjectId)?.max||100).points, 0);
+  return { total, pts, count: gradedMarks.length, incomplete: gradedMarks.length < 7 };
+}
+
+// Get a student's total across all subjects of this exam.
+// Senior school uses the best-7-subject total instead of every subject on the exam.
 function smGetStudentTotal(exam, isConsolidated, sourceExamObjs, studentId) {
+  if (isSeniorSchool()) {
+    const r = smGetSeniorBest7(exam, isConsolidated, sourceExamObjs, studentId);
+    return r ? r.total : null;
+  }
   let total = 0, hasAny = false;
   for (const sid of (exam.subjectIds||[])) {
     const sc = smGetSubjectScore(exam, isConsolidated, sourceExamObjs, studentId, sid);
@@ -9652,8 +9729,14 @@ function smGetStudentTotal(exam, isConsolidated, sourceExamObjs, studentId) {
   return hasAny ? parseFloat(total.toFixed(1)) : null;
 }
 
-// Get a student's mean across all subjects
+// Get a student's mean across all subjects.
+// Senior school: mean = best-7 subject total ÷ 7 (CBC senior scoring), regardless of
+// how many subjects the exam itself lists.
 function smGetStudentMean(exam, isConsolidated, sourceExamObjs, studentId) {
+  if (isSeniorSchool()) {
+    const r = smGetSeniorBest7(exam, isConsolidated, sourceExamObjs, studentId);
+    return r ? parseFloat((r.total/7).toFixed(2)) : null;
+  }
   const n = (exam.subjectIds||[]).length; if (!n) return null;
   const t = smGetStudentTotal(exam, isConsolidated, sourceExamObjs, studentId);
   return t !== null ? parseFloat((t/n).toFixed(2)) : null;
@@ -9705,6 +9788,12 @@ function renderSummaryAnalytics() {
 
     if (!clsStudentData.length) continue;
     hasAnyData = true;
+
+    // Class-wide mean points (0-8 CBC scale) — same formula for junior and senior school,
+    // since `mean` above is already the correct per-student average (best-7 for senior).
+    const clsMeanPct    = clsStudentData.reduce((a,d)=>a+(d.mean||0),0) / clsStudentData.length;
+    const clsMeanPoints = parseFloat((clsMeanPct/100*8).toFixed(2));
+    const clsMeanPtsGrd = getMeanGrade ? getMeanGrade(clsMeanPoints) : {grade:'—',cls:''};
 
     // ── 1. Best 3 overall (class) ──
     const top3Overall = clsStudentData.slice(0,3);
@@ -9805,7 +9894,7 @@ function renderSummaryAnalytics() {
     if (prevExam) {
       const improvements = clsStudents.map(s=>{
         const prevTotal = smGetStudentTotal(prevExam, false, [], s.id);
-        const prevMean  = prevExam.subjectIds?.length && prevTotal !== null ? parseFloat((prevTotal/prevExam.subjectIds.length).toFixed(2)) : null;
+        const prevMean  = smGetStudentMean(prevExam, false, [], s.id);
         const currMean  = smGetStudentMean(exam, isConsolidated, sourceExamObjs, s.id);
         if (prevMean === null || currMean === null) return null;
         return { stu:s, prevMean, currMean, delta: parseFloat((currMean - prevMean).toFixed(2)) };
@@ -9993,6 +10082,10 @@ function renderSummaryAnalytics() {
       <div class="sm-class-header">
         <h3><i class="fa-solid fa-school"></i> ${cls.name}</h3>
         <span class="sm-class-badge">${clsStudentData.length} students with data</span>
+        <span class="sm-class-badge" style="background:#fff7ed;color:#c2410c;border:1px solid #fdba74">
+          Class Mean Points: ${clsMeanPoints.toFixed(2)}/8
+          <span class="badge ${clsMeanPtsGrd.cls}" style="font-size:.6rem;margin-left:.25rem">${clsMeanPtsGrd.grade}</span>
+        </span>
       </div>
 
       <div class="card sm-section">
