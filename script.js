@@ -8415,13 +8415,25 @@ function printMeritList() {
     const fStudents = scored.filter(s=>s.gender==='F').length;
     const meanVal   = scored.length ? (scored.reduce((a,s)=>a+(rankBy==='points'?s.points:s.mean),0)/scored.length).toFixed(2) : '—';
     const top1      = scored[0];
+    // Class Mean Points: per-student (sum of subject points ÷ subject count), then
+    // averaged across the class — same formula as the on-screen stats bar.
+    const completeForPts  = scored.filter(s=>!s.incomplete);
+    const totalSubsForPts = isSeniorSchool() ? 7 : (exam.subjectIds.length || 1);
+    const studentMeanPts  = completeForPts.map(s => (s.points||0) / totalSubsForPts);
+    const classMeanPoints = studentMeanPts.length
+      ? studentMeanPts.reduce((a,b)=>a+b,0) / studentMeanPts.length
+      : 0;
+    const classMeanPtsGrd = getMeanGrade(classMeanPoints);
     doc.setFillColor(...light);
-    doc.rect(M, y, PW-M*2, 6, 'F');
+    doc.rect(M, y, PW-M*2, 9.5, 'F');
     doc.setFontSize(6.5); doc.setFont(undefined,'normal'); doc.setTextColor(...dark);
     doc.text(`Students: ${totalStudents}  (Boys: ${mStudents}  Girls: ${fStudents})`, M+2, y+4);
     doc.text(`Class Mean: ${meanVal}${rankBy==='points'?' pts':'%'}`, PW/2, y+4, {align:'center'});
     if (top1) doc.text(`Top: ${top1.name} (${rankBy==='points'?top1.points+'pts':top1.mean.toFixed(1)+'%'})`, PW-M-2, y+4, {align:'right'});
-    y += 8;
+    doc.setFont(undefined,'bold'); doc.setTextColor(194,65,12);
+    doc.text(`Class Mean Points: ${classMeanPoints.toFixed(2)}/8 (${classMeanPtsGrd.grade})`, M+2, y+8);
+    doc.setFont(undefined,'normal'); doc.setTextColor(...dark);
+    y += 11.5;
 
     // ── Inline Grade Distribution bars ───────────────────────────────────────
     const complete = scored.filter(s => !s.incomplete);
@@ -9168,11 +9180,20 @@ function exportMeritPDF() {
       mGrd  = getMeanGrade(mn/100*8);
       meanLabel = 'Mean';
     }
+    // Class Mean Points: per-student (sum of subject points ÷ subject count), then
+    // averaged across the class — same formula as the on-screen stats bar.
+    const totalSubsForPts = isSeniorSchool() ? 7 : (exam.subjectIds.length || 1);
+    const studentMeanPts  = cArr.map(s => (s.points||0) / totalSubsForPts);
+    const classMeanPoints = studentMeanPts.length
+      ? studentMeanPts.reduce((a,b)=>a+b,0) / studentMeanPts.length
+      : 0;
+    const classMeanPtsGrd = getMeanGrade(classMeanPoints);
     const pill  = (bg,border,col,txt) =>
       `<span style="display:inline-flex;align-items:center;gap:3px;background:${bg};border:1.5px solid ${border};border-radius:6px;padding:4px 10px;font-size:9px;font-weight:700;color:${col};white-space:nowrap">${txt}</span>`;
     return `<div style="display:flex;gap:5px;flex-wrap:wrap;margin:6px 0 10px">
       ${pill('#e0f2fe','#7dd3fc','#0369a1','&#128101; Total Students: '+tot)}
       ${pill('#faf5ff','#c084fc','#7c3aed','&#x1f4c8; '+meanLabel+': '+mn.toFixed(2)+' '+gradeB(mGrd))}
+      ${cArr.length ? pill('#fff7ed','#fdba74','#c2410c','&#11088; Class Mean Points: '+classMeanPoints.toFixed(2)+'/8 '+gradeB(classMeanPtsGrd)) : ''}
       ${pill('#dbeafe','#93c5fd','#1d4ed8','&#9794; Boys: '+boys.length+(mMn?' &bull; '+meanLabel+': '+mMn.toFixed(1):''))}
       ${pill('#fce7f3','#f9a8d4','#be185d','&#9792; Girls: '+girls.length+(fMn?' &bull; '+meanLabel+': '+fMn.toFixed(1):''))}
       ${incCount > 0 ? pill('#fee2e2','#fca5a5','#dc2626','&#10007; Incomplete (X): '+incCount+' — excl. from mean') : ''}
