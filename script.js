@@ -11749,8 +11749,27 @@ function getStudentReport(stuId, examId) {
     }).filter(Boolean);
   }
 
-  // Only count subjects the student actually sat for in total/mean
-  const scoredRows = subjectRows.filter(r => !r.absent);
+  // ── Senior school: max 7 subjects count towards the total/mean. PE and ICT are
+  // shown on the report (if marked) but never count towards that 7-subject total —
+  // mirroring the merit list's best-7 CBC senior scoring. Junior school is unaffected. ──
+  const NON_COUNTING_CODES = new Set(['PE', 'ICT']);
+  if (isSeniorSchool()) {
+    // Flag PE/ICT rows as non-counting straight away
+    subjectRows.forEach(r => { if (NON_COUNTING_CODES.has((r.code||'').toUpperCase())) r.excludedFromCount = true; });
+
+    // Among the remaining (counting) subjects, cap at the best 7 by grade points —
+    // any beyond that also become non-counting (still shown, just not tallied).
+    const countingScored = subjectRows.filter(r => !r.excludedFromCount && !r.absent);
+    if (countingScored.length > 7) {
+      const sorted = countingScored.slice().sort((a,b) => (typeof b.points==='number'?b.points:0) - (typeof a.points==='number'?a.points:0));
+      const overflow = new Set(sorted.slice(7));
+      subjectRows.forEach(r => { if (overflow.has(r)) r.excludedFromCount = true; });
+    }
+  }
+
+  // Only count subjects the student actually sat for (and, for senior school, that
+  // fall within the max-7 counted set) in total/mean
+  const scoredRows = subjectRows.filter(r => !r.absent && !r.excludedFromCount);
   total  = scoredRows.reduce((a,r)=>a+r.score,0);
   mean   = scoredRows.length ? total/scoredRows.length : 0;
   const meanMaxAvg = scoredRows.length ? scoredRows.reduce((a,r)=>a+(r.max||100),0)/scoredRows.length : 100;
@@ -11824,7 +11843,7 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
       ).join('');
       return `<tr>
       <td style="padding:.18rem .3rem;font-size:.78rem">${i+1}</td>
-      <td style="padding:.18rem .3rem;font-size:.78rem">${r.name}</td>
+      <td style="padding:.18rem .3rem;font-size:.78rem">${r.name}${r.excludedFromCount ? ' <span style="font-size:.62rem;color:#c2410c;font-weight:700">(not counted)</span>' : ''}</td>
       ${srcCols}
       <td style="text-align:center;font-weight:700;background:#f0fdf4;padding:.18rem .3rem;font-size:.78rem">${r.score !== null ? r.score : '—'}</td>
       <td style="text-align:center;padding:.18rem .3rem;font-size:.78rem"><strong>${r.grade}</strong></td>
@@ -11834,7 +11853,7 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
     } else {
       return `<tr${r.absent ? ' style="background:#fff8f8;opacity:.85"' : ''}>
       <td>${i+1}</td>
-      <td>${r.name}</td>
+      <td>${r.name}${r.excludedFromCount ? ' <span style="font-size:.62rem;color:#c2410c;font-weight:700">(not counted)</span>' : ''}</td>
       <td style="text-align:center;font-size:.78rem;font-weight:700;color:var(--primary)">${r.teacherInitials||'—'}</td>
       <td style="text-align:center;font-weight:600">${r.absent ? '<span style="color:#dc2626;font-weight:700;font-size:.95rem">X</span>' : r.score}</td>
       <td style="text-align:center"><strong style="${r.absent ? 'color:#dc2626' : ''}">${r.grade}</strong></td>
@@ -11852,7 +11871,7 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
       <div class="rf-school-info">
         <h2>${(s.schoolName||'School Name').toUpperCase()}</h2>
         <p>${s.address||''} ${s.phone?'| Tel: '+s.phone:''} ${s.email?'| '+s.email:''}</p>
-        <p style="font-weight:800;color:#000000;font-size:9.5pt;letter-spacing:.04em">STUDENT PROGRESS REPORT &mdash; ${displayTerm} ${displayYear}</p>
+        <p style="font-weight:800;color:#ffffff;font-size:9.5pt;letter-spacing:.04em">STUDENT PROGRESS REPORT &mdash; ${displayTerm} ${displayYear}</p>
       </div>
     </div>
 
@@ -11903,7 +11922,7 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
                 : `<td style="text-align:center"></td><td style="text-align:center">${data.total}</td>`}
               <td style="text-align:center${data.isConsolidated && srcExams.length > 0 ? ';padding:.2rem .3rem;font-size:.75rem' : ''}">${data.mGrade.grade}</td>
               <td style="text-align:center${data.isConsolidated && srcExams.length > 0 ? ';padding:.2rem .3rem;font-size:.75rem' : ''}">${data.totalPoints}</td>
-              <td style="${data.isConsolidated && srcExams.length > 0 ? 'padding:.2rem .3rem;font-size:.72rem' : ''}">Avg: <strong>${getAverageMark(data.total, data.subjectRows.filter(r=>!r.absent).length).toFixed(1)}</strong> &nbsp;|\&nbsp; ${getPointsGrade(data.totalPoints).grade}</td>
+              <td style="${data.isConsolidated && srcExams.length > 0 ? 'padding:.2rem .3rem;font-size:.72rem' : ''}">Avg: <strong>${getAverageMark(data.total, data.subjectRows.filter(r=>!r.absent && !r.excludedFromCount).length).toFixed(1)}</strong> &nbsp;|\&nbsp; ${getPointsGrade(data.totalPoints).grade}</td>
             </tr>
           </tbody>
         </table>
@@ -11916,7 +11935,7 @@ function buildReportHTML(data, ctRemarks, principalRemarks, nextOpen, schoolClos
       <div class="rf-section-body">
         <div class="rf-info-grid">
           <div class="rf-info-item"><span class="rf-info-label">Total Marks</span><span class="rf-info-value" style="color:#1a6fb5;font-size:11pt">${data.total}</span></div>
-          <div class="rf-info-item"><span class="rf-info-label">Average Mark</span><span class="rf-info-value" style="color:#1a6fb5;font-size:11pt">${getAverageMark(data.total, data.subjectRows.filter(r=>!r.absent).length).toFixed(1)}</span></div>
+          <div class="rf-info-item"><span class="rf-info-label">Average Mark</span><span class="rf-info-value" style="color:#1a6fb5;font-size:11pt">${getAverageMark(data.total, data.subjectRows.filter(r=>!r.absent && !r.excludedFromCount).length).toFixed(1)}</span></div>
           <div class="rf-info-item"><span class="rf-info-label">Mean Score</span><span class="rf-info-value" style="color:#1a6fb5;font-size:11pt">${data.mean.toFixed(2)}</span></div>
           <div class="rf-info-item"><span class="rf-info-label">Total Points</span><span class="rf-info-value" style="color:#7c3aed;font-size:11pt;font-weight:700">${data.totalPoints}</span></div>
           <div class="rf-info-item"><span class="rf-info-label">Points Grade</span><span class="rf-info-value" style="color:${getPointsGrade(data.totalPoints).cls.includes('green')||getPointsGrade(data.totalPoints).cls.includes('teal')?'#16a34a':getPointsGrade(data.totalPoints).cls.includes('red')?'#dc2626':'#1a6fb5'};font-size:11pt;font-weight:700">${getPointsGrade(data.totalPoints).grade} — ${getPointsGrade(data.totalPoints).label}</span></div>
