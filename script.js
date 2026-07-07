@@ -8174,11 +8174,17 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
     const ptsCell    = s.incomplete ? `<td style="color:#dc2626;font-weight:800">X</td>` : `<td>${s.points}</td>`;
     const ptsGrdCell = s.incomplete ? `<td><span class="badge b-red" style="font-size:.72rem">X</span></td>` : `<td><span class="badge ${getPointsGrade(s.points).cls}" style="font-size:.72rem">${getPointsGrade(s.points).grade}</span></td>`;
 
+    // Stream initial badge — shown right in front of the name instead of a separate column
+    const streamInit = stream?.name ? stream.name.trim().charAt(0).toUpperCase() : '';
+    const streamBadge = streamInit
+      ? `<span title="${stream.name}" style="display:inline-block;width:15px;height:15px;line-height:15px;text-align:center;background:#e0e7ff;color:#4338ca;border-radius:50%;font-size:.6rem;font-weight:800;margin-left:4px;vertical-align:middle">${streamInit}</span>`
+      : '';
+
     const streamRankDisplay = s.incomplete ? '—' : `#${s.streamRank}`;
     return `<tr${s.incomplete ? ' style="background:#fff8f8;opacity:.92"' : ''}>
       ${rankCell}
       <td style="font-family:var(--mono);font-size:.78rem">${s.adm}</td>
-      <td><strong style="font-size:.85rem">${s.name}</strong></td>
+      <td><strong style="font-size:.85rem">${s.name}</strong>${streamBadge}</td>
       ${seniorMode?pathwayCell(s.pathway):''}
       <td><span class="badge ${s.gender==='M'?'b-m':'b-f'}" style="font-size:.65rem">${s.gender}</span></td>
       ${showStreamCol ? `<td>${stream?.name||'—'}</td><td>${streamRankDisplay}</td>` : ''}
@@ -8289,10 +8295,11 @@ function printMeritList() {
 
     const body = scored.map(s => {
       const stream = streams.find(x=>x.id===s.streamId);
+      const streamInit = stream?.name ? ` (${stream.name.trim().charAt(0).toUpperCase()})` : '';
       const row = [
         `#${s.overallRank}`,
         s.adm,
-        s.name,
+        `${s.name}${streamInit}`,
         s.gender,
       ];
       if (showStream) { row.push(stream?.name||'—', `#${s.streamRank}`); }
@@ -9230,7 +9237,7 @@ function exportMeritPDF() {
         return `<tr style="background:${rowBg}">
           <td style="text-align:center;background:#fee2e2;color:#dc2626;font-weight:800;padding:2px 4px;border:2px solid #b0bec5">DQ</td>
           <td style="font-family:monospace;font-size:8px;padding:2px 4px;border:2px solid #b0bec5;font-weight:700">${s.adm}</td>
-          <td style="font-weight:800;padding:2px 4px;border:2px solid #b0bec5">${s.name}</td>
+        <td style="font-weight:800;padding:2px 4px;border:2px solid #b0bec5">${s.name}${str?.name?`<span title="${str.name}" style="display:inline-block;width:13px;height:13px;line-height:13px;text-align:center;background:#e0e7ff;color:#4338ca;border-radius:50%;font-size:7px;font-weight:800;margin-left:3px">${str.name.trim().charAt(0).toUpperCase()}</span>`:''}</td>
           ${seniorMode?pathwayTd(s.pathway):''}
           <td style="text-align:center;padding:2px 4px;border:2px solid #b0bec5">${s.gender==='M'?'<span style="color:#1d4ed8;font-weight:800">M</span>':'<span style="color:#be185d;font-weight:800">F</span>'}</td>
           ${showStream?`<td style="padding:2px 4px;border:2px solid #b0bec5;font-weight:700">${str?.name||'—'}</td><td style="text-align:center;padding:2px 4px;border:2px solid #b0bec5;font-weight:700">—</td>`:''}
@@ -9244,7 +9251,7 @@ function exportMeritPDF() {
       return `<tr style="background:${i%2===0?'#f8fbff':'#fff'}">
         <td style="text-align:center;background:${rnkBg};color:${rnkC};font-weight:800;padding:2px 4px;border:2px solid #b0bec5">${s.overallRank===1?'★':s.overallRank}</td>
         <td style="font-family:monospace;font-size:8px;padding:2px 4px;border:2px solid #b0bec5;font-weight:700">${s.adm}</td>
-        <td style="font-weight:800;padding:2px 4px;border:2px solid #b0bec5">${s.name}</td>
+        <td style="font-weight:800;padding:2px 4px;border:2px solid #b0bec5">${s.name}${str?.name?`<span title="${str.name}" style="display:inline-block;width:13px;height:13px;line-height:13px;text-align:center;background:#e0e7ff;color:#4338ca;border-radius:50%;font-size:7px;font-weight:800;margin-left:3px">${str.name.trim().charAt(0).toUpperCase()}</span>`:''}</td>
         ${seniorMode?pathwayTd(s.pathway):''}
         <td style="text-align:center;padding:2px 4px;border:2px solid #b0bec5">${s.gender==='M'?'<span style="color:#1d4ed8;font-weight:800">M</span>':'<span style="color:#be185d;font-weight:800">F</span>'}</td>
         ${showStream?`<td style="padding:2px 4px;border:2px solid #b0bec5;font-weight:700">${str?.name||'—'}</td><td style="text-align:center;padding:2px 4px;border:2px solid #b0bec5;font-weight:800">#${s.streamRank}</td>`:''}
