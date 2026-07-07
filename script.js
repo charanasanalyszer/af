@@ -7598,11 +7598,16 @@ function buildMeritStatsBar(scored, examId) {
     }
   }
 
-  // Class Mean Points — mean % score converted to the 0-8 CBC points scale (works
-  // identically for junior and senior school, since `mean` is already the correct
-  // per-student average out of 100 in both cases).
-  const classMeanPct    = complete.length ? complete.reduce((a,s)=>a+(s.mean||0),0)/complete.length : 0;
-  const classMeanPoints = parseFloat((classMeanPct/100*8).toFixed(2));
+  // Class Mean Points: for each student, sum each subject's individual grade points
+  // and divide by the number of subjects to get that student's mean points (0-8 scale),
+  // then average those per-student mean points across the class. `s.points` from
+  // buildMeritData is already the sum of per-subject points; the subject count is
+  // 7 for senior school (best-7 scoring) or the exam's subject count otherwise.
+  const totalSubsForPts = exam ? (isSeniorSchool() ? 7 : (exam.subjectIds.length || 1)) : 1;
+  const studentMeanPts  = complete.map(s => (s.points||0) / totalSubsForPts);
+  const classMeanPoints = studentMeanPts.length
+    ? parseFloat((studentMeanPts.reduce((a,b)=>a+b,0) / studentMeanPts.length).toFixed(2))
+    : 0;
   const classMeanPtsGrd = getMeanGrade(classMeanPoints);
   const classMeanPointsHTML = complete.length ? `
       <div style="display:flex;align-items:center;gap:.35rem;background:#fff7ed;border:1px solid #fdba74;border-radius:7px;padding:.28rem .75rem;font-size:.8rem;font-weight:700;color:#c2410c">
@@ -9742,6 +9747,27 @@ function smGetStudentMean(exam, isConsolidated, sourceExamObjs, studentId) {
   return t !== null ? parseFloat((t/n).toFixed(2)) : null;
 }
 
+// Get a student's MEAN POINTS (0-8 scale): convert each subject score to its grade
+// points individually, sum them, then divide by the number of subjects.
+// Senior school: sums points for the best-7 graded subjects and divides by 7.
+// Junior/standard: sums points for every subject on the exam and divides by however
+// many of those subjects the student was actually scored in.
+function smGetStudentMeanPoints(exam, isConsolidated, sourceExamObjs, studentId) {
+  if (isSeniorSchool()) {
+    const r = smGetSeniorBest7(exam, isConsolidated, sourceExamObjs, studentId);
+    return (r && r.count) ? parseFloat((r.pts/r.count).toFixed(2)) : null;
+  }
+  let ptsSum = 0, n = 0;
+  for (const sid of (exam.subjectIds||[])) {
+    const sc = smGetSubjectScore(exam, isConsolidated, sourceExamObjs, studentId, sid);
+    if (sc === null) continue;
+    const sub = subjects.find(s => s.id === sid);
+    ptsSum += getGrade(sc, sub?.max || 100).points;
+    n++;
+  }
+  return n ? parseFloat((ptsSum/n).toFixed(2)) : null;
+}
+
 function renderSummaryAnalytics() {
   const examId   = document.getElementById('smExam').value;
   const classFilter = document.getElementById('smClass').value;
@@ -9781,18 +9807,21 @@ function renderSummaryAnalytics() {
 
     // Check if any student has data for this exam
     const clsStudentData = clsStudents.map(s=>{
-      const total = smGetStudentTotal(exam, isConsolidated, sourceExamObjs, s.id);
-      const mean  = smGetStudentMean(exam, isConsolidated, sourceExamObjs, s.id);
-      return { stu:s, total, mean };
+      const total      = smGetStudentTotal(exam, isConsolidated, sourceExamObjs, s.id);
+      const mean       = smGetStudentMean(exam, isConsolidated, sourceExamObjs, s.id);
+      const meanPoints = smGetStudentMeanPoints(exam, isConsolidated, sourceExamObjs, s.id);
+      return { stu:s, total, mean, meanPoints };
     }).filter(x=>x.total !== null).sort((a,b)=>b.total-a.total);
 
     if (!clsStudentData.length) continue;
     hasAnyData = true;
 
-    // Class-wide mean points (0-8 CBC scale) — same formula for junior and senior school,
-    // since `mean` above is already the correct per-student average (best-7 for senior).
-    const clsMeanPct    = clsStudentData.reduce((a,d)=>a+(d.mean||0),0) / clsStudentData.length;
-    const clsMeanPoints = parseFloat((clsMeanPct/100*8).toFixed(2));
+    // Class mean points: for each student, sum each subject's points and divide by the
+    // number of subjects to get that student's mean points; then average across students.
+    const withPts        = clsStudentData.filter(d => d.meanPoints !== null);
+    const clsMeanPoints  = withPts.length
+      ? parseFloat((withPts.reduce((a,d)=>a+d.meanPoints,0) / withPts.length).toFixed(2))
+      : 0;
     const clsMeanPtsGrd = getMeanGrade ? getMeanGrade(clsMeanPoints) : {grade:'—',cls:''};
 
     // ── 1. Best 3 overall (class) ──
