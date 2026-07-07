@@ -11717,9 +11717,17 @@ function getStudentReport(stuId, examId) {
 
   let subjectRows, total, mean, mGrade, totalPoints;
 
+  // Only include subjects the student actually takes. For senior school this is the
+  // pathway core + chosen elective combination; for junior school every subject applies.
+  // stu.subjectIds holds the student's own enrolled subjects — intersect with the exam's
+  // subject list so a report never shows a subject the student isn't offering.
+  const examSubjectIds = (Array.isArray(stu.subjectIds) && stu.subjectIds.length)
+    ? exam.subjectIds.filter(sid => stu.subjectIds.includes(sid))
+    : exam.subjectIds;
+
   if (isConsolidated && sourceExamObjs.length > 0) {
     // Compute each subject's score as the average across source exams
-    subjectRows = exam.subjectIds.map(sid => {
+    subjectRows = examSubjectIds.map(sid => {
       const sub = subjects.find(s=>s.id===sid); if(!sub) return null;
       const scores = sourceExamObjs.map(src => {
         const mk = marks.find(m=>m.examId===src.id&&m.studentId===stuId&&m.subjectId===sid);
@@ -11736,7 +11744,7 @@ function getStudentReport(stuId, examId) {
     }).filter(Boolean);
   } else {
     const examMarks = marks.filter(m=>m.examId===examId&&m.studentId===stuId);
-    subjectRows = exam.subjectIds.map(sid=>{
+    subjectRows = examSubjectIds.map(sid=>{
       const sub = subjects.find(s=>s.id===sid); if(!sub) return null;
       const mk  = examMarks.find(m=>m.subjectId===sid);
       const score = mk ? mk.score : null;
