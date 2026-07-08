@@ -12658,6 +12658,7 @@ function saveSettings() {
     restrictTeacherList:      settings.restrictTeacherList      || false,
     restrictTeacherSettings:  settings.restrictTeacherSettings  || false,
     subjectCombinations:      settings.subjectCombinations      || {},
+    customCombinations:       settings.customCombinations       || {},
     offeredPathways:          settings.offeredPathways          || undefined,
   };
   save(K.settings,[settings]);
@@ -12911,7 +12912,9 @@ function renderSubjectCombinationUI() {
     </div>
 
     ${offeredPathways.map(pw => {
-      const pwCombos = CBC_COMBINATIONS.filter(c => c.pw === pw.id);
+      const customList = (settings.customCombinations && settings.customCombinations[pw.id]) || [];
+      const customCombos = customList.map((c,i) => ({ pw: pw.id, track: 'My Custom Combinations', sno: `C${i+1}`, subs: c.subs, custom: true }));
+      const pwCombos = [...CBC_COMBINATIONS.filter(c => c.pw === pw.id), ...customCombos];
       const chosen = sc[pw.id] || [];
       const tracks = [...new Set(pwCombos.map(c => c.track))];
       const { core: coreList } = getCBCSubjectsForPathway(pw.id);
@@ -12973,9 +12976,10 @@ function renderSubjectCombinationUI() {
                   <input type="checkbox" class="sc-combo-check" data-pw="${pw.id}" value="${codeStr}" ${isChosen?'checked':''}
                     onchange="onScComboChange('${pw.id}')"
                     style="width:13px;height:13px;min-width:13px;padding:0;margin:.15rem 0 0 0;accent-color:${pw.color};flex-shrink:0;box-sizing:border-box">
-                  <span style="min-width:1.7rem;font-size:.6rem;font-family:var(--mono);color:var(--muted);flex-shrink:0;padding-top:.05rem">#${c.sno}</span>
+                  <span style="min-width:1.7rem;font-size:.6rem;font-family:var(--mono);color:var(--muted);flex-shrink:0;padding-top:.05rem">${c.custom?'<i class="fa-solid fa-star" title="Custom combination"></i>':'#'+c.sno}</span>
                   <span style="flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${label}</span>
                   <span style="font-size:.58rem;color:${pw.color};opacity:.8;white-space:nowrap;flex-shrink:0;padding-top:.05rem">${codeStr}</span>
+                  ${c.custom ? `<span onclick="event.preventDefault();event.stopPropagation();deleteCustomCombination('${pw.id}','${codeStr}')" title="Delete custom combination" style="flex-shrink:0;color:#ef4444;cursor:pointer;padding:0 .1rem 0 .2rem;font-size:.72rem"><i class="fa-solid fa-trash"></i></span>` : ''}
                 </label>`;
               }).join('')}
             </div>
@@ -12985,7 +12989,32 @@ function renderSubjectCombinationUI() {
           </div>`;
         }).join('')}
 
-        <div style="display:flex;align-items:center;gap:.6rem;margin-top:.5rem;flex-wrap:wrap">
+        <div style="margin-top:.7rem;padding:.75rem .85rem;border:1.5px dashed ${pw.color}55;border-radius:9px;background:${pw.color}06">
+          <div style="font-size:.76rem;font-weight:700;color:${pw.color};margin-bottom:.4rem">
+            <i class="fa-solid fa-star"></i> Create Your Own ${pw.label} Combination
+          </div>
+          <div style="font-size:.7rem;color:var(--muted);margin-bottom:.5rem">
+            Search for a subject below, click it to add — keep adding until your combination is complete, then save it.
+          </div>
+          <div style="position:relative">
+            <input type="text" id="ccSearch_${pw.id}" placeholder="Search subjects to add…" autocomplete="off"
+              oninput="searchComboSubjects('${pw.id}', this.value)"
+              onfocus="searchComboSubjects('${pw.id}', this.value)"
+              style="width:100%;padding:.4rem .7rem;border:1.5px solid var(--border);border-radius:7px;font-size:.75rem;background:var(--surface);color:var(--text);box-sizing:border-box">
+            <div id="ccSuggest_${pw.id}" style="display:none;position:absolute;z-index:20;top:100%;left:0;right:0;margin-top:.25rem;background:var(--surface);border:1.5px solid var(--border);border-radius:7px;box-shadow:0 6px 18px rgba(0,0,0,.12);max-height:220px;overflow-y:auto"></div>
+          </div>
+          <div id="ccChips_${pw.id}" style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.55rem;min-height:1.6rem"></div>
+          <div style="display:flex;align-items:center;gap:.6rem;margin-top:.55rem;flex-wrap:wrap">
+            <button class="btn btn-sm" type="button" style="background:${pw.color};color:#fff;border:none;font-size:.74rem"
+              onclick="addCustomCombination('${pw.id}')">
+              <i class="fa-solid fa-plus"></i> Add Combination
+            </button>
+            <button class="btn btn-sm" type="button" style="background:var(--surface);color:var(--muted);border:1px solid var(--border);font-size:.74rem"
+              onclick="clearComboBuilder('${pw.id}')">Clear</button>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:.6rem;margin-top:.7rem;flex-wrap:wrap">
           <button class="btn btn-sm" style="background:${pw.color};color:#fff;border:none;font-size:.78rem"
             onclick="saveSubjectCombination('${pw.id}')">
             <i class="fa-solid fa-floppy-disk"></i> Save ${pw.label} Selections
@@ -12995,6 +13024,8 @@ function renderSubjectCombinationUI() {
       </div>`;
     }).join('')}
   `;
+
+  offeredPathways.forEach(pw => renderComboChips(pw.id));
 }
 
 function filterCombinations(pwId, query) {
@@ -13042,6 +13073,136 @@ function clearAllCombinations(pwId) {
   document.querySelectorAll(`.sc-combo-check[data-pw="${pwId}"]`).forEach(cb => { cb.checked = false; });
   onScComboChange(pwId);
 }
+
+// ── Custom Combination Builder (search-and-add) ────────────────────────────
+// Lets a school build its own combination from existing subjects: search,
+// click to add, keep adding, then save. customComboBuilder[pwId] holds the
+// codes currently being assembled (in-memory only, until "Add Combination").
+const customComboBuilder = {};
+
+function getComboSubjectPool(pwId) {
+  // Every subject available to this pathway (electives across all its tracks,
+  // de-duplicated by code) plus the universal core, so a school can pick any
+  // existing subject — not just ones already in an official combination.
+  const pool = [];
+  const seen = new Set();
+  const push = s => { if (!seen.has(s.code)) { seen.add(s.code); pool.push(s); } };
+  (CBC_SUBJECTS[pwId]?.elective || []).forEach(push);
+  CBC_SUBJECTS.universal_core.forEach(push);
+  Object.values(CBC_SUBJECTS).forEach(v => { if (Array.isArray(v?.elective)) v.elective.forEach(push); });
+  return pool;
+}
+
+function searchComboSubjects(pwId, query) {
+  const box = document.getElementById(`ccSuggest_${pwId}`);
+  if (!box) return;
+  const q = (query || '').trim().toLowerCase();
+  const picked = customComboBuilder[pwId] || [];
+  const pool = getComboSubjectPool(pwId).filter(s => !picked.includes(s.code));
+  const matches = (q ? pool.filter(s => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q)) : pool).slice(0, 8);
+
+  if (!matches.length) {
+    box.style.display = '';
+    box.innerHTML = `<div style="padding:.5rem .65rem;font-size:.72rem;color:var(--muted)">${q ? 'No matching subjects.' : 'No more subjects to add.'}</div>`;
+    return;
+  }
+  box.style.display = '';
+  box.innerHTML = matches.map(s => `
+    <div onmousedown="event.preventDefault();pickComboSubject('${pwId}','${s.code}')"
+      style="padding:.4rem .65rem;font-size:.75rem;cursor:pointer;display:flex;justify-content:space-between;gap:.5rem;border-bottom:1px solid var(--border)"
+      onmouseover="this.style.background='var(--hover, rgba(0,0,0,.04))'" onmouseout="this.style.background='transparent'">
+      <span>${s.name}</span><span style="color:var(--muted);font-family:var(--mono);font-size:.68rem">${s.code}</span>
+    </div>`).join('');
+}
+
+function pickComboSubject(pwId, code) {
+  if (!customComboBuilder[pwId]) customComboBuilder[pwId] = [];
+  if (!customComboBuilder[pwId].includes(code)) customComboBuilder[pwId].push(code);
+  const search = document.getElementById(`ccSearch_${pwId}`);
+  if (search) { search.value = ''; search.focus(); }
+  renderComboChips(pwId);
+  searchComboSubjects(pwId, '');
+}
+
+function removeComboSubject(pwId, code) {
+  customComboBuilder[pwId] = (customComboBuilder[pwId] || []).filter(c => c !== code);
+  renderComboChips(pwId);
+  const search = document.getElementById(`ccSearch_${pwId}`);
+  searchComboSubjects(pwId, search ? search.value : '');
+}
+
+function clearComboBuilder(pwId) {
+  customComboBuilder[pwId] = [];
+  renderComboChips(pwId);
+  const search = document.getElementById(`ccSearch_${pwId}`);
+  if (search) search.value = '';
+  const box = document.getElementById(`ccSuggest_${pwId}`);
+  if (box) box.style.display = 'none';
+}
+
+function renderComboChips(pwId) {
+  const wrap = document.getElementById(`ccChips_${pwId}`);
+  if (!wrap) return;
+  const codes = customComboBuilder[pwId] || [];
+  const pool = getComboSubjectPool(pwId);
+  const nameOf = code => pool.find(s => s.code === code)?.name || code;
+  const pw = PATHWAYS.find(p => p.id === pwId);
+  wrap.innerHTML = codes.map((code, i) => `
+    <span style="display:inline-flex;align-items:center;gap:.3rem;background:${pw?.color||'#3b82f6'}18;color:${pw?.color||'#3b82f6'};border:1px solid ${pw?.color||'#3b82f6'}40;border-radius:20px;padding:.2rem .5rem .2rem .65rem;font-size:.72rem;font-weight:600">
+      ${nameOf(code)} <span style="font-weight:400;opacity:.75">(${code})</span>
+      <i class="fa-solid fa-xmark" style="cursor:pointer;opacity:.7" onclick="removeComboSubject('${pwId}','${code}')" title="Remove"></i>
+    </span>
+    ${i < codes.length - 1 ? '<span style="color:var(--muted);align-self:center;font-size:.72rem">,</span>' : ''}
+  `).join('') || `<span style="font-size:.72rem;color:var(--muted)">No subjects added yet — search above and click one to start.</span>`;
+}
+
+function addCustomCombination(pwId) {
+  const codes = customComboBuilder[pwId] || [];
+  if (codes.length < 1) { showToast('Add at least one subject first', 'error'); return; }
+
+  const codeStr = codes.join(',');
+  const existingOfficial = CBC_COMBINATIONS.filter(c => c.pw === pwId).some(c => c.subs.join(',') === codeStr);
+  const existingCustom = ((settings.customCombinations && settings.customCombinations[pwId]) || []).some(c => c.subs.join(',') === codeStr);
+  if (existingOfficial || existingCustom) { showToast('This exact combination already exists', 'error'); return; }
+
+  if (!settings.customCombinations) settings.customCombinations = {};
+  if (!settings.customCombinations[pwId]) settings.customCombinations[pwId] = [];
+  settings.customCombinations[pwId].push({ subs: codes });
+
+  // Also enable it immediately so it counts toward what students can pick
+  if (!settings.subjectCombinations) settings.subjectCombinations = {};
+  if (!settings.subjectCombinations[pwId]) settings.subjectCombinations[pwId] = [];
+  if (!settings.subjectCombinations[pwId].includes(codeStr)) settings.subjectCombinations[pwId].push(codeStr);
+
+  save(K.settings, [settings]);
+  customComboBuilder[pwId] = [];
+  const pw = PATHWAYS.find(p => p.id === pwId);
+  showToast(`Custom combination added & enabled for ${pw?.label || pwId} <i class="fa-solid fa-check"></i>`, 'success');
+  renderSubjectCombinationUI();
+}
+
+function deleteCustomCombination(pwId, codeStr) {
+  if (!confirm('Delete this custom combination? Students currently assigned to it will keep their subjects, but it will no longer be selectable.')) return;
+  if (settings.customCombinations && settings.customCombinations[pwId]) {
+    settings.customCombinations[pwId] = settings.customCombinations[pwId].filter(c => c.subs.join(',') !== codeStr);
+  }
+  if (settings.subjectCombinations && settings.subjectCombinations[pwId]) {
+    settings.subjectCombinations[pwId] = settings.subjectCombinations[pwId].filter(c => c !== codeStr);
+  }
+  save(K.settings, [settings]);
+  showToast('Custom combination deleted', 'success');
+  renderSubjectCombinationUI();
+}
+
+document.addEventListener('click', (e) => {
+  document.querySelectorAll('[id^="ccSuggest_"]').forEach(box => {
+    const pwId = box.id.replace('ccSuggest_', '');
+    const search = document.getElementById(`ccSearch_${pwId}`);
+    if (box.style.display !== 'none' && !box.contains(e.target) && e.target !== search) {
+      box.style.display = 'none';
+    }
+  });
+});
 
 // ── Print a Student Subject-Combination Selection Sheet ───────────────────
 // Builds a clean, printable A4 form listing the SAVED combinations (from
