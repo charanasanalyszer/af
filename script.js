@@ -2597,7 +2597,7 @@ function platSetSchoolLevel(id, level) {
   // after entering it), clean up junior-default subjects immediately rather than waiting
   // for the next login.
   if (currentSchoolId === id && level === 'senior') {
-    try { purgeJuniorDefaultSubjectsIfSenior(); renderSubjects(); } catch(e) {}
+    try { purgeJuniorDefaultSubjectsIfSenior(); purgeJuniorDefaultClassesIfSenior(); renderSubjects(); } catch(e) {}
   }
 }
 
@@ -4171,6 +4171,42 @@ async function loadSchoolContext(school) {
   if (!settings.schoolName) { settings.schoolName = school.name; save(K.settings,[settings]); }
   seedData();
   purgeJuniorDefaultSubjectsIfSenior();
+  purgeJuniorDefaultClassesIfSenior();
+}
+
+// If a school is (or has been switched to) Senior, strip out any leftover junior-default
+// classes (Grade 7/8/9) and their default streams (E/W, North, etc.) that were seeded
+// before the level was set, then make sure Grade 10/11/12 exist. Only removes a class or
+// stream if it has NO students enrolled, so real data is never touched.
+const JUNIOR_DEFAULT_CLASS_NAMES = new Set(['Grade 7','Grade 8','Grade 9']);
+const SENIOR_DEFAULT_CLASSES = [
+  { name:'Grade 10', level:'10' }, { name:'Grade 11', level:'11' }, { name:'Grade 12', level:'12' }
+];
+function purgeJuniorDefaultClassesIfSenior() {
+  if (!isSeniorSchool() || !classes.length) return;
+  const toRemoveClasses = classes.filter(c =>
+    JUNIOR_DEFAULT_CLASS_NAMES.has(c.name) && !students.some(s => s.classId === c.id)
+  );
+  let changed = false;
+  if (toRemoveClasses.length) {
+    const removeIds = new Set(toRemoveClasses.map(c => c.id));
+    // Drop their streams too, but only ones with no students in them
+    streams = streams.filter(s => !(removeIds.has(s.classId) && !students.some(st => st.streamId === s.id)));
+    classes = classes.filter(c => !removeIds.has(c.id));
+    changed = true;
+  }
+  // Make sure the senior defaults (Grade 10/11/12) exist if this school has no
+  // senior-looking classes at all yet.
+  const hasAnySeniorClass = classes.some(c => /\b1[0-2]\b/.test(c.name) || ['10','11','12'].includes(String(c.level)));
+  if (!hasAnySeniorClass) {
+    SENIOR_DEFAULT_CLASSES.forEach(sc => classes.push({ id: uid(), name: sc.name, level: sc.level }));
+    changed = true;
+  }
+  if (changed) {
+    save(K.classes, classes);
+    save(K.streams, streams);
+    try { renderClasses(); renderStreams(); populateAllDropdowns(); } catch(e) {}
+  }
 }
 
 // If a school is (or has been switched to) Senior, strip out the 9 junior-default subjects
