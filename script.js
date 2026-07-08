@@ -2593,6 +2593,12 @@ function platSetSchoolLevel(id, level) {
   showToast(`School level set to ${level === 'senior' ? 'Senior School' : 'Junior School'} <i class="fa-solid fa-check"></i>`, 'success');
   renderPlatformSchoolMgmtList();
   try { renderSettingsSchoolList(); } catch(e) {}
+  // If we're currently sitting inside this school's data (e.g. admin flipped it right
+  // after entering it), clean up junior-default subjects immediately rather than waiting
+  // for the next login.
+  if (currentSchoolId === id && level === 'senior') {
+    try { purgeJuniorDefaultSubjectsIfSenior(); renderSubjects(); } catch(e) {}
+  }
 }
 
 function renderPlatformSchoolMgmtList() {
@@ -4164,6 +4170,28 @@ async function loadSchoolContext(school) {
   loadFees(); loadStreamAssignments(); loadGradingSystems(); loadTermlyPapers();
   if (!settings.schoolName) { settings.schoolName = school.name; save(K.settings,[settings]); }
   seedData();
+  purgeJuniorDefaultSubjectsIfSenior();
+}
+
+// If a school is (or has been switched to) Senior, strip out the 9 junior-default subjects
+// (English, Kiswahili, Mathematics, Science, Social Studies, CRE, Creative Arts, Agriculture,
+// Pre-Technical) that may have been seeded before the level was set. Only removes a subject
+// if NO marks have ever been recorded against it, so real academic data is never touched.
+const JUNIOR_DEFAULT_SUBJECT_CODES = new Set(['ENG','KIS','MTH','SCI','SST','CRE','ART','AGR','PRT']);
+function purgeJuniorDefaultSubjectsIfSenior() {
+  if (!isSeniorSchool() || !subjects.length) return;
+  const toRemove = subjects.filter(s =>
+    JUNIOR_DEFAULT_SUBJECT_CODES.has(s.code) && !s.pathway &&
+    !marks.some(m => m.subjectId === s.id)
+  );
+  if (!toRemove.length) return;
+  const removeIds = new Set(toRemove.map(s => s.id));
+  subjects = subjects.filter(s => !removeIds.has(s.id));
+  save(K.subjects, subjects);
+  students.forEach(stu => {
+    if (Array.isArray(stu.subjectIds)) stu.subjectIds = stu.subjectIds.filter(id => !removeIds.has(id));
+  });
+  saveStudents();
 }
 
 async function doLogin() {
@@ -7127,6 +7155,9 @@ function buildMeritData(examId, filterStreamId, filterClassId, filterPathwayId) 
         const { core: coreDefs, elective: electiveDefs } = getSchoolSubjectsForPathway(stuPathway);
         const coreCodes     = coreDefs.map(c => c.code);
         const electiveCodes = electiveDefs.map(e => e.code);
+        // Compulsory-but-not-examinable subjects (e.g. PE, CSL) still show on the sheet
+        // but never count toward the best-7 total/points.
+        const countingCoreCodes = coreCodes.filter(code => isSubjectExaminable(code));
 
         // Only consider marks for subjects in this pathway (core + school electives)
         const pathwayCodes = new Set([...coreCodes, ...electiveCodes]);
@@ -7137,7 +7168,7 @@ function buildMeritData(examId, filterStreamId, filterClassId, filterPathwayId) 
 
         const coreMarks = pathwayMarks.filter(m => {
           const sub = subjects.find(s => s.id === m.subjectId);
-          return sub && coreCodes.includes(sub.code);
+          return sub && countingCoreCodes.includes(sub.code);
         });
         const electiveMarks = pathwayMarks.filter(m => {
           const sub = subjects.find(s => s.id === m.subjectId);
@@ -9742,6 +9773,8 @@ function smGetSeniorBest7(exam, isConsolidated, sourceExamObjs, studentId) {
   const coreCodes     = coreDefs.map(c => c.code);
   const electiveCodes = electiveDefs.map(e => e.code);
   const pathwayCodes  = new Set([...coreCodes, ...electiveCodes]);
+  // Compulsory-but-not-examinable subjects still show but don't count toward the total.
+  const countingCoreCodes = coreCodes.filter(code => isSubjectExaminable(code));
 
   const pathwayMarks = stuMarks.filter(m => {
     const sub = subjects.find(s => s.id === m.subjectId);
@@ -9749,7 +9782,7 @@ function smGetSeniorBest7(exam, isConsolidated, sourceExamObjs, studentId) {
   });
   const coreMarks = pathwayMarks.filter(m => {
     const sub = subjects.find(s => s.id === m.subjectId);
-    return sub && coreCodes.includes(sub.code);
+    return sub && countingCoreCodes.includes(sub.code);
   });
   const electiveMarks = pathwayMarks.filter(m => {
     const sub = subjects.find(s => s.id === m.subjectId);
@@ -11215,7 +11248,7 @@ function renderSubjects() {
     const tch=teachers.find(t=>t.id===s.teacherId);
     const pw = seniorSub ? getPathway(s.pathway) : null;
     const pwCell = seniorSub ? `<td>${pw
-      ? `<span class="badge" style="background:${pw.color}20;color:${pw.color};border:1px solid ${pw.color}40;font-size:.62rem"><i class="fa-solid ${pw.icon}"></i> ${pw.label}</span>${s.cbcCore?'<span class="badge b-green" style="font-size:.6rem;margin-left:.25rem">Core</span>':''}`
+      ? `<span class="badge" style="background:${pw.color}20;color:${pw.color};border:1px solid ${pw.color}40;font-size:.62rem"><i class="fa-solid ${pw.icon}"></i> ${pw.label}</span>${s.cbcCore?'<span class="badge b-green" style="font-size:.6rem;margin-left:.25rem">Core</span>':''}${s.cbcCore && s.examinable===false?'<span class="badge b-amber" style="font-size:.6rem;margin-left:.25rem" title="Compulsory but not counted toward mean/grade">Non-Examinable</span>':''}`
       : '<span style="color:var(--muted);font-size:.75rem">—</span>'}</td>` : '';
     return `<tr>
       <td>${i+1}</td><td><strong>${s.name}</strong></td>
@@ -11243,9 +11276,10 @@ function saveSubject() {
   const editId=document.getElementById('editSubId').value;
   const pwId    = isSeniorSchool() ? (document.getElementById('subPathway')?.value || '') : '';
   const isCBC   = !!document.getElementById('subCbcCore')?.checked;
+  const isExam  = isCBC ? !!document.getElementById('subExaminable')?.checked : true;
   if(editId){
     const i=subjects.findIndex(s=>s.id===editId);
-    if(i>-1)subjects[i]={...subjects[i],name,code,max,category:cat,teacherId:tchId,pathway:pwId,cbcCore:isCBC};
+    if(i>-1)subjects[i]={...subjects[i],name,code,max,category:cat,teacherId:tchId,pathway:pwId,cbcCore:isCBC,examinable:isExam};
     showToast('Subject updated <i class="fa-solid fa-check"></i>','success');
   } else {
     if(subjects.find(s=>s.code===code)){showToast('Code already exists','error');return;}
@@ -11253,7 +11287,7 @@ function saveSubject() {
     const eligibleIds = isSeniorSchool() && pwId
       ? students.filter(s=>s.pathway===pwId).map(s=>s.id)
       : students.map(s=>s.id);
-    subjects.push({id:uid(),name,code,max,category:cat,teacherId:tchId,pathway:pwId,cbcCore:isCBC,studentIds:eligibleIds});
+    subjects.push({id:uid(),name,code,max,category:cat,teacherId:tchId,pathway:pwId,cbcCore:isCBC,examinable:isExam,studentIds:eligibleIds});
     eligibleIds.forEach(sid=>{
       const stu=students.find(s=>s.id===sid);
       if(stu){const newSubId=subjects[subjects.length-1].id;if(!stu.subjectIds)stu.subjectIds=[];if(!stu.subjectIds.includes(newSubId))stu.subjectIds.push(newSubId);}
@@ -11275,19 +11309,32 @@ function editSubject(id) {
   if (isSeniorSchool()) {
     const spEl = document.getElementById('subPathway');
     const scEl = document.getElementById('subCbcCore');
+    const seEl = document.getElementById('subExaminable');
     if (spEl) spEl.value = s.pathway || '';
     if (scEl) scEl.checked = !!s.cbcCore;
+    if (seEl) seEl.checked = s.examinable !== false;
+    toggleSubExaminableWrap();
   }
   document.getElementById('subFormTitle').innerHTML = '<i class="fa-solid fa-pen"></i>️ Edit Subject';
   document.getElementById('subName').scrollIntoView({behavior:'smooth',block:'center'});
+}
+// Show the Examinable toggle only when the subject is marked Compulsory (CBC Core) —
+// non-compulsory (elective) subjects are always examinable, so the choice doesn't apply.
+function toggleSubExaminableWrap() {
+  const wrap = document.getElementById('subExaminableWrap');
+  const isCBC = !!document.getElementById('subCbcCore')?.checked;
+  if (wrap) wrap.style.display = isCBC ? '' : 'none';
 }
 function cancelSubEdit() {
   ['editSubId','subName','subCode'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('subMax').value='100';
   const spEl2 = document.getElementById('subPathway');
   const scEl2 = document.getElementById('subCbcCore');
+  const seEl2 = document.getElementById('subExaminable');
   if (spEl2) spEl2.value = '';
   if (scEl2) scEl2.checked = false;
+  if (seEl2) seEl2.checked = true;
+  toggleSubExaminableWrap();
   document.getElementById('subFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Add Subject';
 }
 function deleteSubject(id) {
@@ -11788,13 +11835,13 @@ function getStudentReport(stuId, examId) {
     }).filter(Boolean);
   }
 
-  // ── Senior school: max 7 subjects count towards the total/mean. PE and ICT are
-  // shown on the report (if marked) but never count towards that 7-subject total —
-  // mirroring the merit list's best-7 CBC senior scoring. Junior school is unaffected. ──
-  const NON_COUNTING_CODES = new Set(['PE', 'ICT']);
+  // ── Senior school: max 7 subjects count towards the total/mean. Subjects the school has
+  // flagged "Compulsory but not examinable" are shown on the report (if marked) but never
+  // count towards that 7-subject total — mirroring the merit list's best-7 CBC scoring.
+  // Junior school is unaffected. ──
   if (isSeniorSchool()) {
-    // Flag PE/ICT rows as non-counting straight away
-    subjectRows.forEach(r => { if (NON_COUNTING_CODES.has((r.code||'').toUpperCase())) r.excludedFromCount = true; });
+    // Flag non-examinable rows as non-counting straight away
+    subjectRows.forEach(r => { if (!isSubjectExaminable(r.code)) r.excludedFromCount = true; });
 
     // Among the remaining (counting) subjects, cap at the best 7 by grade points —
     // any beyond that also become non-counting (still shown, just not tallied).
@@ -12600,6 +12647,19 @@ function isSeniorSchool() {
   return (settings.schoolLevel || 'junior') === 'senior';
 }
 
+// A subject counts toward total/mean/grading unless the school has explicitly flagged it
+// "Compulsory but not examinable" (sub.examinable === false) via the Subjects form.
+function isSubjectExaminable(code) {
+  const sub = subjects.find(s => s.code === code);
+  if (!sub) return true;
+  return sub.examinable !== false;
+}
+// Sensible starting default when auto-seeding compulsory subjects: PE and Community
+// Service Learning are compulsory but not examinable under CBC. The school can change
+// this per-subject afterwards from the Subjects form.
+const NON_EXAMINABLE_DEFAULT_CODES = new Set(['PE', 'CSL']);
+function defaultExaminableForCode(code) { return !NON_EXAMINABLE_DEFAULT_CODES.has(code); }
+
 // Which pathways THIS school actually runs (some schools offer all 3 — "Triple Pathway",
 // some offer only 2 — "Double Pathway", some offer just 1). Defaults to all 3 for
 // backward compatibility with schools that never touched this setting.
@@ -12699,7 +12759,7 @@ function seedCompulsorySubjectsForOfferedPathways() {
       if (!subjects.find(x => x.code === s.code)) {
         const newSub = { id: uid(), name: s.name, code: s.code, max: 100,
           category: s.cat, teacherId: '', studentIds: [],
-          pathway: pw.id, cbcCore: true };
+          pathway: pw.id, cbcCore: true, examinable: defaultExaminableForCode(s.code) };
         subjects.push(newSub);
         added.push(newSub);
       }
@@ -13831,7 +13891,8 @@ function seedCBCSubjectsForPathway(pwId) {
     if (!subjects.find(x => x.code === s.code)) {
       const newSub = { id: uid(), name: s.name, code: s.code, max: 100,
         category: s.cat, teacherId: '', studentIds: [],
-        pathway: pwId, cbcCore: core.some(c => c.code === s.code) };
+        pathway: pwId, cbcCore: core.some(c => c.code === s.code),
+        examinable: defaultExaminableForCode(s.code) };
       subjects.push(newSub);
       added.push(newSub);
     }

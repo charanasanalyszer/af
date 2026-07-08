@@ -1745,8 +1745,14 @@
               </select>
             </div>
             <div class="fg" style="display:flex;align-items:center;gap:.5rem;padding-top:1.5rem">
-              <input type="checkbox" id="subCbcCore" style="accent-color:var(--primary);width:16px;height:16px"/>
-              <label for="subCbcCore" style="margin:0;font-weight:500;cursor:pointer">Mark as CBC Core Subject</label>
+              <input type="checkbox" id="subCbcCore" onchange="toggleSubExaminableWrap()" style="accent-color:var(--primary);width:16px;height:16px"/>
+              <label for="subCbcCore" style="margin:0;font-weight:500;cursor:pointer">Mark as Compulsory (CBC Core) Subject</label>
+            </div>
+          </div>
+          <div class="frow c2" id="subExaminableWrap" style="display:none;margin-top:.3rem">
+            <div class="fg" style="display:flex;align-items:center;gap:.5rem">
+              <input type="checkbox" id="subExaminable" checked style="accent-color:var(--primary);width:16px;height:16px"/>
+              <label for="subExaminable" style="margin:0;font-weight:500;cursor:pointer">Examinable <span style="color:var(--muted);font-weight:400">— counts toward mean/grade. Uncheck for "compulsory but not examinable" subjects like PE.</span></label>
             </div>
           </div>
         </div>
