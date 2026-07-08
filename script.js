@@ -2582,6 +2582,19 @@ function renderPlatformDashboard() {
   // Init collapsible cards (deferred so DOM is rendered)
   setTimeout(initPlatformCollapse, 80);
 }
+// ── Platform Admin sets a school's level (junior/senior) — schools cannot change this themselves ──
+function platSetSchoolLevel(id, level) {
+  loadPlatform();
+  const school = platformSchools.find(s => s.id === id);
+  if (!school) return;
+  if (school.schoolLevel === level) return;
+  school.schoolLevel = level;
+  savePlatform();
+  showToast(`School level set to ${level === 'senior' ? 'Senior School' : 'Junior School'} <i class="fa-solid fa-check"></i>`, 'success');
+  renderPlatformSchoolMgmtList();
+  try { renderSettingsSchoolList(); } catch(e) {}
+}
+
 function renderPlatformSchoolMgmtList() {
   const el = document.getElementById('platformSchoolMgmtList'); if(!el) return;
   loadPlatform();
@@ -2603,6 +2616,13 @@ function renderPlatformSchoolMgmtList() {
           ${statusBadge}
         </div>
         <div style="font-size:.75rem;color:var(--muted)">Login: <strong>${s.username}</strong> · Code: <strong>${s.code||s.username}</strong>${s.email?' · '+s.email:''} · Joined ${new Date(s.createdAt).toLocaleDateString()}</div>
+        <div style="margin-top:.35rem;display:flex;align-items:center;gap:.4rem" onclick="event.stopPropagation()">
+          <span style="font-size:.72rem;color:var(--muted)">School Level:</span>
+          <select onchange="platSetSchoolLevel('${s.id}', this.value)" style="font-size:.72rem;font-weight:600;padding:.15rem .4rem;border-radius:6px;border:1px solid var(--border);background:var(--surface)">
+            <option value="junior" ${(s.schoolLevel||'junior')==='junior'?'selected':''}>Junior School</option>
+            <option value="senior" ${s.schoolLevel==='senior'?'selected':''}>Senior School</option>
+          </select>
+        </div>
         ${!isActive && s.deactivationMessage ? `<div style="font-size:.74rem;color:#f87171;margin-top:.3rem;font-style:italic;line-height:1.4"><i class="fa-solid fa-bullhorn"></i> "${s.deactivationMessage.substring(0,80)}${s.deactivationMessage.length>80?'…':''}"</div>` : ''}
       </div>
       <div style="display:flex;flex-direction:column;gap:.35rem;flex-shrink:0">
@@ -12512,8 +12532,8 @@ function loadSettings() {
   document.getElementById('setSchoolEmail').value=s.email||'';
   document.getElementById('setTerm').value=s.term||'Term 1';
   document.getElementById('setYear').value=s.year||'2025';
-  const slEl = document.getElementById('setSchoolLevel');
-  if (slEl) slEl.value = s.schoolLevel || 'junior';
+  const slDisp = document.getElementById('setSchoolLevelDisplay');
+  if (slDisp) slDisp.value = isSeniorSchool() ? 'Senior School (STEM / Social Sciences / Arts)' : 'Junior School (No Pathways)';
   document.getElementById('sbSchoolName').textContent=s.schoolName||'School';
   applySchoolLevelUI();
   // Global teacher restrictions (super admin only)
@@ -12538,7 +12558,7 @@ function saveSettings() {
     email:document.getElementById('setSchoolEmail').value.trim(),
     term:document.getElementById('setTerm').value,
     year:document.getElementById('setYear').value,
-    schoolLevel: document.getElementById('setSchoolLevel')?.value || 'junior',
+    schoolLevel: settings.schoolLevel || 'junior', // legacy fallback only — level is now set by Platform Admin
     restrictTeacherAnalytics: settings.restrictTeacherAnalytics || false,
     restrictTeacherFees:      settings.restrictTeacherFees      || false,
     restrictTeacherList:      settings.restrictTeacherList      || false,
@@ -12559,7 +12579,15 @@ const PATHWAYS = [
   { id:'ss',     label:'Social Sciences',        color:'#10b981', icon:'fa-globe' },
   { id:'arts',   label:'Arts & Sports Science',  color:'#f59e0b', icon:'fa-palette' },
 ];
-function isSeniorSchool() { return (settings.schoolLevel || 'junior') === 'senior'; }
+function isSeniorSchool() {
+  // School level is set by the Platform Admin (on the school's account record), not by the
+  // school itself. Fall back to settings.schoolLevel only for legacy data that predates this.
+  if (currentSchoolId) {
+    const rec = platformSchools.find(s => s.id === currentSchoolId);
+    if (rec && rec.schoolLevel) return rec.schoolLevel === 'senior';
+  }
+  return (settings.schoolLevel || 'junior') === 'senior';
+}
 
 // Which pathways THIS school actually runs (some schools offer all 3 — "Triple Pathway",
 // some offer only 2 — "Double Pathway", some offer just 1). Defaults to all 3 for
@@ -21479,6 +21507,13 @@ function renderSettingsSchoolList() {
       <div>
         <div class="ai-name">${s.name}</div>
         <div class="ai-role">Login: <strong>${s.username}</strong> · Code: <strong>${s.code||s.username}</strong>${s.email?' · '+s.email:''} · <span class="badge b-blue" style="font-size:.65rem">School</span></div>
+        <div style="margin-top:.3rem;display:flex;align-items:center;gap:.4rem">
+          <span style="font-size:.7rem;color:var(--muted)">Level:</span>
+          <select onchange="platSetSchoolLevel('${s.id}', this.value)" style="font-size:.7rem;font-weight:600;padding:.1rem .35rem;border-radius:6px;border:1px solid var(--border);background:var(--surface)">
+            <option value="junior" ${(s.schoolLevel||'junior')==='junior'?'selected':''}>Junior School</option>
+            <option value="senior" ${s.schoolLevel==='senior'?'selected':''}>Senior School</option>
+          </select>
+        </div>
       </div>
       <div style="display:flex;gap:.5rem;align-items:center">
         <button class="btn btn-outline btn-sm" style="font-size:.72rem;padding:.2rem .55rem" onclick="resetSchoolPwd('${s.id}')"><i class="fa-solid fa-key"></i> Reset Pwd</button>

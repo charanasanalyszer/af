@@ -6894,10 +6894,8 @@ document.addEventListener('tt_sectionVisible', function() {
             </div>
             <div class="fg"><label>Academic Year</label><input type="number" id="setYear" value="2025"/></div>
             <div class="fg"><label>School Level</label>
-              <select id="setSchoolLevel" onchange="saveSettings()">
-                <option value="junior">Junior School (No Pathways)</option>
-                <option value="senior">Senior School (STEM / Social Sciences / Arts)</option>
-              </select>
+              <input type="text" id="setSchoolLevelDisplay" readonly disabled style="background:var(--bg-alt,#f3f4f6);cursor:not-allowed"/>
+              <div style="font-size:.72rem;color:var(--muted);margin-top:.25rem"><i class="fa-solid fa-lock"></i> Set by the Platform Admin — contact them to change your school's level.</div>
             </div>
           </div>
           <div class="fg" id="pathwaysOfferedWrap" style="display:none;margin-top:.85rem"></div>
