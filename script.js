@@ -4584,27 +4584,38 @@ function defaultSettings() {
 
 // ═══════════════ SEED DATA ═══════════════
 function seedData() {
+  const senior = isSeniorSchool();
   if (!classes.length) {
-    classes = [{ id:'cls1', name:'Grade 9', level:'9' }, { id:'cls2', name:'Grade 8', level:'8' }];
+    classes = senior
+      ? [ { id:'cls1', name:'Grade 10', level:'10' }, { id:'cls2', name:'Grade 11', level:'11' }, { id:'cls3', name:'Grade 12', level:'12' } ]
+      : [ { id:'cls1', name:'Grade 7',  level:'7'  }, { id:'cls2', name:'Grade 8',  level:'8'  }, { id:'cls3', name:'Grade 9', level:'9' } ];
     save(K.classes, classes);
   }
   if (!streams.length) {
-    streams = [{ id:'str1', name:'E/W', classId:'cls1' }, { id:'str2', name:'North', classId:'cls2' }];
+    // No default streams for either level — schools add their own stream names.
+    streams = [];
     save(K.streams, streams);
   }
   if (!subjects.length) {
-    subjects = [
-      { id:'s1', name:'English',       code:'ENG', max:100, category:'Core',      teacherId:'', studentIds:[] },
-      { id:'s2', name:'Kiswahili',      code:'KIS', max:100, category:'Languages', teacherId:'', studentIds:[] },
-      { id:'s3', name:'Mathematics',    code:'MTH', max:100, category:'Core',      teacherId:'', studentIds:[] },
-      { id:'s4', name:'Science',        code:'SCI', max:100, category:'Core',      teacherId:'', studentIds:[] },
-      { id:'s5', name:'Social Studies', code:'SST', max:100, category:'Core',      teacherId:'', studentIds:[] },
-      { id:'s6', name:'CRE',            code:'CRE', max:100, category:'Core',      teacherId:'', studentIds:[] },
-      { id:'s7', name:'Creative Arts',  code:'ART', max:100, category:'Elective',  teacherId:'', studentIds:[] },
-      { id:'s8', name:'Agriculture',    code:'AGR', max:100, category:'Technical', teacherId:'', studentIds:[] },
-      { id:'s9', name:'Pre-Technical',  code:'PRT', max:100, category:'Technical', teacherId:'', studentIds:[] },
-    ];
-    save(K.subjects, subjects);
+    if (senior) {
+      // Senior schools get no default subjects. Compulsory (core) subjects are seeded
+      // automatically once the school selects its offered pathways in Settings.
+      subjects = [];
+      save(K.subjects, subjects);
+    } else {
+      subjects = [
+        { id:'s1', name:'English',       code:'ENG', max:100, category:'Core',      teacherId:'', studentIds:[] },
+        { id:'s2', name:'Kiswahili',      code:'KIS', max:100, category:'Languages', teacherId:'', studentIds:[] },
+        { id:'s3', name:'Mathematics',    code:'MTH', max:100, category:'Core',      teacherId:'', studentIds:[] },
+        { id:'s4', name:'Science',        code:'SCI', max:100, category:'Core',      teacherId:'', studentIds:[] },
+        { id:'s5', name:'Social Studies', code:'SST', max:100, category:'Core',      teacherId:'', studentIds:[] },
+        { id:'s6', name:'CRE',            code:'CRE', max:100, category:'Core',      teacherId:'', studentIds:[] },
+        { id:'s7', name:'Creative Arts',  code:'ART', max:100, category:'Elective',  teacherId:'', studentIds:[] },
+        { id:'s8', name:'Agriculture',    code:'AGR', max:100, category:'Technical', teacherId:'', studentIds:[] },
+        { id:'s9', name:'Pre-Technical',  code:'PRT', max:100, category:'Technical', teacherId:'', studentIds:[] },
+      ];
+      save(K.subjects, subjects);
+    }
   }
   if (!students.length) {
     const raw = [];
@@ -12594,7 +12605,12 @@ function isSeniorSchool() {
 // backward compatibility with schools that never touched this setting.
 function getOfferedPathwayIds() {
   const o = settings.offeredPathways;
-  return (Array.isArray(o) && o.length) ? o : PATHWAYS.map(p => p.id);
+  if (Array.isArray(o) && o.length) return o;
+  // Legacy schools that set up pathway subjects before this setting existed keep their
+  // implicit "all 3" default. Brand-new senior schools get nothing until the admin
+  // explicitly picks pathways in Settings — no subjects are assumed.
+  const hasLegacyPathwaySubjects = subjects.some(s => s.pathway);
+  return hasLegacyPathwaySubjects ? PATHWAYS.map(p => p.id) : [];
 }
 function getOfferedPathways() {
   const ids = getOfferedPathwayIds();
@@ -12663,10 +12679,38 @@ function savePathwaysOffered() {
   }
   settings.offeredPathways = checked;
   save(K.settings, [settings]);
+  seedCompulsorySubjectsForOfferedPathways();
   renderPathwaysOfferedUI();
   refreshPathwayDropdowns();
   try { renderSubjectCombinationUI(); } catch(e) {}
   showToast('Pathways offered updated <i class="fa-solid fa-check"></i>', 'success');
+}
+
+// Default subjects for a Senior School come ONLY from the compulsory (core) subjects of
+// the pathways the school actually offers — seeded automatically once chosen in Settings.
+// Electives are added separately via Subject Combinations. Additive only; never removes
+// or overwrites existing subjects (e.g. if a pathway is later deselected).
+function seedCompulsorySubjectsForOfferedPathways() {
+  if (!isSeniorSchool()) return [];
+  const added = [];
+  getOfferedPathways().forEach(pw => {
+    const { core } = getCBCSubjectsForPathway(pw.id);
+    core.forEach(s => {
+      if (!subjects.find(x => x.code === s.code)) {
+        const newSub = { id: uid(), name: s.name, code: s.code, max: 100,
+          category: s.cat, teacherId: '', studentIds: [],
+          pathway: pw.id, cbcCore: true };
+        subjects.push(newSub);
+        added.push(newSub);
+      }
+    });
+  });
+  if (added.length) {
+    save(K.subjects, subjects);
+    populateAllDropdowns();
+    try { renderSubjects(); } catch(e) {}
+  }
+  return added;
 }
 
 // ── Subject Combination Helpers ───────────────────────────────────────────
