@@ -347,8 +347,8 @@ async function loadIDB(key) {
 }
 
 // Write-through helpers — keep in-memory array current, persist to IDB async
-function saveMarks()    { _store.set(K.marks,    marks);    idbPut(K.marks,    marks);    }
-function saveStudents() { _store.set(K.students, students); idbPut(K.students, students); }
+function saveMarks()    { _store.set(K.marks,    marks);    idbPut(K.marks,    marks);    if (typeof resetReportCache === 'function') resetReportCache(); }
+function saveStudents() { _store.set(K.students, students); idbPut(K.students, students); if (typeof resetReportCache === 'function') resetReportCache(); }
 
 // ═══════════════ APP STATE ═══════════════
 let students=[], subjects=[], teachers=[], classes=[], streams=[];
@@ -10647,9 +10647,12 @@ function updateStuSubjectCombination() {
 }
 
 function filterStudentCombinations() {
-  const q = (document.getElementById('stuCombSearch')?.value || '').toLowerCase();
+  const q = (document.getElementById('stuCombSearch')?.value || '').trim().toLowerCase();
+  const terms = q.split(/\s+/).filter(Boolean);
   document.querySelectorAll('#stuCombList label').forEach(lbl => {
-    lbl.style.display = (!q || lbl.dataset.search?.includes(q)) ? '' : 'none';
+    const hay = lbl.dataset.search || '';
+    const match = !terms.length || terms.every(t => hay.includes(t));
+    lbl.style.display = match ? '' : 'none';
   });
 }
 
@@ -11787,6 +11790,53 @@ function getTeacherSubjectIds(teacherId) {
 
 
 // ═══════════════ REPORT FORMS ═══════════════
+// ── Report-generation cache ────────────────────────────────────────────────
+// getStudentReport() needs, per exam, every student's total score to work out
+// overall/stream rank and rank history. Computing that fresh inside every call
+// (as used to happen) means a batch of N report cards redoes the same
+// students × marks scan N times over, and each card's history re-scans every
+// past exam the same way again — turning a class set of reports into a very
+// slow O(students × exams × marks) operation. These totals only depend on
+// examId + the current marks/students data, not on which student is being
+// reported, so they're memoized here for the lifetime of one report run and
+// invalidated whenever marks or students are saved.
+let _rcTotalsCache = new Map(); // examId -> { byId: Map(studentId->total), sorted: [{id,total}] }
+function resetReportCache() { _rcTotalsCache = new Map(); }
+
+function getExamTotalsCached(examId) {
+  if (_rcTotalsCache.has(examId)) return _rcTotalsCache.get(examId);
+  const exam = exams.find(e => e.id === examId);
+  const isConsolidated = exam?.category === 'consolidated';
+  const sourceExamObjs = isConsolidated
+    ? (exam.sourceExamIds || []).map(id => exams.find(e => e.id === id)).filter(Boolean)
+    : [];
+  const byId = new Map();
+  students.forEach(s => {
+    let total;
+    if (isConsolidated && sourceExamObjs.length > 0 && exam) {
+      let hasAny = false;
+      total = exam.subjectIds.reduce((acc, sid) => {
+        const scores = sourceExamObjs.map(src => {
+          const mk = marks.find(m => m.examId === src.id && m.studentId === s.id && m.subjectId === sid);
+          return mk ? mk.score : null;
+        }).filter(sc => sc !== null);
+        if (scores.length) hasAny = true;
+        return acc + (scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0);
+      }, 0);
+      total = hasAny ? parseFloat(total.toFixed(1)) : 0;
+    } else {
+      total = marks.filter(m => m.examId === examId && m.studentId === s.id).reduce((a, m) => a + m.score, 0);
+    }
+    byId.set(s.id, total);
+  });
+  const sorted = students.map(s => ({ id: s.id, total: byId.get(s.id) || 0 }))
+    .filter(s => s.total > 0)
+    .sort((a, b) => b.total - a.total);
+  const entry = { byId, sorted };
+  _rcTotalsCache.set(examId, entry);
+  return entry;
+}
+
 function getStudentReport(stuId, examId) {
   const stu    = students.find(s=>s.id===stuId); if(!stu) return null;
   const cls    = classes.find(c=>c.id===stu.classId);
@@ -11898,36 +11948,15 @@ function getStudentReport(stuId, examId) {
   mGrade = getMeanGrade(mean/meanMaxAvg*8);
   totalPoints = scoredRows.reduce((a,r)=>a+(typeof r.points==='number'?r.points:0),0);
 
-  // Helper: compute a student's total for this exam (handles consolidated via averaging)
-  function getStudentExamTotal(sId) {
-    if (isConsolidated && sourceExamObjs.length > 0) {
-      let hasAny = false;
-      const t = exam.subjectIds.reduce((acc, sid) => {
-        const scores = sourceExamObjs.map(src => {
-          const mk = marks.find(m=>m.examId===src.id&&m.studentId===sId&&m.subjectId===sid);
-          return mk ? mk.score : null;
-        }).filter(sc=>sc!==null);
-        if (scores.length) hasAny = true;
-        return acc + (scores.length ? scores.reduce((a,b)=>a+b,0)/scores.length : 0);
-      }, 0);
-      return hasAny ? parseFloat(t.toFixed(1)) : 0;
-    }
-    return marks.filter(m=>m.examId===examId&&m.studentId===sId).reduce((a,m)=>a+m.score,0);
-  }
+  // Rank: overall — pulled from the per-batch cache (shared across every
+  // student/exam pairing in this report run instead of recomputed each time)
+  const examTotals = getExamTotalsCached(examId);
+  const overallRank = examTotals.sorted.findIndex(s=>s.id===stuId)+1;
 
-  // Rank: overall
-  const allStudentTotals = students.map(s=>{
-    const tm = getStudentExamTotal(s.id);
-    return {id:s.id, total:tm};
-  }).filter(s=>s.total>0).sort((a,b)=>b.total-a.total);
-  const overallRank = allStudentTotals.findIndex(s=>s.id===stuId)+1;
-
-  // Stream rank
-  const streamStudents = students.filter(s=>s.streamId===stu.streamId).map(s=>{
-    const tm = getStudentExamTotal(s.id);
-    return {id:s.id, total:tm};
-  }).filter(s=>s.total>0).sort((a,b)=>b.total-a.total);
-  const streamRank = streamStudents.findIndex(s=>s.id===stuId)+1;
+  // Stream rank — filter the already-sorted+totalled list down to this
+  // student's stream (order is preserved, so no re-sort needed)
+  const streamMemberIds = new Set(students.filter(s=>s.streamId===stu.streamId).map(s=>s.id));
+  const streamRank = examTotals.sorted.filter(s=>streamMemberIds.has(s.id)).findIndex(s=>s.id===stuId)+1;
 
   // Historical performance across all non-consolidated exams
   const history = exams.filter(ex => ex.category !== 'consolidated').map(ex => {
@@ -11936,12 +11965,9 @@ function getStudentReport(stuId, examId) {
     const exTotal = exMarks.reduce((a,m)=>a+m.score,0);
     const exMean  = ex.subjectIds.length ? exTotal/ex.subjectIds.length : 0;
     const exG     = getMeanGrade(exMean/(subjects.filter(s=>ex.subjectIds.includes(s.id)).reduce((a,s)=>a+(s.max||100),0)/(ex.subjectIds.length||1)||100)*8);
-    // Stream rank for this exam
-    const strStudents = students.filter(s=>s.streamId===stu.streamId).map(s=>{
-      const tm=marks.filter(m=>m.examId===ex.id&&m.studentId===s.id).reduce((a,m)=>a+m.score,0);
-      return {id:s.id,total:tm};
-    }).filter(s=>s.total>0).sort((a,b)=>b.total-a.total);
-    const exStreamRank = strStudents.findIndex(s=>s.id===stuId)+1;
+    // Stream rank for this exam — cached totals reused across every student/exam in the batch
+    const exTotals = getExamTotalsCached(ex.id);
+    const exStreamRank = exTotals.sorted.filter(s=>streamMemberIds.has(s.id)).findIndex(s=>s.id===stuId)+1;
     return { examName:ex.name, term:ex.term, year:ex.year, mean:parseFloat(exMean.toFixed(2)), grade:exG.grade, total:exTotal, streamRank:exStreamRank };
   }).filter(Boolean);
 
@@ -12191,6 +12217,9 @@ function generateReport() {
 function _generateReportBody(stuList, examId, ctR, prR, nextOpen, schoolClosed, feeBalance, feeNextTerm, autoComments, rpTermOverride, rpYearOverride, area) {
   // Load fees once before the loop — NOT inside it (critical performance fix)
   loadFees();
+  // Fresh per-exam totals cache for this batch — avoids recomputing overall/stream
+  // rank and history from scratch for every single student in the list
+  resetReportCache();
   area.innerHTML = stuList.map(stu => {
     const d = getStudentReport(stu.id, examId);
     if (!d) return '';
