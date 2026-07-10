@@ -6,7 +6,6 @@
   <title>Charanas Analyzer — School Exam Management System</title>
   <link rel="stylesheet" href="styles.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
-<script src="ui-helpers.js"></script>
 <script src="script.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
@@ -17,29 +16,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 </head>
 <body class="login-active">
-
-<!-- ══ APP BOOT LOADER — shown until first paint is ready, then fades out ══ -->
-<div id="uiBootLoader">
-  <div class="ui-boot-logo">CA</div>
-  <div class="ui-boot-title">Charanas Analyzer</div>
-  <div class="ui-boot-bar"></div>
-</div>
-<script>
-  // Hide the boot loader once the page has painted. Runs independently of
-  // app.js's own init logic, so it can never block or break app startup.
-  (function () {
-    function hideBootLoader() {
-      var el = document.getElementById('uiBootLoader');
-      if (!el) return;
-      el.classList.add('hide');
-      setTimeout(function () { el.remove(); }, 450);
-    }
-    if (document.readyState === 'complete') { setTimeout(hideBootLoader, 150); }
-    else { window.addEventListener('load', function () { setTimeout(hideBootLoader, 150); }); }
-    // Safety net: never let it hang around longer than 6s no matter what.
-    setTimeout(hideBootLoader, 6000);
-  })();
-</script>
 
 <!-- ═══════════════ LOGIN ═══════════════ -->
 

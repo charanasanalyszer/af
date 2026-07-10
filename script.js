@@ -1917,7 +1917,7 @@ function sppPreviewPayslip() {
   const area  = document.getElementById('sppPreviewArea');
   if (!area) return;
 
-  uiLoadingBlock(area, 'Loading payslip…');
+  area.innerHTML = '<p style="color:var(--muted);text-align:center;padding:2rem">Loading payslip…</p>';
 
   const pay = _sppGetPayData(currentUser.staffId, month, year);
   if (!pay) {
@@ -12181,8 +12181,8 @@ function generateReport() {
 
   const area = document.getElementById('reportPreviewArea');
 
-  // Show loading spinner
-  uiLoadingBlock(area, 'Generating ' + stuList.length + ' report form' + (stuList.length !== 1 ? 's' : '') + '…', 'This can take a moment for large classes.');
+  // Show loading message
+  area.innerHTML = '<p style="color:var(--muted);text-align:center;padding:2rem">Generating ' + stuList.length + ' report form' + (stuList.length !== 1 ? 's' : '') + '…<br><span style="font-size:.82rem">This can take a moment for large classes.</span></p>';
 
   // Defer heavy computation so spinner renders first
   setTimeout(function() { _generateReportBody(stuList, examId, ctR, prR, nextOpen, schoolClosed, feeBalance, feeNextTerm, autoComments, rpTermOverride, rpYearOverride, area); }, 30);
@@ -15125,8 +15125,8 @@ function renderMeritList() {
     return;
   }
 
-  // Show loading spinner while heavy computation runs
-  uiLoadingBlock(container, 'Generating merit list…');
+  // Show loading message while heavy computation runs
+  container.innerHTML = '<p style="color:var(--muted);text-align:center;padding:2rem">Generating merit list…</p>';
 
   // Defer so spinner renders before computation blocks the thread
   setTimeout(function() { _renderMeritListBody(examId, type, classId, container); }, 30);
