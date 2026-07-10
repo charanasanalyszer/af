@@ -11012,7 +11012,7 @@ function downloadStudentTemplate() {
       { '#':'6', Instructions:'Combination: 3 subject codes, comma-separated. e.g. BIO,CHE,PHY' },
       { '#':'',  Instructions:'  OR use #sno to reference the official combination number e.g. #308' },
       { '#':'',  Instructions:'  See the "All Combinations (571)" sheet for every valid combination.' },
-      { '#':'',  Instructions:'  Universal core (ENG,KSW,CSL,PE) is always auto-added — do not include.' },
+      { '#':'',  Instructions:'  Universal core (ENG,KSW,CSL,PE,ICT) plus pathway Mathematics (AMATH for STEM, EMATH for SS/Arts) is always auto-added — do not include.' },
       { '#':'7', Instructions:'Leave Pathway/Track/Combination blank for Junior School students (Gr 7-9).' },
     ];
     const wsGuide = XLSX.utils.json_to_sheet(guideRows);
@@ -12720,10 +12720,12 @@ function isSubjectExaminable(code) {
   if (!sub) return true;
   return sub.examinable !== false;
 }
-// Sensible starting default when auto-seeding compulsory subjects: PE and Community
-// Service Learning are compulsory but not examinable under CBC. The school can change
-// this per-subject afterwards from the Subjects form.
-const NON_EXAMINABLE_DEFAULT_CODES = new Set(['PE', 'CSL']);
+// Sensible starting default when auto-seeding compulsory subjects: PE, ICT and
+// Community Service Learning are compulsory but not examinable under CBC — their
+// marks are recorded and shown on reports/merit lists but never count toward the
+// mean, grade or total. The school can change this per-subject afterwards from
+// the Subjects form.
+const NON_EXAMINABLE_DEFAULT_CODES = new Set(['PE', 'CSL', 'ICT']);
 function defaultExaminableForCode(code) { return !NON_EXAMINABLE_DEFAULT_CODES.has(code); }
 
 // Which pathways THIS school actually runs (some schools offer all 3 — "Triple Pathway",
@@ -13386,19 +13388,23 @@ function printCombinationSelectionSheet(pwId) {
 // ── CBC Grade 10 Senior School Subject Catalogue ──────────────────
 // Source: Ministry of Education Kenya — Official Subject Combinations
 const CBC_SUBJECTS = {
-  // Universal core — ALL pathways (4 subjects, auto-included)
+  // Universal core — ALL pathways (5 subjects, auto-included)
   universal_core: [
     { name:'English',                    code:'ENG',  cat:'Core' },
     { name:'Kiswahili',                  code:'KSW',  cat:'Core' },
     { name:'Community Service Learning', code:'CSL',  cat:'Core' },
     { name:'Physical Education',         code:'PE',   cat:'Core' },
+    { name:'Information Communication Technology', code:'ICT', cat:'Core' },
   ],
 
   stem: {
     label:'STEM',
     core: [
-      // No extra pathway-level core beyond universal for STEM
-      // (subjects are all elective, chosen per track)
+      // Mathematics is compulsory for every STEM student — Advanced Mathematics.
+      // (Still also listed under the Pure Sciences elective track below for
+      // backward compatibility with existing official combination numbers —
+      // it's auto-added here regardless of which combination is chosen.)
+      { name:'Advanced Mathematics', code:'AMATH', cat:'Core' },
     ],
     elective: [
       // ── Pure Sciences ──
@@ -13427,7 +13433,11 @@ const CBC_SUBJECTS = {
 
   ss: {
     label:'Social Sciences',
-    core: [],
+    core: [
+      // Mathematics is compulsory for every Social Sciences student — Essential
+      // Mathematics (a lighter track than STEM's Advanced Mathematics).
+      { name:'Essential Mathematics', code:'EMATH', cat:'Core' },
+    ],
     elective: [
       // ── Humanities & Business Studies ──
       { name:'History & Citizenship', code:'HIS',  cat:'Elective', track:'Humanities & Business Studies' },
@@ -13468,7 +13478,11 @@ const CBC_SUBJECTS = {
 
   arts: {
     label:'Arts & Sports Science',
-    core: [],
+    core: [
+      // Mathematics is compulsory for every Arts & Sports Science student —
+      // Essential Mathematics (a lighter track than STEM's Advanced Mathematics).
+      { name:'Essential Mathematics', code:'EMATH', cat:'Core' },
+    ],
     elective: [
       // ── Arts Track ──
       { name:'Fine Arts',             code:'FNA',  cat:'Elective', track:'Arts' },
