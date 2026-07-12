@@ -355,6 +355,7 @@
         <button class="tb active" onclick="openExamTab('tabCreateExam',this)">Create Exam</button>
         <button class="tb" onclick="openExamTab('tabExamList',this)">Exam List</button>
         <button class="tb" onclick="openExamTab('tabExamTimetable',this)" id="tbExamTimetable">Exam Timetable</button>
+        <button class="tb" onclick="openExamTab('tabSelectCampus',this)" id="tbSelectCampus" style="display:none;background:linear-gradient(135deg,rgba(217,119,6,.08),rgba(220,38,38,.08));border-color:#d97706"><i class="fa-solid fa-building-columns" style="margin-right:.3rem"></i>Select School</button>
         <button class="tb" onclick="openExamTab('tabUploadMarks',this)">Upload Marks</button>
         <button class="tb" onclick="openExamTab('tabAnalyse',this)" id="tbAnalyse">Analyse</button>
         <button class="tb" onclick="openExamTab('tabMeritList',this)">Merit List</button>
@@ -625,6 +626,20 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Select School (campus gate — shown when this account runs multiple schools/campuses) -->
+      <div id="tabSelectCampus" class="tab-panel">
+        <div class="card">
+          <h3><i class="fa-solid fa-building-columns" style="margin-right:.4rem"></i>Select School</h3>
+          <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">
+            This account runs more than one school (campus). Choose which school you want to work with —
+            <strong>Analyse</strong>, <strong>Merit List</strong>, <strong>Summary Analytics</strong> and <strong>Report Forms</strong>
+            will only show data for the school you pick below. You can switch schools here at any time.
+          </p>
+          <div id="campusSelectGrid" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem"></div>
+          <div id="campusSelectedNote" style="display:none;padding:.75rem 1rem;border-radius:8px;background:var(--blue-lt,#eef4ff);border:1px solid var(--primary);font-size:.85rem;color:var(--primary)"></div>
         </div>
       </div>
 

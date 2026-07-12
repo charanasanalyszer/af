@@ -4543,6 +4543,10 @@ function launchApp() {
   if(tbPlatMarks) tbPlatMarks.style.display = '';
   if(tbPlatRes)   tbPlatRes.style.display   = '';
 
+  // Multi-campus accounts: show/hide the "Select School" gate tab and restore
+  // whichever campus was last chosen for this account.
+  try { loadActiveCampusFromStorage(); renderCampusSelectorUI(); } catch(e) {}
+
   // Role-based: hide analyse if no rights (full check done in applyRoleBasedUI)
   const anBtn = document.getElementById('tbAnalyse');
   if (anBtn) {
@@ -4784,6 +4788,79 @@ function toggleSidebar() {
     app.classList.remove('sidebar-collapsed');
   }
 }
+// ═══════════════ MULTI-CAMPUS "SELECT SCHOOL" GATE ═══════════════
+// When one login runs more than one school level (campus) — e.g. Junior +
+// Senior, or Primary + Junior + Senior — Analyse, Merit List, Summary
+// Analytics and Report Forms must not silently mix students/results from
+// different campuses together. So once an exam covers >1 campus (or the
+// account simply runs several), the user must explicitly pick ONE school
+// here before those tabs unlock; everything they see afterwards (dropdowns,
+// class/student lists, generated reports & merit lists) is scoped to it.
+let activeCampusLevel = null;
+
+function schoolIsMultiCampus() {
+  return getSchoolLevels().length > 1;
+}
+function campusStorageKey() {
+  return 'ei_active_campus_' + (typeof currentSchoolId !== 'undefined' && currentSchoolId ? currentSchoolId : (settings.schoolName || 'default'));
+}
+function loadActiveCampusFromStorage() {
+  try {
+    const v = localStorage.getItem(campusStorageKey());
+    const levels = getSchoolLevels();
+    activeCampusLevel = (v && levels.includes(v)) ? v : null;
+  } catch (e) { activeCampusLevel = null; }
+}
+function studentSchoolLevel(stu) {
+  const c = classes.find(cc => cc.id === stu.classId);
+  return c ? getClassSchoolLevel(c) : null;
+}
+function campusClasses() {
+  return activeCampusLevel ? classes.filter(c => getClassSchoolLevel(c) === activeCampusLevel) : classes;
+}
+function campusFilterStudents(list) {
+  return activeCampusLevel ? list.filter(s => studentSchoolLevel(s) === activeCampusLevel) : list;
+}
+function campusFilterExams(list) {
+  if (!activeCampusLevel) return list;
+  return list.filter(e => !e.schoolLevels || !e.schoolLevels.length || e.schoolLevels.includes(activeCampusLevel));
+}
+function selectActiveCampus(level) {
+  activeCampusLevel = level;
+  try { localStorage.setItem(campusStorageKey(), level); } catch (e) {}
+  renderCampusSelectorUI();
+  showToast(`School set to ${SCHOOL_LEVEL_FULL_LABEL[level] || level} <i class="fa-solid fa-check"></i>`, 'success');
+  try { populateExamDropdowns(); } catch (e) {}
+}
+function renderCampusSelectorUI() {
+  const btn = document.getElementById('tbSelectCampus');
+  const multi = schoolIsMultiCampus();
+  if (btn) btn.style.display = multi ? '' : 'none';
+  if (!multi) { activeCampusLevel = null; return; }
+  if (!activeCampusLevel) loadActiveCampusFromStorage();
+  const levels = getSchoolLevels();
+  const grid = document.getElementById('campusSelectGrid');
+  if (grid) {
+    grid.innerHTML = levels.map(l => {
+      const active = activeCampusLevel === l;
+      return `<button type="button" onclick="selectActiveCampus('${l}')" style="flex:1;min-width:180px;padding:1rem;border-radius:10px;border:2px solid ${active ? 'var(--primary)' : 'var(--border)'};background:${active ? 'var(--blue-lt,#eef4ff)' : 'var(--surface)'};cursor:pointer;text-align:left">
+        <div style="font-weight:700;color:${active ? 'var(--primary)' : 'var(--text)'}"><i class="fa-solid fa-school" style="margin-right:.4rem"></i>${SCHOOL_LEVEL_FULL_LABEL[l] || l}</div>
+        <div style="font-size:.75rem;margin-top:.3rem;color:${active ? 'var(--primary)' : 'var(--muted)'}">${active ? '<i class="fa-solid fa-check"></i> Currently selected' : 'Click to select'}</div>
+      </button>`;
+    }).join('');
+  }
+  const note = document.getElementById('campusSelectedNote');
+  if (note) {
+    note.style.display = '';
+    note.innerHTML = activeCampusLevel
+      ? `<i class="fa-solid fa-circle-info"></i> Working on <strong>${SCHOOL_LEVEL_FULL_LABEL[activeCampusLevel] || activeCampusLevel}</strong>. You can now open Analyse, Merit List, Summary Analytics or Report Forms.`
+      : `<i class="fa-solid fa-triangle-exclamation"></i> Please select a school above before proceeding to Analyse, Merit List, Summary Analytics or Report Forms.`;
+  }
+}
+// Tabs that must not be opened until a single campus has been chosen (only
+// relevant when schoolIsMultiCampus() is true).
+const CAMPUS_GATED_TABS = ['tabAnalyse', 'tabMeritList', 'tabSummaryAnalytics', 'tabReportForms'];
+
 function openExamTab(id, btn) {
   // Teacher lockdown: compute allowed tabs based on role + permissions
   if (currentUser && currentUser.role === 'teacher') {
@@ -4799,11 +4876,23 @@ function openExamTab(id, btn) {
     ];
     if (!TEACHER_ALLOWED_TABS.includes(id)) return;
   }
+  // Multi-campus gate: if this account runs several school levels, block
+  // Analyse/Merit List/Summary Analytics/Report Forms until one is picked.
+  if (CAMPUS_GATED_TABS.includes(id) && schoolIsMultiCampus() && !activeCampusLevel) {
+    document.querySelectorAll('#s-exams .tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('#examTabBar .tb').forEach(b => b.classList.remove('active'));
+    const gp = document.getElementById('tabSelectCampus'); if (gp) gp.classList.add('active');
+    const gb = document.getElementById('tbSelectCampus'); if (gb) gb.classList.add('active');
+    renderCampusSelectorUI();
+    showToast('Please select a school first <i class="fa-solid fa-building-columns"></i>', 'warning');
+    return;
+  }
   document.querySelectorAll('#s-exams .tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('#examTabBar .tb').forEach(b => b.classList.remove('active'));
   const p = document.getElementById(id); if (p) p.classList.add('active');
   if (btn) btn.classList.add('active');
   else { const b = document.querySelector(`#examTabBar .tb[onclick*="${id}"]`); if(b) b.classList.add('active'); }
+  if (id === 'tabSelectCampus') renderCampusSelectorUI();
   if (id === 'tabExamList') { try { renderExamList(); } catch(e) { console.warn('renderExamList', e); } }
   if (id === 'tabAnalyse') checkAnalyseAccess();
   if (id === 'tabMeritList') populateMeritDropdowns();
@@ -5705,9 +5794,13 @@ function populateExamDropdowns() {
         return hasSubject || isMyClass;
       })
     : exams;
+  const campusFilteredExams = campusFilterExams(filteredExams);
   ['umExam','anExam','mlExam'].forEach(id => {
     const el = document.getElementById(id); if(!el) return;
-    let examList = id === 'umExam' ? filteredExams.filter(e => e.category !== 'consolidated') : filteredExams;
+    // Upload Marks isn't campus-gated (marks can be entered for any campus at any time);
+    // Analyse & Merit List are scoped to the currently selected campus, if any.
+    const source = id === 'umExam' ? filteredExams : campusFilteredExams;
+    let examList = id === 'umExam' ? source.filter(e => e.category !== 'consolidated') : source;
     el.innerHTML = '<option value="">— Select Exam —</option>' + examList.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
   });
   // Also populate exam timetable selector
@@ -5721,11 +5814,11 @@ function populateExamDropdowns() {
 }
 function populateMeritDropdowns() {
   populateExamDropdowns();
-  // Populate class dropdown
+  // Populate class dropdown — scoped to the selected campus, if any
   const classEl = document.getElementById('mlClass');
   if (classEl) {
     classEl.innerHTML = '<option value="">— All Classes —</option>' +
-      classes.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+      campusClasses().map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
   }
 }
 function populateUmDropdowns() {
@@ -5740,18 +5833,18 @@ function populateReportDropdowns() {
   const rpEx = document.getElementById('rpExam');
   if (rpEx) {
     const platExams = getPlatformExams();
-    const schoolOpts = exams.map(e=>`<option value="${e.id}">${e.name} (${e.term} ${e.year})</option>`).join('');
+    const schoolOpts = campusFilterExams(exams).map(e=>`<option value="${e.id}">${e.name} (${e.term} ${e.year})</option>`).join('');
     const platOpts   = platExams.map(e=>`<option value="${e.id}">[PLATFORM] ${e.title} (${e.term} ${e.year})</option>`).join('');
     rpEx.innerHTML = '<option value="">— Select Exam —</option>' + schoolOpts + platOpts;
   }
   const rpStu = document.getElementById('rpStudent');
   if (rpStu) {
-    const sorted = [...students].sort((a,b)=>a.name.localeCompare(b.name));
+    const sorted = campusFilterStudents([...students]).sort((a,b)=>a.name.localeCompare(b.name));
     rpStu.innerHTML = '<option value="">— All Students —</option>' + sorted.map(s=>`<option value="${s.id}">${s.name} (${s.adm})</option>`).join('');
   }
   const rpClass = document.getElementById('rpClass');
   if (rpClass) {
-    rpClass.innerHTML = '<option value="">— All Classes —</option>' + classes.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+    rpClass.innerHTML = '<option value="">— All Classes —</option>' + campusClasses().map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
   }
   // Populate rpYear with years from school exams + platform exams + current year
   const rpYear = document.getElementById('rpYear');
@@ -5768,13 +5861,15 @@ function onRpClassChange() {
   // Update stream dropdown to only show streams in selected class
   const rpStream = document.getElementById('rpStream');
   if (rpStream) {
-    const relevantStreams = classId ? streams.filter(s=>s.classId===classId) : streams;
+    const campusClassIds = campusClasses().map(c=>c.id);
+    const relevantStreams = (classId ? streams.filter(s=>s.classId===classId) : streams)
+      .filter(s => !activeCampusLevel || campusClassIds.includes(s.classId));
     rpStream.innerHTML = '<option value="">— All Streams —</option>' + relevantStreams.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
   }
-  // Update student dropdown to only show students in selected class
+  // Update student dropdown to only show students in selected class (and campus)
   const rpStu = document.getElementById('rpStudent');
   if (rpStu) {
-    const sorted = [...students].filter(s=>!classId||s.classId===classId).sort((a,b)=>a.name.localeCompare(b.name));
+    const sorted = campusFilterStudents([...students]).filter(s=>!classId||s.classId===classId).sort((a,b)=>a.name.localeCompare(b.name));
     rpStu.innerHTML = '<option value="">— All Students —</option>' + sorted.map(s=>`<option value="${s.id}">${s.name} (${s.adm})</option>`).join('');
   }
   onRpStudentChange();
@@ -7422,6 +7517,8 @@ function buildMeritData(examId, filterStreamId, filterClassId, filterPathwayId) 
     if (effectiveClassId && s.classId !== effectiveClassId) return false;
     return true;
   });
+  // Multi-campus accounts: never mix students from another school into a merit list
+  stuList = campusFilterStudents(stuList);
   if (filterStreamId) stuList = stuList.filter(s => s.streamId === filterStreamId);
   // Senior mode: filter by pathway if requested
   if (seniorMode && filterPathwayId) stuList = stuList.filter(s => s.pathway === filterPathwayId);
@@ -10038,8 +10135,8 @@ function exportMeritPDF() {
 function populateSummaryAnalyticsDropdowns() {
   const smEx = document.getElementById('smExam');
   const smCl = document.getElementById('smClass');
-  if (smEx) smEx.innerHTML = '<option value="">— Select Exam —</option>' + exams.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
-  if (smCl) smCl.innerHTML = '<option value="">— All Classes —</option>' + classes.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  if (smEx) smEx.innerHTML = '<option value="">— Select Exam —</option>' + campusFilterExams(exams).map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+  if (smCl) smCl.innerHTML = '<option value="">— All Classes —</option>' + campusClasses().map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
 }
 
 // Core helper: get a student's averaged score for a subject (handles consolidated)
@@ -10177,8 +10274,8 @@ function renderSummaryAnalytics() {
   const teacherSubIdsSA = isTeacherSA ? getMySubjectIds() : null;
   const sourceExamObjs = isConsolidated ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
 
-  // Determine which classes to show
-  const targetClasses = classFilter ? classes.filter(c=>c.id===classFilter) : classes;
+  // Determine which classes to show — scoped to the selected campus, if any
+  const targetClasses = classFilter ? classes.filter(c=>c.id===classFilter) : campusClasses();
 
   // Find previous exam for "most improved" — same classId, not consolidated, earlier date
   function findPrevExam(classId) {
@@ -18502,7 +18599,7 @@ function go(sec, el) {
   document.getElementById('tbTitle').textContent = el ? el.querySelector('span').textContent : sec;
   if (window.innerWidth < 960) closeSidebar(); // auto-close on mobile only
   if (sec === 'dashboard')  renderDashboard();
-  if (sec === 'exams')      { populateExamDropdowns(); renderPlatformExamMarkEntry(); renderSchoolPlatformResults(); }
+  if (sec === 'exams')      { populateExamDropdowns(); renderPlatformExamMarkEntry(); renderSchoolPlatformResults(); try { renderCampusSelectorUI(); } catch(e) {} }
   if (sec === 'reports')    { populateReportDropdowns(); }
   if (sec === 'messaging')  { loadMsgRecipients(); }
   if (sec === 'fees')       { initFeesSection(); }
@@ -22065,6 +22162,8 @@ function runAnalysis() {
   // Determine which students to include
   let allowedStudents = students;
   if (exam.classId) allowedStudents = allowedStudents.filter(s=>s.classId===exam.classId);
+  // Multi-campus accounts: never mix another school's students into this analysis
+  allowedStudents = campusFilterStudents(allowedStudents);
   if (isTeacher && isClassTch) {
     const myStreamIds = getMyClassTeacherStreams().map(s=>s.id);
     allowedStudents   = allowedStudents.filter(s=>myStreamIds.includes(s.streamId));
