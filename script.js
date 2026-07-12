@@ -5646,15 +5646,18 @@ function populateAllDropdowns() {
   populateStrTeacherDropdown();
   populateStudentFilterDropdowns();
   // Classes
-  ['examClass','stuClass','strClass','rpStream'].forEach(id => {
+  ['stuClass','strClass','rpStream'].forEach(id => {
     const el = document.getElementById(id); if (!el) return;
     if (id === 'rpStream') {
       el.innerHTML = '<option value="">— All Streams —</option>' + streams.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
     } else {
-      const ph = id==='examClass' ? '— All Classes —' : '— Select —';
-      el.innerHTML = `<option value="">${ph}</option>` + classes.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+      el.innerHTML = `<option value="">— Select —</option>` + classes.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
     }
   });
+  // Create Exam: School selector (only when this account runs multiple school
+  // levels) cascades into Class, which in turn cascades into Subjects.
+  renderExamSchoolSelector();
+  populateExamClassDropdown();
   // Streams for student form
   const stuStr = document.getElementById('stuStream');
   if (stuStr) stuStr.innerHTML = '<option value="">— Select —</option>' + streams.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
@@ -7007,25 +7010,39 @@ function renderExamSubjectCheckboxes(selectedIds) {
   const wrap = document.getElementById('examSubjectCheckboxes');
   if (!wrap) return;
 
-  // Determine which class is selected in the exam form
+  // Determine which School (level) and Class are selected in the exam form
+  const schoolLevelVal = document.getElementById('examSchool')?.value || '';
   const clsId = document.getElementById('examClass')?.value || '';
   const selCls = clsId ? classes.find(c => c.id === clsId) : null;
 
-  // A class counts as "senior" (CBC Grade 10-12) either if the school-wide
-  // setting is Senior, OR if the specific class picked here is graded 10+.
-  // This lets a school running both Junior (7-9) and Senior (10-12) classes
-  // see pathway/elective subjects only for the classes that actually offer them.
+  // A class counts as "senior" (CBC Grade 10-12) if: the explicit School
+  // selector says so, OR the school-wide setting is Senior-only, OR the
+  // specific class picked here is graded 10+. This lets a school running
+  // both Junior (7-9) and Senior (10-12) under one login see pathway/elective
+  // subjects only for the classes that actually offer them.
   const clsLevelNum    = selCls ? parseFloat(selCls.level) : NaN;
   const clsIsSenior    = !isNaN(clsLevelNum) && clsLevelNum >= 10;
-  const effectiveSenior = isSeniorSchool() || clsIsSenior;
+  const effectiveSenior = schoolLevelVal ? schoolLevelVal === 'senior' : (isSeniorSchool() || clsIsSenior);
 
-  // Base pool: junior classes exclude senior-only (pathway) subjects
+  // Base pool: junior/primary exclude senior-only (pathway) subjects
   let pool = effectiveSenior ? [...subjects] : subjects.filter(s => !s.pathway);
 
   // Only show subjects the school actually offers — i.e. at least one student
   // somewhere is enrolled in them. Subjects sitting unused in the catalogue
   // (0 enrolled) are not something the school teaches, so hide them here.
+  // (This is the "synced" enrolment check — keep it intact regardless of
+  // whatever School/Class scoping is layered on top above.)
   pool = pool.filter(s => (s.studentIds || []).length > 0);
+
+  // If a School level is chosen (with no specific class), keep only subjects
+  // with at least one enrolled student somewhere in a class of that level.
+  if (schoolLevelVal && !clsId) {
+    const levelStudentIds = new Set(students.filter(s => {
+      const sc = classes.find(c => c.id === s.classId);
+      return sc && getClassSchoolLevel(sc) === schoolLevelVal;
+    }).map(s => s.id));
+    pool = pool.filter(s => (s.studentIds || []).some(sid => levelStudentIds.has(sid)));
+  }
 
   // If a class is chosen, keep only subjects that have at least one student in that class enrolled
   if (clsId) {
@@ -7075,6 +7092,53 @@ function renderExamSubjectCheckboxes(selectedIds) {
   updateExamSelectAll();
 }
 
+// Categorise a class by its numeric grade into the school-level band it belongs to.
+// Grade 1-6 = primary, 7-9 = junior, 10-12 = senior (standard CBC bands).
+function getClassSchoolLevel(cls) {
+  const n = parseFloat(cls?.level);
+  if (isNaN(n)) return null;
+  if (n >= 10) return 'senior';
+  if (n >= 7)  return 'junior';
+  return 'primary';
+}
+
+// Render the "School" selector in Create Exam. Only shown when this account
+// runs more than one school level (e.g. Junior + Senior under one login) —
+// with a single level there's nothing to choose, so keep the form simple.
+function renderExamSchoolSelector() {
+  const wrap = document.getElementById('examSchoolWrap');
+  const sel  = document.getElementById('examSchool');
+  if (!wrap || !sel) return;
+  const levels = getSchoolLevels();
+  if (!levels || levels.length <= 1) {
+    wrap.style.display = 'none';
+    sel.value = '';
+    return;
+  }
+  wrap.style.display = '';
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— All —</option>' +
+    levels.map(l => `<option value="${l}">${SCHOOL_LEVEL_FULL_LABEL[l] || l}</option>`).join('');
+  sel.value = levels.includes(prev) ? prev : '';
+}
+
+// Populate the Class dropdown, restricted to the selected school level (if any).
+function populateExamClassDropdown() {
+  const sel = document.getElementById('examClass');
+  if (!sel) return;
+  const levelVal = document.getElementById('examSchool')?.value || '';
+  const prev = sel.value;
+  const pool = levelVal ? classes.filter(c => getClassSchoolLevel(c) === levelVal) : classes;
+  sel.innerHTML = '<option value="">— All Classes —</option>' + pool.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  sel.value = pool.some(c => c.id === prev) ? prev : '';
+}
+
+// Called when the School selector changes — re-scope Class options, then cascade to subjects.
+function onExamSchoolChange() {
+  populateExamClassDropdown();
+  onExamClassChange();
+}
+
 function onExamClassChange() {
   // Preserve currently checked subject IDs, then re-render for the new class
   const checked = [...document.querySelectorAll('#examSubjectCheckboxes input[type=checkbox]:checked')].map(c => c.value);
@@ -7113,6 +7177,7 @@ function saveExam() {
   const year  = document.getElementById('examYear').value;
   const date  = document.getElementById('examDate').value;
   const clsId = document.getElementById('examClass').value;
+  const schoolLevel = document.getElementById('examSchool')?.value || '';
   const notes = document.getElementById('examNotes').value;
   const subIds = [...document.querySelectorAll('#examSubjectCheckboxes input[type=checkbox]:checked')].map(cb => cb.value);
   const cat   = currentExamCategory;
@@ -7148,7 +7213,7 @@ function saveExam() {
 
   const editId = document.getElementById('editExamId').value;
   const maxScore = Math.max(1, parseInt(document.getElementById('examMaxScore')?.value) || 100);
-  const examData = { name, assessmentType:assessType, category:cat, type, strand:strandVal, substrand:substrandVal, term, year, date, classId:clsId, subjectIds:subIds, sourceExamIds, notes, maxScore };
+  const examData = { name, assessmentType:assessType, category:cat, type, strand:strandVal, substrand:substrandVal, term, year, date, classId:clsId, schoolLevel, subjectIds:subIds, sourceExamIds, notes, maxScore };
   if (editId) {
     const i = exams.findIndex(e => e.id === editId);
     if (i > -1) exams[i] = { ...exams[i], ...examData };
@@ -7223,6 +7288,10 @@ function editExam(id) {
   document.getElementById('examTerm').value=e.term;
   document.getElementById('examYear').value=e.year;
   document.getElementById('examDate').value=e.date||'';
+  renderExamSchoolSelector();
+  const schoolSel = document.getElementById('examSchool');
+  if (schoolSel) schoolSel.value = e.schoolLevel || '';
+  populateExamClassDropdown();
   document.getElementById('examClass').value=e.classId||'';
   document.getElementById('examNotes').value=e.notes||'';
   // Restore assessment type + category
@@ -7266,6 +7335,9 @@ function cancelExamEdit() {
   document.getElementById('summativeSubCat').style.display = '';
   document.getElementById('formativeSubCat').style.display  = 'none';
   setExamCategory('regular');
+  const schoolSel = document.getElementById('examSchool');
+  if (schoolSel) schoolSel.value = '';
+  populateExamClassDropdown();
   renderExamSubjectCheckboxes([]);
 }
 function deleteExam(id) {
