@@ -7124,6 +7124,7 @@ function renderExamSchoolSelector(checkedLevels) {
   if (!levels || levels.length <= 1) {
     wrap.style.display = 'none';
     box.innerHTML = '';
+    examLastSchoolLevels = [];
     return;
   }
   // Preserve currently-checked levels unless an explicit set was passed in (used by editExam)
@@ -7134,11 +7135,23 @@ function renderExamSchoolSelector(checkedLevels) {
       <input type="checkbox" value="${l}" class="exam-school-chk" ${prevChecked.includes(l) ? 'checked' : ''} onchange="onExamSchoolChange()"/>
       <span class="sub-chk-name">${SCHOOL_LEVEL_FULL_LABEL[l] || l}</span>
     </label>`).join('');
+  // Baseline against which the next onExamSchoolChange() detects newly-ticked campuses
+  examLastSchoolLevels = [...prevChecked];
 }
 
 // Read the currently ticked School (level) checkboxes. Empty array = "All".
 function getSelectedExamSchoolLevels() {
   return [...document.querySelectorAll('#examSchoolCheckboxes .exam-school-chk:checked')].map(c => c.value);
+}
+
+// Tags a subject with the campus/level it was seeded for, so ticking a campus
+// can auto-select "its" subjects. Primary subjects carry `primaryBand`, senior
+// subjects (core or elective) carry `pathway` — anything else is treated as
+// Junior/default catalogue.
+function getSubjectSchoolLevel(s) {
+  if (s.primaryBand) return 'primary';
+  if (s.pathway) return 'senior';
+  return 'junior';
 }
 
 // Populate the Class dropdown, restricted to the selected school level(s) (if any).
@@ -7152,10 +7165,24 @@ function populateExamClassDropdown() {
   sel.value = pool.some(c => c.id === prev) ? prev : '';
 }
 
-// Called when the School selection changes — re-scope Class options, then cascade to subjects.
+// Tracks which School (level) checkboxes were ticked as of the last render/change,
+// so onExamSchoolChange() can tell which campus was just added.
+let examLastSchoolLevels = [];
+
+// Called when the School selection changes — re-scope Class options, then cascade
+// to subjects. Newly-ticked campuses have their seeded subjects auto-checked on
+// top of whatever was already checked (accumulating as more campuses are added);
+// unticking a campus does not remove subjects, so nothing already picked is lost.
 function onExamSchoolChange() {
+  const nowChecked = getSelectedExamSchoolLevels();
+  const newlyAdded = nowChecked.filter(l => !examLastSchoolLevels.includes(l));
+  examLastSchoolLevels = nowChecked;
+
   populateExamClassDropdown();
-  onExamClassChange();
+
+  const alreadyChecked = [...document.querySelectorAll('#examSubjectCheckboxes input[type=checkbox]:checked')].map(c => c.value);
+  const autoAddIds = subjects.filter(s => newlyAdded.includes(getSubjectSchoolLevel(s))).map(s => s.id);
+  renderExamSubjectCheckboxes([...new Set([...alreadyChecked, ...autoAddIds])]);
 }
 
 function onExamClassChange() {
