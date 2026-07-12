@@ -11394,7 +11394,35 @@ function exportTeachersExcel() {
 }
 
 
+// Render the "School(s) taught" checkboxes on the Add/Edit Teacher form. Only
+// shown when this account runs more than one school level — restricts which
+// campus(es) a teacher can see subjects/classes for once they log in.
+function renderTeacherSchoolSelector(checkedLevels) {
+  const wrap = document.getElementById('tchSchoolWrap');
+  const box  = document.getElementById('tchSchoolCheckboxes');
+  if (!wrap || !box) return;
+  const levels = getSchoolLevels();
+  if (!levels || levels.length <= 1) {
+    wrap.style.display = 'none';
+    box.innerHTML = '';
+    return;
+  }
+  const prevChecked = checkedLevels || getSelectedTeacherSchoolLevels();
+  wrap.style.display = '';
+  box.innerHTML = levels.map(l => `
+    <label class="sub-check-label" style="min-width:140px">
+      <input type="checkbox" value="${l}" class="tch-school-chk" ${prevChecked.includes(l) ? 'checked' : ''}/>
+      <span class="sub-chk-name">${SCHOOL_LEVEL_FULL_LABEL[l] || l}</span>
+    </label>`).join('');
+}
+
+// Read the currently ticked School (level) checkboxes on the Teacher form. Empty = all.
+function getSelectedTeacherSchoolLevels() {
+  return [...document.querySelectorAll('#tchSchoolCheckboxes .tch-school-chk:checked')].map(c => c.value);
+}
+
 function renderTeachers() {
+  renderTeacherSchoolSelector();
   const sc=sortState.teachers.col, sd=sortState.teachers.dir;
   const list=[...teachers].sort((a,b)=>{
     let va=a[sc]||'', vb=b[sc]||'';
@@ -11469,6 +11497,7 @@ function saveTeacher() {
   const qual  = qualEl ? qualEl.value.trim() : '';
   const initialsEl = document.getElementById('tchInitials');
   const initials = initialsEl ? initialsEl.value.trim().toUpperCase() : '';
+  const schoolLevels = getSelectedTeacherSchoolLevels();
   if (!name || !phone) { showToast('Name and phone are required','error'); return; }
   if (user && !validateUsername('teacher', user)) return;
   const editId = document.getElementById('editTchId').value;
@@ -11477,7 +11506,7 @@ function saveTeacher() {
   const canAn = existingTeacher ? !!existingTeacher.canAnalyse : false;
   const canRp = existingTeacher ? !!existingTeacher.canReport  : false;
   const canMr = existingTeacher ? !!existingTeacher.canMerit   : false;
-  const obj = { name, phone, email, username:user, password:pass, classes:cls, qual, initials, canAnalyse:canAn, canReport:canRp, canMerit:canMr };
+  const obj = { name, phone, email, username:user, password:pass, classes:cls, qual, initials, schoolLevels, canAnalyse:canAn, canReport:canRp, canMerit:canMr };
   if (editId) {
     const i = teachers.findIndex(t => t.id === editId);
     if (i > -1) {
@@ -11507,6 +11536,7 @@ function editTeacher(id) {
   document.getElementById('tchPass').value=t.password||'';
   document.getElementById('tchClasses').value=t.classes||'';
   const inEl=document.getElementById('tchInitials'); if(inEl) inEl.value=t.initials||'';
+  renderTeacherSchoolSelector(t.schoolLevels || []);
   // Rights are read-only here (managed in Settings) — no UI to update
   document.getElementById('tchFormTitle').innerHTML = '<i class="fa-solid fa-pen"></i>️ Edit Teacher';
   document.getElementById('tchName').scrollIntoView({behavior:'smooth',block:'center'});
@@ -11515,6 +11545,7 @@ function editTeacher(id) {
 function cancelTchEdit() {
   ['editTchId','tchName','tchPhone','tchEmail','tchUser','tchPass','tchClasses','tchInitials'].forEach(id=>{const el=document.getElementById(id);if(el){el.value='';delete el.dataset.edited;}});
   const prevEl=document.getElementById('tchUserPreview'); if(prevEl) prevEl.textContent='';
+  renderTeacherSchoolSelector([]);
   document.getElementById('tchFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Add Teacher';
 }
 
@@ -12058,7 +12089,21 @@ function getTeacherSubjectIds(teacherId) {
   const fromStreams = streamAssignments.filter(a => a.teacherId === teacherId).map(a => a.subjectId);
   // From subject default teacher
   const fromDefault = subjects.filter(s => s.teacherId === teacherId).map(s => s.id);
-  return [...new Set([...fromStreams, ...fromDefault])];
+  let ids = [...new Set([...fromStreams, ...fromDefault])];
+
+  // If this teacher is scoped to specific campus(es) (Junior/Senior/Primary),
+  // only show subjects that belong to those campuses — e.g. a teacher assigned
+  // to Junior only should never see Senior pathway subjects, even if some
+  // stray stream assignment exists for them.
+  const teacher = teachers.find(t => t.id === teacherId);
+  const levels = teacher?.schoolLevels;
+  if (levels && levels.length) {
+    ids = ids.filter(sid => {
+      const s = subjects.find(x => x.id === sid);
+      return s && levels.includes(getSubjectSchoolLevel(s));
+    });
+  }
+  return ids;
 }
 
 
@@ -21063,6 +21108,10 @@ function loadUmClasses() {
   if (exam.classId) relevantClasses = classes.filter(c => c.id === exam.classId);
 
   if (isTeacher && t) {
+    // Campus restriction: teacher scoped to specific school level(s) only sees those classes
+    if (t.schoolLevels && t.schoolLevels.length) {
+      relevantClasses = relevantClasses.filter(c => t.schoolLevels.includes(getClassSchoolLevel(c)));
+    }
     // Class teacher: restrict to their class(es)
     const myStreamIds  = getMyClassTeacherStreams().map(s => s.id);
     const myClassIds   = [...new Set(getMyClassTeacherStreams().map(s => s.classId))];

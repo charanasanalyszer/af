@@ -1232,6 +1232,12 @@
           <div class="fg"><label>Password</label><input type="password" id="tchPass" placeholder="Set login password"/></div>
           <div class="fg"><label>Assigned Classes</label><input type="text" id="tchClasses" placeholder="e.g. Grade 9, Grade 8"/></div>
         </div>
+        <div class="frow c3" id="tchSchoolWrap" style="display:none">
+          <div class="fg" style="flex:1 1 100%">
+            <label>School(s) taught <span style="font-weight:400;color:var(--muted)">(restricts login to only these campuses/subjects — leave blank for all)</span></label>
+            <div id="tchSchoolCheckboxes" class="sub-checkboxes-wrap"></div>
+          </div>
+        </div>
         <!-- Hidden rights checkboxes — managed via Settings > Teacher Access Manager -->
         <input type="hidden" id="tchCanAnalyse" value="false"/>
         <input type="hidden" id="tchCanReport" value="false"/>
