@@ -2582,24 +2582,67 @@ function renderPlatformDashboard() {
   // Init collapsible cards (deferred so DOM is rendered)
   setTimeout(initPlatformCollapse, 80);
 }
-// ── Platform Admin sets a school's level (junior/senior) — schools cannot change this themselves ──
-function platSetSchoolLevel(id, level) {
+// ── Platform Admin sets a school's level(s) — schools cannot change this themselves.
+//    A school can now be Primary, Junior, and/or Senior simultaneously (e.g. a full
+//    Grade 1-12 institution), so levels are stored as an array (school.schoolLevels).
+//    school.schoolLevel (singular) is kept only as a legacy fallback for old records.
+const SCHOOL_LEVEL_OPTIONS = [
+  { id:'primary', label:'Primary' },
+  { id:'junior',  label:'Junior'  },
+  { id:'senior',  label:'Senior'  },
+];
+const SCHOOL_LEVEL_FULL_LABEL = { primary:'Primary School', junior:'Junior School', senior:'Senior School' };
+function normalizeSchoolLevels(rec) {
+  if (!rec) return ['junior'];
+  if (Array.isArray(rec.schoolLevels) && rec.schoolLevels.length) return rec.schoolLevels;
+  if (rec.schoolLevel) return [rec.schoolLevel];
+  return ['junior'];
+}
+// Renders a small inline checkbox group so a school can be flagged as any combination
+// of Primary / Junior / Senior. Shared by the Platform Admin panel and Settings > Schools.
+function renderSchoolLevelCheckboxes(school) {
+  const levels = normalizeSchoolLevels(school);
+  return SCHOOL_LEVEL_OPTIONS.map(o => `
+    <label style="display:inline-flex;align-items:center;gap:.25rem;font-size:.7rem;font-weight:600;cursor:pointer;padding:.1rem .45rem;border:1px solid var(--border);border-radius:6px;background:${levels.includes(o.id)?'var(--primary-lt,#eef4ff)':'var(--surface)'}">
+      <input type="checkbox" ${levels.includes(o.id)?'checked':''} onchange="event.stopPropagation();platToggleSchoolLevel('${school.id}','${o.id}',this.checked)" onclick="event.stopPropagation()" style="accent-color:var(--primary);width:12px;height:12px;margin:0"/>
+      ${o.label}
+    </label>`).join('');
+}
+function platToggleSchoolLevel(id, level, checked) {
   loadPlatform();
   const school = platformSchools.find(s => s.id === id);
   if (!school) return;
-  if (school.schoolLevel === level) return;
-  school.schoolLevel = level;
+  let levels = normalizeSchoolLevels(school).slice();
+  if (checked) {
+    if (!levels.includes(level)) levels.push(level);
+  } else {
+    const remaining = levels.filter(l => l !== level);
+    if (!remaining.length) {
+      showToast('A school must have at least one level selected', 'error');
+      renderPlatformSchoolMgmtList();
+      try { renderSettingsSchoolList(); } catch(e) {}
+      return;
+    }
+    levels = remaining;
+  }
+  school.schoolLevels = levels;
+  delete school.schoolLevel; // migrate off the legacy singular field
   savePlatform();
-  showToast(`School level set to ${level === 'senior' ? 'Senior School' : level === 'primary' ? 'Primary School' : 'Junior School'} <i class="fa-solid fa-check"></i>`, 'success');
+  showToast(`School level set to ${levels.map(l => SCHOOL_LEVEL_FULL_LABEL[l]).join(' + ')} <i class="fa-solid fa-check"></i>`, 'success');
   renderPlatformSchoolMgmtList();
   try { renderSettingsSchoolList(); } catch(e) {}
   // If we're currently sitting inside this school's data (e.g. admin flipped it right
-  // after entering it), clean up junior-default subjects immediately rather than waiting
-  // for the next login.
-  if (currentSchoolId === id && level === 'senior') {
-    try { purgeJuniorDefaultSubjectsIfSenior(); purgeJuniorDefaultClassesIfSenior(); renderSubjects(); } catch(e) {}
+  // after entering it), sync classes/subjects for the new level combination immediately
+  // rather than waiting for the next login.
+  if (currentSchoolId === id) {
+    try {
+      purgeJuniorDefaultSubjectsIfSenior(); purgeJuniorDefaultClassesIfSenior();
+      seedData(); // seed default classes for any newly-added level
+      renderSubjects(); renderClasses(); applySchoolLevelUI();
+    } catch(e) {}
   }
 }
+
 
 function renderPlatformSchoolMgmtList() {
   const el = document.getElementById('platformSchoolMgmtList'); if(!el) return;
@@ -2622,13 +2665,9 @@ function renderPlatformSchoolMgmtList() {
           ${statusBadge}
         </div>
         <div style="font-size:.75rem;color:var(--muted)">Login: <strong>${s.username}</strong> · Code: <strong>${s.code||s.username}</strong>${s.email?' · '+s.email:''} · Joined ${new Date(s.createdAt).toLocaleDateString()}</div>
-        <div style="margin-top:.35rem;display:flex;align-items:center;gap:.4rem" onclick="event.stopPropagation()">
+        <div style="margin-top:.35rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap" onclick="event.stopPropagation()">
           <span style="font-size:.72rem;color:var(--muted)">School Level:</span>
-          <select onchange="platSetSchoolLevel('${s.id}', this.value)" style="font-size:.72rem;font-weight:600;padding:.15rem .4rem;border-radius:6px;border:1px solid var(--border);background:var(--surface)">
-            <option value="primary" ${s.schoolLevel==='primary'?'selected':''}>Primary School</option>
-            <option value="junior" ${(s.schoolLevel||'junior')==='junior'?'selected':''}>Junior School</option>
-            <option value="senior" ${s.schoolLevel==='senior'?'selected':''}>Senior School</option>
-          </select>
+          ${renderSchoolLevelCheckboxes(s)}
         </div>
         ${!isActive && s.deactivationMessage ? `<div style="font-size:.74rem;color:#f87171;margin-top:.3rem;font-style:italic;line-height:1.4"><i class="fa-solid fa-bullhorn"></i> "${s.deactivationMessage.substring(0,80)}${s.deactivationMessage.length>80?'…':''}"</div>` : ''}
       </div>
@@ -4175,34 +4214,50 @@ async function loadSchoolContext(school) {
   purgeJuniorDefaultClassesIfSenior();
 }
 
-// If a school is (or has been switched to) Senior, strip out any leftover junior-default
-// classes (Grade 7/8/9) and their default streams (E/W, North, etc.) that were seeded
-// before the level was set, then make sure Grade 10/11/12 exist. Only removes a class or
-// stream if it has NO students enrolled, so real data is never touched.
-const JUNIOR_DEFAULT_CLASS_NAMES = new Set(['Grade 7','Grade 8','Grade 9']);
+// Keeps the class list in sync with whichever level(s) — Primary / Junior / Senior — the
+// school is currently flagged as. A school can be more than one level at once (e.g. a full
+// Grade 1-12 institution): this only removes a level's default classes if that level is no
+// longer selected AND it has NO students enrolled (real data is never touched), and adds a
+// level's default classes if that level is selected and has none yet.
+const JUNIOR_DEFAULT_CLASS_NAMES  = new Set(['Grade 7','Grade 8','Grade 9']);
+const PRIMARY_DEFAULT_CLASS_NAMES = new Set(['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6']);
 const SENIOR_DEFAULT_CLASSES = [
   { name:'Grade 10', level:'10' }, { name:'Grade 11', level:'11' }, { name:'Grade 12', level:'12' }
 ];
+const JUNIOR_DEFAULT_CLASSES = [
+  { name:'Grade 7', level:'7' }, { name:'Grade 8', level:'8' }, { name:'Grade 9', level:'9' }
+];
+const PRIMARY_DEFAULT_CLASSES = [
+  { name:'Grade 1', level:'1' }, { name:'Grade 2', level:'2' }, { name:'Grade 3', level:'3' },
+  { name:'Grade 4', level:'4' }, { name:'Grade 5', level:'5' }, { name:'Grade 6', level:'6' }
+];
 function purgeJuniorDefaultClassesIfSenior() {
-  if (!isSeniorSchool() || !classes.length) return;
-  const toRemoveClasses = classes.filter(c =>
-    JUNIOR_DEFAULT_CLASS_NAMES.has(c.name) && !students.some(s => s.classId === c.id)
-  );
+  if (!classes.length) return;
+  const levels = getSchoolLevels();
   let changed = false;
-  if (toRemoveClasses.length) {
-    const removeIds = new Set(toRemoveClasses.map(c => c.id));
+
+  const dropIfLevelGone = (levelId, names) => {
+    if (levels.includes(levelId)) return;
+    const toRemove = classes.filter(c => names.has(c.name) && !students.some(s => s.classId === c.id));
+    if (!toRemove.length) return;
+    const removeIds = new Set(toRemove.map(c => c.id));
     // Drop their streams too, but only ones with no students in them
     streams = streams.filter(s => !(removeIds.has(s.classId) && !students.some(st => st.streamId === s.id)));
     classes = classes.filter(c => !removeIds.has(c.id));
     changed = true;
-  }
-  // Make sure the senior defaults (Grade 10/11/12) exist if this school has no
-  // senior-looking classes at all yet.
-  const hasAnySeniorClass = classes.some(c => /\b1[0-2]\b/.test(c.name) || ['10','11','12'].includes(String(c.level)));
-  if (!hasAnySeniorClass) {
-    SENIOR_DEFAULT_CLASSES.forEach(sc => classes.push({ id: uid(), name: sc.name, level: sc.level }));
-    changed = true;
-  }
+  };
+  dropIfLevelGone('junior',  JUNIOR_DEFAULT_CLASS_NAMES);
+  dropIfLevelGone('primary', PRIMARY_DEFAULT_CLASS_NAMES);
+
+  const ensureIfLevelPresent = (levelId, defaults, levelNums) => {
+    if (!levels.includes(levelId)) return;
+    const has = classes.some(c => levelNums.has(String(c.level)) || defaults.some(d => d.name === c.name));
+    if (!has) { defaults.forEach(d => classes.push({ id: uid(), name: d.name, level: d.level })); changed = true; }
+  };
+  ensureIfLevelPresent('senior',  SENIOR_DEFAULT_CLASSES,  new Set(['10','11','12']));
+  ensureIfLevelPresent('junior',  JUNIOR_DEFAULT_CLASSES,  new Set(['7','8','9']));
+  ensureIfLevelPresent('primary', PRIMARY_DEFAULT_CLASSES, new Set(['1','2','3','4','5','6']));
+
   if (changed) {
     save(K.classes, classes);
     save(K.streams, streams);
@@ -4210,15 +4265,18 @@ function purgeJuniorDefaultClassesIfSenior() {
   }
 }
 
-// If a school is (or has been switched to) Senior, strip out the 9 junior-default subjects
-// (English, Kiswahili, Mathematics, Science, Social Studies, CRE, Creative Arts, Agriculture,
-// Pre-Technical) that may have been seeded before the level was set. Only removes a subject
-// if NO marks have ever been recorded against it, so real academic data is never touched.
+// Strips the 9 junior-default subjects (English, Kiswahili, Mathematics, Science, Social
+// Studies, CRE, Creative Arts, Agriculture, Pre-Technical) if Junior School is no longer one
+// of this school's selected levels. Only removes a subject if NO marks have ever been
+// recorded against it, so real academic data is never touched. Left alone for any school
+// that still includes Junior among its levels (e.g. a Junior + Senior combo school).
 const JUNIOR_DEFAULT_SUBJECT_CODES = new Set(['ENG','KIS','MTH','SCI','SST','CRE','ART','AGR','PRT']);
 function purgeJuniorDefaultSubjectsIfSenior() {
-  if (!isSeniorSchool() || !subjects.length) return;
+  if (!subjects.length) return;
+  const levels = getSchoolLevels();
+  if (levels.includes('junior')) return;
   const toRemove = subjects.filter(s =>
-    JUNIOR_DEFAULT_SUBJECT_CODES.has(s.code) && !s.pathway &&
+    JUNIOR_DEFAULT_SUBJECT_CODES.has(s.code) && !s.pathway && !s.primaryBand &&
     !marks.some(m => m.subjectId === s.id)
   );
   if (!toRemove.length) return;
@@ -4649,15 +4707,16 @@ function defaultSettings() {
 
 // ═══════════════ SEED DATA ═══════════════
 function seedData() {
-  const senior  = isSeniorSchool();
-  const primary = isPrimarySchool();
+  const levels = getSchoolLevels();
   if (!classes.length) {
-    classes = senior
-      ? [ { id:'cls1', name:'Grade 10', level:'10' }, { id:'cls2', name:'Grade 11', level:'11' }, { id:'cls3', name:'Grade 12', level:'12' } ]
-      : primary
-      ? [ { id:'cls1', name:'Grade 1', level:'1' }, { id:'cls2', name:'Grade 2', level:'2' }, { id:'cls3', name:'Grade 3', level:'3' },
-          { id:'cls4', name:'Grade 4', level:'4' }, { id:'cls5', name:'Grade 5', level:'5' }, { id:'cls6', name:'Grade 6', level:'6' } ]
-      : [ { id:'cls1', name:'Grade 7',  level:'7'  }, { id:'cls2', name:'Grade 8',  level:'8'  }, { id:'cls3', name:'Grade 9', level:'9' } ];
+    // Seed default classes for every level this school is flagged as — a school can be
+    // Primary + Junior + Senior at once (a full Grade 1-12 institution).
+    let seeded = [];
+    if (levels.includes('primary')) seeded = seeded.concat(PRIMARY_DEFAULT_CLASSES);
+    if (levels.includes('junior'))  seeded = seeded.concat(JUNIOR_DEFAULT_CLASSES);
+    if (levels.includes('senior'))  seeded = seeded.concat(SENIOR_DEFAULT_CLASSES);
+    if (!seeded.length) seeded = JUNIOR_DEFAULT_CLASSES; // safety fallback
+    classes = seeded.map(c => ({ id: uid(), name: c.name, level: c.level }));
     save(K.classes, classes);
   }
   if (!streams.length) {
@@ -4666,13 +4725,7 @@ function seedData() {
     save(K.streams, streams);
   }
   if (!subjects.length) {
-    if (senior || primary) {
-      // Senior and Primary schools get no default subjects seeded up front. Senior schools
-      // seed compulsory (core) subjects once pathways are chosen; Primary schools seed the
-      // rationalised Lower (Grade 1-3) / Upper (Grade 4-6) subject sets from Settings.
-      subjects = [];
-      save(K.subjects, subjects);
-    } else {
+    if (levels.includes('junior')) {
       subjects = [
         { id:'s1', name:'English',       code:'ENG', max:100, category:'Core',      teacherId:'', studentIds:[] },
         { id:'s2', name:'Kiswahili',      code:'KIS', max:100, category:'Languages', teacherId:'', studentIds:[] },
@@ -4686,6 +4739,8 @@ function seedData() {
       ];
       save(K.subjects, subjects);
     }
+    // Otherwise subjects stay empty — Senior/Primary schools seed their subject sets
+    // on demand from Settings (Seed CBC Subjects / Seed Primary Subjects panels).
   }
   if (!students.length) {
     const raw = [];
@@ -12784,6 +12839,7 @@ function saveSettings() {
     term:document.getElementById('setTerm').value,
     year:document.getElementById('setYear').value,
     schoolLevel: settings.schoolLevel || 'junior', // legacy fallback only — level is now set by Platform Admin
+    schoolLevels: settings.schoolLevels || undefined, // legacy fallback only — level is now set by Platform Admin
     restrictTeacherAnalytics: settings.restrictTeacherAnalytics || false,
     restrictTeacherFees:      settings.restrictTeacherFees      || false,
     restrictTeacherList:      settings.restrictTeacherList      || false,
@@ -12805,18 +12861,22 @@ const PATHWAYS = [
   { id:'ss',     label:'Social Sciences',        color:'#10b981', icon:'fa-globe' },
   { id:'arts',   label:'Arts & Sports Science',  color:'#f59e0b', icon:'fa-palette' },
 ];
-function getSchoolLevel() {
-  // School level is set by the Platform Admin (on the school's account record), not by the
-  // school itself. Fall back to settings.schoolLevel only for legacy data that predates this.
+function getSchoolLevels() {
+  // School level(s) are set by the Platform Admin (on the school's account record), not by
+  // the school itself. A school can be Primary + Junior + Senior at once (a full Grade 1-12
+  // institution), so this always returns an array. Falls back to settings.schoolLevel(s)
+  // only for legacy data that predates this.
   if (currentSchoolId) {
     const rec = platformSchools.find(s => s.id === currentSchoolId);
-    if (rec && rec.schoolLevel) return rec.schoolLevel;
+    if (rec) return normalizeSchoolLevels(rec);
   }
-  return settings.schoolLevel || 'junior';
+  if (Array.isArray(settings.schoolLevels) && settings.schoolLevels.length) return settings.schoolLevels;
+  return [settings.schoolLevel || 'junior'];
 }
-function isSeniorSchool()  { return getSchoolLevel() === 'senior';  }
-function isPrimarySchool() { return getSchoolLevel() === 'primary'; }
-function isJuniorSchool()  { return getSchoolLevel() === 'junior' || !getSchoolLevel(); }
+function getSchoolLevel() { return getSchoolLevels()[0]; } // legacy single-value accessor, kept for compatibility
+function isSeniorSchool()  { return getSchoolLevels().includes('senior');  }
+function isPrimarySchool() { return getSchoolLevels().includes('primary'); }
+function isJuniorSchool()  { return getSchoolLevels().includes('junior'); }
 // Primary-only: is this class/grade in the lower band (Grade 1-3) or upper band (Grade 4-6)?
 function getPrimaryBandForClass(cls) {
   if (!cls) return null;
@@ -22094,13 +22154,9 @@ function renderSettingsSchoolList() {
       <div>
         <div class="ai-name">${s.name}</div>
         <div class="ai-role">Login: <strong>${s.username}</strong> · Code: <strong>${s.code||s.username}</strong>${s.email?' · '+s.email:''} · <span class="badge b-blue" style="font-size:.65rem">School</span></div>
-        <div style="margin-top:.3rem;display:flex;align-items:center;gap:.4rem">
+        <div style="margin-top:.3rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
           <span style="font-size:.7rem;color:var(--muted)">Level:</span>
-          <select onchange="platSetSchoolLevel('${s.id}', this.value)" style="font-size:.7rem;font-weight:600;padding:.1rem .35rem;border-radius:6px;border:1px solid var(--border);background:var(--surface)">
-            <option value="primary" ${s.schoolLevel==='primary'?'selected':''}>Primary School</option>
-            <option value="junior" ${(s.schoolLevel||'junior')==='junior'?'selected':''}>Junior School</option>
-            <option value="senior" ${s.schoolLevel==='senior'?'selected':''}>Senior School</option>
-          </select>
+          ${renderSchoolLevelCheckboxes(s)}
         </div>
       </div>
       <div style="display:flex;gap:.5rem;align-items:center">
