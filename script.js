@@ -7010,44 +7010,54 @@ function renderExamSubjectCheckboxes(selectedIds) {
   const wrap = document.getElementById('examSubjectCheckboxes');
   if (!wrap) return;
 
-  // Determine which School (level) and Class are selected in the exam form
-  const schoolLevelVal = document.getElementById('examSchool')?.value || '';
+  // Determine which School (level(s)) and Class are selected in the exam form
+  const schoolLevelVals = getSelectedExamSchoolLevels(); // e.g. [] (all), ['junior'], ['junior','senior']...
   const clsId = document.getElementById('examClass')?.value || '';
   const selCls = clsId ? classes.find(c => c.id === clsId) : null;
 
   // A class counts as "senior" (CBC Grade 10-12) if: the explicit School
-  // selector says so, OR the school-wide setting is Senior-only, OR the
-  // specific class picked here is graded 10+. This lets a school running
-  // both Junior (7-9) and Senior (10-12) under one login see pathway/elective
-  // subjects only for the classes that actually offer them.
+  // selection says so (and only "senior" is picked), OR the school-wide
+  // setting is Senior-only, OR the specific class picked here is graded 10+.
+  // This lets a school running both Junior (7-9) and Senior (10-12) under one
+  // login see pathway/elective subjects only for the classes that actually offer them.
   const clsLevelNum    = selCls ? parseFloat(selCls.level) : NaN;
   const clsIsSenior    = !isNaN(clsLevelNum) && clsLevelNum >= 10;
-  const effectiveSenior = schoolLevelVal ? schoolLevelVal === 'senior' : (isSeniorSchool() || clsIsSenior);
+  const effectiveSenior = schoolLevelVals.length
+    ? schoolLevelVals.includes('senior')
+    : (isSeniorSchool() || clsIsSenior);
 
-  // Base pool: junior/primary exclude senior-only (pathway) subjects
+  // Base pool: junior/primary exclude senior-only (pathway) subjects — unless
+  // senior is one of several school levels picked, in which case pathway
+  // subjects should still be available (they'll just be scoped by class/level below).
   let pool = effectiveSenior ? [...subjects] : subjects.filter(s => !s.pathway);
 
   // Only show subjects the school actually offers — i.e. at least one student
-  // somewhere is enrolled in them. Subjects sitting unused in the catalogue
-  // (0 enrolled) are not something the school teaches, so hide them here.
-  // (This is the "synced" enrolment check — keep it intact regardless of
-  // whatever School/Class scoping is layered on top above.)
-  pool = pool.filter(s => (s.studentIds || []).length > 0);
+  // somewhere is enrolled in them. This hides genuinely unused catalogue
+  // entries, but freshly-seeded subjects (or a fresh school with no students
+  // enrolled yet) legitimately have 0 enrolment — in that case there's no
+  // useful signal to filter on, so fall back to the full pool rather than
+  // hiding everything.
+  const anyEnrolled = pool.some(s => (s.studentIds || []).length > 0);
+  if (anyEnrolled) pool = pool.filter(s => (s.studentIds || []).length > 0);
 
-  // If a School level is chosen (with no specific class), keep only subjects
-  // with at least one enrolled student somewhere in a class of that level.
-  if (schoolLevelVal && !clsId) {
+  // If one or more School levels are chosen (with no specific class), keep
+  // only subjects with at least one enrolled student somewhere in a class of
+  // any of those levels — but only if that actually leaves something to show.
+  if (schoolLevelVals.length && !clsId) {
     const levelStudentIds = new Set(students.filter(s => {
       const sc = classes.find(c => c.id === s.classId);
-      return sc && getClassSchoolLevel(sc) === schoolLevelVal;
+      return sc && schoolLevelVals.includes(getClassSchoolLevel(sc));
     }).map(s => s.id));
-    pool = pool.filter(s => (s.studentIds || []).some(sid => levelStudentIds.has(sid)));
+    const narrowed = pool.filter(s => (s.studentIds || []).some(sid => levelStudentIds.has(sid)));
+    if (narrowed.length) pool = narrowed;
   }
 
-  // If a class is chosen, keep only subjects that have at least one student in that class enrolled
+  // If a class is chosen, keep only subjects that have at least one student in
+  // that class enrolled — again, only if that leaves something to show.
   if (clsId) {
     const classStudentIds = new Set(students.filter(s => s.classId === clsId).map(s => s.id));
-    pool = pool.filter(s => (s.studentIds || []).some(sid => classStudentIds.has(sid)));
+    const narrowed = pool.filter(s => (s.studentIds || []).some(sid => classStudentIds.has(sid)));
+    if (narrowed.length) pool = narrowed;
   }
 
   if (!pool.length) {
@@ -7102,38 +7112,47 @@ function getClassSchoolLevel(cls) {
   return 'primary';
 }
 
-// Render the "School" selector in Create Exam. Only shown when this account
-// runs more than one school level (e.g. Junior + Senior under one login) —
-// with a single level there's nothing to choose, so keep the form simple.
-function renderExamSchoolSelector() {
+// Render the "School" checkboxes in Create Exam. Only shown when this account
+// runs more than one school level (e.g. Junior + Senior, or Junior + Senior +
+// Primary, under one login) — with a single level there's nothing to choose,
+// so keep the form simple. Any combination can be ticked, or none for "all".
+function renderExamSchoolSelector(checkedLevels) {
   const wrap = document.getElementById('examSchoolWrap');
-  const sel  = document.getElementById('examSchool');
-  if (!wrap || !sel) return;
+  const box  = document.getElementById('examSchoolCheckboxes');
+  if (!wrap || !box) return;
   const levels = getSchoolLevels();
   if (!levels || levels.length <= 1) {
     wrap.style.display = 'none';
-    sel.value = '';
+    box.innerHTML = '';
     return;
   }
+  // Preserve currently-checked levels unless an explicit set was passed in (used by editExam)
+  const prevChecked = checkedLevels || getSelectedExamSchoolLevels();
   wrap.style.display = '';
-  const prev = sel.value;
-  sel.innerHTML = '<option value="">— All —</option>' +
-    levels.map(l => `<option value="${l}">${SCHOOL_LEVEL_FULL_LABEL[l] || l}</option>`).join('');
-  sel.value = levels.includes(prev) ? prev : '';
+  box.innerHTML = levels.map(l => `
+    <label class="sub-check-label" style="min-width:140px">
+      <input type="checkbox" value="${l}" class="exam-school-chk" ${prevChecked.includes(l) ? 'checked' : ''} onchange="onExamSchoolChange()"/>
+      <span class="sub-chk-name">${SCHOOL_LEVEL_FULL_LABEL[l] || l}</span>
+    </label>`).join('');
 }
 
-// Populate the Class dropdown, restricted to the selected school level (if any).
+// Read the currently ticked School (level) checkboxes. Empty array = "All".
+function getSelectedExamSchoolLevels() {
+  return [...document.querySelectorAll('#examSchoolCheckboxes .exam-school-chk:checked')].map(c => c.value);
+}
+
+// Populate the Class dropdown, restricted to the selected school level(s) (if any).
 function populateExamClassDropdown() {
   const sel = document.getElementById('examClass');
   if (!sel) return;
-  const levelVal = document.getElementById('examSchool')?.value || '';
+  const levelVals = getSelectedExamSchoolLevels();
   const prev = sel.value;
-  const pool = levelVal ? classes.filter(c => getClassSchoolLevel(c) === levelVal) : classes;
+  const pool = levelVals.length ? classes.filter(c => levelVals.includes(getClassSchoolLevel(c))) : classes;
   sel.innerHTML = '<option value="">— All Classes —</option>' + pool.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
   sel.value = pool.some(c => c.id === prev) ? prev : '';
 }
 
-// Called when the School selector changes — re-scope Class options, then cascade to subjects.
+// Called when the School selection changes — re-scope Class options, then cascade to subjects.
 function onExamSchoolChange() {
   populateExamClassDropdown();
   onExamClassChange();
@@ -7177,7 +7196,7 @@ function saveExam() {
   const year  = document.getElementById('examYear').value;
   const date  = document.getElementById('examDate').value;
   const clsId = document.getElementById('examClass').value;
-  const schoolLevel = document.getElementById('examSchool')?.value || '';
+  const schoolLevels = getSelectedExamSchoolLevels();
   const notes = document.getElementById('examNotes').value;
   const subIds = [...document.querySelectorAll('#examSubjectCheckboxes input[type=checkbox]:checked')].map(cb => cb.value);
   const cat   = currentExamCategory;
@@ -7213,7 +7232,7 @@ function saveExam() {
 
   const editId = document.getElementById('editExamId').value;
   const maxScore = Math.max(1, parseInt(document.getElementById('examMaxScore')?.value) || 100);
-  const examData = { name, assessmentType:assessType, category:cat, type, strand:strandVal, substrand:substrandVal, term, year, date, classId:clsId, schoolLevel, subjectIds:subIds, sourceExamIds, notes, maxScore };
+  const examData = { name, assessmentType:assessType, category:cat, type, strand:strandVal, substrand:substrandVal, term, year, date, classId:clsId, schoolLevels, subjectIds:subIds, sourceExamIds, notes, maxScore };
   if (editId) {
     const i = exams.findIndex(e => e.id === editId);
     if (i > -1) exams[i] = { ...exams[i], ...examData };
@@ -7288,9 +7307,8 @@ function editExam(id) {
   document.getElementById('examTerm').value=e.term;
   document.getElementById('examYear').value=e.year;
   document.getElementById('examDate').value=e.date||'';
-  renderExamSchoolSelector();
-  const schoolSel = document.getElementById('examSchool');
-  if (schoolSel) schoolSel.value = e.schoolLevel || '';
+  const savedLevels = Array.isArray(e.schoolLevels) ? e.schoolLevels : (e.schoolLevel ? [e.schoolLevel] : []);
+  renderExamSchoolSelector(savedLevels);
   populateExamClassDropdown();
   document.getElementById('examClass').value=e.classId||'';
   document.getElementById('examNotes').value=e.notes||'';
@@ -7335,8 +7353,7 @@ function cancelExamEdit() {
   document.getElementById('summativeSubCat').style.display = '';
   document.getElementById('formativeSubCat').style.display  = 'none';
   setExamCategory('regular');
-  const schoolSel = document.getElementById('examSchool');
-  if (schoolSel) schoolSel.value = '';
+  renderExamSchoolSelector([]);
   populateExamClassDropdown();
   renderExamSubjectCheckboxes([]);
 }
@@ -13141,6 +13158,14 @@ function saveSubjectCombination(pathwayId) {
   settings.subjectCombinations[pathwayId] = chosen;
   save(K.settings, [settings]);
 
+  // Enabling a combination should make its subjects usable everywhere —
+  // including Create Exam — so create any missing Subject catalogue entries.
+  const { core } = getCBCSubjectsForPathway(pathwayId);
+  const allCodes = new Set(core.map(c => c.code));
+  chosen.forEach(combStr => combStr.split(',').forEach(code => allCodes.add(code)));
+  ensureSubjectsForCombination(pathwayId, [...allCodes]);
+
+
   const pw = PATHWAYS.find(p=>p.id===pathwayId);
   const statusEl = document.getElementById(`scSaveStatus_${pathwayId}`);
   if (statusEl) { statusEl.style.display = ''; setTimeout(() => { statusEl.style.display = 'none'; }, 2500); }
@@ -13357,6 +13382,37 @@ function clearAllCombinations(pwId) {
 // codes currently being assembled (in-memory only, until "Add Combination").
 const customComboBuilder = {};
 
+// Make sure every subject code referenced by an enabled/custom combination for
+// this pathway actually exists as a real Subject record. Enabling a combination
+// only used to update settings.subjectCombinations — the underlying Subject
+// catalogue entries were never created, so the subjects never showed up
+// anywhere that reads from `subjects` (Create Exam, marks entry, etc).
+function ensureSubjectsForCombination(pwId, codes) {
+  const { core } = getCBCSubjectsForPathway(pwId);
+  const catalogue = [...core, ...getComboSubjectPool(pwId)];
+  const seenCode = new Set();
+  const added = [];
+  codes.forEach(code => {
+    if (seenCode.has(code)) return;
+    seenCode.add(code);
+    if (subjects.find(x => x.code === code)) return;
+    const s = catalogue.find(c => c.code === code);
+    if (!s) return;
+    const newSub = { id: uid(), name: s.name, code: s.code, max: 100,
+      category: s.cat, teacherId: '', studentIds: [],
+      pathway: pwId, cbcCore: core.some(c => c.code === code),
+      examinable: defaultExaminableForCode(code) };
+    subjects.push(newSub);
+    added.push(newSub);
+  });
+  if (added.length) {
+    save(K.subjects, subjects);
+    populateAllDropdowns();
+    renderSubjects();
+  }
+  return added;
+}
+
 function getComboSubjectPool(pwId) {
   // Every subject available to this pathway (electives across all its tracks,
   // de-duplicated by code) plus the universal core, so a school can pick any
@@ -13452,6 +13508,12 @@ function addCustomCombination(pwId) {
   if (!settings.subjectCombinations[pwId].includes(codeStr)) settings.subjectCombinations[pwId].push(codeStr);
 
   save(K.settings, [settings]);
+
+  // Same as enabling an official combination — make sure the subjects behind
+  // this custom combo actually exist in the catalogue (core + chosen codes).
+  const { core } = getCBCSubjectsForPathway(pwId);
+  ensureSubjectsForCombination(pwId, [...core.map(c => c.code), ...codes]);
+
   customComboBuilder[pwId] = [];
   const pw = PATHWAYS.find(p => p.id === pwId);
   showToast(`Custom combination added & enabled for ${pw?.label || pwId} <i class="fa-solid fa-check"></i>`, 'success');

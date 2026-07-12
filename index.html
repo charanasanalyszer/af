@@ -454,8 +454,9 @@
             </div>
           </div>
           <div class="frow c3" id="examSchoolWrap" style="display:none">
-            <div class="fg"><label>School</label>
-              <select id="examSchool" onchange="onExamSchoolChange()"><option value="">— All —</option></select>
+            <div class="fg" style="flex:1 1 100%">
+              <label>School <span style="font-weight:400;color:var(--muted)">(pick one, several, or leave blank for all)</span></label>
+              <div id="examSchoolCheckboxes" class="sub-checkboxes-wrap"></div>
             </div>
           </div>
           <div class="frow c3">
