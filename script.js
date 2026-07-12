@@ -4828,6 +4828,22 @@ function campusFilterExams(list) {
 function campusFilterSubjects(list) {
   return activeCampusLevel ? list.filter(s => getSubjectSchoolLevel(s) === activeCampusLevel) : [...list];
 }
+function campusFilterStreams(list) {
+  if (!activeCampusLevel) return [...list];
+  const campusClassIds = campusClasses().map(c => c.id);
+  return list.filter(s => campusClassIds.includes(s.classId));
+}
+// Scopes an exam's subjectIds to the active campus, so a multi-campus exam's
+// subjects from OTHER campuses never leak into Upload Marks, Merit List,
+// Report Forms, or Analyse once a single school has been selected.
+function campusExamSubjectIds(exam) {
+  const ids = (exam && exam.subjectIds) || [];
+  if (!activeCampusLevel) return ids;
+  return ids.filter(sid => {
+    const s = subjects.find(x => x.id === sid);
+    return s && getSubjectSchoolLevel(s) === activeCampusLevel;
+  });
+}
 function selectActiveCampus(level) {
   activeCampusLevel = level;
   try { localStorage.setItem(campusStorageKey(), level); } catch (e) {}
@@ -5743,7 +5759,7 @@ function populateAllDropdowns() {
   ['stuClass','strClass','rpStream'].forEach(id => {
     const el = document.getElementById(id); if (!el) return;
     if (id === 'rpStream') {
-      el.innerHTML = '<option value="">— All Streams —</option>' + streams.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+      el.innerHTML = '<option value="">— All Streams —</option>' + campusFilterStreams(streams).map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
     } else {
       el.innerHTML = `<option value="">— Select —</option>` + classes.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
     }
@@ -5904,7 +5920,7 @@ function onRpExamChange() {
   // Also update the stream dropdown
   const rpStream = document.getElementById('rpStream');
   if (rpStream) {
-    const relevantStreams = exam?.classId ? streams.filter(s=>s.classId===exam.classId) : streams;
+    const relevantStreams = exam?.classId ? streams.filter(s=>s.classId===exam.classId) : campusFilterStreams(streams);
     rpStream.innerHTML = '<option value="">— All Streams —</option>' + relevantStreams.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
   }
 }
@@ -7704,8 +7720,9 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
 
   // Determine which students in scope are "incomplete" (missing at least one subject)
   const incompleteIds = new Set();
+  const campusSubIdsSAH = campusExamSubjectIds(exam);
   scopeStudents.forEach(stu => {
-    const missingAny = exam.subjectIds.some(sid => {
+    const missingAny = campusSubIdsSAH.some(sid => {
       if (isConsolidated && sourceExamObjs.length > 0) {
         return getConsolidatedScore(stu.id, sid) === null;
       } else {
@@ -7718,8 +7735,8 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
   const isTeacherSAH = currentUser && currentUser.role === 'teacher';
   const teacherSubIdsSAH = isTeacherSAH ? getMySubjectIds() : null;
   const visibleSubjectIds = teacherSubIdsSAH
-    ? exam.subjectIds.filter(sid => teacherSubIdsSAH.includes(sid))
-    : exam.subjectIds;
+    ? campusSubIdsSAH.filter(sid => teacherSubIdsSAH.includes(sid))
+    : campusSubIdsSAH;
 
   const rows = visibleSubjectIds.map(sid => {
     const sub = subjects.find(s => s.id === sid); if (!sub) return '';
@@ -7905,7 +7922,7 @@ function buildStreamVsClassHTML(examId, classId, activeStreamId) {
   const allStuIds = allScoredComplete.map(s => s.id);
 
   // Build per-subject rows
-  const subjectRows = exam.subjectIds.map(sid => {
+  const subjectRows = campusSubIdsSAH.map(sid => {
     const sub = subjects.find(s => s.id === sid); if (!sub) return '';
     const classSubMean = subjectMeanFn(sid, allStuIds);
     if (classSubMean === null) return '';
@@ -15925,7 +15942,7 @@ function onMlTypeChange(skipRender) {
 
 function populateMeritStreamDropdown(classId) {
   const el = document.getElementById('mlStream'); if (!el) return;
-  const filtered = classId ? streams.filter(s=>s.classId===classId) : streams;
+  const filtered = classId ? streams.filter(s=>s.classId===classId) : campusFilterStreams(streams);
   el.innerHTML = '<option value="">— Select Stream —</option>' +
     filtered.map(s=>`<option value="${s.id}">${s.name}${!classId ? ' (' + (classes.find(c=>c.id===s.classId)?.name||'') + ')' : ''}</option>`).join('');
 }
@@ -16079,7 +16096,7 @@ function _renderMeritListBody(examId, type, classId, container) {
     const effectiveClassId = classId || exam.classId || null;
     let allStreams = effectiveClassId
       ? streams.filter(s=>s.classId===effectiveClassId)
-      : streams;
+      : campusFilterStreams(streams);
     // Only streams that have scored students in this pathway
     const pwStreamsData = allStreams.map(str => {
       const scored = buildMeritData(examId, str.id, str.classId||null, pathwayId);
@@ -21524,11 +21541,11 @@ function loadUmSubjects() {
   const exam = exams.find(e => e.id === examId);
   if (!exam) return;
 
-  let allowedSubIds = exam.subjectIds;
+  let allowedSubIds = campusExamSubjectIds(exam);
   const isTeacher = currentUser && currentUser.role === 'teacher';
   if (isTeacher) {
     const mySubIds = getMySubjectIds();
-    allowedSubIds = exam.subjectIds.filter(sid => mySubIds.includes(sid));
+    allowedSubIds = allowedSubIds.filter(sid => mySubIds.includes(sid));
     if (!allowedSubIds.length) {
       if (subSel) subSel.innerHTML = '<option value="">— No subjects assigned to you —</option>';
       showToast('No subjects assigned to you for this exam', 'error');
