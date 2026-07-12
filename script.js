@@ -4834,6 +4834,8 @@ function selectActiveCampus(level) {
   renderCampusSelectorUI();
   showToast(`School set to ${SCHOOL_LEVEL_FULL_LABEL[level] || level} <i class="fa-solid fa-check"></i>`, 'success');
   try { populateExamDropdowns(); } catch (e) {}
+  try { renderClasses(); } catch (e) {}
+  try { renderSubjects(); } catch (e) {}
 }
 function renderCampusSelectorUI() {
   const btn = document.getElementById('tbSelectCampus');
@@ -11993,7 +11995,7 @@ function deleteSubject(id) {
 // ═══════════════ CLASSES & STREAMS ═══════════════
 function renderClasses() {
   const sc=sortState.classes.col, sd=sortState.classes.dir;
-  const list=[...classes].sort((a,b)=>{
+  const list=[...campusClasses()].sort((a,b)=>{
     let va,vb;
     if(sc==='students'){va=students.filter(s=>s.classId===a.id).length;vb=students.filter(s=>s.classId===b.id).length;return sd==='asc'?va-vb:vb-va;}
     else{va=a[sc]||'';vb=b[sc]||'';}
@@ -12017,7 +12019,7 @@ function renderClasses() {
       </div></td></tr>`;
   }).join('');
   const strCls=document.getElementById('strClass');
-  if(strCls) strCls.innerHTML='<option value="">— Select Class —</option>'+classes.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  if(strCls) strCls.innerHTML='<option value="">— Select Class —</option>'+campusClasses().map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
 }
 
 function saveClass() {
