@@ -11215,7 +11215,7 @@ function handleStudentUpload(input) {
   reader.readAsArrayBuffer(file); input.value='';
 }
 
-function downloadStudentTemplate() {
+async function downloadStudentTemplate() {
   const senior = isSeniorSchool();
   const wb = XLSX.utils.book_new();
 
@@ -11242,8 +11242,45 @@ function downloadStudentTemplate() {
   wsStudents['!cols'] = colWidths;
   XLSX.utils.book_append_sheet(wb, wsStudents, 'Students');
 
+  // Column letters for the cascading dropdown columns (computed from the actual
+  // field order above, so this keeps working even if columns are ever reordered).
+  const fieldNames = Object.keys(studentData[0]);
+  const colLetterFromIndex = idx => {
+    let s = ''; idx += 1;
+    while (idx > 0) { const m = (idx - 1) % 26; s = String.fromCharCode(65 + m) + s; idx = Math.floor((idx - 1) / 26); }
+    return s;
+  };
+  const pwCol   = senior ? colLetterFromIndex(fieldNames.indexOf('Pathway'))     : null;
+  const trkCol  = senior ? colLetterFromIndex(fieldNames.indexOf('Track'))       : null;
+  const comboCol= senior ? colLetterFromIndex(fieldNames.indexOf('Combination')) : null;
+
+  let listCols = null;
+
   if (senior) {
-    // ── Sheet 2: Combinations Reference ──────────────────────────────────
+    // ── Hidden "Lists" sheet: source data for the cascading dropdowns ─────
+    // Col 1: pathways this school offers.
+    // Then one column per pathway listing its offered tracks.
+    // Then one column per (pathway, track) listing the school-offered combinations,
+    // as the exact "CODE,CODE,CODE" strings the Combination column expects.
+    const offeredPathways = getOfferedPathways();
+    listCols = [{ header: 'Pathways', values: offeredPathways.map(p => p.id) }];
+    offeredPathways.forEach(pw => {
+      const tracks = getOfferedTracksForPathway(pw.id);
+      if (tracks.length) listCols.push({ header: `Tracks_${pw.id}`, values: tracks });
+    });
+    offeredPathways.forEach(pw => {
+      getOfferedTracksForPathway(pw.id).forEach(track => {
+        const combos = getSchoolComboStringsForTrack(pw.id, track);
+        if (combos.length) listCols.push({ header: `Combos_${pw.id}_${sanitizeTrackToken(track)}`, values: combos });
+      });
+    });
+    const maxLen = Math.max(1, ...listCols.map(c => c.values.length));
+    const listAoa = [listCols.map(c => c.header)];
+    for (let r = 0; r < maxLen; r++) listAoa.push(listCols.map(c => (c.values[r] !== undefined ? c.values[r] : '')));
+    const wsLists = XLSX.utils.aoa_to_sheet(listAoa);
+    XLSX.utils.book_append_sheet(wb, wsLists, 'Lists');
+
+    // ── Sheet: Combinations Reference ─────────────────────────────────────
     // Build a flat table of all 571 combinations for easy lookup
     const nameMap2 = {};
     Object.values(CBC_SUBJECTS).forEach(v => {
@@ -11269,32 +11306,134 @@ function downloadStudentTemplate() {
     wsRef['!cols'] = [{wch:6},{wch:22},{wch:30},{wch:28},{wch:8},{wch:28},{wch:8},{wch:28},{wch:8},{wch:22}];
     XLSX.utils.book_append_sheet(wb, wsRef, 'All Combinations (571)');
 
-    // ── Sheet 3: How To Use ──────────────────────────────────────────────
+    // ── Sheet: How To Use ──────────────────────────────────────────────
     const guideRows = [
       { '#':'HOW TO USE THIS TEMPLATE', Instructions:'' },
       { '#':'', Instructions:'' },
       { '#':'1', Instructions:'Fill the "Students" sheet. Required columns: AdmNo, Name.' },
       { '#':'2', Instructions:'Gender: M or F (or Male/Female).' },
       { '#':'3', Instructions:'Class & Stream: must match names already set up in the system.' },
-      { '#':'4', Instructions:'Pathway (Senior School): use stem | ss | arts' },
+      { '#':'4', Instructions:'Pathway, Track and Combination each have a dropdown — click a cell in those columns and use the arrow.' },
+      { '#':'',  Instructions:'  Pick a Pathway first, then Track only shows tracks offered for that pathway, then Combination only shows combinations your school has enabled for that track.' },
       { '#':'',  Instructions:'  stem = STEM  |  ss = Social Sciences  |  arts = Arts & Sports Science' },
-      { '#':'5', Instructions:'Track: the subject track within the pathway.' },
-      { '#':'',  Instructions:'  STEM: Pure Sciences | Applied Sciences | Technical Studies' },
-      { '#':'',  Instructions:'  Social Sciences: Humanities & Business Studies | Languages & Literature' },
-      { '#':'',  Instructions:'  Arts & Sports Science: Arts | Sports & Recreation' },
-      { '#':'6', Instructions:'Combination: 3 subject codes, comma-separated. e.g. BIO,CHE,PHY' },
-      { '#':'',  Instructions:'  OR use #sno to reference the official combination number e.g. #308' },
-      { '#':'',  Instructions:'  See the "All Combinations (571)" sheet for every valid combination.' },
+      { '#':'5', Instructions:'  STEM tracks: Pure Sciences | Applied Sciences | Technical Studies' },
+      { '#':'',  Instructions:'  Social Sciences tracks: Humanities & Business Studies | Languages & Literature' },
+      { '#':'',  Instructions:'  Arts & Sports Science tracks: Arts | Sports & Recreation' },
+      { '#':'6', Instructions:'Combination: 3 subject codes, comma-separated, e.g. BIO,CHE,PHY — pick from the dropdown so it matches exactly.' },
+      { '#':'',  Instructions:'  See the "All Combinations (571)" sheet for every official combination.' },
       { '#':'',  Instructions:'  Universal core (ENG,KSW,CSL,PE,ICT) plus pathway Mathematics (AMATH for STEM, EMATH for SS/Arts) is always auto-added — do not include.' },
       { '#':'7', Instructions:'Leave Pathway/Track/Combination blank for Junior School students (Gr 7-9).' },
+      { '#':'8', Instructions:'A track only appears in its dropdown once your school has enabled at least one combination for it (Settings → Subject Combinations).' },
     ];
     const wsGuide = XLSX.utils.json_to_sheet(guideRows);
     wsGuide['!cols'] = [{wch:16},{wch:72}];
     XLSX.utils.book_append_sheet(wb, wsGuide, 'How To Use');
   }
 
-  XLSX.writeFile(wb, 'students_template.xlsx');
-  showToast(`Template downloaded — ${senior ? '3 sheets: Students, All Combinations, How To Use' : '1 sheet: Students'} <i class="fa-solid fa-check"></i>`, 'success');
+  // ── Write the workbook, then (for senior schools) inject real Excel data-
+  // validation dropdowns into the Students sheet via a small zip post-process,
+  // since the xlsx writer library can't create dropdowns on its own. ──────────
+  let fileWritten = false;
+  if (senior && listCols && typeof JSZip !== 'undefined') {
+    try {
+      const arrayBuf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+      const blob = await injectCascadingDropdowns(arrayBuf, listCols, { pathway: pwCol, track: trkCol, combo: comboCol });
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'students_template.xlsx';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        fileWritten = true;
+      }
+    } catch (err) {
+      console.error('Cascading dropdown injection failed, falling back to plain template', err);
+    }
+  }
+  if (!fileWritten) XLSX.writeFile(wb, 'students_template.xlsx');
+
+  showToast(`Template downloaded${senior ? ' — with Pathway → Track → Combination dropdowns' : ''} <i class="fa-solid fa-check"></i>`, 'success');
+}
+
+// Post-processes a freshly-written xlsx ArrayBuffer to add cascading list data-validations
+// (Pathway → Track → Combination) to the "Students" sheet. SheetJS's Community Edition can't
+// write data validations itself, so this reaches into the underlying zip/XML and adds them
+// directly: a defined name per dropdown's source range (pointing at the hidden "Lists" sheet),
+// plus a <dataValidation> per column. Track/Combination use INDIRECT() keyed off the row's own
+// Pathway/Track cell so each row's dropdown is filtered by what was picked earlier in that row.
+async function injectCascadingDropdowns(wbArrayBuffer, listCols, colLetters) {
+  if (typeof JSZip === 'undefined') return null;
+  const zip = await JSZip.loadAsync(wbArrayBuffer);
+
+  let workbookXml = await zip.file('xl/workbook.xml').async('string');
+  const relsXml = await zip.file('xl/_rels/workbook.xml.rels').async('string');
+
+  const findRId = name => {
+    const re = /<sheet\b[^>]*\/>/g; let m;
+    while ((m = re.exec(workbookXml))) {
+      const tag = m[0];
+      const nameM = /name="([^"]*)"/.exec(tag);
+      const ridM  = /r:id="([^"]*)"/.exec(tag);
+      if (nameM && nameM[1] === name && ridM) return ridM[1];
+    }
+    return null;
+  };
+  const findTarget = rId => {
+    const re = /<Relationship\b[^>]*\/>/g; let m;
+    while ((m = re.exec(relsXml))) {
+      const tag = m[0];
+      const idM  = /Id="([^"]*)"/.exec(tag);
+      const tgtM = /Target="([^"]*)"/.exec(tag);
+      if (idM && idM[1] === rId && tgtM) return tgtM[1];
+    }
+    return null;
+  };
+
+  const studentsRId = findRId('Students');
+  const studentsTarget = studentsRId && findTarget(studentsRId);
+  if (!studentsTarget) return null; // can't safely locate the sheet — caller falls back
+  const studentsPath = 'xl/' + studentsTarget.replace(/^\.?\/?/, '');
+
+  // Hide the Lists sheet (it's only there to feed the dropdowns).
+  workbookXml = workbookXml.replace(/(<sheet\b[^>]*name="Lists"[^>]*)(\/>)/, '$1 state="hidden"$2');
+
+  // Defined names: one per list column, pointing at Lists!$COL$2:$COL$N.
+  const colLetterFromIndex = idx => {
+    let s = ''; idx += 1;
+    while (idx > 0) { const m = (idx - 1) % 26; s = String.fromCharCode(65 + m) + s; idx = Math.floor((idx - 1) / 26); }
+    return s;
+  };
+  let definedNamesXml = '<definedNames>';
+  listCols.forEach((c, i) => {
+    const col = colLetterFromIndex(i);
+    definedNamesXml += `<definedName name="${c.header}">Lists!$${col}$2:$${col}$${1 + c.values.length}</definedName>`;
+  });
+  definedNamesXml += '</definedNames>';
+  workbookXml = workbookXml.includes('<calcPr')
+    ? workbookXml.replace('<calcPr', definedNamesXml + '<calcPr')
+    : workbookXml.replace('</workbook>', definedNamesXml + '</workbook>');
+  zip.file('xl/workbook.xml', workbookXml);
+
+  // Data validations on the Students sheet.
+  let sheetXml = await zip.file(studentsPath).async('string');
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const MAX_ROW = 2000; // generous headroom for large bulk uploads
+  const { pathway: PC, track: TC, combo: CC } = colLetters;
+  const dv = [];
+  dv.push(`<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" sqref="${PC}2:${PC}${MAX_ROW}"><formula1>Pathways</formula1></dataValidation>`);
+  dv.push(`<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" sqref="${TC}2:${TC}${MAX_ROW}"><formula1>${esc(`INDIRECT("Tracks_"&$${PC}2)`)}</formula1></dataValidation>`);
+  dv.push(`<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" sqref="${CC}2:${CC}${MAX_ROW}"><formula1>${esc(`INDIRECT("Combos_"&$${PC}2&"_"&SUBSTITUTE(SUBSTITUTE($${TC}2,"&","AND")," ","_"))`)}</formula1></dataValidation>`);
+  const dataValidationsXml = `<dataValidations count="${dv.length}">${dv.join('')}</dataValidations>`;
+
+  const insertBeforeTags = ['<hyperlinks','<printOptions','<pageMargins','<pageSetup','<headerFooter','<rowBreaks','<colBreaks','<customProperties','<cellWatches','<ignoredErrors','<smartTags','<drawing','<legacyDrawing','<tableParts','<extLst'];
+  let inserted = false;
+  for (const tag of insertBeforeTags) {
+    if (sheetXml.includes(tag)) { sheetXml = sheetXml.replace(tag, dataValidationsXml + tag); inserted = true; break; }
+  }
+  if (!inserted) sheetXml = sheetXml.replace('</worksheet>', dataValidationsXml + '</worksheet>');
+  zip.file(studentsPath, sheetXml);
+
+  return await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 
 function exportStudentsExcel() { exportFilteredStudentsExcel(); }
@@ -13212,6 +13351,40 @@ function getSchoolSubjectsForPathway(pathwayId) {
     return true;
   });
   return { core, elective: filteredElective };
+}
+
+// Sanitize a track name into a token usable inside an Excel defined-name
+// (letters/digits/underscore only), e.g. "Humanities & Business Studies" -> "Humanities_AND_Business_Studies"
+function sanitizeTrackToken(track) {
+  return String(track).replace(/&/g, 'AND').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+}
+
+// Returns the comma-joined subject-code combination strings (e.g. "BIO,CHE,PHY") that the
+// school actually offers for a given pathway + track — i.e. respects settings.subjectCombinations
+// (and settings.customCombinations for the "My Custom Combinations" pseudo-track). Falls back to
+// every official combination for that track when the school hasn't configured combinations yet,
+// matching the same backward-compat behaviour as getSchoolSubjectsForPathway().
+function getSchoolComboStringsForTrack(pathwayId, track) {
+  const enabled = (settings.subjectCombinations && settings.subjectCombinations[pathwayId]) || [];
+  let comboStrings;
+  if (track === 'My Custom Combinations') {
+    const customList = (settings.customCombinations && settings.customCombinations[pathwayId]) || [];
+    comboStrings = customList.map(c => c.subs.join(','));
+  } else {
+    comboStrings = CBC_COMBINATIONS.filter(c => c.pw === pathwayId && c.track === track).map(c => c.subs.join(','));
+  }
+  if (!enabled.length) return comboStrings; // not configured yet — show all as fallback
+  return comboStrings.filter(cs => enabled.includes(cs));
+}
+
+// Returns the tracks (official + "My Custom Combinations" if used) for a pathway that actually
+// have at least one school-offered combination — i.e. what should appear in a Track dropdown
+// once a Pathway has been picked.
+function getOfferedTracksForPathway(pathwayId) {
+  const baseTracks = PATHWAY_TRACKS[pathwayId] || [];
+  const hasCustom = ((settings.customCombinations && settings.customCombinations[pathwayId]) || []).length > 0;
+  const allTracks = hasCustom ? [...baseTracks, 'My Custom Combinations'] : baseTracks;
+  return allTracks.filter(t => getSchoolComboStringsForTrack(pathwayId, t).length > 0);
 }
 
 function isSubjectCombinationConfigured() {
