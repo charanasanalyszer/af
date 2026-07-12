@@ -10548,6 +10548,17 @@ function renderSummaryAnalytics() {
 }
 
 // ═══════════════ STUDENTS CRUD ═══════════════
+// ── Students list: persistent filter + pagination state ───────────────────
+// Kept outside renderStudents() so sorting, add/edit/delete, and page nav
+// all agree on what's currently filtered/shown without re-reading the DOM
+// or losing the user's place.
+const stuListState = { filter:'', gender:'', classId:'', streamId:'', pathway:'', track:'', page:1, pageSize:100 };
+let _stuFilterDebounceTimer = null;
+function debouncedApplyStudentFilters() {
+  clearTimeout(_stuFilterDebounceTimer);
+  _stuFilterDebounceTimer = setTimeout(applyStudentFilters, 250);
+}
+
 function applyStudentFilters() {
   const text     = (document.getElementById('stuSearchBox')?.value || '').toLowerCase();
   const gender   = document.getElementById('stuGenderFilter')?.value || '';
@@ -10555,11 +10566,12 @@ function applyStudentFilters() {
   const streamId = document.getElementById('stuStreamFilter')?.value || '';
   const pathway  = document.getElementById('stuPathwayFilter')?.value || '';
   const track    = document.getElementById('stuTrackFilter')?.value  || '';
+  Object.assign(stuListState, { filter:text, gender, classId, streamId, pathway, track, page:1 });
   // Show "Clear Filters" button if any filter is active
   const anyActive = text || gender || classId || streamId || pathway || track;
   const clearBtn = document.getElementById('stuClearFiltersBtn');
   if (clearBtn) clearBtn.style.display = anyActive ? '' : 'none';
-  renderStudents(text, gender, classId, streamId, pathway, track);
+  renderStudents();
 }
 
 function clearStudentFilters() {
@@ -10567,6 +10579,12 @@ function clearStudentFilters() {
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const clearBtn = document.getElementById('stuClearFiltersBtn');
   if (clearBtn) clearBtn.style.display = 'none';
+  Object.assign(stuListState, { filter:'', gender:'', classId:'', streamId:'', pathway:'', track:'', page:1 });
+  renderStudents();
+}
+
+function goToStudentPage(n) {
+  stuListState.page = n;
   renderStudents();
 }
 
@@ -10605,23 +10623,48 @@ function populateStudentFilterDropdowns() {
 }
 
 function renderStudents(filter='', genderFilter='', classFilter='', streamFilter='', pathwayFilter='', trackFilter='') {
+  // Back-compat: if a caller still passes explicit filter args, fold them into
+  // the persistent state (nothing in this codebase does anymore, but this
+  // keeps any external/legacy call site from silently breaking).
+  if (filter||genderFilter||classFilter||streamFilter||pathwayFilter||trackFilter) {
+    Object.assign(stuListState, { filter, gender:genderFilter, classId:classFilter, streamId:streamFilter, pathway:pathwayFilter, track:trackFilter });
+  }
+  const { filter:text, gender, classId, streamId, pathway, track, pageSize } = stuListState;
+
   let list = [...students];
-  if (filter)        list = list.filter(s=>s.name.toLowerCase().includes(filter)||s.adm.toLowerCase().includes(filter));
-  if (genderFilter)  list = list.filter(s=>s.gender===genderFilter);
-  if (classFilter)   list = list.filter(s=>s.classId===classFilter);
-  if (streamFilter)  list = list.filter(s=>s.streamId===streamFilter);
-  if (pathwayFilter) list = list.filter(s=>s.pathway===pathwayFilter);
-  if (trackFilter)   list = list.filter(s=>s.track===trackFilter);
+  if (text)     list = list.filter(s=>s.name.toLowerCase().includes(text)||s.adm.toLowerCase().includes(text));
+  if (gender)   list = list.filter(s=>s.gender===gender);
+  if (classId)  list = list.filter(s=>s.classId===classId);
+  if (streamId) list = list.filter(s=>s.streamId===streamId);
+  if (pathway)  list = list.filter(s=>s.pathway===pathway);
+  if (track)    list = list.filter(s=>s.track===track);
+
+  // O(1) lookup maps built once per render instead of calling .find() (O(n))
+  // inside the per-row loop below — this is what made large rosters slow.
+  const clsMap = new Map(classes.map(c=>[c.id,c]));
+  const strMap = new Map(streams.map(s=>[s.id,s]));
+  const subMap = new Map(subjects.map(s=>[s.id,s]));
+
   // Apply column sort
   const sc=sortState.students.col, sd=sortState.students.dir;
   list.sort((a,b)=>{
     let va,vb;
-    if(sc==='class'){va=classes.find(c=>c.id===a.classId)?.name||'';vb=classes.find(c=>c.id===b.classId)?.name||'';}
-    else if(sc==='stream'){va=streams.find(s=>s.id===a.streamId)?.name||'';vb=streams.find(s=>s.id===b.streamId)?.name||'';}
+    if(sc==='class'){va=clsMap.get(a.classId)?.name||'';vb=clsMap.get(b.classId)?.name||'';}
+    else if(sc==='stream'){va=strMap.get(a.streamId)?.name||'';vb=strMap.get(b.streamId)?.name||'';}
     else{va=a[sc]||'';vb=b[sc]||'';}
     va=String(va).toLowerCase();vb=String(vb).toLowerCase();
     return sd==='asc'?va.localeCompare(vb):vb.localeCompare(va);
   });
+
+  // ── Pagination: only build DOM for one page's worth of rows ─────────────
+  const total = list.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (stuListState.page > totalPages) stuListState.page = totalPages;
+  if (stuListState.page < 1) stuListState.page = 1;
+  const page = stuListState.page;
+  const startIdx = (page - 1) * pageSize;
+  const pageList = list.slice(startIdx, startIdx + pageSize);
+
   // Inject sortable header row
   const senior = isSeniorSchool();
   const stuThead=document.querySelector('#stuTbl thead tr');
@@ -10637,10 +10680,10 @@ function renderStudents(filter='', genderFilter='', classFilter='', streamFilter
     thSort('students','contact','Contact')+
     '<th>Subjects</th><th>Actions</th>';
   const colSpan = senior ? 12 : 11;
-  document.getElementById('stuBody').innerHTML = list.map((s,i)=>{
-    const cls   = classes.find(c=>c.id===s.classId);
-    const str   = streams.find(st=>st.id===s.streamId);
-    const subs  = (s.subjectIds||[]).map(sid=>{ const sub=subjects.find(x=>x.id===sid); return sub?`<span class="badge b-teal" style="font-size:.65rem">${sub.code}</span>`:''; }).join(' ');
+  document.getElementById('stuBody').innerHTML = pageList.map((s,i)=>{
+    const cls   = clsMap.get(s.classId);
+    const str   = strMap.get(s.streamId);
+    const subs  = (s.subjectIds||[]).map(sid=>{ const sub=subMap.get(sid); return sub?`<span class="badge b-teal" style="font-size:.65rem">${sub.code}</span>`:''; }).join(' ');
     const _isT  = currentUser && currentUser.role === 'teacher';
     const pw    = senior ? getPathway(s.pathway) : null;
     const pathwayCell = senior
@@ -10651,7 +10694,7 @@ function renderStudents(filter='', genderFilter='', classFilter='', streamFilter
       : '';
     return `<tr>
       <td>${_isT ? '' : `<input type="checkbox" class="stu-sel-chk" data-id="${s.id}" onchange="onStuSelChange()"/>`}</td>
-      <td>${i+1}</td>
+      <td>${startIdx+i+1}</td>
       <td style="font-family:var(--mono);font-size:.8rem">${s.adm}</td>
       <td><strong>${s.name}</strong></td>
       <td><span class="badge ${s.gender==='M'?'b-m':'b-f'}">${s.gender==='M'?'Male':'Female'}</span></td>
@@ -10669,6 +10712,26 @@ function renderStudents(filter='', genderFilter='', classFilter='', streamFilter
   const saChk = document.getElementById('stuSelectAll');
   if (saChk) { saChk.checked = false; saChk.indeterminate = false; }
   updateBulkDeleteUI();
+  renderStudentPagination(total, totalPages, page, startIdx, pageList.length);
+}
+
+function renderStudentPagination(total, totalPages, page, startIdx, shownCount) {
+  const el = document.getElementById('stuPagination');
+  if (!el) return;
+  if (!total) { el.innerHTML = ''; return; }
+  const from = total ? startIdx + 1 : 0;
+  const to   = startIdx + shownCount;
+  const btn = (label, target, disabled, extraStyle='') =>
+    `<button class="btn btn-outline btn-sm" style="padding:.25rem .6rem;${extraStyle}" ${disabled?'disabled':''} onclick="goToStudentPage(${target})">${label}</button>`;
+  el.innerHTML = `
+    <span>Showing <strong>${from}–${to}</strong> of <strong>${total}</strong> student(s)</span>
+    <div style="display:flex;align-items:center;gap:.4rem">
+      ${btn('« First', 1, page<=1)}
+      ${btn('‹ Prev', page-1, page<=1)}
+      <span style="padding:0 .4rem">Page ${page} of ${totalPages}</span>
+      ${btn('Next ›', page+1, page>=totalPages)}
+      ${btn('Last »', totalPages, page>=totalPages)}
+    </div>`;
 }
 
 function filterStudentsGender(g) { applyStudentFilters(); }

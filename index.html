@@ -1136,7 +1136,7 @@
         <div class="ctbar">
           <h3>All Students</h3>
           <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center">
-            <div class="search-box"><span><i class="fa-solid fa-magnifying-glass"></i></span><input type="text" id="stuSearchBox" placeholder="Search name/adm..." oninput="applyStudentFilters()"/></div>
+            <div class="search-box"><span><i class="fa-solid fa-magnifying-glass"></i></span><input type="text" id="stuSearchBox" placeholder="Search name/adm..." oninput="debouncedApplyStudentFilters()"/></div>
             <select id="stuGenderFilter" style="height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem" onchange="applyStudentFilters()">
               <option value="">All Genders</option><option value="M">Male</option><option value="F">Female</option>
             </select>
@@ -1174,6 +1174,7 @@
             <tbody id="stuBody"></tbody>
           </table>
         </div>
+        <div id="stuPagination" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-top:.6rem;font-size:.82rem;color:var(--muted)"></div>
       </div>
 
       <!-- Archived Students -->
