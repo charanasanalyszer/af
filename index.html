@@ -707,6 +707,7 @@
                 <button id="umViewSubject" class="btn btn-sm" onclick="setUmView('subject',this)" style="border-radius:0;border:none;background:var(--primary);color:#fff;font-size:.75rem;padding:.28rem .75rem"><i class="fa-solid fa-list"></i> By Subject</button>
                 <button id="umViewStudent" class="btn btn-sm" onclick="setUmView('student',this)" style="border-radius:0;border:none;background:transparent;color:var(--primary);font-size:.75rem;padding:.28rem .75rem;border-left:1.5px solid var(--border)"><i class="fa-solid fa-user-pen"></i> By Learner</button>
               </div>
+              <button class="btn btn-outline btn-sm" id="umAddStuBtn" onclick="umOpenAddStudentModal()" style="border-color:#16a34a;color:#16a34a"><i class="fa-solid fa-user-plus"></i> Add Learner</button>
               <button class="btn btn-outline btn-sm" onclick="saveAllMarks()"><i class="fa-solid fa-floppy-disk"></i> Save All</button>
               <button class="btn btn-outline btn-sm" onclick="exportMarksExcel()">⬇ Excel</button>
               <button class="btn btn-outline btn-sm" id="umManualRawDownload" onclick="adminDownloadRawMarks(document.getElementById('umExam').value||undefined)" style="display:none;border-color:#0d9488;color:#0d9488">⬇ Raw Marks</button>
@@ -1737,6 +1738,9 @@
           <button class="btn btn-outline btn-sm" onclick="cancelSubEdit()"><i class="fa-solid fa-xmark" style="margin-right:.3rem"></i>Cancel</button>
           <button id="seniorSubjectSeedBtn" class="btn btn-outline btn-sm" style="display:none;border-color:#8b5cf6;color:#8b5cf6" onclick="showSeniorSubjectPanel()">
             <i class="fa-solid fa-wand-magic-sparkles"></i> Seed CBC Subjects
+          </button>
+          <button id="primarySubjectSeedBtn" class="btn btn-outline btn-sm" style="display:none;border-color:#0ea5e9;color:#0ea5e9" onclick="showPrimarySubjectPanel()">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Seed Primary Subjects
           </button>
         </div>
       </div>

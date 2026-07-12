@@ -2590,7 +2590,7 @@ function platSetSchoolLevel(id, level) {
   if (school.schoolLevel === level) return;
   school.schoolLevel = level;
   savePlatform();
-  showToast(`School level set to ${level === 'senior' ? 'Senior School' : 'Junior School'} <i class="fa-solid fa-check"></i>`, 'success');
+  showToast(`School level set to ${level === 'senior' ? 'Senior School' : level === 'primary' ? 'Primary School' : 'Junior School'} <i class="fa-solid fa-check"></i>`, 'success');
   renderPlatformSchoolMgmtList();
   try { renderSettingsSchoolList(); } catch(e) {}
   // If we're currently sitting inside this school's data (e.g. admin flipped it right
@@ -2625,6 +2625,7 @@ function renderPlatformSchoolMgmtList() {
         <div style="margin-top:.35rem;display:flex;align-items:center;gap:.4rem" onclick="event.stopPropagation()">
           <span style="font-size:.72rem;color:var(--muted)">School Level:</span>
           <select onchange="platSetSchoolLevel('${s.id}', this.value)" style="font-size:.72rem;font-weight:600;padding:.15rem .4rem;border-radius:6px;border:1px solid var(--border);background:var(--surface)">
+            <option value="primary" ${s.schoolLevel==='primary'?'selected':''}>Primary School</option>
             <option value="junior" ${(s.schoolLevel||'junior')==='junior'?'selected':''}>Junior School</option>
             <option value="senior" ${s.schoolLevel==='senior'?'selected':''}>Senior School</option>
           </select>
@@ -4648,10 +4649,14 @@ function defaultSettings() {
 
 // ═══════════════ SEED DATA ═══════════════
 function seedData() {
-  const senior = isSeniorSchool();
+  const senior  = isSeniorSchool();
+  const primary = isPrimarySchool();
   if (!classes.length) {
     classes = senior
       ? [ { id:'cls1', name:'Grade 10', level:'10' }, { id:'cls2', name:'Grade 11', level:'11' }, { id:'cls3', name:'Grade 12', level:'12' } ]
+      : primary
+      ? [ { id:'cls1', name:'Grade 1', level:'1' }, { id:'cls2', name:'Grade 2', level:'2' }, { id:'cls3', name:'Grade 3', level:'3' },
+          { id:'cls4', name:'Grade 4', level:'4' }, { id:'cls5', name:'Grade 5', level:'5' }, { id:'cls6', name:'Grade 6', level:'6' } ]
       : [ { id:'cls1', name:'Grade 7',  level:'7'  }, { id:'cls2', name:'Grade 8',  level:'8'  }, { id:'cls3', name:'Grade 9', level:'9' } ];
     save(K.classes, classes);
   }
@@ -4661,9 +4666,10 @@ function seedData() {
     save(K.streams, streams);
   }
   if (!subjects.length) {
-    if (senior) {
-      // Senior schools get no default subjects. Compulsory (core) subjects are seeded
-      // automatically once the school selects its offered pathways in Settings.
+    if (senior || primary) {
+      // Senior and Primary schools get no default subjects seeded up front. Senior schools
+      // seed compulsory (core) subjects once pathways are chosen; Primary schools seed the
+      // rationalised Lower (Grade 1-3) / Upper (Grade 4-6) subject sets from Settings.
       subjects = [];
       save(K.subjects, subjects);
     } else {
@@ -5904,7 +5910,24 @@ function umConfirmOutOf() {
   if (pctHeader) pctHeader.style.display = showPct ? '' : 'none';
   if (maxLabel)  maxLabel.textContent = `(Max: ${examMax})`;
 
-  if (empty) empty.style.display = 'none';
+  umRenderMarksRows(examId, subjectId, streamId, examMax, showPct);
+}
+
+// Builds/refreshes the marks-entry rows for a subject+stream. Also locks in
+// subject enrollment: any learner shown here (because a teacher is entering
+// marks for them) is added to the subject's roster (sub.studentIds) so that
+// from now on only enrolled learners are filtered in for that subject.
+// New admissions can be added via umOpenAddStudentModal().
+function umRenderMarksRows(examId, subjectId, streamId, examMaxArg, showPctArg) {
+  const body      = document.getElementById('umBody');
+  const empty     = document.getElementById('umEmpty');
+  if (!body || !empty) return;
+
+  const sub = subjects.find(s => s.id === subjectId);
+  if (!sub) return;
+  const examMax = examMaxArg || sub.max || 100;
+  const showPct = showPctArg !== undefined ? showPctArg : examMax !== 100;
+
   body.innerHTML = '';
 
   // Determine if current user is a teacher (hide grade/points from teachers)
@@ -5915,7 +5938,9 @@ function umConfirmOutOf() {
     el.style.display = isTeacher ? 'none' : '';
   });
 
-  // Get enrolled students for this subject, filtered by selected stream
+  // Get enrolled students for this subject, filtered by selected stream.
+  // If nobody has been enrolled yet, default to everyone in the stream —
+  // once marks are entered for them below, they get locked in as the roster.
   const enrolledIds = sub.studentIds && sub.studentIds.length ? sub.studentIds : students.map(s=>s.id);
   let enrolled = students.filter(s => enrolledIds.includes(s.id));
 
@@ -5926,7 +5951,15 @@ function umConfirmOutOf() {
   // Always sort alphabetically
   enrolled.sort((a,b) => a.name.localeCompare(b.name));
 
+  // Lock this list in as the subject's enrolled roster going forward.
+  const newlyEnrolled = enrolled.map(s => s.id).filter(id => !(sub.studentIds||[]).includes(id));
+  if (newlyEnrolled.length) {
+    sub.studentIds = [...(sub.studentIds||[]), ...newlyEnrolled];
+    save(K.subjects, subjects);
+  }
+
   if (!enrolled.length) { empty.textContent='No students found in this stream for the selected subject.'; empty.style.display=''; return; }
+  empty.style.display = 'none';
 
   enrolled.forEach((stu, idx) => {
     const existing = marks.find(m => m.examId===examId && m.studentId===stu.id && m.subjectId===subjectId);
@@ -5966,6 +5999,70 @@ function umConfirmOutOf() {
     `;
     body.appendChild(tr);
   });
+}
+
+// Lets a teacher enrol a learner (e.g. a new admission) into the currently
+// selected subject so they show up in the marks-entry list, even though the
+// subject roster has already been locked in from a previous marks-entry session.
+function umOpenAddStudentModal() {
+  const examId    = document.getElementById('umExam')?.value;
+  const subjectId = document.getElementById('umSubject')?.value;
+  const streamId  = document.getElementById('umStream')?.value;
+  if (!examId || !subjectId || !streamId) { showToast('Select exam, class, stream and subject first','error'); return; }
+
+  const sub = subjects.find(s => s.id === subjectId);
+  if (!sub) return;
+  const enrolledIds = sub.studentIds || [];
+  const candidates  = students
+    .filter(s => s.streamId === streamId && !enrolledIds.includes(s.id))
+    .sort((a,b) => a.name.localeCompare(b.name));
+
+  if (!candidates.length) { showToast('Every learner in this stream is already enrolled in this subject','info'); return; }
+
+  const optionsHtml = candidates.map(s => `<option value="${s.id}">${s.name} (${s.adm})</option>`).join('');
+  showModal(`<i class="fa-solid fa-user-plus"></i> Add Learner — ${sub.name}`,
+    `<p style="font-size:.82rem;color:var(--muted);margin-bottom:.75rem">
+       Select a learner from this stream to enrol in <strong>${sub.name}</strong>. They'll appear in the marks list immediately.
+     </p>
+     <select id="umAddStuSelect" style="width:100%;padding:.55rem;border:1.5px solid var(--border);border-radius:8px;font-size:.85rem">
+       ${optionsHtml}
+     </select>`,
+    [
+      { label:'Cancel', cls:'btn-outline', action:'closeModal()' },
+      { label:'Add Learner', cls:'btn-primary', action:'umConfirmAddStudent()' }
+    ]
+  );
+}
+
+function umConfirmAddStudent() {
+  const subjectId = document.getElementById('umSubject')?.value;
+  const examId    = document.getElementById('umExam')?.value;
+  const streamId  = document.getElementById('umStream')?.value;
+  const sel       = document.getElementById('umAddStuSelect');
+  const studentId = sel?.value;
+  if (!subjectId || !studentId) return;
+
+  const sub = subjects.find(s => s.id === subjectId);
+  const stu = students.find(s => s.id === studentId);
+  if (!sub || !stu) return;
+
+  if (!sub.studentIds) sub.studentIds = [];
+  if (!sub.studentIds.includes(studentId)) sub.studentIds.push(studentId);
+  if (!stu.subjectIds) stu.subjectIds = [];
+  if (!stu.subjectIds.includes(subjectId)) stu.subjectIds.push(subjectId);
+  save(K.subjects, subjects);
+  saveStudents();
+
+  closeModal();
+  showToast(`${stu.name} added to ${sub.name}`, 'success');
+
+  // Re-render the marks table with the newly added learner included.
+  const banner = document.getElementById('umOutOfBanner');
+  if (banner && banner.style.display !== 'none') {
+    loadUmStudents(); // out-of not confirmed yet this session — reset to that step
+  } else {
+    umRenderMarksRows(examId, subjectId, streamId);
+  }
 }
 
 function onMarkInput(inp) {
@@ -10756,6 +10853,11 @@ function saveStudent() {
     const savedStu = editId ? students.find(s=>s.id===editId) : students[students.length-1];
     if (savedStu) { autoEnrolCoreSubjects(savedStu); save(K.subjects, subjects); }
   }
+  // Auto-enrol in lower/upper band subjects (primary school)
+  if (isPrimarySchool()) {
+    const savedStu = editId ? students.find(s=>s.id===editId) : students[students.length-1];
+    if (savedStu) { autoEnrolPrimaryStudent(savedStu); save(K.subjects, subjects); }
+  }
   saveStudents(); cancelStuEdit(); renderStudents(); renderDashboard(); populateAllDropdowns(); renderArchivedStudents();
 }
 
@@ -12656,7 +12758,7 @@ function loadSettings() {
   document.getElementById('setTerm').value=s.term||'Term 1';
   document.getElementById('setYear').value=s.year||'2025';
   const slDisp = document.getElementById('setSchoolLevelDisplay');
-  if (slDisp) slDisp.value = isSeniorSchool() ? 'Senior School (STEM / Social Sciences / Arts)' : 'Junior School (No Pathways)';
+  if (slDisp) slDisp.value = isSeniorSchool() ? 'Senior School (STEM / Social Sciences / Arts)' : isPrimarySchool() ? 'Primary School (Lower Grade 1-3 / Upper Grade 4-6)' : 'Junior School (No Pathways)';
   document.getElementById('sbSchoolName').textContent=s.schoolName||'School';
   applySchoolLevelUI();
   // Global teacher restrictions (super admin only)
@@ -12703,14 +12805,26 @@ const PATHWAYS = [
   { id:'ss',     label:'Social Sciences',        color:'#10b981', icon:'fa-globe' },
   { id:'arts',   label:'Arts & Sports Science',  color:'#f59e0b', icon:'fa-palette' },
 ];
-function isSeniorSchool() {
+function getSchoolLevel() {
   // School level is set by the Platform Admin (on the school's account record), not by the
   // school itself. Fall back to settings.schoolLevel only for legacy data that predates this.
   if (currentSchoolId) {
     const rec = platformSchools.find(s => s.id === currentSchoolId);
-    if (rec && rec.schoolLevel) return rec.schoolLevel === 'senior';
+    if (rec && rec.schoolLevel) return rec.schoolLevel;
   }
-  return (settings.schoolLevel || 'junior') === 'senior';
+  return settings.schoolLevel || 'junior';
+}
+function isSeniorSchool()  { return getSchoolLevel() === 'senior';  }
+function isPrimarySchool() { return getSchoolLevel() === 'primary'; }
+function isJuniorSchool()  { return getSchoolLevel() === 'junior' || !getSchoolLevel(); }
+// Primary-only: is this class/grade in the lower band (Grade 1-3) or upper band (Grade 4-6)?
+function getPrimaryBandForClass(cls) {
+  if (!cls) return null;
+  const n = parseInt(String(cls.level || cls.name || '').replace(/\D/g,''));
+  if (!n) return null;
+  if (n >= 1 && n <= 3) return 'lower';
+  if (n >= 4 && n <= 6) return 'upper';
+  return null;
 }
 
 // A subject counts toward total/mean/grading unless the school has explicitly flagged it
@@ -14201,8 +14315,134 @@ function showSeniorSubjectPanel() {
 }
 function getPathway(id) { return PATHWAYS.find(p=>p.id===id) || null; }
 
+// ── CBC Rationalised Primary School Subject Catalogue ─────────────
+// Source: KICD / Ministry of Education — learning-area rationalisation circular
+// (Dec 2023, effective Term 1 2024): Lower Primary (Grade 1-3) capped at 7 learning
+// areas, Upper Primary (Grade 4-6) capped at 8.
+const PRIMARY_SUBJECTS = {
+  lower: [ // Grade 1 – 3 (7 learning areas)
+    { name:'Indigenous Language Activities', code:'ILA', cat:'Languages' },
+    { name:'Kiswahili Language Activities',  code:'KIS', cat:'Languages' },
+    { name:'English Language Activities',    code:'ENG', cat:'Languages' },
+    { name:'Mathematical Activities',        code:'MAT', cat:'Core' },
+    { name:'Religious Education Activities', code:'REA', cat:'Core' },
+    { name:'Environmental Activities',       code:'ENV', cat:'Core' },     // incl. Hygiene & Nutrition
+    { name:'Creative Activities',            code:'CRA', cat:'Elective' },
+  ],
+  upper: [ // Grade 4 – 6 (8 learning areas)
+    { name:'English',                   code:'ENG', cat:'Languages' },
+    { name:'Kiswahili',                 code:'KIS', cat:'Languages' },
+    { name:'Mathematics',               code:'MTH', cat:'Core' },
+    { name:'Religious Education',       code:'REL', cat:'Core' },
+    { name:'Agriculture and Nutrition', code:'AGN', cat:'Technical' },     // merged Agriculture + Home Science
+    { name:'Social Studies',            code:'SST', cat:'Core' },
+    { name:'Creative Arts',             code:'CRA', cat:'Elective' },      // merged Art & Craft + Music + PHE
+    { name:'Science and Technology',    code:'SCT', cat:'Core' },
+  ],
+};
+const PRIMARY_BANDS = [
+  { id:'lower', label:'Lower Primary (Grade 1–3)', color:'#0ea5e9', icon:'fa-seedling' },
+  { id:'upper', label:'Upper Primary (Grade 4–6)',  color:'#7c3aed', icon:'fa-graduation-cap' },
+];
+function getPrimarySubjectsForBand(band) { return PRIMARY_SUBJECTS[band] || []; }
+
+// Seed the rationalised subject set for a primary band. Returns newly-created subjects.
+function seedPrimarySubjectsForBand(band) {
+  const list = getPrimarySubjectsForBand(band);
+  const added = [];
+  list.forEach(s => {
+    if (!subjects.find(x => x.code === s.code && x.primaryBand === band)) {
+      const newSub = { id: uid(), name: s.name, code: s.code, max: 100,
+        category: s.cat, teacherId: '', studentIds: [],
+        primaryBand: band, examinable: true };
+      subjects.push(newSub);
+      added.push(newSub);
+    }
+  });
+  if (added.length) {
+    save(K.subjects, subjects);
+    populateAllDropdowns();
+    renderSubjects();
+    autoEnrolPrimarySubjectsForBand(band);
+  }
+  return added;
+}
+
+// Enrol every current student whose class falls in the given band into that band's subjects.
+function autoEnrolPrimarySubjectsForBand(band) {
+  if (!isPrimarySchool()) return;
+  const bandSubs = subjects.filter(s => s.primaryBand === band);
+  if (!bandSubs.length) return;
+  let changed = false;
+  students.forEach(stu => {
+    const cls = classes.find(c => c.id === stu.classId);
+    if (!cls || getPrimaryBandForClass(cls) !== band) return;
+    bandSubs.forEach(sub => {
+      if (!sub.studentIds) sub.studentIds = [];
+      if (!sub.studentIds.includes(stu.id)) { sub.studentIds.push(stu.id); changed = true; }
+      if (!stu.subjectIds) stu.subjectIds = [];
+      if (!stu.subjectIds.includes(sub.id)) { stu.subjectIds.push(sub.id); changed = true; }
+    });
+  });
+  if (changed) { save(K.subjects, subjects); saveStudents(); }
+}
+
+// Auto-enrol a single newly-added primary student into their band's subjects.
+// Mirrors autoEnrolCoreSubjects() for Senior School; called from the same save flow.
+function autoEnrolPrimaryStudent(stu) {
+  if (!isPrimarySchool() || !stu) return;
+  const cls  = classes.find(c => c.id === stu.classId);
+  const band = getPrimaryBandForClass(cls);
+  if (!band) return;
+  subjects.filter(s => s.primaryBand === band).forEach(sub => {
+    if (!sub.studentIds) sub.studentIds = [];
+    if (!sub.studentIds.includes(stu.id)) sub.studentIds.push(stu.id);
+    if (!stu.subjectIds) stu.subjectIds = [];
+    if (!stu.subjectIds.includes(sub.id)) stu.subjectIds.push(sub.id);
+  });
+}
+
+// Show the primary subject seeding panel (mirrors showSeniorSubjectPanel)
+function showPrimarySubjectPanel() {
+  const existing = subjects.filter(s => s.primaryBand).map(s => s.primaryBand + ':' + s.code);
+  const cards = PRIMARY_BANDS.map(b => {
+    const list = getPrimarySubjectsForBand(b.id);
+    const newCount = list.filter(s => !existing.includes(b.id + ':' + s.code)).length;
+    return `<div style="border:1.5px solid ${b.color}40;border-radius:10px;padding:.85rem 1rem;background:${b.color}08;flex:1;min-width:240px">
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">
+        <span style="width:28px;height:28px;border-radius:50%;background:${b.color}20;display:flex;align-items:center;justify-content:center">
+          <i class="fa-solid ${b.icon}" style="color:${b.color};font-size:.8rem"></i>
+        </span>
+        <strong style="font-size:.88rem">${b.label}</strong>
+      </div>
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:.65rem">
+        ${list.length} learning areas
+        ${newCount > 0 ? `<span style="color:#f59e0b;font-weight:600"> (${newCount} new)</span>` : '<span style="color:#10b981;font-weight:600"> ✓ all seeded</span>'}
+      </div>
+      <div style="font-size:.7rem;color:var(--muted);margin-bottom:.5rem;line-height:1.5">
+        ${list.map(s=>`<span style="background:${b.color}15;border-radius:4px;padding:.05rem .35rem;margin:.1rem;display:inline-block">${s.name}</span>`).join('')}
+      </div>
+      ${newCount > 0 ? `<button onclick="seedPrimarySubjectsForBand('${b.id}');closeModal();showToast('${b.label} subjects seeded','success')"
+        class="btn btn-sm" style="background:${b.color};color:#fff;border:none;width:100%;margin-top:.3rem;font-size:.78rem">
+        <i class="fa-solid fa-wand-magic-sparkles"></i> Seed ${b.label} Subjects</button>`
+      : ''}
+    </div>`;
+  }).join('');
+
+  showModal('<i class="fa-solid fa-wand-magic-sparkles"></i> Seed Primary School Subjects',
+    `<p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">
+      Automatically add the rationalised CBC learning areas (2024 KICD review) for Lower and Upper Primary. Students already placed in a matching class/grade are enrolled automatically.
+    </p>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem">${cards}</div>
+    <button onclick="['lower','upper'].forEach(b=>seedPrimarySubjectsForBand(b));closeModal();showToast('All primary subjects seeded','success')"
+      class="btn btn-primary btn-sm" style="width:100%"><i class="fa-solid fa-layer-group"></i> Seed BOTH Bands at Once</button>`,
+    [{ label:'Close', cls:'btn-outline', action:'closeModal()' }]
+  );
+}
+
 function applySchoolLevelUI() {
-  const senior = isSeniorSchool();
+  const senior  = isSeniorSchool();
+  const primary = isPrimarySchool();
   // Show/hide Pathway column in student table header (re-rendered by renderStudents)
   renderStudents();
   // Show/hide pathway + track filter
@@ -14223,6 +14463,8 @@ function applySchoolLevelUI() {
   // Show/hide seed button
   const ssb = document.getElementById('seniorSubjectSeedBtn');
   if (ssb) ssb.style.display = senior ? '' : 'none';
+  const psb = document.getElementById('primarySubjectSeedBtn');
+  if (psb) psb.style.display = primary ? '' : 'none';
   // Which pathways this school offers (Single / Double / Triple Pathway)
   try { renderPathwaysOfferedUI(); } catch(e) {}
   refreshPathwayDropdowns();
@@ -21855,6 +22097,7 @@ function renderSettingsSchoolList() {
         <div style="margin-top:.3rem;display:flex;align-items:center;gap:.4rem">
           <span style="font-size:.7rem;color:var(--muted)">Level:</span>
           <select onchange="platSetSchoolLevel('${s.id}', this.value)" style="font-size:.7rem;font-weight:600;padding:.1rem .35rem;border-radius:6px;border:1px solid var(--border);background:var(--surface)">
+            <option value="primary" ${s.schoolLevel==='primary'?'selected':''}>Primary School</option>
             <option value="junior" ${(s.schoolLevel||'junior')==='junior'?'selected':''}>Junior School</option>
             <option value="senior" ${s.schoolLevel==='senior'?'selected':''}>Senior School</option>
           </select>
