@@ -4825,6 +4825,9 @@ function campusFilterExams(list) {
   if (!activeCampusLevel) return list;
   return list.filter(e => !e.schoolLevels || !e.schoolLevels.length || e.schoolLevels.includes(activeCampusLevel));
 }
+function campusFilterSubjects(list) {
+  return activeCampusLevel ? list.filter(s => getSubjectSchoolLevel(s) === activeCampusLevel) : [...list];
+}
 function selectActiveCampus(level) {
   activeCampusLevel = level;
   try { localStorage.setItem(campusStorageKey(), level); } catch (e) {}
@@ -11857,7 +11860,7 @@ function deleteTeacher(id) {
 // ═══════════════ SUBJECTS CRUD ═══════════════
 function renderSubjects() {
   const sc=sortState.subjects.col, sd=sortState.subjects.dir;
-  const list=[...subjects].sort((a,b)=>{
+  const list=campusFilterSubjects(subjects).sort((a,b)=>{
     let va,vb;
     if(sc==='teacher'){va=teachers.find(t=>t.id===a.teacherId)?.name||'';vb=teachers.find(t=>t.id===b.teacherId)?.name||'';}
     else if(sc==='enrolled'){va=(a.studentIds||[]).length;vb=(b.studentIds||[]).length;return sd==='asc'?va-vb:vb-va;}
