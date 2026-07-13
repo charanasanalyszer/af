@@ -4844,6 +4844,29 @@ function campusExamSubjectIds(exam) {
     return s && getSubjectSchoolLevel(s) === activeCampusLevel;
   });
 }
+// Scopes an exam's subjectIds to ONE specific class — more precise than
+// campusExamSubjectIds() because (a) it doesn't depend on the account-wide
+// campus toggle having been set, and (b) for Primary it also tells Lower
+// Primary (Grade 1-3) subjects apart from Upper Primary (Grade 4-6) ones,
+// which campus-level alone can't distinguish (both are just "primary").
+// Falls back to campusExamSubjectIds() if no class is given.
+function examSubjectIdsForClass(exam, cls) {
+  const ids = (exam && exam.subjectIds) || [];
+  if (!cls) return campusExamSubjectIds(exam);
+  const level = getClassSchoolLevel(cls);
+  if (!level) return campusExamSubjectIds(exam);
+  const band = level === 'primary' ? getPrimaryBandForClass(cls) : null;
+  return ids.filter(sid => {
+    const s = subjects.find(x => x.id === sid);
+    if (!s) return false;
+    if (level === 'primary') {
+      // Primary subjects must be tagged for this class's own band (lower/upper) —
+      // a Grade 5 (upper) class must never see Grade 1-3 (lower) subjects, or vice versa.
+      return !!s.primaryBand && (!band || s.primaryBand === band);
+    }
+    return getSubjectSchoolLevel(s) === level;
+  });
+}
 function selectActiveCampus(level) {
   activeCampusLevel = level;
   try { localStorage.setItem(campusStorageKey(), level); } catch (e) {}
@@ -7524,9 +7547,16 @@ function buildMeritData(examId, filterStreamId, filterClassId, filterPathwayId) 
   const sourceExamObjs = isConsolidated ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
   const examMarks = isConsolidated ? [] : marks.filter(m => m.examId === examId);
 
-  // Scope this exam's subjects to the active campus so a multi-campus exam's
-  // other-campus subjects never enter scoring, totals, or "incomplete" checks.
-  const scopedSubjectIds = campusExamSubjectIds(exam);
+  // Determine effective classId restriction
+  const effectiveClassId = filterClassId || exam.classId || null;
+
+  // Scope this exam's subjects to the specific class (level + primary band) when
+  // one is known, else the active campus toggle — so a multi-campus/multi-band
+  // exam's other-campus or other-band subjects never enter scoring, totals, or
+  // "incomplete" checks.
+  const scopedSubjectIds = effectiveClassId
+    ? examSubjectIdsForClass(exam, classes.find(c => c.id === effectiveClassId))
+    : campusExamSubjectIds(exam);
 
   // ── CBC Senior School: use best-7 scoring (4 core + 3 best electives) ──
   const seniorMode = isSeniorSchool();
@@ -7535,8 +7565,6 @@ function buildMeritData(examId, filterStreamId, filterClassId, filterPathwayId) 
   // ── Read ranking preference from UI (fallback: 'points') ─────────────
   const rankBy = document.getElementById('mlRankBy')?.value || 'points';
 
-  // Determine effective classId restriction
-  const effectiveClassId = filterClassId || exam.classId || null;
 
   let stuList = students.filter(s => {
     if (effectiveClassId && s.classId !== effectiveClassId) return false;
@@ -7725,9 +7753,17 @@ function buildSubjectAnalysisHTML(examId, scopeStudentIds) {
     ? students.filter(s => scopeStudentIds.includes(s.id))
     : students;
 
+  // Scope subjects to the single class (level + primary band) this analysis
+  // covers, when the scope is a single class/stream — otherwise a Lower
+  // Primary stream's "incomplete" check and subject rows would incorrectly
+  // pull in Upper Primary's subjects (and vice versa), since both are just
+  // "primary" at the campus level.
+  const sahClassIds  = [...new Set(scopeStudents.map(s => s.classId).filter(Boolean))];
+  const sahSingleCls = sahClassIds.length === 1 ? classes.find(c => c.id === sahClassIds[0]) : null;
+
   // Determine which students in scope are "incomplete" (missing at least one subject)
   const incompleteIds = new Set();
-  const campusSubIdsSAH = campusExamSubjectIds(exam);
+  const campusSubIdsSAH = sahSingleCls ? examSubjectIdsForClass(exam, sahSingleCls) : campusExamSubjectIds(exam);
   scopeStudents.forEach(stu => {
     const missingAny = campusSubIdsSAH.some(sid => {
       if (isConsolidated && sourceExamObjs.length > 0) {
@@ -8049,6 +8085,11 @@ function buildMeritStatsBar(scored, examId) {
   if (!scored || !scored.length) return '';
   const rankBy  = document.getElementById('mlRankBy')?.value || 'points';
   const total   = scored.length;
+  // Derive the single class (if any) this stats bar is scoped to, so subject
+  // totals below respect Lower/Upper Primary band — same pattern as
+  // buildMeritTableHTML — instead of pulling in the other band's subjects.
+  const statsClassIds = [...new Set(scored.map(s => s.classId).filter(Boolean))];
+  const statsSingleCls = statsClassIds.length === 1 ? classes.find(c => c.id === statsClassIds[0]) : null;
   // Incomplete students are shown in count but excluded from mean calculations
   const complete = scored.filter(s => !s.incomplete);
   const incomplete = scored.filter(s => s.incomplete);
@@ -8077,7 +8118,7 @@ function buildMeritStatsBar(scored, examId) {
   const exam = examId ? exams.find(e => e.id === examId) : null;
   let totalMarksHTML = '';
   if (exam) {
-    const statsSubIds = campusExamSubjectIds(exam);
+    const statsSubIds = statsSingleCls ? examSubjectIdsForClass(exam, statsSingleCls) : campusExamSubjectIds(exam);
     const maxPossible = statsSubIds && statsSubIds.length
       ? statsSubIds.reduce((a,sid) => a + (subjects.find(s=>s.id===sid)?.max || 100), 0)
       : null;
@@ -8096,7 +8137,7 @@ function buildMeritStatsBar(scored, examId) {
   // then average those per-student mean points across the class. `s.points` from
   // buildMeritData is already the sum of per-subject points; the subject count is
   // 7 for senior school (best-7 scoring) or the exam's subject count otherwise.
-  const totalSubsForPts = exam ? (isSeniorSchool() ? 7 : (campusExamSubjectIds(exam).length || 1)) : 1;
+  const totalSubsForPts = exam ? (isSeniorSchool() ? 7 : ((statsSingleCls ? examSubjectIdsForClass(exam, statsSingleCls) : campusExamSubjectIds(exam)).length || 1)) : 1;
   const studentMeanPts  = complete.map(s => (s.points||0) / totalSubsForPts);
   const classMeanPoints = studentMeanPts.length
     ? parseFloat((studentMeanPts.reduce((a,b)=>a+b,0) / studentMeanPts.length).toFixed(2))
@@ -8572,9 +8613,13 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
   const isConsolidated = exam.category === 'consolidated';
   const sourceExamObjs = isConsolidated ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
   const examMarks  = isConsolidated ? [] : marks.filter(m => m.examId === examId);
-  // Scope subject columns to the active campus — a multi-campus exam's
-  // other-campus subjects must never appear as columns in this campus's merit list.
-  const examSubIds = campusExamSubjectIds(exam);
+  // Scope subject columns to the specific class (level + primary band) shown in
+  // this table when it's a single class, else the active campus — a multi-campus
+  // or mixed-band exam's other-campus/other-band subjects must never appear as
+  // columns in this merit list.
+  const scoredClassIds = [...new Set(scored.map(s => s.classId).filter(Boolean))];
+  const singleCls = scoredClassIds.length === 1 ? classes.find(c => c.id === scoredClassIds[0]) : null;
+  const examSubIds = singleCls ? examSubjectIdsForClass(exam, singleCls) : campusExamSubjectIds(exam);
   let examSubs   = examSubIds.map(sid => subjects.find(s=>s.id===sid)).filter(Boolean);
 
   // ── Senior school: pathway badge helper ──
@@ -8729,9 +8774,11 @@ function printMeritList() {
   const isConsolidated  = exam.category === 'consolidated';
   const sourceExamObjs  = isConsolidated ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
   const examMarks       = isConsolidated ? [] : marks.filter(m => m.examId === examId);
-  // Scope to the active campus so a multi-campus exam's other-campus subjects
-  // never appear as columns in this campus's PDF merit list.
-  const examSubs        = campusExamSubjectIds(exam).map(sid=>subjects.find(s=>s.id===sid)).filter(Boolean);
+  // Scope to the specific class (level + primary band) when one class is
+  // selected — so a Lower/Upper Primary printout doesn't pull in the other
+  // band's subjects — else fall back to the active campus.
+  const printSingleCls  = classFilter ? classes.find(c => c.id === classFilter) : null;
+  const examSubs        = (printSingleCls ? examSubjectIdsForClass(exam, printSingleCls) : campusExamSubjectIds(exam)).map(sid=>subjects.find(s=>s.id===sid)).filter(Boolean);
 
   showToast('<i class="fa-solid fa-spinner fa-spin"></i> Building PDF — please wait…', 'info');
 
@@ -8930,7 +8977,11 @@ function printMeritList() {
     // Class Mean Points: per-student (sum of subject points ÷ subject count), then
     // averaged across the class — same formula as the on-screen stats bar.
     const completeForPts  = scored.filter(s=>!s.incomplete);
-    const totalSubsForPts = isSeniorSchool() ? 7 : (campusExamSubjectIds(exam).length || 1);
+    // Derive this section's own class (level + primary band) so Lower/Upper
+    // Primary sections divide by their own subject count, not a mixed campus total.
+    const sectionClsIds  = [...new Set(scored.map(s => s.classId).filter(Boolean))];
+    const sectionCls     = sectionClsIds.length === 1 ? classes.find(c => c.id === sectionClsIds[0]) : printSingleCls;
+    const totalSubsForPts = isSeniorSchool() ? 7 : ((sectionCls ? examSubjectIdsForClass(exam, sectionCls) : campusExamSubjectIds(exam)).length || 1);
     const studentMeanPts  = completeForPts.map(s => (s.points||0) / totalSubsForPts);
     const classMeanPoints = studentMeanPts.length
       ? studentMeanPts.reduce((a,b)=>a+b,0) / studentMeanPts.length
@@ -9566,7 +9617,11 @@ function exportMeritExcel() {
   const classFilter = document.getElementById('mlClass')?.value || null;
   const streamFilter = mlType === 'class_stream' ? (document.getElementById('mlStream')?.value||null) : null;
   const scored = buildMeritData(examId, streamFilter, classFilter);
-  const examSubs = (exam?.subjectIds||[]).map(sid=>subjects.find(s=>s.id===sid)).filter(Boolean);
+  // Scope to the specific class (level + primary band) when one class is
+  // selected — so a Lower/Upper Primary export doesn't pull in the other
+  // band's subjects (or another campus's) — else fall back to the active campus.
+  const excelSingleCls = classFilter ? classes.find(c => c.id === classFilter) : null;
+  const examSubs = (excelSingleCls ? examSubjectIdsForClass(exam, excelSingleCls) : campusExamSubjectIds(exam)).map(sid=>subjects.find(s=>s.id===sid)).filter(Boolean);
   const examMarks= isConsolidated ? [] : marks.filter(m=>m.examId===examId);
   const wb = XLSX.utils.book_new();
 
@@ -9648,9 +9703,11 @@ function exportMeritPDF() {
   const mlType         = document.getElementById('mlType')?.value || 'class_overall_and_stream';
   const classFilter    = document.getElementById('mlClass')?.value || null;
   const filterStr      = mlType === 'class_stream' ? (document.getElementById('mlStream')?.value||null) : null;
-  // Scope to the active campus so a multi-campus exam's other-campus subjects
-  // never appear as columns in this campus's printed merit list.
-  const examSubs       = campusExamSubjectIds(exam).map(sid=>subjects.find(s=>s.id===sid)).filter(Boolean);
+  // Scope to the specific class (level + primary band) when one class is
+  // selected — so a Lower/Upper Primary export doesn't pull in the other
+  // band's subjects — else fall back to the active campus.
+  const exportSingleCls = classFilter ? classes.find(c => c.id === classFilter) : null;
+  const examSubs       = (exportSingleCls ? examSubjectIdsForClass(exam, exportSingleCls) : campusExamSubjectIds(exam)).map(sid=>subjects.find(s=>s.id===sid)).filter(Boolean);
   const examMarks      = isConsolidated ? [] : marks.filter(m=>m.examId===examId);
   const gs             = getActiveGradingSystem();
   const gradeKeys      = gs.bands.map(b=>b.grade);
@@ -9696,7 +9753,11 @@ function exportMeritPDF() {
     }
     // Class Mean Points: per-student (sum of subject points ÷ subject count), then
     // averaged across the class — same formula as the on-screen stats bar.
-    const totalSubsForPts = isSeniorSchool() ? 7 : (campusExamSubjectIds(exam).length || 1);
+    // Derive this section's own class (level + primary band) so Lower/Upper
+    // Primary sections divide by their own subject count, not a mixed campus total.
+    const sbClassIds = [...new Set(arr.map(s => s.classId).filter(Boolean))];
+    const sbCls      = sbClassIds.length === 1 ? classes.find(c => c.id === sbClassIds[0]) : exportSingleCls;
+    const totalSubsForPts = isSeniorSchool() ? 7 : ((sbCls ? examSubjectIdsForClass(exam, sbCls) : campusExamSubjectIds(exam)).length || 1);
     const studentMeanPts  = cArr.map(s => (s.points||0) / totalSubsForPts);
     const classMeanPoints = studentMeanPts.length
       ? studentMeanPts.reduce((a,b)=>a+b,0) / studentMeanPts.length
@@ -21563,7 +21624,9 @@ function loadUmSubjects() {
   const exam = exams.find(e => e.id === examId);
   if (!exam) return;
 
-  let allowedSubIds = campusExamSubjectIds(exam);
+  const umClsId = document.getElementById('umClass')?.value;
+  const umCls   = umClsId ? classes.find(c => c.id === umClsId) : null;
+  let allowedSubIds = examSubjectIdsForClass(exam, umCls);
   const isTeacher = currentUser && currentUser.role === 'teacher';
   if (isTeacher) {
     const mySubIds = getMySubjectIds();
@@ -21612,12 +21675,25 @@ function renderUmSubjectStatusPanel() {
   const canSeePanel = isAdmin || (isClassTch && myClassTchStreamIds.includes(streamId));
   if (!canSeePanel) { panel.style.display = 'none'; return; }
 
-  // Determine allowed subjects for this exam
-  let subIds = exam.subjectIds || [];
-
+  // Determine allowed subjects for this exam — scoped to this specific class
+  // (level + primary band), so Primary/Junior/Senior-only subjects (e.g. AMATH,
+  // EMATH) and, within Primary, the wrong band's subjects (e.g. Lower Primary's
+  // Mathematical/Environmental Activities showing for an Upper Primary class)
+  // never appear here, even if the exam's own subjectIds cover several campuses.
   const str = streams.find(s => s.id === streamId);
   const cls = classes.find(c => c.id === classId);
+  let subIds = examSubjectIdsForClass(exam, cls);
+
   const stuInStream = students.filter(s => s.streamId === streamId);
+
+  // Further narrow to subjects actually enrolled for students in this stream
+  // (only ever narrows further — never re-introduces an out-of-scope subject).
+  const stuInStreamIds = new Set(stuInStream.map(s => s.id));
+  const enrolledSubIds = subIds.filter(sid => {
+    const sub = subjects.find(s => s.id === sid);
+    return sub && (sub.studentIds || []).some(sid2 => stuInStreamIds.has(sid2));
+  });
+  if (enrolledSubIds.length) subIds = enrolledSubIds;
 
   // Evaluate mark status for each subject
   const subStatus = subIds.map(sid => {
