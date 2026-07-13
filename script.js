@@ -7524,9 +7524,13 @@ function buildMeritData(examId, filterStreamId, filterClassId, filterPathwayId) 
   const sourceExamObjs = isConsolidated ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
   const examMarks = isConsolidated ? [] : marks.filter(m => m.examId === examId);
 
+  // Scope this exam's subjects to the active campus so a multi-campus exam's
+  // other-campus subjects never enter scoring, totals, or "incomplete" checks.
+  const scopedSubjectIds = campusExamSubjectIds(exam);
+
   // ── CBC Senior School: use best-7 scoring (4 core + 3 best electives) ──
   const seniorMode = isSeniorSchool();
-  const totalSubs = seniorMode ? 7 : (exam.subjectIds.length || 1);
+  const totalSubs = seniorMode ? 7 : (scopedSubjectIds.length || 1);
 
   // ── Read ranking preference from UI (fallback: 'points') ─────────────
   const rankBy = document.getElementById('mlRankBy')?.value || 'points';
@@ -7550,7 +7554,7 @@ function buildMeritData(examId, filterStreamId, filterClassId, filterPathwayId) 
     if (isConsolidated && sourceExamObjs.length > 0) {
       let hasAnyScore = false;
       let missingSubject = false;
-      const subTotals = exam.subjectIds.map(sid => {
+      const subTotals = scopedSubjectIds.map(sid => {
         const scores = sourceExamObjs.map(src => {
           const mk = marks.find(m=>m.examId===src.id&&m.studentId===stu.id&&m.subjectId===sid);
           return mk ? mk.score : null;
@@ -7562,7 +7566,7 @@ function buildMeritData(examId, filterStreamId, filterClassId, filterPathwayId) 
       if (!hasAnyScore) return null; // no marks at all — not in this exam
       if (missingSubject) incomplete = true;
       total = parseFloat(subTotals.reduce((a,b)=>a+b,0).toFixed(1));
-      pts   = exam.subjectIds.reduce((acc,sid,i) => {
+      pts   = scopedSubjectIds.reduce((acc,sid,i) => {
         const sub = subjects.find(s=>s.id===sid);
         return acc + getGrade(subTotals[i], sub?.max||100).points;
       }, 0);
@@ -7630,14 +7634,17 @@ function buildMeritData(examId, filterStreamId, filterClassId, filterPathwayId) 
         pts   = gradedMarks.reduce((a,m) => a + getGrade(m.score, subjects.find(s=>s.id===m.subjectId)?.max||100).points, 0);
       } else {
         // ── Standard mode ───────────────────────────────────────────────────
-        const missingSub = exam.subjectIds.some(sid => !stuMarks.find(m => m.subjectId === sid));
+        // Only count marks for subjects that belong to the active campus —
+        // guards against stray marks recorded against another campus's subject.
+        const scopedStuMarks = stuMarks.filter(m => scopedSubjectIds.includes(m.subjectId));
+        const missingSub = scopedSubjectIds.some(sid => !scopedStuMarks.find(m => m.subjectId === sid));
         if (missingSub) incomplete = true;
-        total = stuMarks.reduce((a,m) => a+m.score, 0);
-        pts   = stuMarks.reduce((a,m) => a + getGrade(m.score, subjects.find(s=>s.id===m.subjectId)?.max||100).points, 0);
+        total = scopedStuMarks.reduce((a,m) => a+m.score, 0);
+        pts   = scopedStuMarks.reduce((a,m) => a + getGrade(m.score, subjects.find(s=>s.id===m.subjectId)?.max||100).points, 0);
       }
     }
     const mean   = total / totalSubs;
-    const maxAvg = seniorMode ? 100 : ((exam.subjectIds.map(sid=>subjects.find(s=>s.id===sid)?.max||100).reduce((a,b)=>a+b,0)/(exam.subjectIds.length||1)) || 100);
+    const maxAvg = seniorMode ? 100 : ((scopedSubjectIds.map(sid=>subjects.find(s=>s.id===sid)?.max||100).reduce((a,b)=>a+b,0)/(scopedSubjectIds.length||1)) || 100);
     const g      = getMeanGrade(mean / maxAvg * 8);
     return { ...stu, total, mean, grade:g, points:pts, incomplete };
   }).filter(Boolean);
@@ -8070,8 +8077,9 @@ function buildMeritStatsBar(scored, examId) {
   const exam = examId ? exams.find(e => e.id === examId) : null;
   let totalMarksHTML = '';
   if (exam) {
-    const maxPossible = exam.subjectIds && exam.subjectIds.length
-      ? exam.subjectIds.reduce((a,sid) => a + (subjects.find(s=>s.id===sid)?.max || 100), 0)
+    const statsSubIds = campusExamSubjectIds(exam);
+    const maxPossible = statsSubIds && statsSubIds.length
+      ? statsSubIds.reduce((a,sid) => a + (subjects.find(s=>s.id===sid)?.max || 100), 0)
       : null;
     const meanTotal = complete.length ? complete.reduce((a,s)=>a + (s.total||0), 0) / complete.length : 0;
     if (maxPossible) {
@@ -8088,7 +8096,7 @@ function buildMeritStatsBar(scored, examId) {
   // then average those per-student mean points across the class. `s.points` from
   // buildMeritData is already the sum of per-subject points; the subject count is
   // 7 for senior school (best-7 scoring) or the exam's subject count otherwise.
-  const totalSubsForPts = exam ? (isSeniorSchool() ? 7 : (exam.subjectIds.length || 1)) : 1;
+  const totalSubsForPts = exam ? (isSeniorSchool() ? 7 : (campusExamSubjectIds(exam).length || 1)) : 1;
   const studentMeanPts  = complete.map(s => (s.points||0) / totalSubsForPts);
   const classMeanPoints = studentMeanPts.length
     ? parseFloat((studentMeanPts.reduce((a,b)=>a+b,0) / studentMeanPts.length).toFixed(2))
@@ -8564,7 +8572,9 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
   const isConsolidated = exam.category === 'consolidated';
   const sourceExamObjs = isConsolidated ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
   const examMarks  = isConsolidated ? [] : marks.filter(m => m.examId === examId);
-  const examSubIds = exam.subjectIds;
+  // Scope subject columns to the active campus — a multi-campus exam's
+  // other-campus subjects must never appear as columns in this campus's merit list.
+  const examSubIds = campusExamSubjectIds(exam);
   let examSubs   = examSubIds.map(sid => subjects.find(s=>s.id===sid)).filter(Boolean);
 
   // ── Senior school: pathway badge helper ──
@@ -8594,7 +8604,15 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
     examSubs = examSubs.filter(s => allChosenCodes.has(s.code));
   }
 
-  const subHeaders = examSubs.map(s=>`<th style="text-align:center;font-size:.72rem" title="${s.name}">${s.code}</th>`).join('');
+  // Safeguard: if two subjects in this list share the same code (e.g. the same
+  // code seeded separately for different campuses), show the full name instead
+  // of the ambiguous code so they're never mistaken for one another.
+  const subCodeCounts = {};
+  examSubs.forEach(s => { subCodeCounts[s.code] = (subCodeCounts[s.code]||0) + 1; });
+  const subHeaders = examSubs.map(s => {
+    const label = subCodeCounts[s.code] > 1 ? s.name : s.code;
+    return `<th style="text-align:center;font-size:.72rem" title="${s.name}">${label}</th>`;
+  }).join('');
   const colCount   = 6 + (showStreamCol?2:0) + examSubs.length + 5 + (seniorMode?1:0);
 
   const headerRow = `<tr>
@@ -8711,7 +8729,9 @@ function printMeritList() {
   const isConsolidated  = exam.category === 'consolidated';
   const sourceExamObjs  = isConsolidated ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
   const examMarks       = isConsolidated ? [] : marks.filter(m => m.examId === examId);
-  const examSubs        = (exam.subjectIds||[]).map(sid=>subjects.find(s=>s.id===sid)).filter(Boolean);
+  // Scope to the active campus so a multi-campus exam's other-campus subjects
+  // never appear as columns in this campus's PDF merit list.
+  const examSubs        = campusExamSubjectIds(exam).map(sid=>subjects.find(s=>s.id===sid)).filter(Boolean);
 
   showToast('<i class="fa-solid fa-spinner fa-spin"></i> Building PDF — please wait…', 'info');
 
@@ -8910,7 +8930,7 @@ function printMeritList() {
     // Class Mean Points: per-student (sum of subject points ÷ subject count), then
     // averaged across the class — same formula as the on-screen stats bar.
     const completeForPts  = scored.filter(s=>!s.incomplete);
-    const totalSubsForPts = isSeniorSchool() ? 7 : (exam.subjectIds.length || 1);
+    const totalSubsForPts = isSeniorSchool() ? 7 : (campusExamSubjectIds(exam).length || 1);
     const studentMeanPts  = completeForPts.map(s => (s.points||0) / totalSubsForPts);
     const classMeanPoints = studentMeanPts.length
       ? studentMeanPts.reduce((a,b)=>a+b,0) / studentMeanPts.length
@@ -9628,7 +9648,9 @@ function exportMeritPDF() {
   const mlType         = document.getElementById('mlType')?.value || 'class_overall_and_stream';
   const classFilter    = document.getElementById('mlClass')?.value || null;
   const filterStr      = mlType === 'class_stream' ? (document.getElementById('mlStream')?.value||null) : null;
-  const examSubs       = (exam.subjectIds||[]).map(sid=>subjects.find(s=>s.id===sid)).filter(Boolean);
+  // Scope to the active campus so a multi-campus exam's other-campus subjects
+  // never appear as columns in this campus's printed merit list.
+  const examSubs       = campusExamSubjectIds(exam).map(sid=>subjects.find(s=>s.id===sid)).filter(Boolean);
   const examMarks      = isConsolidated ? [] : marks.filter(m=>m.examId===examId);
   const gs             = getActiveGradingSystem();
   const gradeKeys      = gs.bands.map(b=>b.grade);
@@ -9674,7 +9696,7 @@ function exportMeritPDF() {
     }
     // Class Mean Points: per-student (sum of subject points ÷ subject count), then
     // averaged across the class — same formula as the on-screen stats bar.
-    const totalSubsForPts = isSeniorSchool() ? 7 : (exam.subjectIds.length || 1);
+    const totalSubsForPts = isSeniorSchool() ? 7 : (campusExamSubjectIds(exam).length || 1);
     const studentMeanPts  = cArr.map(s => (s.points||0) / totalSubsForPts);
     const classMeanPoints = studentMeanPts.length
       ? studentMeanPts.reduce((a,b)=>a+b,0) / studentMeanPts.length
