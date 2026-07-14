@@ -4850,9 +4850,33 @@ function campusExamSubjectIds(exam) {
 // Primary (Grade 1-3) subjects apart from Upper Primary (Grade 4-6) ones,
 // which campus-level alone can't distinguish (both are just "primary").
 // Falls back to campusExamSubjectIds() if no class is given.
+//
+// Source of truth: a subject "belongs" to a class if students actually
+// enrolled in that class are enrolled in the subject (subject.studentIds
+// intersected with the class roster). This is what Merit List / Report Forms
+// / Analyse should show — the subjects genuinely taught in that class —
+// rather than relying solely on a hand-set primaryBand/pathway tag on the
+// subject record, which may be missing (e.g. subjects added via the plain
+// "Add Subject" form, which has no band selector) and would otherwise cause
+// a class's own subjects to silently disappear or bleed into another level's
+// class list. The old level/band tag check is kept as a fallback for the
+// (rare) case where no roster/enrolment data exists yet for this class.
 function examSubjectIdsForClass(exam, cls) {
   const ids = (exam && exam.subjectIds) || [];
   if (!cls) return campusExamSubjectIds(exam);
+
+  // Primary check: which of this exam's subjects have at least one student
+  // from THIS class actually enrolled in them?
+  const classStudentIds = new Set(students.filter(s => s.classId === cls.id).map(s => s.id));
+  if (classStudentIds.size) {
+    const enrolledIds = ids.filter(sid => {
+      const s = subjects.find(x => x.id === sid);
+      return s && (s.studentIds || []).some(stid => classStudentIds.has(stid));
+    });
+    if (enrolledIds.length) return enrolledIds;
+  }
+
+  // Fallback: no enrolment data yet for this class — use level/band tags.
   const level = getClassSchoolLevel(cls);
   if (!level) return campusExamSubjectIds(exam);
   const band = level === 'primary' ? getPrimaryBandForClass(cls) : null;
@@ -12022,19 +12046,26 @@ function saveSubject() {
   if(!name||!code){showToast('Name and code required','error');return;}
   const editId=document.getElementById('editSubId').value;
   const pwId    = isSeniorSchool() ? (document.getElementById('subPathway')?.value || '') : '';
+  const pBand   = isPrimarySchool() ? (document.getElementById('subPrimaryBand')?.value || '') : '';
   const isCBC   = !!document.getElementById('subCbcCore')?.checked;
   const isExam  = isCBC ? !!document.getElementById('subExaminable')?.checked : true;
   if(editId){
     const i=subjects.findIndex(s=>s.id===editId);
-    if(i>-1)subjects[i]={...subjects[i],name,code,max,category:cat,teacherId:tchId,pathway:pwId,cbcCore:isCBC,examinable:isExam};
+    if(i>-1)subjects[i]={...subjects[i],name,code,max,category:cat,teacherId:tchId,pathway:pwId,primaryBand:pBand||undefined,cbcCore:isCBC,examinable:isExam};
     showToast('Subject updated <i class="fa-solid fa-check"></i>','success');
   } else {
     if(subjects.find(s=>s.code===code)){showToast('Code already exists','error');return;}
-    // For senior school: enrol only students of matching pathway (or all if no pathway set)
+    // For senior school: enrol only students of matching pathway (or all if no pathway set).
+    // For primary school with a band chosen: enrol only students of that band's classes.
     const eligibleIds = isSeniorSchool() && pwId
       ? students.filter(s=>s.pathway===pwId).map(s=>s.id)
-      : students.map(s=>s.id);
-    subjects.push({id:uid(),name,code,max,category:cat,teacherId:tchId,pathway:pwId,cbcCore:isCBC,examinable:isExam,studentIds:eligibleIds});
+      : (isPrimarySchool() && pBand
+          ? students.filter(s => {
+              const c = classes.find(x=>x.id===s.classId);
+              return c && getClassSchoolLevel(c)==='primary' && getPrimaryBandForClass(c)===pBand;
+            }).map(s=>s.id)
+          : students.map(s=>s.id));
+    subjects.push({id:uid(),name,code,max,category:cat,teacherId:tchId,pathway:pwId,primaryBand:pBand||undefined,cbcCore:isCBC,examinable:isExam,studentIds:eligibleIds});
     eligibleIds.forEach(sid=>{
       const stu=students.find(s=>s.id===sid);
       if(stu){const newSubId=subjects[subjects.length-1].id;if(!stu.subjectIds)stu.subjectIds=[];if(!stu.subjectIds.includes(newSubId))stu.subjectIds.push(newSubId);}
@@ -12053,6 +12084,10 @@ function editSubject(id) {
   document.getElementById('subMax').value=s.max;
   document.getElementById('subCat').value=s.category;
   document.getElementById('subTeacher').value=s.teacherId||'';
+  if (isPrimarySchool()) {
+    const sbEl = document.getElementById('subPrimaryBand');
+    if (sbEl) sbEl.value = s.primaryBand || '';
+  }
   if (isSeniorSchool()) {
     const spEl = document.getElementById('subPathway');
     const scEl = document.getElementById('subCbcCore');
@@ -12078,6 +12113,8 @@ function cancelSubEdit() {
   const spEl2 = document.getElementById('subPathway');
   const scEl2 = document.getElementById('subCbcCore');
   const seEl2 = document.getElementById('subExaminable');
+  const sbEl2 = document.getElementById('subPrimaryBand');
+  if (sbEl2) sbEl2.value = '';
   if (spEl2) spEl2.value = '';
   if (scEl2) scEl2.checked = false;
   if (seEl2) seEl2.checked = true;
@@ -12604,12 +12641,16 @@ function getStudentReport(stuId, examId) {
   let subjectRows, total, mean, mGrade, totalPoints;
 
   // Only include subjects the student actually takes. For senior school this is the
-  // pathway core + chosen elective combination; for junior school every subject applies.
-  // stu.subjectIds holds the student's own enrolled subjects — intersect with the exam's
-  // subject list so a report never shows a subject the student isn't offering.
+  // pathway core + chosen elective combination; for junior/primary school it's the
+  // subjects taught in the student's own class/band. First scope to the class (so a
+  // multi-campus/multi-band exam's other-level subjects — e.g. Upper Primary subjects
+  // on a Lower Primary student's report — never appear), then further intersect with
+  // stu.subjectIds when the student has their own enrolled-subject list (used for
+  // senior pathway/elective combinations).
+  const classScopedSubjectIds = examSubjectIdsForClass(exam, cls);
   const examSubjectIds = (Array.isArray(stu.subjectIds) && stu.subjectIds.length)
-    ? exam.subjectIds.filter(sid => stu.subjectIds.includes(sid))
-    : exam.subjectIds;
+    ? classScopedSubjectIds.filter(sid => stu.subjectIds.includes(sid))
+    : classScopedSubjectIds;
 
   if (isConsolidated && sourceExamObjs.length > 0) {
     // Compute each subject's score as the average across source exams
@@ -15164,6 +15205,9 @@ function applySchoolLevelUI() {
   // Show/hide pathway fields in subjects form
   const spw = document.getElementById('subPathwayWrap');
   if (spw) spw.style.display = senior ? '' : 'none';
+  // Show/hide primary band field in subjects form
+  const sbw = document.getElementById('subPrimaryBandWrap');
+  if (sbw) sbw.style.display = primary ? '' : 'none';
   // Show/hide seed button
   const ssb = document.getElementById('seniorSubjectSeedBtn');
   if (ssb) ssb.style.display = senior ? '' : 'none';
