@@ -4851,43 +4851,57 @@ function campusExamSubjectIds(exam) {
 // which campus-level alone can't distinguish (both are just "primary").
 // Falls back to campusExamSubjectIds() if no class is given.
 //
-// Source of truth: a subject "belongs" to a class if students actually
-// enrolled in that class are enrolled in the subject (subject.studentIds
-// intersected with the class roster). This is what Merit List / Report Forms
-// / Analyse should show — the subjects genuinely taught in that class —
-// rather than relying solely on a hand-set primaryBand/pathway tag on the
-// subject record, which may be missing (e.g. subjects added via the plain
-// "Add Subject" form, which has no band selector) and would otherwise cause
-// a class's own subjects to silently disappear or bleed into another level's
-// class list. The old level/band tag check is kept as a fallback for the
-// (rare) case where no roster/enrolment data exists yet for this class.
+// Source of truth, in priority order:
+//   1. An explicit tag on the SUBJECT itself (primaryBand for Primary subjects,
+//      pathway for Senior subjects) is authoritative and wins outright. A subject
+//      that is explicitly tagged for one band/level must never be shown to a class
+//      in a different band/level, no matter what its studentIds roster says —
+//      rosters can carry stale/incorrect entries left over from bulk test-data
+//      generation that predates level-scoping, and trusting them over a subject's
+//      own tag is exactly what let e.g. Senior AMATH/EMATH or Lower Primary
+//      Activities subjects leak into a Grade 5 (Upper Primary) view.
+//   2. Only for subjects with NO explicit tag (e.g. added via the plain "Add
+//      Subject" form, which has no band selector) do we fall back to enrollment —
+//      does at least one student actually enrolled in THIS class appear on the
+//      subject's roster? This is how untagged subjects still show up correctly.
+//   3. If there's neither a tag nor any enrolment data at all for an untagged
+//      subject, fall back to the loose level match as a last resort.
 function examSubjectIdsForClass(exam, cls) {
   const ids = (exam && exam.subjectIds) || [];
   if (!cls) return campusExamSubjectIds(exam);
 
-  // Primary check: which of this exam's subjects have at least one student
-  // from THIS class actually enrolled in them?
-  const classStudentIds = new Set(students.filter(s => s.classId === cls.id).map(s => s.id));
-  if (classStudentIds.size) {
-    const enrolledIds = ids.filter(sid => {
-      const s = subjects.find(x => x.id === sid);
-      return s && (s.studentIds || []).some(stid => classStudentIds.has(stid));
-    });
-    if (enrolledIds.length) return enrolledIds;
+  const level = getClassSchoolLevel(cls);
+  if (!level) {
+    // No level info for this class at all — nothing to trust a tag against,
+    // so fall back to enrollment, then to the campus-scoped list.
+    const classStudentIds = new Set(students.filter(s => s.classId === cls.id).map(s => s.id));
+    if (classStudentIds.size) {
+      const enrolledIds = ids.filter(sid => {
+        const s = subjects.find(x => x.id === sid);
+        return s && (s.studentIds || []).some(stid => classStudentIds.has(stid));
+      });
+      if (enrolledIds.length) return enrolledIds;
+    }
+    return campusExamSubjectIds(exam);
   }
 
-  // Fallback: no enrolment data yet for this class — use level/band tags.
-  const level = getClassSchoolLevel(cls);
-  if (!level) return campusExamSubjectIds(exam);
   const band = level === 'primary' ? getPrimaryBandForClass(cls) : null;
+  const classStudentIds = new Set(students.filter(s => s.classId === cls.id).map(s => s.id));
+
   return ids.filter(sid => {
     const s = subjects.find(x => x.id === sid);
     if (!s) return false;
-    if (level === 'primary') {
-      // Primary subjects must be tagged for this class's own band (lower/upper) —
-      // a Grade 5 (upper) class must never see Grade 1-3 (lower) subjects, or vice versa.
-      return !!s.primaryBand && (!band || s.primaryBand === band);
+
+    // Explicit tag present -> it alone decides, enrollment is never consulted.
+    if (s.primaryBand) return level === 'primary' && (!band || s.primaryBand === band);
+    if (s.pathway) return level === 'senior';
+
+    // No explicit tag on this subject — fall back to enrollment for THIS class.
+    if (classStudentIds.size) {
+      return (s.studentIds || []).some(stid => classStudentIds.has(stid));
     }
+    // No tag and no enrolment data at all — last resort, loose level match
+    // (getSubjectSchoolLevel defaults untagged subjects to 'junior').
     return getSubjectSchoolLevel(s) === level;
   });
 }
