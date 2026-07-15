@@ -5101,7 +5101,11 @@ function umRenderStudentMarks(studentId) {
 
   const isTeacher  = currentUser && currentUser.role === 'teacher';
   const mySubIds   = isTeacher ? getMySubjectIds() : null;
-  const examSubIds = exam.subjectIds || [];
+  // Scope to the student's own class (and therefore campus/school-level) —
+  // in a multi-campus exam, a Grade 5 (Primary) student must only see Primary
+  // subjects here, never Junior/Senior ones or other-band Primary subjects.
+  const stuCls     = classes.find(c => c.id === stu.classId);
+  const examSubIds = examSubjectIdsForClass(exam, stuCls);
   const examSubs   = examSubIds.map(sid => subjects.find(s => s.id === sid)).filter(Boolean);
   // Teachers only see their own subjects
   const visibleSubs = isTeacher ? examSubs.filter(s => mySubIds.includes(s.id)) : examSubs;
