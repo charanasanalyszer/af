@@ -6625,7 +6625,13 @@ function handleMarksUpload(input) {
       } else {
         // ── MODE B: all-subjects columns ────────────────────────
         const exam = exams.find(e => e.id === examId);
-        const examSubIds = exam ? exam.subjectIds : subjects.map(s => s.id);
+        // Scope to the selected class's campus/school-level, so a column header
+        // that happens to match a subject code from ANOTHER campus (e.g. a
+        // Senior pathway subject) never gets matched while uploading for a
+        // Primary or Junior class in a multi-campus exam.
+        const umClsIdMB = document.getElementById('umClass')?.value;
+        const umClsMB   = umClsIdMB ? classes.find(c => c.id === umClsIdMB) : null;
+        const examSubIds = exam ? examSubjectIdsForClass(exam, umClsMB) : subjects.map(s => s.id);
 
         // Map column headers → subject
         const colSubMap = {};
@@ -6982,17 +6988,22 @@ function downloadMarksBooklet() {
   const exam = exams.find(e => e.id === examId);
   if (!exam) { showToast('Exam not found', 'error'); return; }
 
-  // Subjects for this exam
-  const examSubIds = exam.subjectIds && exam.subjectIds.length
+  // Fallback full-exam subject list, only used if a class has no scoped subjects at all
+  const examSubIdsFallback = exam.subjectIds && exam.subjectIds.length
     ? exam.subjectIds
     : subjects.map(s => s.id);
-  const examSubjects = subjects.filter(s => examSubIds.includes(s.id));
-  if (!examSubjects.length) { showToast('No subjects found for this exam', 'error'); return; }
+  const examSubjectsFallback = subjects.filter(s => examSubIdsFallback.includes(s.id));
+  if (!examSubjectsFallback.length) { showToast('No subjects found for this exam', 'error'); return; }
 
   const wb = XLSX.utils.book_new();
 
-  // One sheet per class; if class has streams, one sheet per stream
+  // One sheet per class; if class has streams, one sheet per stream.
+  // Each class gets ONLY the subjects offered at its own campus/school-level —
+  // a Primary class's sheet must never carry Junior or Senior subject columns,
+  // and vice versa, in a multi-campus exam.
   classes.forEach(cls => {
+    const classSubIds = examSubjectIdsForClass(exam, cls);
+    const examSubjects = (classSubIds.length ? classSubIds.map(sid => subjects.find(s => s.id === sid)).filter(Boolean) : examSubjectsFallback);
     const classStreams = streams.filter(s => s.classId === cls.id);
     const groups = classStreams.length
       ? classStreams.map(str => ({ label: `${cls.name} ${str.name}`.slice(0, 31), students: students.filter(s => s.classId === cls.id && s.streamId === str.id) }))
@@ -7051,11 +7062,16 @@ function downloadMarksBooklet() {
 }
 
 // Download template for ALL subjects (for bulk upload)
+// Scoped to the selected class (and therefore its campus/school-level) so a
+// Primary class only gets Primary subject columns, Junior only Junior, etc. —
+// multi-campus exams must never leak another campus's subjects into this sheet.
 function downloadAllSubjectsTemplate() {
   const examId  = document.getElementById('umExam').value;
   const streamId= document.getElementById('umStream').value;
+  const classId = document.getElementById('umClass')?.value;
+  const cls     = classId ? classes.find(c=>c.id===classId) : null;
   const exam    = examId ? exams.find(e=>e.id===examId) : null;
-  const examSubIds = exam ? exam.subjectIds : subjects.map(s=>s.id);
+  const examSubIds = exam ? examSubjectIdsForClass(exam, cls) : subjects.map(s=>s.id);
   const examSubs   = examSubIds.map(sid=>subjects.find(s=>s.id===sid)).filter(Boolean);
 
   // Build student list filtered by stream
