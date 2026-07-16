@@ -18805,12 +18805,34 @@ function go(sec, el) {
   // container — the window/document itself scrolls. Resetting
   // mainEl.scrollTop alone does nothing; we must reset the real
   // scrolling element(s): window, <html>, and <body>.
+  //
+  // ALSO: styles.css has a global `* { scroll-behavior: smooth; }` rule.
+  // That makes window.scrollTo()/scrollTop resets ANIMATE (~300-500ms)
+  // instead of snapping instantly, so the new page visibly slides up
+  // into place — looking like it's hanging behind the topbar / bottom
+  // nav for a moment. We force 'auto' (instant) behavior on the actual
+  // scrolling elements just for this reset, then restore whatever was
+  // there before so smooth-scroll still works everywhere else.
   const resetScroll = () => {
-    window.scrollTo(0, 0);
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
+    const html = document.documentElement;
+    const body = document.body;
     const mainEl = document.querySelector('.main');
+    const prevHtmlSB = html.style.scrollBehavior;
+    const prevBodySB = body.style.scrollBehavior;
+    const prevMainSB = mainEl ? mainEl.style.scrollBehavior : '';
+    html.style.scrollBehavior = 'auto';
+    body.style.scrollBehavior = 'auto';
+    if (mainEl) mainEl.style.scrollBehavior = 'auto';
+
+    window.scrollTo(0, 0);
+    html.scrollTop = 0;
+    body.scrollTop = 0;
     if (mainEl) mainEl.scrollTop = 0;
+
+    // restore original scroll-behavior (usually unset, i.e. the smooth default)
+    html.style.scrollBehavior = prevHtmlSB;
+    body.style.scrollBehavior = prevBodySB;
+    if (mainEl) mainEl.style.scrollBehavior = prevMainSB;
   };
   resetScroll();              // immediate reset (catches most cases)
   setTimeout(resetScroll, 0); // deferred reset (catches post-render scroll)
