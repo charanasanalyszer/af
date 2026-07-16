@@ -18801,11 +18801,19 @@ function go(sec, el) {
   // page.  Deferring to the next task (setTimeout 0) guarantees this fires
   // after every synchronous init call AND after any scrollIntoView the browser
   // queues during layout.
-  const mainEl = document.querySelector('.main');
-  if (mainEl) {
-    mainEl.scrollTop = 0;              // immediate reset (catches most cases)
-    setTimeout(() => { mainEl.scrollTop = 0; }, 0); // deferred reset (catches post-render scroll)
-  }
+  // NOTE: .main uses overflow-y:visible, so it is NOT the scrolling
+  // container — the window/document itself scrolls. Resetting
+  // mainEl.scrollTop alone does nothing; we must reset the real
+  // scrolling element(s): window, <html>, and <body>.
+  const resetScroll = () => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    const mainEl = document.querySelector('.main');
+    if (mainEl) mainEl.scrollTop = 0;
+  };
+  resetScroll();              // immediate reset (catches most cases)
+  setTimeout(resetScroll, 0); // deferred reset (catches post-render scroll)
 }
 
 // ═══════════════════════════════════════════════
