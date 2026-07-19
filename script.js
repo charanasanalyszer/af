@@ -20331,7 +20331,8 @@ function renderStudentBalances() {
     const cumBalRounded = Math.round(cumBal * 100) / 100;
     let statusKey = cumBalRounded <= 0 ? 'cleared' : paid > 0 ? 'partial' : 'unpaid';
 
-    if (filterStatus && statusKey !== filterStatus) return;
+    if (filterStatus === 'notcleared') { if (statusKey === 'cleared') return; }
+    else if (filterStatus && statusKey !== filterStatus) return;
     if (filterMinBal > 0 && cumBal < filterMinBal) return;
     if (search && !stu.name.toLowerCase().includes(search) && !stu.adm.toLowerCase().includes(search)) return;
 
@@ -20370,7 +20371,7 @@ function renderStudentBalances() {
       const struct = getFeeStructureForStudent(stu, t, y);
       if (!struct) return;
 
-      if (filterStatus && filterStatus !== 'unpaid') return;
+      if (filterStatus && filterStatus !== 'unpaid' && filterStatus !== 'notcleared') return;
       if (search && !stu.name.toLowerCase().includes(search) && !stu.adm.toLowerCase().includes(search)) return;
 
       const cls = classes.find(c => c.id === clsId);
@@ -20383,7 +20384,7 @@ function renderStudentBalances() {
 
   rows.sort((a,b) => a.stu.name.localeCompare(b.stu.name));
 
-  // ── Summary: Cleared vs Not Cleared counts ──
+  // ── Summary: Cleared vs Not Cleared — one compact row instead of 5 separate cards ──
   const summaryEl = document.getElementById('fsbSummary');
   if (summaryEl) {
     const clearedCount    = rows.filter(r => r.statusKey === 'cleared').length;
@@ -20391,26 +20392,27 @@ function renderStudentBalances() {
     const unpaidCount     = rows.filter(r => r.statusKey === 'unpaid').length;
     const notClearedCount = partialCount + unpaidCount;
     summaryEl.innerHTML = `
-      <div class="card" style="padding:.6rem 1rem;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.3);border-radius:8px">
-        <div style="font-size:.72rem;color:var(--muted)">Cleared</div>
-        <div style="font-weight:800;font-size:1.15rem;color:#16a34a"><i class="fa-solid fa-circle-check"></i> ${clearedCount}</div>
-      </div>
-      <div class="card" style="padding:.6rem 1rem;background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.3);border-radius:8px">
-        <div style="font-size:.72rem;color:var(--muted)">Not Cleared</div>
-        <div style="font-weight:800;font-size:1.15rem;color:#dc2626"><i class="fa-solid fa-circle-xmark"></i> ${notClearedCount}</div>
-      </div>
-      <div class="card" style="padding:.6rem 1rem;background:rgba(202,138,4,.08);border:1px solid rgba(202,138,4,.3);border-radius:8px">
-        <div style="font-size:.72rem;color:var(--muted)">— Partial</div>
-        <div style="font-weight:700;font-size:.95rem;color:#ca8a04">${partialCount}</div>
-      </div>
-      <div class="card" style="padding:.6rem 1rem;background:rgba(220,38,38,.05);border:1px solid rgba(220,38,38,.2);border-radius:8px">
-        <div style="font-size:.72rem;color:var(--muted)">— Unpaid</div>
-        <div style="font-weight:700;font-size:.95rem;color:#dc2626">${unpaidCount}</div>
-      </div>
-      <div class="card" style="padding:.6rem 1rem;border-radius:8px">
-        <div style="font-size:.72rem;color:var(--muted)">Total</div>
-        <div style="font-weight:800;font-size:1.15rem">${rows.length}</div>
-      </div>`;
+      <table style="width:100%;border-collapse:collapse;font-size:.8rem;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <tr style="background:var(--bg,#f1f5f9)">
+          <th style="padding:.4rem .7rem;text-align:left;color:var(--muted);font-weight:600">Total</th>
+          <th style="padding:.4rem .7rem;text-align:left;color:#16a34a;font-weight:600">Cleared</th>
+          <th style="padding:.4rem .7rem;text-align:left;color:#dc2626;font-weight:600">Not Cleared</th>
+          <th style="padding:.4rem .7rem;text-align:left;color:#ca8a04;font-weight:600">— Partial</th>
+          <th style="padding:.4rem .7rem;text-align:left;color:#dc2626;font-weight:600">— Unpaid</th>
+          <th style="padding:.4rem .7rem;text-align:right;color:var(--muted);font-weight:600">Quick Download</th>
+        </tr>
+        <tr style="background:var(--surface)">
+          <td style="padding:.45rem .7rem;font-weight:800">${rows.length}</td>
+          <td style="padding:.45rem .7rem;font-weight:800;color:#16a34a"><i class="fa-solid fa-circle-check"></i> ${clearedCount}</td>
+          <td style="padding:.45rem .7rem;font-weight:800;color:#dc2626"><i class="fa-solid fa-circle-xmark"></i> ${notClearedCount}</td>
+          <td style="padding:.45rem .7rem;font-weight:700;color:#ca8a04">${partialCount}</td>
+          <td style="padding:.45rem .7rem;font-weight:700;color:#dc2626">${unpaidCount}</td>
+          <td style="padding:.45rem .7rem;text-align:right;white-space:nowrap">
+            <button class="btn btn-sm btn-outline" style="border-color:#16a34a;color:#16a34a" onclick="exportStudentBalances('cleared')" title="Download the Cleared list as CSV"><i class="fa-solid fa-download"></i> Cleared</button>
+            <button class="btn btn-sm btn-outline" style="border-color:#dc2626;color:#dc2626" onclick="exportStudentBalances('notcleared')" title="Download the Not Cleared (Partial + Unpaid) list as CSV"><i class="fa-solid fa-download"></i> Not Cleared</button>
+          </td>
+        </tr>
+      </table>`;
   }
 
   tbody.innerHTML = rows.length ? rows.map((r, i) => {
@@ -20957,12 +20959,14 @@ function exportFeesSummary() {
   showToast('Fee summary exported <i class="fa-solid fa-check"></i>', 'success');
 }
 
-function exportStudentBalances() {
+function exportStudentBalances(forceStatus) {
   loadFees();
   const filterClass  = document.getElementById('fsbClass')?.value  || '';
   const filterTerm   = document.getElementById('fsbTerm')?.value   || '';
   const filterYear   = document.getElementById('fsbYear')?.value   || '';
-  const filterStatus = document.getElementById('fsbStatus')?.value || '';
+  // forceStatus lets the "Cleared" / "Not Cleared" quick-download buttons override
+  // whatever the Status dropdown currently shows, without touching the visible filter.
+  const filterStatus = forceStatus || document.getElementById('fsbStatus')?.value || '';
   const filterMinBal = parseFloat(document.getElementById('fsbMinBalance')?.value || '0') || 0;
   const search       = (document.getElementById('fsbSearch')?.value || '').toLowerCase();
 
@@ -20992,7 +20996,8 @@ function exportStudentBalances() {
     const termBal = getRecordBalance(rec);
     const cumBal  = prevBal + termBal;
     const status = Math.round(cumBal * 100) / 100 <= 0 ? 'Cleared' : paid > 0 ? 'Partial' : 'Unpaid';
-    if (filterStatus && status.toLowerCase() !== filterStatus) return;
+    if (filterStatus === 'notcleared') { if (status === 'Cleared') return; }
+    else if (filterStatus && status.toLowerCase() !== filterStatus) return;
     if (filterMinBal > 0 && cumBal < filterMinBal) return;
     rows.push([stu.name, stu.adm, cls?.name||'', rec.term, rec.year, rec.totalFee, paid, termBal, cumBal, status]);
   });
@@ -21008,7 +21013,7 @@ function exportStudentBalances() {
     const structs = feeStructures.filter(f => f.classId===clsId && (!filterTerm||f.term===filterTerm) && (!filterYear||String(f.year)===filterYear));
     structs.forEach(struct => {
       if (feeRecords.some(r => r.studentId===stu.id && r.term===struct.term && String(r.year)===struct.year)) return;
-      if (filterStatus && filterStatus !== 'unpaid') return;
+      if (filterStatus && filterStatus !== 'unpaid' && filterStatus !== 'notcleared') return;
       const cls = classes.find(c=>c.id===clsId);
       const noPrevBal = getPreviousBalance(stu.id, struct.term, struct.year);
       const noCumBal  = noPrevBal + parseFloat(struct.totalFee||0);
@@ -21021,9 +21026,11 @@ function exportStudentBalances() {
   const blob = new Blob([csv], { type:'text/csv' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url; a.download = `fee_balances_${filterTerm||'all'}_${filterYear||'all'}${filterMinBal>0?'_min'+filterMinBal:''}.csv`;
+  const statusTag = filterStatus ? `_${filterStatus}` : '';
+  a.href = url; a.download = `fee_balances${statusTag}_${filterTerm||'all'}_${filterYear||'all'}${filterMinBal>0?'_min'+filterMinBal:''}.csv`;
   a.click(); URL.revokeObjectURL(url);
-  showToast('Fee balances exported <i class="fa-solid fa-check"></i>', 'success');
+  const label = forceStatus === 'cleared' ? 'Cleared' : forceStatus === 'notcleared' ? 'Not Cleared' : 'Fee balances';
+  showToast(`${label} list exported <i class="fa-solid fa-check"></i>`, 'success');
 }
 
 // ── Fee PDF Statement ──
@@ -21060,7 +21067,7 @@ function downloadFeeStatementPDF() {
   if (filterClass) { const cls = classes.find(c=>c.id===filterClass); if(cls) filterText.push(`Class: ${cls.name}`); }
   if (filterTerm)  filterText.push(`Term: ${filterTerm}`);
   if (filterYear)  filterText.push(`Year: ${filterYear}`);
-  if (filterStatus) filterText.push(`Status: ${filterStatus.charAt(0).toUpperCase()+filterStatus.slice(1)}`);
+  if (filterStatus) filterText.push(`Status: ${filterStatus === 'notcleared' ? 'Not Cleared' : filterStatus.charAt(0).toUpperCase()+filterStatus.slice(1)}`);
   if (filterMinBal > 0) filterText.push(`Min Balance: KES ${filterMinBal.toLocaleString()}+`);
   if (filterText.length) doc.text('Filters: ' + filterText.join('  |  '), 14, 34);
 
@@ -21092,7 +21099,8 @@ function downloadFeeStatementPDF() {
     const termBal = getRecordBalance(rec);
     const cumBal  = prevBal + termBal;
     const status = Math.round(cumBal * 100) / 100 <= 0 ? 'Cleared' : paid > 0 ? 'Partial' : 'Unpaid';
-    if (filterStatus && status.toLowerCase() !== filterStatus) return;
+    if (filterStatus === 'notcleared') { if (status === 'Cleared') return; }
+    else if (filterStatus && status.toLowerCase() !== filterStatus) return;
     if (filterMinBal > 0 && cumBal < filterMinBal) return;
     totalExpected += parseFloat(rec.totalFee||0);
     totalPaid     += paid;
@@ -21114,7 +21122,7 @@ function downloadFeeStatementPDF() {
     const structs = feeStructures.filter(f => f.classId===clsId && (!filterTerm||f.term===filterTerm) && (!filterYear||String(f.year)===filterYear));
     structs.forEach(struct => {
       if (feeRecords.some(r => r.studentId===stu.id && r.term===struct.term && String(r.year)===struct.year)) return;
-      if (filterStatus && filterStatus !== 'unpaid') return;
+      if (filterStatus && filterStatus !== 'unpaid' && filterStatus !== 'notcleared') return;
       const cls = classes.find(c=>c.id===clsId);
       const noPrevBal2 = getPreviousBalance(stu.id, struct.term, struct.year);
       const noCumBal2  = noPrevBal2 + parseFloat(struct.totalFee||0);

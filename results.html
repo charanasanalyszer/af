@@ -6,8 +6,26 @@
   <title>Student Results Portal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <!-- Lazy-load Chart.js / qrcodejs — only fetched once a result is actually displayed -->
+  <script>
+  (function(){
+    function loadSync(url){
+      var xhr=new XMLHttpRequest();
+      xhr.open('GET',url,false);
+      xhr.send(null);
+      if(xhr.status>=200&&xhr.status<300){ (0,eval)(xhr.responseText); }
+      else { console.error('Failed to load library:',url); }
+    }
+    function lazy(prop,url){
+      Object.defineProperty(window,prop,{
+        configurable:true,
+        get:function(){ delete window[prop]; loadSync(url); return window[prop]; }
+      });
+    }
+    lazy('Chart','https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js');
+    lazy('QRCode','https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js');
+  })();
+  </script>
   <style>
     :root {
       --bg: #0a0e1a;

@@ -5,16 +5,51 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Charanas Analyzer — School Exam Management System</title>
   <link rel="stylesheet" href="styles.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <!-- ══ Lightweight on-demand library loader ══
+       Chart.js, XLSX, JSZip, jsPDF+autoTable and html2canvas are several MB
+       combined. Instead of downloading all of them on every page load, each
+       global name is defined as a lazy getter: the real library is fetched
+       and evaluated only the first time the app actually touches it (e.g.
+       the first time a chart is drawn or a report is exported). Everything
+       after that first touch behaves exactly like a normal pre-loaded global,
+       so no other code needs to change. -->
+  <script>
+  (function(){
+    function loadSync(url){
+      var xhr=new XMLHttpRequest();
+      xhr.open('GET',url,false); // sync — acceptable since this only fires once, on demand
+      xhr.send(null);
+      if(xhr.status>=200&&xhr.status<300){ (0,eval)(xhr.responseText); }
+      else { console.error('Failed to load library:',url); }
+    }
+    function lazy(prop,url,after){
+      Object.defineProperty(window,prop,{
+        configurable:true,
+        get:function(){
+          delete window[prop];
+          loadSync(url);
+          if(after) after();
+          return window[prop];
+        }
+      });
+    }
+    lazy('Chart','https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js');
+    lazy('XLSX','https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    lazy('JSZip','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+    lazy('html2canvas','https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    // jsPDF's autoTable plugin extends jsPDF's prototype, so it must load right after jsPDF itself
+    lazy('jspdf','https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',function(){
+      loadSync('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
+    });
+  })();
+  </script>
 <script src="script.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- Font Awesome loaded non-render-blocking (preload + swap to stylesheet on load) -->
+  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/></noscript>
 </head>
 <body class="login-active">
 
@@ -5475,8 +5510,9 @@ document.addEventListener('tt_sectionVisible', function() {
               <select id="fsbStatus" onchange="renderStudentBalances()">
                 <option value="">All</option>
                 <option value="cleared">Cleared</option>
-                <option value="partial">Partial</option>
-                <option value="unpaid">Unpaid</option>
+                <option value="notcleared">Not Cleared (Partial + Unpaid)</option>
+                <option value="partial">— Partial only</option>
+                <option value="unpaid">— Unpaid only</option>
               </select>
             </div>
           </div>
