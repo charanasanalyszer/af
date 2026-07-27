@@ -8022,8 +8022,14 @@ function buildStreamVsClassHTML(examId, classId, activeStreamId) {
 
   const allStuIds = allScoredComplete.map(s => s.id);
 
+  // Subject ids scoped to this class (fixes: was referencing an out-of-scope
+  // variable from buildSubjectAnalysisHTML, which threw a ReferenceError and
+  // silently broke merit list generation for any class with 2+ streams).
+  const svcClass = classes.find(c => c.id === classId);
+  const svcSubjectIds = svcClass ? examSubjectIdsForClass(exam, svcClass) : campusExamSubjectIds(exam);
+
   // Build per-subject rows
-  const subjectRows = campusSubIdsSAH.map(sid => {
+  const subjectRows = svcSubjectIds.map(sid => {
     const sub = subjects.find(s => s.id === sid); if (!sub) return '';
     const classSubMean = subjectMeanFn(sid, allStuIds);
     if (classSubMean === null) return '';
