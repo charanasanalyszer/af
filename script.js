@@ -16616,14 +16616,26 @@ ${reportsHTML}
     var A4W = 210 * 96 / 25.4;  /* ≈  793.7 px */
     document.querySelectorAll('.rf-scaler').forEach(function(scaler) {
       scaler.style.transform = '';
+      scaler.style.width = A4W + 'px';
       var form = scaler.firstElementChild;
       if (!form) return;
+      form.style.setProperty('width', A4W + 'px', 'important');
       var h = form.offsetHeight || form.scrollHeight;
-      var w = form.offsetWidth  || form.scrollWidth  || 794;
-      var scaleH = A4H / h;
-      var scaleW = A4W / w;
-      var scale  = Math.min(scaleH, scaleW, 1); /* never enlarge */
-      if (scale < 0.999) scaler.style.transform = 'scale(' + scale + ')';
+      if (h <= A4H) return; /* already fits at full page width — done */
+
+      /* Content is taller than one page at full width. A plain scale(s)
+         here would shrink WIDTH too (since it was already exactly A4W),
+         leaving a large blank strip on the right/bottom and making the
+         report look tiny. Instead, widen the pre-scale layout first so
+         that once we shrink it back down to fit A4's height, it still
+         spans the full page width. */
+      var scale     = A4H / h;
+      var wideWidth = Math.min(A4W / scale, A4W * 3); /* sane cap */
+      scaler.style.width = wideWidth + 'px';
+      form.style.setProperty('width', wideWidth + 'px', 'important');
+      var h2 = form.offsetHeight || form.scrollHeight;
+      var finalScale = Math.min(A4H / h2, 1);
+      if (finalScale < 0.999) scaler.style.transform = 'scale(' + finalScale + ')';
     });
   }
 
@@ -18607,6 +18619,7 @@ function es_exportExcel() {
   const days    = parseInt(es_state.school.daysPerWeek) || 5;
   const periods = parseInt(es_state.school.lessonsPerDay) || 9;
 
+  const breaks = es_state.school.breaks || [];
   const rows = [['Day', ...Array.from({length:periods}, (_,i) => `Period ${i+1} (${es_getPeriodTime(i)})`)]];
   for (let d = 0; d < days; d++) {
     const row = [ES_DAY_FULL[d]];
