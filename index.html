@@ -1190,6 +1190,11 @@
             <select id="stuGenderFilter" style="height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem" onchange="applyStudentFilters()">
               <option value="">All Genders</option><option value="M">Male</option><option value="F">Female</option>
             </select>
+            <select id="stuStatusFilter" title="Deactivated students are kept, not deleted — their records stay available" style="height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem" onchange="applyStudentFilters()">
+              <option value="active" selected>Active Only</option>
+              <option value="inactive">Inactive Only</option>
+              <option value="">All (Active + Inactive)</option>
+            </select>
             <select id="stuClassFilter" style="height:36px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:0 .7rem;font-family:inherit;font-size:.85rem">
               <option value="">All Classes</option>
             </select>
@@ -1213,9 +1218,10 @@
             <button class="btn btn-outline btn-sm" onclick="clearStudentFilters()" title="Clear all filters" id="stuClearFiltersBtn" style="display:none"><i class="fa-solid fa-xmark"></i> Clear Filters</button>
           </div>
         </div>
-        <div id="stuBulkBar" style="display:none;padding:.5rem .75rem;background:#fff0f0;border:1px solid #fca5a5;border-radius:8px;margin-bottom:.75rem;align-items:center;gap:.75rem;flex-wrap:wrap">
-          <span style="font-size:.85rem;font-weight:600;color:#dc2626"><i class="fa-solid fa-check-square"></i> <span id="stuSelCount">0</span> student(s) selected</span>
-          <button class="btn btn-danger btn-sm" id="stuBulkDelBtn" onclick="deleteSelectedStudents()"><i class="fa-solid fa-trash"></i> Delete Selected</button>
+        <div id="stuBulkBar" style="display:none;padding:.5rem .75rem;background:#fff7ed;border:1px solid #fdba74;border-radius:8px;margin-bottom:.75rem;align-items:center;gap:.75rem;flex-wrap:wrap">
+          <span style="font-size:.85rem;font-weight:600;color:#c2410c"><i class="fa-solid fa-check-square"></i> <span id="stuSelCount">0</span> student(s) selected</span>
+          <button class="btn btn-outline btn-sm" id="stuBulkDeactivateBtn" onclick="deactivateSelectedStudents()" style="border-color:#ef4444;color:#ef4444"><i class="fa-solid fa-user-slash"></i> Deactivate Selected</button>
+          <button class="btn btn-outline btn-sm" id="stuBulkActivateBtn" onclick="activateSelectedStudents()" style="border-color:#10b981;color:#10b981"><i class="fa-solid fa-user-check"></i> Activate Selected</button>
           <button class="btn btn-outline btn-sm" onclick="deselectAllStudents()" style="font-size:.8rem">Deselect All</button>
         </div>
         <div class="tbl-wrap">

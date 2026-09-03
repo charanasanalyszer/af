@@ -10818,7 +10818,7 @@ function renderSummaryAnalytics() {
 // Kept outside renderStudents() so sorting, add/edit/delete, and page nav
 // all agree on what's currently filtered/shown without re-reading the DOM
 // or losing the user's place.
-const stuListState = { filter:'', gender:'', classId:'', streamId:'', pathway:'', track:'', page:1, pageSize:100 };
+const stuListState = { filter:'', gender:'', classId:'', streamId:'', pathway:'', track:'', status:'active', page:1, pageSize:100 };
 let _stuFilterDebounceTimer = null;
 function debouncedApplyStudentFilters() {
   clearTimeout(_stuFilterDebounceTimer);
@@ -10832,9 +10832,10 @@ function applyStudentFilters() {
   const streamId = document.getElementById('stuStreamFilter')?.value || '';
   const pathway  = document.getElementById('stuPathwayFilter')?.value || '';
   const track    = document.getElementById('stuTrackFilter')?.value  || '';
-  Object.assign(stuListState, { filter:text, gender, classId, streamId, pathway, track, page:1 });
-  // Show "Clear Filters" button if any filter is active
-  const anyActive = text || gender || classId || streamId || pathway || track;
+  const status   = document.getElementById('stuStatusFilter')?.value || 'active';
+  Object.assign(stuListState, { filter:text, gender, classId, streamId, pathway, track, status, page:1 });
+  // Show "Clear Filters" button if any filter differs from the defaults
+  const anyActive = text || gender || classId || streamId || pathway || track || (status !== 'active');
   const clearBtn = document.getElementById('stuClearFiltersBtn');
   if (clearBtn) clearBtn.style.display = anyActive ? '' : 'none';
   renderStudents();
@@ -10843,9 +10844,11 @@ function applyStudentFilters() {
 function clearStudentFilters() {
   const ids = ['stuSearchBox','stuGenderFilter','stuClassFilter','stuStreamFilter','stuPathwayFilter','stuTrackFilter'];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const statusEl = document.getElementById('stuStatusFilter');
+  if (statusEl) statusEl.value = 'active';
   const clearBtn = document.getElementById('stuClearFiltersBtn');
   if (clearBtn) clearBtn.style.display = 'none';
-  Object.assign(stuListState, { filter:'', gender:'', classId:'', streamId:'', pathway:'', track:'', page:1 });
+  Object.assign(stuListState, { filter:'', gender:'', classId:'', streamId:'', pathway:'', track:'', status:'active', page:1 });
   renderStudents();
 }
 
@@ -10895,7 +10898,7 @@ function renderStudents(filter='', genderFilter='', classFilter='', streamFilter
   if (filter||genderFilter||classFilter||streamFilter||pathwayFilter||trackFilter) {
     Object.assign(stuListState, { filter, gender:genderFilter, classId:classFilter, streamId:streamFilter, pathway:pathwayFilter, track:trackFilter });
   }
-  const { filter:text, gender, classId, streamId, pathway, track, pageSize } = stuListState;
+  const { filter:text, gender, classId, streamId, pathway, track, status, pageSize } = stuListState;
 
   let list = [...students];
   if (text)     list = list.filter(s=>s.name.toLowerCase().includes(text)||s.adm.toLowerCase().includes(text));
@@ -10904,6 +10907,11 @@ function renderStudents(filter='', genderFilter='', classFilter='', streamFilter
   if (streamId) list = list.filter(s=>s.streamId===streamId);
   if (pathway)  list = list.filter(s=>s.pathway===pathway);
   if (track)    list = list.filter(s=>s.track===track);
+  // Deactivated students are never deleted — their marks/report cards/analytics
+  // stay intact. This filter only controls whether they clutter the default
+  // roster view; "Inactive"/"All" still surfaces them with full history.
+  if (status === 'active')        list = list.filter(s=>s.active!==false);
+  else if (status === 'inactive') list = list.filter(s=>s.active===false);
 
   // O(1) lookup maps built once per render instead of calling .find() (O(n))
   // inside the per-row loop below — this is what made large rosters slow.
@@ -10944,13 +10952,17 @@ function renderStudents(filter='', genderFilter='', classFilter='', streamFilter
     (senior ? '<th>Pathway / Track</th>' : '')+
     thSort('students','parent','Parent')+
     thSort('students','contact','Contact')+
-    '<th>Subjects</th><th>Actions</th>';
-  const colSpan = senior ? 12 : 11;
+    '<th>Status</th><th>Subjects</th><th>Actions</th>';
+  const colSpan = senior ? 13 : 12;
   document.getElementById('stuBody').innerHTML = pageList.map((s,i)=>{
     const cls   = clsMap.get(s.classId);
     const str   = strMap.get(s.streamId);
     const subs  = (s.subjectIds||[]).map(sid=>{ const sub=subMap.get(sid); return sub?`<span class="badge b-teal" style="font-size:.65rem">${sub.code}</span>`:''; }).join(' ');
     const _isT  = currentUser && currentUser.role === 'teacher';
+    const isActive = s.active !== false;
+    const statusBadge = isActive
+      ? `<span class="badge" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3);font-size:.65rem">● Active</span>`
+      : `<span class="badge" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);font-size:.65rem">● Inactive</span>`;
     const pw    = senior ? getPathway(s.pathway) : null;
     const pathwayCell = senior
       ? `<td>${pw ? `<div style="display:flex;flex-direction:column;gap:.2rem">
@@ -10967,10 +10979,13 @@ function renderStudents(filter='', genderFilter='', classFilter='', streamFilter
       <td>${cls?.name||'—'}</td><td>${str?.name||'—'}</td>
       ${pathwayCell}
       <td>${s.parent||'—'}</td><td>${s.contact||'—'}</td>
+      <td>${statusBadge}</td>
       <td style="max-width:150px;overflow:hidden">${subs||'—'}</td>
       <td><div class="act-cell">
         ${_isT ? '' : `<button class="icb ed" onclick="editStudent('${s.id}')" title="Edit"><i class="fa-solid fa-pen"></i>️</button>`}
-        ${_isT ? '' : `<button class="icb dl" onclick="deleteStudent('${s.id}')" title="Delete"><i class="fa-solid fa-trash"></i>️</button>`}
+        ${_isT ? '' : (isActive
+          ? `<button class="icb dl" onclick="toggleStudentActive('${s.id}')" title="Deactivate"><i class="fa-solid fa-user-slash"></i></button>`
+          : `<button class="icb" style="background:#10b981;color:#fff;border:none" onclick="toggleStudentActive('${s.id}')" title="Activate"><i class="fa-solid fa-user-check"></i></button>`)}
         <button class="icb" style="background:var(--purple,#7c3aed);color:#fff;border:none" title="View Analytics" onclick="showStudentAnalytics('${s.id}')"><i class="fa-solid fa-chart-bar"></i></button>
       </div></td>
     </tr>`;
@@ -11030,18 +11045,27 @@ function updateBulkDeleteUI() {
   if (cnt)  cnt.textContent    = chkd.length;
 }
 
-function deleteSelectedStudents() {
+function deactivateSelectedStudents() {
+  if (currentUser && currentUser.role === 'teacher') { showToast('Teachers cannot change student status','error'); return; }
   const ids = [...document.querySelectorAll('.stu-sel-chk:checked')].map(c=>c.dataset.id);
   if (!ids.length) return;
-  if (!confirm(`Delete ${ids.length} selected student(s) and all their marks? This cannot be undone.`)) return;
-  ids.forEach(id=>{
-    students = students.filter(s=>s.id!==id);
-    marks    = marks.filter(m=>m.studentId!==id);
-    subjects.forEach(sub=>{ sub.studentIds=(sub.studentIds||[]).filter(x=>x!==id); });
-  });
-  saveStudents(); saveMarks(); save(K.subjects,subjects);
+  if (!confirm(`Deactivate ${ids.length} selected student(s)? Their marks and records are kept and they can be reactivated anytime.`)) return;
+  students.forEach(s=>{ if (ids.includes(s.id)) s.active = false; });
+  saveStudents();
+  deselectAllStudents();
   renderStudents(); renderDashboard(); populateAllDropdowns(); renderArchivedStudents();
-  showToast(`${ids.length} student(s) deleted`,'info');
+  showToast(`${ids.length} student(s) deactivated`,'info');
+}
+
+function activateSelectedStudents() {
+  if (currentUser && currentUser.role === 'teacher') { showToast('Teachers cannot change student status','error'); return; }
+  const ids = [...document.querySelectorAll('.stu-sel-chk:checked')].map(c=>c.dataset.id);
+  if (!ids.length) return;
+  students.forEach(s=>{ if (ids.includes(s.id)) s.active = true; });
+  saveStudents();
+  deselectAllStudents();
+  renderStudents(); renderDashboard(); populateAllDropdowns(); renderArchivedStudents();
+  showToast(`${ids.length} student(s) activated`,'success');
 }
 
 
@@ -11411,14 +11435,19 @@ function cancelStuEdit() {
   document.getElementById('stuFormTitle').innerHTML = '<i class="fa-solid fa-plus"></i> Add Student';
 }
 
-function deleteStudent(id) {
-  if (currentUser && currentUser.role === 'teacher') { showToast('Teachers cannot delete students','error'); return; }
-  if(!confirm('Delete student and their marks?')) return;
-  students=students.filter(s=>s.id!==id);
-  marks=marks.filter(m=>m.studentId!==id);
-  subjects.forEach(sub=>{sub.studentIds=(sub.studentIds||[]).filter(x=>x!==id);});
-  saveStudents(); saveMarks(); save(K.subjects,subjects);
-  renderStudents(); renderDashboard(); renderArchivedStudents(); showToast('Student deleted','info');
+function toggleStudentActive(id) {
+  if (currentUser && currentUser.role === 'teacher') { showToast('Teachers cannot change student status','error'); return; }
+  const s = students.find(x=>x.id===id); if (!s) return;
+  const isActive = s.active !== false;
+  if (isActive) {
+    if (!confirm(`Deactivate ${s.name}? Their marks and records are kept — you can reactivate them anytime.`)) return;
+    s.active = false;
+  } else {
+    s.active = true;
+  }
+  saveStudents();
+  renderStudents(); renderDashboard(); populateAllDropdowns(); renderArchivedStudents();
+  showToast(isActive ? 'Student deactivated' : 'Student activated', isActive ? 'info' : 'success');
 }
 
 // Student Excel upload
