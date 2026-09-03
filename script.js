@@ -6786,7 +6786,7 @@ function printMarksSheet() {
   const light      = [232, 240, 252];
   const muted      = [80, 100, 130];
   const dark       = [15, 23, 42];
-  const borderGray = [100, 120, 150];
+  const borderGray = [55, 65, 90];   // darker, crisper grid line — bold-looking without being thick
   const altRow     = [245, 248, 255];
 
   // (Page borders drawn in footer loop below for all pages)
@@ -6827,7 +6827,7 @@ function printMarksSheet() {
   doc.setFillColor(...light);
   doc.rect(margin, y, W - margin * 2, 14, 'F');
   doc.setDrawColor(...borderGray);
-  doc.setLineWidth(0.6);
+  doc.setLineWidth(0.25);
   doc.rect(margin, y, W - margin * 2, 14);
 
   // Bold labels
@@ -6866,11 +6866,11 @@ function printMarksSheet() {
     ...examSubjects.map(() => ''),
   ]);
 
-  // Column widths
-  const fixedWidths  = [7, 16, 34];
+  // Column widths — kept compact so more subject columns and more rows fit per page
+  const fixedWidths  = [6, 14, 30];
   const usedFixed    = fixedWidths.reduce((a, b) => a + b, 0);
   const subColW      = Math.max(
-    10,
+    9,
     Math.floor((W - margin * 2 - usedFixed) / Math.max(examSubjects.length, 1))
   );
   const columnStyles = {};
@@ -6885,22 +6885,25 @@ function printMarksSheet() {
     body,
     theme: 'grid',
     styles: {
-      fontSize: 7,
-      cellPadding: 1.6,
+      fontSize: 6.2,
+      cellPadding: 0.9,
       textColor: dark,
       lineColor: borderGray,
-      lineWidth: 0.5,
+      lineWidth: 0.15,
       font: 'helvetica',
+      minCellHeight: 4.2,
+      valign: 'middle',
     },
     headStyles: {
       fillColor: blue,
       textColor: white,
       fontStyle: 'bold',
-      fontSize: 7.5,
+      fontSize: 6.6,
       halign: 'center',
-      cellPadding: 2,
-      lineColor: [255, 255, 255],
-      lineWidth: 0.5,
+      cellPadding: 1.2,
+      lineColor: [235, 240, 250],
+      lineWidth: 0.15,
+      minCellHeight: 6,
     },
     alternateRowStyles: { fillColor: altRow },
     columnStyles,
@@ -6926,7 +6929,7 @@ function printMarksSheet() {
   doc.setFillColor(240, 244, 255);
   doc.rect(margin, finalY - 3, W - margin * 2, 8, 'F');
   doc.setDrawColor(...borderGray);
-  doc.setLineWidth(0.4);
+  doc.setLineWidth(0.2);
   doc.rect(margin, finalY - 3, W - margin * 2, 8);
   doc.setFontSize(7);
   doc.setFont(undefined, 'bold');
@@ -6964,14 +6967,14 @@ function printMarksSheet() {
     doc.setDrawColor(...borderGray);
     if (i === 1) {
       const pgH1 = pgH;
-      doc.setLineWidth(1.0);
+      doc.setLineWidth(0.4);
       // Left, right, bottom only — header fills the top
       doc.line(7, 33, 7, pgH1 - 7);           // left
       doc.line(W - 7, 33, W - 7, pgH1 - 7);   // right
       doc.line(7, pgH1 - 7, W - 7, pgH1 - 7); // bottom
     } else {
       // Only draw left, right and bottom sides — no top line crossing header
-      doc.setLineWidth(1.0);
+      doc.setLineWidth(0.4);
       const fx = 7, fy = 14, fw = W - 14, fh = pgH - 14 - 7;
       doc.line(fx, fy, fx, fy + fh);           // left
       doc.line(fx + fw, fy, fx + fw, fy + fh); // right
