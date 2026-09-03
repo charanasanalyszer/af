@@ -6757,8 +6757,9 @@ function printMarksSheet() {
     : subjects.map(s => s.id);
   const examSubjects = subjects.filter(s => examSubIds.includes(s.id));
 
-  // Get students in the selected class/stream
-  let stuList = students.filter(s => s.classId === classId);
+  // Get students in the selected class/stream — deactivated students are
+  // kept for records but never appear on printable/downloadable sheets.
+  let stuList = students.filter(s => s.classId === classId && s.active !== false);
   if (streamId) stuList = stuList.filter(s => s.streamId === streamId);
   stuList.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -7024,8 +7025,8 @@ function downloadMarksBooklet() {
     const examSubjects = (classSubIds.length ? classSubIds.map(sid => subjects.find(s => s.id === sid)).filter(Boolean) : examSubjectsFallback);
     const classStreams = streams.filter(s => s.classId === cls.id);
     const groups = classStreams.length
-      ? classStreams.map(str => ({ label: `${cls.name} ${str.name}`.slice(0, 31), students: students.filter(s => s.classId === cls.id && s.streamId === str.id) }))
-      : [{ label: cls.name.slice(0, 31), students: students.filter(s => s.classId === cls.id) }];
+      ? classStreams.map(str => ({ label: `${cls.name} ${str.name}`.slice(0, 31), students: students.filter(s => s.classId === cls.id && s.streamId === str.id && s.active !== false) }))
+      : [{ label: cls.name.slice(0, 31), students: students.filter(s => s.classId === cls.id && s.active !== false) }];
 
     groups.forEach(group => {
       if (!group.students.length) return; // skip empty classes/streams
@@ -7092,8 +7093,8 @@ function downloadAllSubjectsTemplate() {
   const examSubIds = exam ? examSubjectIdsForClass(exam, cls) : subjects.map(s=>s.id);
   const examSubs   = examSubIds.map(sid=>subjects.find(s=>s.id===sid)).filter(Boolean);
 
-  // Build student list filtered by stream
-  let studentList = students;
+  // Build student list filtered by stream (deactivated students excluded)
+  let studentList = students.filter(s=>s.active!==false);
   if (streamId) studentList = studentList.filter(s=>s.streamId===streamId);
   studentList = [...studentList].sort((a,b)=>a.name.localeCompare(b.name));
 
@@ -7122,7 +7123,7 @@ function downloadMarksTemplate() {
   const streamId  = document.getElementById('umStream').value;
   const sub = subjects.find(s=>s.id===subjectId);
   const enrolledIds = sub?.studentIds?.length ? sub.studentIds : students.map(s=>s.id);
-  let enrolled = students.filter(s=>enrolledIds.includes(s.id));
+  let enrolled = students.filter(s=>enrolledIds.includes(s.id) && s.active!==false);
   if (streamId) enrolled = enrolled.filter(s=>s.streamId===streamId);
   enrolled.sort((a,b)=>a.name.localeCompare(b.name));
   const data = enrolled.map(s=>({ AdmNo:s.adm, Name:s.name, Marks:'' }));
@@ -7139,7 +7140,7 @@ function exportMarksExcel() {
   const streamId  = document.getElementById('umStream').value;
   if (!examId||!subjectId) { showToast('Select exam and subject first','error'); return; }
   const sub = subjects.find(s=>s.id===subjectId);
-  let studentList = students;
+  let studentList = students.filter(s=>s.active!==false);
   if (streamId) studentList = studentList.filter(s=>s.streamId===streamId);
   const data = studentList.map(s => {
     const m = marks.find(mk=>mk.examId===examId&&mk.studentId===s.id&&mk.subjectId===subjectId);
@@ -20893,7 +20894,7 @@ function printAllReminders() {
     const prevBal = getPreviousBalance(rec.studentId, rec.term, rec.year);
     const bal = prevBal + getRecordBalance(rec);
     if (bal <= 0) return;
-    const stu = students.find(s => s.id === rec.studentId); if (!stu) return;
+    const stu = students.find(s => s.id === rec.studentId); if (!stu || stu.active === false) return;
     const cls = classes.find(c => c.id === rec.classId);
     defaulters.push({ rec, stu, cls, bal, paid: getRecordTotalPaid(rec) });
   });
@@ -20989,7 +20990,7 @@ function exportFeesSummary() {
     if (filterClass && rec.classId !== filterClass) return;
     if (filterTerm  && rec.term !== filterTerm)     return;
     if (filterYear  && String(rec.year) !== filterYear) return;
-    const stu = students.find(s => s.id === rec.studentId); if (!stu) return;
+    const stu = students.find(s => s.id === rec.studentId); if (!stu || stu.active === false) return;
     const cls = classes.find(c => c.id === rec.classId);
     const paid = getRecordTotalPaid(rec);
     const prevBal = getPreviousBalance(rec.studentId, rec.term, rec.year);
@@ -21035,7 +21036,7 @@ function exportStudentBalances(forceStatus) {
     if (filterClass  && rec.classId !== filterClass)          return;
     if (teacherClassIds && !teacherClassIds.includes(rec.classId)) return;
     if (csvSyncCls && !csvSyncCls.includes(rec.classId)) return;
-    const stu = students.find(s => s.id === rec.studentId); if (!stu) return;
+    const stu = students.find(s => s.id === rec.studentId); if (!stu || stu.active === false) return;
     if (csvSyncStr && stu.streamId && !csvSyncStr.includes(stu.streamId)) return;
     if (search && !stu.name.toLowerCase().includes(search) && !stu.adm.toLowerCase().includes(search)) return;
     const cls = classes.find(c => c.id === rec.classId);
@@ -21053,6 +21054,7 @@ function exportStudentBalances(forceStatus) {
   // Also no-record unpaid students
   students.forEach(stu => {
     const clsId = stu.classId;
+    if (stu.active === false) return;
     if (teacherClassIds && !teacherClassIds.includes(clsId)) return;
     if (filterClass && clsId !== filterClass) return;
     if (csvSyncCls && !csvSyncCls.includes(clsId)) return;
@@ -21134,7 +21136,7 @@ function downloadFeeStatementPDF() {
     if (filterYear   && String(rec.year) !== filterYear)      return;
     if (filterClass  && rec.classId !== filterClass)          return;
     if (teacherClassIds && !teacherClassIds.includes(rec.classId)) return;
-    const stu = students.find(s => s.id === rec.studentId); if (!stu) return;
+    const stu = students.find(s => s.id === rec.studentId); if (!stu || stu.active === false) return;
     // Respect fee sync settings (mirrors renderStudentBalances)
     const pdfFeeSyncCls = getFeeSyncedClassIds();
     if (pdfFeeSyncCls && !pdfFeeSyncCls.includes(rec.classId)) return;
@@ -21161,6 +21163,7 @@ function downloadFeeStatementPDF() {
   const pdfSyncStr2 = getFeeSyncedStreamIds();
   students.forEach(stu => {
     const clsId = stu.classId;
+    if (stu.active === false) return;
     if (teacherClassIds && !teacherClassIds.includes(clsId)) return;
     if (filterClass && clsId !== filterClass) return;
     // Respect fee sync
@@ -21968,7 +21971,7 @@ function downloadStreamRawMarksExcel(examId, streamId) {
   const exam = exams.find(e => e.id === examId); if (!exam) return;
   const str  = streams.find(s => s.id === streamId);
   const cls  = classes.find(c => c.id === str?.classId);
-  const stuInStream = students.filter(s => s.streamId === streamId).sort((a,b)=>a.name.localeCompare(b.name));
+  const stuInStream = students.filter(s => s.streamId === streamId && s.active !== false).sort((a,b)=>a.name.localeCompare(b.name));
   const subIds = exam.subjectIds || [];
   const data = stuInStream.map(stu => {
     const row = { AdmNo: stu.adm, Name: stu.name, Gender: stu.gender };
@@ -21990,7 +21993,7 @@ function downloadStreamRawMarksPDF(examId, streamId) {
   const exam = exams.find(e => e.id === examId); if (!exam) return;
   const str  = streams.find(s => s.id === streamId);
   const cls  = classes.find(c => c.id === str?.classId);
-  const stuInStream = students.filter(s => s.streamId === streamId).sort((a,b)=>a.name.localeCompare(b.name));
+  const stuInStream = students.filter(s => s.streamId === streamId && s.active !== false).sort((a,b)=>a.name.localeCompare(b.name));
   const subIds = exam.subjectIds || [];
   const subs   = subIds.map(sid => subjects.find(s=>s.id===sid)).filter(Boolean);
 
